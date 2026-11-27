@@ -1,6 +1,8 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { loadCommunityFeedTopCandidatesShared } from "@/lib/community-feed/community-feed-top-candidates-cache.server";
 import { fetchNicknamesForUserIds, fetchAuthorPublicProfilesForUserIds } from "@/lib/chats/resolve-author-nickname";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
 import { listCommunityPostComments } from "@/lib/community-feed/queries";
 import { flatCommentsToNeighborhoodTree } from "@/lib/neighborhood/comment-tree";
@@ -667,7 +669,7 @@ export async function listNeighborhoodFeed(options: {
         profile_avatar_url: null,
         is_import_principal: isSameCommunityImportPrincipal(uid, importPrincipalId),
       },
-      (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+      (ownerId) => (ownerId ? ownerId.slice(0, 8) : "")
     );
     const topBadges = topIds.has(String(r.id))
       ? communityFeedTopBadges(r, { filterTopicSlug: filterCat, nowMs: topNowMs })
@@ -824,7 +826,11 @@ export async function listNeighborhoodFeed(options: {
 
 export async function getNeighborhoodPostDetail(
   postId: string,
-  options?: { viewerUserId?: string | null }
+  options?: {
+    viewerUserId?: string | null;
+    /** 이름 없는 작성자 대체 이름 언어(보는 사람) — 없으면 요청 언어 (재감사 2026-11-27) */
+    lang?: AppLanguageCode;
+  }
 ): Promise<NeighborhoodFeedPostDTO | null> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -954,7 +960,9 @@ export async function getNeighborhoodPostDetail(
   const [blocked, profileMap, topics, locationCityById, postExtras, importPrincipalId] =
     await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
-    fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
+    (options?.lang ? Promise.resolve(options.lang) : resolveRequestAppLanguageOr("en")).then((lang) =>
+      fetchAuthorPublicProfilesForUserIds(sb as never, [uid], lang)
+    ),
     loadPhilifeDefaultSectionTopics(),
     loadLocationCitiesByIdsShared(sb, [String(row.location_id ?? "")]),
     // Explicit attribution policy columns on community_posts — NOT origin_kind (+ imported structured body, same read).
@@ -996,7 +1004,7 @@ export async function getNeighborhoodPostDetail(
       profile_avatar_url: authorProfile?.avatarUrl ?? null,
       is_import_principal: isSameCommunityImportPrincipal(uid, importPrincipalId),
     },
-    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "")
   );
 
   return {

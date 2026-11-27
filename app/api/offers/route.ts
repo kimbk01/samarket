@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   const sb = resolveServiceSupabaseForApi();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
 
   const typedSb = sb as SupabaseClient;
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as CreateOfferBody;
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_json", code: "invalid_json" }, { status: 400 });
   }
 
   const result = await createPriceOffer(typedSb, {

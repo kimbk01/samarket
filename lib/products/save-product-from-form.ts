@@ -3,18 +3,19 @@
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { createPost } from "@/lib/posts/createPost";
 import { isRegistrationRequiredUploadFailure, uploadPostImagesDetailed } from "@/lib/posts/uploadPostImages";
-import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import type { ProductFormPayload } from "@/lib/types/product-form";
 
 /**
  * 상품 등록 폼 → posts(trade) 저장. 이미지는 Storage 업로드 후 URL로 저장.
+ * 실패 시 `Error.message` = 오류 코드만(재감사 2026-11-27) — 화면은 `tradeWriteErrorText({ code: e.message }, t)`
+ * (`lib/trade/trade-api-error-text.ts`)로 그린다. 한국어 문장을 던지지 않는다.
  */
 export async function saveProductTradeFromForm(
   payload: ProductFormPayload
 ): Promise<string> {
   const userId = await getCurrentUserIdForDb();
   if (!userId) {
-    throw new Error("로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요.");
+    throw new Error("login_required");
   }
 
   const files = payload.images.filter((x): x is File => typeof x !== "string");
@@ -24,17 +25,15 @@ export async function saveProductTradeFromForm(
   const uploadResults = await uploadPostImagesDetailed(files);
   const uploaded = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
   if (files.length > 0 && uploaded.length !== files.length) {
-    /** 가입 진행 중 거절 — 「가입 이어하기」 창과 같은 문장 (F2 2026-11-27, 설계 C2 §5-3) */
-    if (isRegistrationRequiredUploadFailure(uploadResults)) throw new Error(registrationGuidanceMessage());
-    throw new Error(
-      `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
-    );
+    /** 가입 진행 중 거절 — 화면이 「가입 이어하기」 창과 같은 문구 키(auth_reg_gate_title)로 그린다 (F2 2026-11-27) */
+    if (isRegistrationRequiredUploadFailure(uploadResults)) throw new Error("signup_incomplete");
+    throw new Error("upload_failed");
   }
   const imageUrls = [...existingUrls, ...uploaded];
 
   const categoryId = payload.category?.trim() ?? "";
   if (!categoryId) {
-    throw new Error("카테고리를 선택해 주세요.");
+    throw new Error("category_required");
   }
 
   const priceNum =

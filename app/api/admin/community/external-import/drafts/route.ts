@@ -8,6 +8,7 @@ import { buildPublishContent } from "@/lib/community-operator-import/publish-con
 import { loadRules, rulesFor } from "@/lib/community-operator-import/rules";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorDetail } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       draft: { id: draft.id, status: draft.status, updatedAt: draft.updatedAt, publishedPostId: draft.publishedPostId },
     });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "draft_save_failed", 500, { code: "draft_save_failed" });
+    const detail = importRouteErrorDetail(e, "draft_save_failed");
+    return jsonError("draft_save_failed", 500, { code: "draft_save_failed", ...(detail ? { detail } : {}) });
   }
 }

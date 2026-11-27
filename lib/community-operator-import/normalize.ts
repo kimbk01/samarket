@@ -116,15 +116,22 @@ export type NormalizeOptions = {
 /**
  * Normalize an HTML fragment (or a selected body element's HTML) into ordered blocks.
  */
-/** YouTube / Vimeo embed src → canonical watch URL + thumbnail (null when not a known video host). */
+/** Stored video link text — a language-neutral marker only, no sentence (재감사 2026-11-27 · 설계 §4-3). */
+export const IMPORTED_VIDEO_LINK_MARKER = "▶";
+
+/**
+ * YouTube / Vimeo embed src → canonical watch URL + thumbnail (null when not a known video host).
+ * `label` is `IMPORTED_VIDEO_LINK_MARKER` — the detail screen plays the link in place (`isImportedVideoLabel`)
+ * and shows no caption for "▶…".
+ */
 export function videoFromEmbed(src: string | null | undefined): { url: string; thumb: string | null; label: string } | null {
   const s = String(src || "").trim();
   const yt = s.match(/(?:youtube(?:-nocookie)?\.com\/(?:embed|shorts|v)\/|youtu\.be\/|youtube\.com\/watch\?(?:.*&)?v=)([\w-]{11})/i);
   if (yt) {
-    return { url: `https://www.youtube.com/watch?v=${yt[1]}`, thumb: `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`, label: "▶ YouTube 영상 보기" };
+    return { url: `https://www.youtube.com/watch?v=${yt[1]}`, thumb: `https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`, label: IMPORTED_VIDEO_LINK_MARKER };
   }
   const vm = s.match(/player\.vimeo\.com\/video\/(\d+)/i);
-  if (vm) return { url: `https://vimeo.com/${vm[1]}`, thumb: null, label: "▶ Vimeo 영상 보기" };
+  if (vm) return { url: `https://vimeo.com/${vm[1]}`, thumb: null, label: IMPORTED_VIDEO_LINK_MARKER };
   return null;
 }
 

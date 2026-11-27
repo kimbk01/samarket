@@ -652,7 +652,7 @@ export default function MyAdsPageClient() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <AdKindBadge kind="promo" label={t("mypage_oa_ads_kind_promo")} />
-                          <p className="mt-1 truncate sam-text-body font-medium text-sam-fg">{a.postTitle}</p>
+                          <p className="mt-1 truncate sam-text-body font-medium text-sam-fg">{a.postTitle || t("community_no_title")}</p>
                           <p className="mt-0.5 sam-text-helper text-sam-muted">
                             {a.adProductName} · {postAdTypeLabel(t, a.adType)} ·{" "}
                             <CurrencyAmount currency="point" amount={a.pointCost} compactPoint className="font-medium" />

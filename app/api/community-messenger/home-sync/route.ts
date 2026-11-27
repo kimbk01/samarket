@@ -200,7 +200,6 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:home-sync:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "메신저 홈 동기화 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_home_sync_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

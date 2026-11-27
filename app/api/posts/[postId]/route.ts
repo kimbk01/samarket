@@ -22,13 +22,13 @@ export async function GET(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정이 필요합니다." }, { status: 500 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 500 });
   }
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ error: "postId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -74,7 +74,7 @@ export async function GET(
   }
   if (!data) {
     void viewerPromise.catch(() => {});
-    return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ error: "product_not_found", code: "product_not_found" }, { status: 404 });
   }
 
   /**
@@ -89,7 +89,7 @@ export async function GET(
     }),
   ]);
   if (await isPostAuthorBlockedForViewer(data as Record<string, unknown>, viewerId)) {
-    return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ error: "product_not_found", code: "product_not_found" }, { status: 404 });
   }
   const payload = {
     ...maskTradeDetailBuyerFields(data as Record<string, unknown>, viewerId),

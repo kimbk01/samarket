@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
@@ -54,7 +55,7 @@ export function OwnerCareAdminNotesList({
   /** A2-1: compose disabled — legacy archive only. */
   readOnly?: boolean;
 }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const sp = useSearchParams();
   const storeId = sp.get("storeId");
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -104,7 +105,9 @@ export function OwnerCareAdminNotesList({
             : safeT("biz_care_admin_message_list_title")
         }
       >
-        {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}
+        {error ? (
+          <p className="mb-2 text-sm text-sam-danger">{resolveOwnerApiErrorText(error, t, "business_phase7_353")}</p>
+        ) : null}
         {loading ? (
           <p className="text-sm text-sam-muted">…</p>
         ) : threads.length === 0 ? (

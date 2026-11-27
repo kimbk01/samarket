@@ -68,10 +68,11 @@ function tradeWriteUploadFailureMessage(
     total: results.length,
     uploaded: results.filter((r) => r.ok).length,
   });
-  return failure?.message ? `${partial} (${failure.message})` : partial;
+  /** 서버 오류 원문(failure.message)은 붙이지 않는다 — 재감사 2026-11-27 */
+  return partial;
 }
 
-/** 업로드 실패 확인창 — 제목 1문장 + 설명 (팝업 문구 표준 §3-8). 오류 원문은 설명 끝에 둔다. */
+/** 업로드 실패 확인창 — 제목 1문장 + 설명 (팝업 문구 표준 §3-8). 실패 사유는 서버 코드 → 화면 언어 문구로 설명 끝에 둔다 (재감사 2026-11-27). */
 function tradeWriteUploadFailureDialog(
   t: ReturnType<typeof useI18n>["t"],
   results: UploadPostImageResult[]
@@ -85,7 +86,12 @@ function tradeWriteUploadFailureDialog(
     uploaded: results.filter((r) => r.ok).length,
   });
   const desc = t("popup_upload_partial_desc");
-  return { title, description: failure?.message ? `${desc} (${failure.message})` : desc };
+  /** 가입 진행 중 거절 — 창과 같은 문장(F2 2026-11-27) */
+  if (failure?.reason === "registration_required" && failure.message) {
+    return { title, description: `${desc} ${failure.message}` };
+  }
+  const code = failure?.reason === "network" ? "network" : failure?.code;
+  return { title, description: code ? `${desc} ${postImageUploadErrorText({ code }, t)}` : desc };
 }
 
 function buildTradeMeta(
@@ -182,6 +188,8 @@ function buildTradeMeta(
 }
 import { createPost } from "@/lib/posts/createPost";
 import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
+import { tradeWriteErrorText } from "@/lib/trade/trade-api-error-text";
+import { tradeLifecycleHintKey, type TradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
@@ -306,6 +314,7 @@ import {
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { postImageUploadErrorText } from "@/lib/posts/post-image-upload-error-text";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import type {
   TradeExtendedWriteController,
@@ -502,6 +511,11 @@ function TradeMarketplaceWriteFormInner({
     nationalStatus: "pending",
   });
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
+  /** 단계 안내 — 서버 문장(`tradePolicy.hint`) 대신 단계 코드로 키를 고른다 (재감사 2026-11-27) */
+  const tradePolicyHintKey =
+    tradePolicy?.hint && tradePolicy.lifecycleStatus
+      ? tradeLifecycleHintKey(tradePolicy.lifecycleStatus as TradeLifecycleStatus)
+      : null;
   const locationLocked = Boolean(
     editPostId && tradePolicy && tradePolicy.allowEditTradeLocation === false,
   );
@@ -618,7 +632,7 @@ function TradeMarketplaceWriteFormInner({
     normalizeTradePriceCurrency(currency) ??
     (editPostId ? normalizeTradePriceCurrency(appSettings.defaultCurrency) ?? "PHP" : masterDefaultCurrency);
   const writePriceCurrency = !editPostId || normalizeTradePriceCurrency(currency) != null;
-  const currencyUnit = getCurrencyUnitLabel(priceCurrency);
+  const currencyUnit = getCurrencyUnitLabel(priceCurrency, language);
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
@@ -1993,8 +2007,8 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
-            if (redirectTradeWriteBlocked(res.error, pathFallback)) return;
-            setErrors({ submit: res.error });
+            if (redirectTradeWriteBlocked(res.blockedReason ?? res.error, pathFallback)) return;
+            setErrors({ submit: tradeWriteErrorText({ code: res.error, status: res.status, json: { params: res.params } }, t) });
           }
           return;
         }
@@ -2006,8 +2020,8 @@ function TradeMarketplaceWriteFormInner({
           invalidateHomePostsCache();
           onSuccess(res.id);
         } else {
-          if (redirectTradeWriteBlocked(res.error, pathFallback)) return;
-          setErrors({ submit: res.error });
+          if (redirectTradeWriteBlocked(res.blockedReason ?? res.error, pathFallback)) return;
+          setErrors({ submit: tradeWriteErrorText({ code: res.error, status: res.status, json: { params: res.params } }, t) });
         }
       } finally {
         setExtendedSubmitting(false);
@@ -2247,10 +2261,10 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
-            if (redirectTradeWriteBlocked(res.error, pathname || `/products/${editPostId}/edit`)) {
+            if (redirectTradeWriteBlocked(res.blockedReason ?? res.error, pathname || `/products/${editPostId}/edit`)) {
               return;
             }
-            setErrors({ submit: res.error });
+            setErrors({ submit: tradeWriteErrorText({ code: res.error, status: res.status, json: { params: res.params } }, t) });
           }
         } else {
           const res = await createPost(payload, createPreflight);
@@ -2264,8 +2278,8 @@ function TradeMarketplaceWriteFormInner({
             invalidateHomePostsCache();
             onSuccess(res.id);
           } else {
-            if (redirectTradeWriteBlocked(res.error, pathname || `/write/${category.slug}`)) return;
-            setErrors({ submit: res.error });
+            if (redirectTradeWriteBlocked(res.blockedReason ?? res.error, pathname || `/write/${category.slug}`)) return;
+            setErrors({ submit: tradeWriteErrorText({ code: res.error, status: res.status, json: { params: res.params } }, t) });
           }
         }
       } finally {
@@ -2714,9 +2728,9 @@ function TradeMarketplaceWriteFormInner({
         onSubmit={handleSubmit}
         className={rootTopicSelect != null ? "min-w-0 w-full max-w-full space-y-0" : APP_TRADE_WRITE_FORM_FB_STACK_CLASS}
       >
-        {tradePolicy?.hint ? (
+        {tradePolicyHintKey ? (
           <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-1.5 sam-text-body-secondary text-sam-warning">
-            {tradePolicy.hint}
+            {t(tradePolicyHintKey)}
           </div>
         ) : null}
         {isJobsProfile ? (

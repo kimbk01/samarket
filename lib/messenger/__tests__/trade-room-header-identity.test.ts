@@ -221,7 +221,8 @@ describe("trade profile identity contracts", () => {
       itemTitle: "",
     };
     const p = resolveTradePresentationFromListItem(emptyTitle);
-    expect(p.productTitle).toBe(TRADE_PRODUCT_TITLE_PLACEHOLDER);
+    /** 빈 제목은 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+    expect(p.productTitle).toBe("");
     expect(p.productTitle).not.toBe("거래");
     expect(TRADE_PEER_PLACEHOLDER).not.toBe("거래");
   });

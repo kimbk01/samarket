@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { enforceRateLimit } from "@/lib/http/api-route";
 
-const TOO_MANY = "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+/**
+ * 응답 `error` = 각 `code`(언어 재감사 2026-11-27) — 문장을 넘기지 않으면 `enforceRateLimit` 가 코드와
+ * `params.retryAfterSec` 를 보낸다. 화면은 `resolveApiErrorText`(`lib/http/common-api-error-code-map.ts`).
+ */
 
 type ReportQuotaOptions = { limit?: number };
 
@@ -15,7 +18,6 @@ export async function enforceUserReportQuota(
     key: `report:${channel}:${userId}`,
     limit: options?.limit ?? 40,
     windowMs: 3_600_000,
-    message: "신고 접수 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.",
     code: "report_rate_limited",
   });
 }
@@ -29,7 +31,6 @@ export async function enforceDeliveryEtaQuota(userId: string) {
     key: `delivery_eta:${userId}`,
     limit: 60,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "delivery_eta_rate_limited",
   });
 }
@@ -39,7 +40,6 @@ export async function enforceFavoriteToggleQuota(userId: string) {
     key: `favorites_toggle:${userId}`,
     limit: 200,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "favorite_rate_limited",
   });
 }
@@ -49,7 +49,6 @@ export async function enforcePhoneVerificationPatchQuota(userId: string) {
     key: `phone_verification_patch:${userId}`,
     limit: 10,
     windowMs: 3_600_000,
-    message: "연락처 인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
     code: "phone_verification_rate_limited",
   });
 }
@@ -60,7 +59,6 @@ export async function enforceLegalConsentSubmitQuota(userId: string) {
     key: `legal_consent_submit:${userId}`,
     limit: 20,
     windowMs: 600_000,
-    message: TOO_MANY,
     code: "legal_consent_rate_limited",
   });
 }
@@ -70,7 +68,6 @@ export async function enforcePhoneVerificationSendQuota(userId: string) {
     key: `phone_verification_send:${userId}`,
     limit: 8,
     windowMs: 3_600_000,
-    message: "인증번호 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     code: "phone_verification_send_rate_limited",
   });
 }
@@ -80,7 +77,6 @@ export async function enforcePhoneVerificationCheckQuota(userId: string) {
     key: `phone_verification_check:${userId}`,
     limit: 20,
     windowMs: 3_600_000,
-    message: "인증번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     code: "phone_verification_check_rate_limited",
   });
 }
@@ -90,7 +86,6 @@ export async function enforcePasswordLoginResolveQuota(subjectKey: string) {
     key: `password_login_resolve:${subjectKey}`,
     limit: 30,
     windowMs: 60_000,
-    message: "로그인 식별자 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     code: "password_login_resolve_rate_limited",
   });
 }
@@ -100,7 +95,6 @@ export async function enforceProfileEnsureQuota(userId: string) {
     key: `profile_ensure:${userId}`,
     limit: 40,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "profile_ensure_rate_limited",
   });
 }
@@ -110,7 +104,6 @@ export async function enforceImageUploadQuota(userId: string, scope: string) {
     key: `upload_img:${scope}:${userId}`,
     limit: 45,
     windowMs: 60_000,
-    message: "업로드 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     code: "upload_rate_limited",
   });
 }
@@ -120,7 +113,6 @@ export async function enforceStoreOwnerImageUploadQuota(userId: string, storeId:
     key: `upload_store_img:${storeId}:${userId}`,
     limit: 35,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "upload_rate_limited",
   });
 }
@@ -130,7 +122,6 @@ export async function enforceTradeChatCreateRoomQuota(userId: string) {
     key: `chat_create_room:${userId}`,
     limit: 25,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "chat_create_rate_limited",
   });
 }
@@ -144,7 +135,6 @@ export async function enforceTradeChatNewRoomQuota(userId: string) {
     key: `trade_chat_new_room:${userId}`,
     limit: 25,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "trade_chat_new_room_rate_limited",
   });
 }
@@ -154,7 +144,6 @@ export async function enforceTradeChatSendQuota(userId: string, roomId: string) 
     key: `chat_send:${roomId}:${userId}`,
     limit: 90,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "chat_send_rate_limited",
   });
 }
@@ -168,7 +157,6 @@ export async function enforceDeliveryAdClickQuota(rateLimitSubject: string) {
     key: `delivery_ad_click:${rateLimitSubject}`,
     limit: 60,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "delivery_ad_click_rate_limited",
   });
 }
@@ -182,7 +170,6 @@ export async function enforceStoreReviewCreateQuota(userId: string) {
     key: `store_review_create:${userId}`,
     limit: 20,
     windowMs: 3_600_000,
-    message: TOO_MANY,
     code: "store_review_rate_limited",
   });
 }
@@ -195,7 +182,6 @@ export async function enforceStoreOrderCreateQuota(userId: string) {
     key: `store_order_create:${userId}`,
     limit: 10,
     windowMs: 60_000,
-    message: TOO_MANY,
     code: "store_order_create_rate_limited",
   });
 }
@@ -206,7 +192,6 @@ export async function enforceAdminCampaignTestSendQuota(adminUserId: string) {
     key: `admin_campaign_test_send:${adminUserId}`,
     limit: 10,
     windowMs: 60_000,
-    message: "테스트 발송이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.",
     code: "test_send_rate_limited",
   });
 }
@@ -239,7 +224,6 @@ export async function enforceAdEventRecordQuota(route: AdEventRecordRoute, actor
     key: `ad_event_record:${route}:${actorKey}`,
     limit: AD_EVENT_RECORD_QUOTA.limit,
     windowMs: AD_EVENT_RECORD_QUOTA.windowMs,
-    message: TOO_MANY,
     code: "ad_event_rate_limited",
   });
 }

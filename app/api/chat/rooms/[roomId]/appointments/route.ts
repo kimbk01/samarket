@@ -21,7 +21,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   let body: {
@@ -37,7 +37,7 @@ export async function POST(
   }
   const appointmentAt = typeof body.appointmentAt === "string" ? body.appointmentAt.trim() : "";
   if (!roomId || !appointmentAt) {
-    return NextResponse.json({ ok: false, error: "roomId, appointmentAt 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -48,7 +48,7 @@ export async function POST(
     .maybeSingle();
 
   if (!room) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_room_not_found", code: "chat_room_not_found" }, { status: 404 });
   }
   const { data: part } = await sbAny
     .from("chat_room_participants")
@@ -58,7 +58,7 @@ export async function POST(
     .eq("hidden", false)
     .maybeSingle();
   if (!part) {
-    return NextResponse.json({ ok: false, error: "참여자만 약속을 만들 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "not_participant", code: "not_participant" }, { status: 403 });
   }
 
   const { data: apt, error: insErr } = await sbAny
@@ -77,7 +77,8 @@ export async function POST(
     .single();
 
   if (insErr) {
-    return NextResponse.json({ ok: false, error: insErr.message ?? "약속 생성 실패" }, { status: 500 });
+    console.error("[chat-appointments] insert", insErr.message);
+    return NextResponse.json({ ok: false, error: "appointment_create_failed", code: "appointment_create_failed" }, { status: 500 });
   }
   try {
     await sbAny.from("chat_event_logs").insert({

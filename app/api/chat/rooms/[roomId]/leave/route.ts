@@ -37,7 +37,7 @@ async function applyProductChatLeaveIfNeeded(
   const sid = trimId(r.seller_id);
   const bid = trimId(r.buyer_id);
   if (sid !== userId && bid !== userId) {
-    return { ok: false, error: "참여자만 나갈 수 있습니다." };
+    return { ok: false, error: "not_participant" };
   }
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = { updated_at: now };
@@ -62,7 +62,7 @@ async function applyProductChatLeaveIfNeeded(
   }
   const { error: upErr } = await sb.from("product_chats").update(patch).eq("id", resolved.productChatId);
   if (upErr) {
-    return { ok: false, error: "거래 채팅 나가기 동기화에 실패했습니다." };
+    return { ok: false, error: "trade_leave_sync_failed" };
   }
   const cmrid = trimId(r.community_messenger_room_id);
   if (cmrid) {
@@ -83,11 +83,11 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -106,10 +106,10 @@ export async function POST(
     .eq("id", roomId)
     .maybeSingle();
   if (roomErr || !roomRow) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_room_not_found", code: "chat_room_not_found" }, { status: 404 });
   }
   if ((roomRow as { room_type?: string | null }).room_type !== "item_trade") {
-    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_type_removed", code: "chat_type_removed" }, { status: 404 });
   }
 
   const resolved = await resolveProductChat(sbAny, roomId);
@@ -140,18 +140,14 @@ export async function POST(
           .eq("user_id", userId);
       }
     } else if (unified.error !== "room_not_found") {
-      const msg =
-        unified.error === "trade_room_not_found"
-          ? "거래 채팅을 찾을 수 없습니다."
-          : unified.error === "forbidden"
-            ? "참여자만 나갈 수 있습니다."
-            : unified.error === "owner_cannot_leave"
-              ? "방장은 나갈 수 없습니다."
-              : unified.error === "store_owner_cannot_leave"
-                ? "매장 사장님은 주문 채팅을 나갈 수 없습니다."
-                : unified.error === "trade_leave_failed" || unified.error === "leave_failed"
-                  ? "나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요."
-                  : "나가기 처리에 실패했습니다.";
+      const code =
+        unified.error === "forbidden"
+          ? "not_participant"
+          : unified.error === "trade_room_not_found" ||
+              unified.error === "owner_cannot_leave" ||
+              unified.error === "store_owner_cannot_leave"
+            ? unified.error
+            : "leave_failed";
       const status =
         unified.error === "forbidden"
           ? 403
@@ -160,14 +156,14 @@ export async function POST(
             : unified.error === "owner_cannot_leave" || unified.error === "store_owner_cannot_leave"
               ? 400
               : 500;
-      return NextResponse.json({ ok: false, error: msg }, { status });
+      return NextResponse.json({ ok: false, error: code, code }, { status });
     }
   }
 
   if (resolved && !unifiedLeaveOk) {
     const pcLeave = await applyProductChatLeaveIfNeeded(sbAny, userId, resolved);
     if (!pcLeave.ok) {
-      return NextResponse.json({ ok: false, error: pcLeave.error }, { status: 403 });
+      return NextResponse.json({ ok: false, error: pcLeave.error, code: pcLeave.error }, { status: 403 });
     }
   }
 
@@ -186,7 +182,7 @@ export async function POST(
       .single();
 
     if (upErr || !part) {
-      return NextResponse.json({ ok: false, error: "참여 정보를 찾을 수 없습니다." }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "participant_not_found", code: "participant_not_found" }, { status: 404 });
     }
   }
 

@@ -18,6 +18,7 @@ import {
   openMessengerFileInNativeShellIfNeeded,
 } from "@/lib/community-messenger/messenger-file-download";
 import { saveChatImagesToDevice } from "@/lib/chats/save-chat-image";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import {
   probeMessengerNativeImageSaveSupport,
   readMessengerPhotoLibraryHeaderState,
@@ -163,7 +164,8 @@ export async function saveMessengerImages(urls: string[]): Promise<MessengerImag
       failedUrls: list.filter((_, i) => !savedIdx.has(i)),
     };
   }
-  const r = await saveChatImagesToDevice(fetchList, `dibay-${Date.now()}`);
+  /** OS 공유창 제목 — 화면 언어 */
+  const r = await saveChatImagesToDevice(fetchList, `dibay-${Date.now()}`, translateCmUi("chats_save_photo_aria"));
   const cancelled = r.status === "cancelled";
   return {
     mode,

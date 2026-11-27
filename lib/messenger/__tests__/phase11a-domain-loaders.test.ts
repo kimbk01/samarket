@@ -451,7 +451,8 @@ describe("Phase 11A B/C/D/E/F — Loaders", () => {
     });
     expect(owner.rows).toHaveLength(1);
     expect(owner.rows[0]!.customerName).toBe("손님");
-    expect(owner.rows[0]!.storeName).toBeTruthy(); // list may placeholder — customer identity remains
+    /** 매장명이 없으면 빈 값(한국어 고정 대체 금지 — 화면이 키로 그림) — customer identity remains */
+    expect(typeof owner.rows[0]!.storeName).toBe("string");
 
     expect(() =>
       mapStoreOrderOwnerLoaderBatchRows({

@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import type { ChatReportSource } from "@/lib/admin/chat-admin/admin-chat-report-queue-model";
 import { buildMyReportDetailPath, myReportSourceFromChatReportSource } from "@/lib/reports/my-report-paths";
 
@@ -54,7 +55,19 @@ export async function safeNotifyChatReportResult(
         ),
         dedupe_key: `chat_report_result:${input.source}:${input.reportId}:reporter`,
         ...(mySource ? { link_url: buildMyReportDetailPath(mySource, input.reportId) } : {}),
-        meta: { kind: "chat_report_result", source: input.source, report_id: input.reportId, action: input.action },
+        meta: {
+          kind: "chat_report_result",
+          source: input.source,
+          report_id: input.reportId,
+          action: input.action,
+          ...notificationCopyMeta({
+            titleKey: "notify_chat_report_result_title",
+            messageKey:
+              input.action === "rejected"
+                ? "notify_chat_report_result_body_rejected"
+                : "notify_chat_report_result_body_actioned",
+          }),
+        },
       });
     }
     // 메시지 숨김은 아직 사용자 대화창에 반영되지 않으므로(설계 S3) 피신고자 알림은 방 정지만.
@@ -68,7 +81,16 @@ export async function safeNotifyChatReportResult(
         title: notifySafeT(lang, "notify_chat_report_sanction_title"),
         body: notifySafeT(lang, "notify_chat_report_sanction_body_room"),
         dedupe_key: `chat_report_result:${input.source}:${input.reportId}:reported`,
-        meta: { kind: "chat_report_sanction", source: input.source, report_id: input.reportId, action: input.action },
+        meta: {
+          kind: "chat_report_sanction",
+          source: input.source,
+          report_id: input.reportId,
+          action: input.action,
+          ...notificationCopyMeta({
+            titleKey: "notify_chat_report_sanction_title",
+            messageKey: "notify_chat_report_sanction_body_room",
+          }),
+        },
       });
     }
   } catch (err) {

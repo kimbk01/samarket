@@ -7,8 +7,6 @@ import {
   STORE_ORDER_DOMAIN,
 } from "@/lib/messenger/store-order/design-lock";
 import {
-  STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
-  STORE_ORDER_STORE_NAME_PLACEHOLDER,
   type StoreOrderListItem,
   type StoreOrderListSnapshot,
   type StoreOrderRoomInput,
@@ -52,10 +50,11 @@ export function mapStoreOrderListItem(row: StoreOrderRoomInput, generation: stri
     domainIdentityKey: trimOrEmpty(row.domainIdentityKey),
     orderId: trimOrEmpty(row.orderId),
     storeId: trimOrEmpty(row.storeId) || null,
-    storeName: trimOrEmpty(row.storeName) || STORE_ORDER_STORE_NAME_PLACEHOLDER,
+    /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+    storeName: trimOrEmpty(row.storeName),
     storeImageUrl: trimOrEmpty(row.storeImageUrl) || null,
     customerUserId: trimOrEmpty(row.customerUserId) || null,
-    customerName: trimOrEmpty(row.customerName) || STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
+    customerName: trimOrEmpty(row.customerName),
     customerAvatarUrl: trimOrEmpty(row.customerAvatarUrl) || null,
     latestChatMessageText: trimOrEmpty(row.latestChatMessageText),
     latestChatMessageType: trimOrEmpty(row.latestChatMessageType) || "text",

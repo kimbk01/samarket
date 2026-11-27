@@ -25,33 +25,33 @@ function trimText(v: unknown): string {
 function groupRoomServiceJsonError(error: string) {
   switch (error) {
     case GROUP_ROOM_ERROR.BLOCKED_TARGET:
-      return jsonError("차단된 사용자와는 대화할 수 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.FRIEND_REQUIRED:
-      return jsonError("친구만 그룹에 초대할 수 있습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.USER_BANNED:
-      return jsonError("차단된 사용자는 그룹에 초대할 수 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.FORBIDDEN:
-      return jsonError("권한이 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_UNAVAILABLE:
-      return jsonError("읽기 전용이거나 사용할 수 없는 그룹입니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_NOT_FOUND:
     case GROUP_ROOM_ERROR.NOT_GROUP_ROOM:
-      return jsonError("그룹 대화방을 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     case GROUP_ROOM_ERROR.TARGET_NOT_FOUND:
-      return jsonError("대상 멤버를 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     case GROUP_ROOM_ERROR.OWNER_CANNOT_LEAVE:
-      return jsonError("방장은 그룹을 나갈 수 없습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
     case GROUP_ROOM_ERROR.MESSENGER_MIGRATION_REQUIRED:
-      return jsonError("그룹 대화 기능을 사용하려면 DB 마이그레이션이 필요합니다.", 503, {
+      return jsonError(error, 503, {
         code: error,
       });
     case GROUP_ROOM_ERROR.MEMBERS_REQUIRED:
-      return jsonError("초대할 멤버가 필요합니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
     case GROUP_ROOM_ERROR.INVALID_TARGET:
     case GROUP_ROOM_ERROR.BAD_TARGET:
-      return jsonError("처리할 수 없는 대상입니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
     default:
-      return jsonError("그룹 멤버 요청을 처리하지 못했습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
   }
 }
 
@@ -71,7 +71,6 @@ export async function POST(
     key: `community-messenger:group-participants-invite:${getRateLimitKey(req, auth.userId)}`,
     limit: 20,
     windowMs: 60_000,
-    message: "그룹 초대 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_group_participants_invite_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -81,7 +80,7 @@ export async function POST(
 
   const { roomId: rawRoomId } = await params;
   const roomId = trimText(rawRoomId);
-  if (!roomId) return jsonError("대화방 id가 필요합니다.", 400);
+  if (!roomId) return jsonError("bad_request", 400, { code: "bad_request" });
 
   const result = await inviteGroupMembers({
     userId: auth.userId,
@@ -108,14 +107,13 @@ export async function DELETE(
     key: `community-messenger:group-participants-leave:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "그룹 나가기·추방 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_group_participants_leave_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId: rawRoomId } = await params;
   const roomId = trimText(rawRoomId);
-  if (!roomId) return jsonError("대화방 id가 필요합니다.", 400);
+  if (!roomId) return jsonError("bad_request", 400, { code: "bad_request" });
 
   const targetUserId = trimText(req.nextUrl.searchParams.get("userId"));
   const result = targetUserId

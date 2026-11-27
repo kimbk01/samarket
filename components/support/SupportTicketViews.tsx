@@ -26,6 +26,7 @@ import { visibleSupportCategories, visibleSupportIssues } from "@/lib/support/su
 import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import type { SupportContext } from "@/lib/support/support-context";
 import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
+import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
 import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
 import {
   SUPPORT_TICKET_BODY_MAX,
@@ -1040,7 +1041,7 @@ export function SupportTicketDetail({
                 key={m.id}
                 label={label}
                 at={formatMypageDate(m.created_at, { style: "datetime" })}
-                body={m.body}
+                body={resolveSupportMessageDisplayBody(safeT, m.body)}
                 answer={!fromRequester}
                 deleted={Boolean(m.deleted_at)}
               />

@@ -59,7 +59,6 @@ export async function GET(
     key: `community-messenger:message-page:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "이전 대화를 불러오는 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_message_page_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -85,7 +84,7 @@ export async function GET(
   const before = req.nextUrl.searchParams.get("before")?.trim() ?? "";
   const after = req.nextUrl.searchParams.get("after")?.trim() ?? "";
   if (before && after) {
-    return jsonError("before 와 after 를 동시에 쓸 수 없습니다.", 400);
+    return jsonError("bad_request", 400, { code: "bad_request" });
   }
   const rawLimit = req.nextUrl.searchParams.get("limit");
   const limit = rawLimit ? Math.floor(Number(rawLimit)) : undefined;
@@ -116,15 +115,15 @@ export async function GET(
     if (!result.ok) {
       recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 400);
       if (result.error === "not_found") {
-        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
       if (result.error === "room_not_found") {
-        return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
       if (result.error === "migration_required") {
-        return jsonError("증분 동기를 위해 DB 마이그레이션이 필요합니다.", 503, { code: result.error });
+        return jsonError(result.error, 503, { code: result.error });
       }
-      return jsonError("새 메시지를 불러오지 못했습니다.", 400, { code: result.error });
+      return jsonError(result.error, 400, { code: result.error });
     }
     recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 200);
     if (process.env.NODE_ENV === "development") {
@@ -164,16 +163,16 @@ export async function GET(
     if (!result.ok) {
       recordMessengerApiTiming("GET .../messages?latest", Math.round(performance.now() - t0), 400);
       if (result.error === "room_not_found") {
-        return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
-      return jsonError("메시지를 불러오지 못했습니다.", 400, { code: result.error });
+      return jsonError(result.error, 400, { code: result.error });
     }
     recordMessengerApiTiming("GET .../messages?latest", Math.round(performance.now() - t0), 200);
     return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "latest" as const });
   }
 
   if (!before) {
-    return jsonError("before(메시지 id) 또는 after(메시지 id)가 필요합니다.", 400);
+    return jsonError("bad_request", 400, { code: "bad_request" });
   }
   const cm = await import("@/lib/community-messenger/service");
   const beforeKey = `community-messenger:messages:before:${auth.userId}:${canonicalRoomId}:${before}:${
@@ -191,12 +190,12 @@ export async function GET(
   if (!result.ok) {
     recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 400);
     if (result.error === "not_found") {
-      return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      return jsonError(result.error, 404, { code: result.error });
     }
     if (result.error === "room_not_found") {
-      return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+      return jsonError(result.error, 404, { code: result.error });
     }
-    return jsonError("이전 메시지를 불러오지 못했습니다.", 400, { code: result.error });
+    return jsonError(result.error, 400, { code: result.error });
   }
   recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 200);
     if (process.env.NODE_ENV === "development") {
@@ -240,7 +239,6 @@ export async function POST(
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
       windowMs: 60_000,
-      message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
       code: "community_messenger_message_rate_limited",
     }),
     import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(

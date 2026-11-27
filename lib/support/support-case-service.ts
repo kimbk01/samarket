@@ -30,6 +30,11 @@ import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import {
+  notificationCopyMeta,
+  type NotificationCopyMetaInput,
+} from "@/lib/notifications/notification-stored-copy";
+import { buildSupportOpenedSeedBody, buildSupportTriageSeedBody } from "@/lib/support/support-seed-message-text";
+import {
   ACTIVE_SUPPORT_CASE_STATUSES,
   buildAdminSupportCaseRoute,
   buildSupportCaseRoute,
@@ -81,10 +86,9 @@ function defaultSubject(category: string, sourceSurface: string): string {
   return surface ? `${cat} · ${surface}` : cat;
 }
 
+/** 저장 글자는 그대로(열 없음) — 고객 화면은 `resolveSupportMessageDisplayBody` 가 키로 그린다 (설계 §4-3) */
 function buildDefaultTriageSeed(category: string, issueType: string | null): string {
-  const c = category.trim() || "SUPPORT";
-  const i = (issueType ?? "").trim();
-  return i ? `문의 접수 · ${c} · ${i}` : `문의 접수 · ${c}`;
+  return buildSupportTriageSeedBody(category, issueType);
 }
 
 /**
@@ -157,6 +161,8 @@ async function notifySupportEvent(
     actorUserId?: string;
     /** Override canonical deeplink. */
     routeUrl?: string;
+    /** 알림함이 보는 사람 언어로 다시 그리는 문구 키 (설계 §4-3) */
+    copy?: NotificationCopyMetaInput;
   }
 ): Promise<void> {
   const routeUrl =
@@ -177,6 +183,7 @@ async function notifySupportEvent(
       previewKind: "support_case",
       audience: input.audience,
       ...(input.storeId ? { ownerStoreId: input.storeId } : {}),
+      ...(input.copy ? { legacyMeta: notificationCopyMeta(input.copy) } : {}),
     },
     dedupeKey: input.dedupeKey,
     actorUserId: input.actorUserId,
@@ -409,7 +416,7 @@ export async function openSupportCaseFromContext(
       caseId: created.id,
       senderUserId: input.userId,
       audience: norm.audience,
-      body: "문의를 시작했습니다.",
+      body: buildSupportOpenedSeedBody(),
       messageType: "PUBLIC",
       systemSeed: true,
     });
@@ -680,7 +687,8 @@ export async function adminDeleteSupportMessage(
     payload: { message_id: input.messageId },
   });
   // Never leave the deleted text visible in the customer's notification list.
-  await syncReplyNotificationBody(sb, input.messageId, "삭제된 메시지입니다.");
+  // 언어 재감사 2026-11-27 §4-3: 문장 대신 문구 키 — 알림함이 보는 사람 언어로 그린다(키 문자열 번역 계약).
+  await syncReplyNotificationBody(sb, input.messageId, "support_message_deleted");
   await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
   return { ok: true };
 }
@@ -1088,6 +1096,7 @@ export async function adminReplySupportCase(
       type: "support_admin_replied",
       title: notifySafeT(replyLang, "notify_support_admin_replied_title"),
       body: input.body,
+      copy: { titleKey: "notify_support_admin_replied_title" },
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,
@@ -1190,6 +1199,7 @@ export async function adminUpdateSupportCaseStatus(
       title: notifySafeT(resolvedLang, "notify_support_case_resolved_title"),
       // Phase 3 A5 — fixed copy; `subject` is an internal "CATEGORY · surface" token.
       body: notifySafeT(resolvedLang, "notify_support_case_resolved_body"),
+      copy: { titleKey: "notify_support_case_resolved_title", messageKey: "notify_support_case_resolved_body" },
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,
@@ -1314,6 +1324,7 @@ export async function reopenSupportCase(
       type: "support_case_reopened",
       title: notifySafeT(reopenedLang, "notify_support_case_reopened_title"),
       body: notifySafeT(reopenedLang, "notify_support_case_reopened_body"),
+      copy: { titleKey: "notify_support_case_reopened_title", messageKey: "notify_support_case_reopened_body" },
       caseId: gate.case.id,
       publicCaseNo: gate.case.public_case_no,
       audience: gate.case.audience,

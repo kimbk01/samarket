@@ -156,7 +156,7 @@ export function AdminAdApplicationDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_ads_label_target")}</dt>
             <dd>
-              {t(TARGET_KEYS[application.targetType])} · {application.targetTitle}
+              {t(TARGET_KEYS[application.targetType])} · {application.targetTitle || t("community_no_title")}
             </dd>
           </div>
           <div>

@@ -3,6 +3,12 @@ import {
   communityMessengerFriendRequestFailureMessage,
   formatFriendRejectCooldownMessage,
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import { afterEach as afterEachRuntimeLang, beforeEach as beforeEachRuntimeLang } from "vitest";
+import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+
+/** 언어 재감사 2026-11-27 — 라벨은 화면 언어(런타임)로 그린다. 이 파일의 한국어 기대값은 ko 화면 기준 */
+beforeEachRuntimeLang(() => setRuntimeAppLanguage("ko"));
+afterEachRuntimeLang(() => setRuntimeAppLanguage("en"));
 
 describe("formatFriendRejectCooldownMessage", () => {
   it("uses minutes for sub-hour cooldown", () => {

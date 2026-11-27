@@ -88,11 +88,8 @@ export function normalizeOwnerProductDetailImageUrls(
     const n = normalizeUrl(u);
     if (!n || seen.has(n)) continue;
     if (thumb && n === thumb) {
-      return {
-        ok: false,
-        error: "detail_image_overlaps_thumbnail",
-        message: "상세 이미지에 대표 이미지와 같은 파일을 넣을 수 없습니다.",
-      };
+      /** 언어 재감사 2026-11-27: 코드만 — 화면이 `detail_image_overlaps_thumbnail` 로 키 */
+      return { ok: false, error: "detail_image_overlaps_thumbnail" };
     }
     seen.add(n);
     out.push(n);
@@ -146,15 +143,27 @@ export function parseThumbnailDimensions(
   return { ok: true, dims: { width: w, height: h } };
 }
 
-export function validateOwnerProductImageFileForUpload(file: File): { ok: true } | { ok: false; message: string } {
+/** 언어 재감사 2026-11-27: 고르기 검사 실패 코드 — 화면이 코드로 키(`resolveOwnerApiErrorText`) */
+export type OwnerProductImageFileErrorCode = "file_required" | "file_too_large" | "invalid_type";
+
+export function validateOwnerProductImageFileForUpload(
+  file: File
+):
+  | { ok: true }
+  | {
+      ok: false;
+      code: OwnerProductImageFileErrorCode;
+      /** 옛 호출처 호환 — 문장이 아니라 `code` 와 같은 값 */
+      message: OwnerProductImageFileErrorCode;
+    } {
   if (!file || !(file instanceof File)) {
-    return { ok: false, message: "이미지 파일을 선택해 주세요." };
+    return { ok: false, code: "file_required", message: "file_required" };
   }
   if (file.size > OWNER_PRODUCT_IMAGE_PICK_MAX_BYTES) {
-    return { ok: false, message: "이미지는 20MB 이하여야 합니다." };
+    return { ok: false, code: "file_too_large", message: "file_too_large" };
   }
   if (!resolveOwnerProductImageMime(file)) {
-    return { ok: false, message: "이미지는 JPG, PNG 또는 WebP만 사용할 수 있습니다." };
+    return { ok: false, code: "invalid_type", message: "invalid_type" };
   }
   return { ok: true };
 }

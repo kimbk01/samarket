@@ -33,8 +33,9 @@ export function resolveAdminChatSuspension(row: {
   return { suspended: false, reason: null };
 }
 
-export const ADMIN_CHAT_SUSPENDED_MESSAGE =
-  "관리자에 의해 이 채팅방에서는 대화할 수 없습니다.";
+/** 운영 조치로 멈춘 방 — API 오류 코드(`{ error, code }`)와 화면 문구 키 */
+export const ADMIN_CHAT_SUSPENDED_CODE = "admin_chat_suspended";
+export const ADMIN_CHAT_SUSPENDED_MESSAGE_KEY = "reaudit_trade_chat_admin_suspended" as const;
 
 /** 글·판매자·구매자로 연결된 item_trade 방의 운영 조치 여부 */
 export async function fetchItemTradeAdminSuspended(

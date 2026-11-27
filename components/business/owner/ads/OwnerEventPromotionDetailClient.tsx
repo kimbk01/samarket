@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
 import { isOwnerEditableEventPromoRequest } from "@/lib/platform-event-owner-requests/lifecycle";
 import { ownerRequestStatusLabelKey } from "@/lib/platform-event-owner-requests/types";
@@ -25,7 +26,9 @@ function fromDateInput(value: string): string | null {
 }
 
 export function OwnerEventPromotionDetailClient({ requestId }: Props) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
+  /** 언어 재감사 2026-11-27: `error` 에는 코드만 담고, 화면은 코드 → 키로 그린다(서버 글·코드 원문 노출 0) */
+  const errorText = (code: string) => resolveOwnerApiErrorText(code, t, "owner_ads_error_generic");
   const [request, setRequest] = useState<PlatformEventOwnerRequestRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,11 +129,9 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       setError(null);
       try {
         // IMG-02: 함수 본문 한도 아래로 먼저 축소 · 413(비 JSON)도 코드로 받는다
-        const tooLarge = () =>
-          safeT("business_image_upload_too_large");
         const prepared = await prepareImageFileForFunctionUpload(file);
         if (!prepared.ok) {
-          setError(tooLarge());
+          setError("file_too_large");
           return;
         }
         const form = new FormData();
@@ -145,7 +146,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
           error?: string;
         }>(res);
         if (!res.ok || !json.ok || !json.request) {
-          setError(json.error === "file_too_large" ? tooLarge() : json.error || "upload_failed");
+          setError(json.error || "upload_failed");
           return;
         }
         setRequest(json.request);
@@ -155,11 +156,11 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
         setBusy(false);
       }
     },
-    [requestId, safeT]
+    [requestId]
   );
 
   if (!request) {
-    return <p className="p-4 text-sm text-sam-muted">{error || "…"}</p>;
+    return <p className="p-4 text-sm text-sam-muted">{error ? errorText(error) : "…"}</p>;
   }
 
   const editable = isOwnerEditableEventPromoRequest(request.requestStatus);
@@ -169,7 +170,7 @@ export function OwnerEventPromotionDetailClient({ requestId }: Props) {
       <h1 className="text-lg font-semibold">
         {safeT(ownerRequestStatusLabelKey(request.requestStatus) as never)}
       </h1>
-      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
+      {error ? <p className="text-sm text-sam-danger">{errorText(error)}</p> : null}
       {request.rejectionReason ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
           {safeT("owner_event_promo_reject_reason")}

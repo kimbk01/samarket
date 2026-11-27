@@ -13,6 +13,7 @@ import { createNotificationEvent } from "@/lib/notifications/core/notification-e
 import { categoryForEventType } from "@/lib/notifications/core/notification-policy";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { patchInboxNotificationIdsRead } from "@/lib/notifications/inbox-read-bridge";
 import {
   collectAppStoreRelease,
@@ -183,6 +184,10 @@ async function notifyThisMember(
         version: versionName,
         version_code: availableCode,
         push_kind: "notice",
+        ...notificationCopyMeta({
+          titleKey: "notify_app_release_title",
+          messageKey: versionName ? null : "notify_app_release_body_no_version",
+        }),
       },
     },
     unread: true,

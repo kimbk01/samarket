@@ -70,6 +70,7 @@ import {
 } from "@/lib/business/owner-mobile-orders-tab";
 import { replaceOwnerOrdersUrlQuery } from "@/lib/business/owner-orders-url";
 import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import {
   ownerOrdersEntrySearchParamsFromUrlSearchParams,
   OWNER_ORDERS_FRESH_LIST_PARAM,
@@ -1184,7 +1185,9 @@ export function OwnerStoreOrdersView() {
   } else if (state.kind === "error") {
     body = (
       <div className="py-8 text-center">
-        <p className="text-sm text-sam-danger">({state.message})</p>
+        <p className="text-sm text-sam-danger">
+          {resolveOwnerApiErrorText(state.message, t, "store_owner_err_load_list")}
+        </p>
         <button
           type="button"
           onClick={() => void load()}

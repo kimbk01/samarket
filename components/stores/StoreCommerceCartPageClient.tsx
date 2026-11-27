@@ -146,7 +146,7 @@ import {
 import { navigateToBuyerStoreOrderChat } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
-  STORE_ADDRESS_STREET_LABEL,
+  STORE_ADDRESS_STREET_LABEL_KEY,
 } from "@/lib/stores/store-address-form-ui";
 import { resolveStoreCheckoutClientError } from "@/lib/stores/resolve-store-checkout-client-error";
 import {
@@ -1765,7 +1765,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       setErr(
         resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
           ? t("store_err_delivery_region_city_google_hint")
-          : t("store_err_delivery_address_incomplete", { streetLabel: STORE_ADDRESS_STREET_LABEL })
+          : t("store_err_delivery_address_incomplete", { streetLabel: t(STORE_ADDRESS_STREET_LABEL_KEY) })
       );
       return;
     }
@@ -2747,7 +2747,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <p className="mt-2 sam-text-xxs leading-snug text-sam-warning">
                 {resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
                   ? t("store_err_delivery_region_unverified")
-                  : t("store_cart_verify_delivery_address", { streetLabel: STORE_ADDRESS_STREET_LABEL })}
+                  : t("store_cart_verify_delivery_address", { streetLabel: t(STORE_ADDRESS_STREET_LABEL_KEY) })}
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (

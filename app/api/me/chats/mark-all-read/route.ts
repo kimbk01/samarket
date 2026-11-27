@@ -27,7 +27,7 @@ export async function POST() {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured", code: "supabase_unconfigured" }, { status: 500 });
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const now = new Date().toISOString();
@@ -121,7 +121,7 @@ export async function POST() {
     return NextResponse.json(
       {
         ok: false,
-        error: clientSafeInternalErrorMessage(err?.message ?? "product_chats 갱신 실패"),
+        error: clientSafeInternalErrorMessage(err?.message ?? "product_chats_update_failed"),
       },
       { status: 500 }
     );

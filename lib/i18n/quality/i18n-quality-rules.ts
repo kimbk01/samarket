@@ -36,6 +36,7 @@ export const FILE_RULE_IDS = [
   "user-hangul-literal",
   "jsx-text-korean",
   "client-raw-server-error",
+  "server-hangul-error",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
 
@@ -165,6 +166,10 @@ export function isKeyEchoEnglish(key: string, en: string): boolean {
 export const KO_LATIN_ALLOWED_WORDS: ReadonlySet<string> = new Set([
   // 서비스·브랜드 이름
   "DIBAY", "dibaY", "telRING", "LOUNGE", "DIPICK", "CREW", "REP", "MARKET", "HOME", "SAMessenger", "Coin",
+  // 매장 화폐 이름 — 한국어 화면도 영어 표기(Owner D1 2026-11-27)
+  "Cash",
+  // 배달 광고 프로그램 이름 — 한국어 문구도 「Partner 사용」처럼 영어 이름(기존 카탈로그 표기)
+  "Partner",
   // 결제·은행·기기·스토어 고유명사
   "GCash", "BDO", "Philippines", "iPhone", "COD",
   // 언어 이름은 그 언어로 쓴다(언어 선택 「English」)
@@ -333,6 +338,26 @@ export function countClientRawServerError(text: string): number {
   return n;
 }
 
+/**
+ * 재감사 2026-11-27 — 관리자 밖 서버(API·lib)가 오류 응답에 한국어 문장을 넣는 형태(`docs/i18n-ssot.md` §3-3: 서버는 코드만).
+ * `jsonError("한글…")` · `error: "한글…"` · `message: "한글…"`(응답 객체). 주석 줄 제외.
+ */
+const SERVER_HANGUL_ERROR_PATTERNS: readonly RegExp[] = [
+  /\bjsonError(?:WithRequest)?\(\s*(?:\w+\s*,\s*)?(["'`])[^"'`\n]*[가-힣]/g,
+  /\b(?:error|message)\s*:\s*(["'`])[^"'`\n]*[가-힣][^"'`\n]*\1/g,
+];
+const SERVER_PATH = /^(app\/api\/|lib\/)/;
+export function countServerHangulError(text: string): number {
+  let n = 0;
+  for (const raw of text.split("\n")) {
+    const t = raw.trimStart();
+    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) continue;
+    if (/\bconsole\.|\bthrow\b/.test(raw)) continue;
+    for (const re of SERVER_HANGUL_ERROR_PATTERNS) n += count(re, raw);
+  }
+  return n;
+}
+
 export function countBoolLangTernary(text: string): number {
   return count(BOOL_KO_TERNARY, text) + count(BOOL_EN_TERNARY, text);
 }
@@ -384,6 +409,7 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
      */
     else put("user-hangul-literal", countAdminHangulLiterals(text));
     if (rel.endsWith(".tsx")) put("jsx-text-korean", countJsxTextKorean(text));
+    if (SERVER_PATH.test(rel) && !ADMIN_PATH.test(rel)) put("server-hangul-error", countServerHangulError(text));
     if (USER_SCREEN_PATH.test(rel) && !ADMIN_PATH.test(rel) && !rel.startsWith("app/api/")) {
       put("client-raw-server-error", countClientRawServerError(text));
     }

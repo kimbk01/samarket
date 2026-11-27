@@ -69,7 +69,7 @@ export async function patchProfileDisplayName(
     const dup = error.code === "23505" || /duplicate|unique/i.test(error.message ?? "");
     return dup
       ? { ok: false, message: MEMBER_NICKNAME_TAKEN_MESSAGE, status: 409 }
-      : { ok: false, message: "이름을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.", status: 500 };
+      : { ok: false, message: "display_name_save_failed", status: 500 };
   }
   return { ok: true };
 }

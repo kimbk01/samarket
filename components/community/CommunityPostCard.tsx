@@ -5,6 +5,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import { formatTimeAgo } from "@/lib/utils/format";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { ApiErrorTranslate } from "@/lib/i18n/api-error-text";
+import {
+  communityAuthorNameText,
+  communityRegionLabelText,
+  localizeImportedPostBody,
+} from "@/lib/community/community-display-fallbacks";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { philifeAppPaths } from "@domain/philife/paths";
@@ -26,6 +32,7 @@ function buildCommunityFeedListViewModel(
   post: CommunityFeedPostDTO,
   noTitleLabel: string,
   lang: AppLanguageCode,
+  t: ApiErrorTranslate,
   highlightQuery?: string
 ): FeedListCardViewModel {
   const time =
@@ -42,13 +49,21 @@ function buildCommunityFeedListViewModel(
   const thumbnailUrl = imageUrls[0]?.trim() || resolveCommunityFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
   const contentForTags = stripMarkdownImageSyntaxForFeedPreview(previewSource);
-  const placeLineRaw = skin === "location_pin" ? post.region_label?.trim() || "" : "";
+  /** 재감사 2026-11-27: 저장 기본값 「동네」·빈 작성자 이름은 화면 언어로 (`community-display-fallbacks`) */
+  const regionLabel = communityRegionLabelText(post.region_label, t);
+  const placeLineRaw = skin === "location_pin" ? regionLabel : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
 
   /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 그때만 1(썸 있음)/0. */
   const imageCount = imageUrls.length > 0 ? imageUrls.length : thumbnailUrl ? 1 : 0;
 
-  let summary = normalizeFeedListBodyPreview((post.summary ?? "").trim() || (post.content ?? ""));
+  /** 가져온 글의 옛 「출처:」 줄·「원문 링크만」 줄은 화면 언어로 — `CommunityCard` 와 같게 (재감사 2026-11-27) */
+  let summary = normalizeFeedListBodyPreview(
+    (post.summary ?? "").trim() ||
+      (post.origin_kind === "imported"
+        ? localizeImportedPostBody(post.content ?? "", null, t)
+        : (post.content ?? ""))
+  );
   let highlightBody = false;
   if (highlightQuery) {
     const match = matchCommunityGlobalSearch(post, highlightQuery);
@@ -67,8 +82,8 @@ function buildCommunityFeedListViewModel(
     title: post.title?.trim() || noTitleLabel,
     summary,
     timeLabel: time,
-    authorName: post.author_name,
-    secondaryMeta: post.region_label?.trim() ?? "",
+    authorName: communityAuthorNameText(post.author_name, t),
+    secondaryMeta: regionLabel,
     likeCount: post.like_count,
     commentCount: post.comment_count,
     viewCount: post.view_count,
@@ -114,7 +129,7 @@ export const CommunityPostCard = memo(function CommunityPostCard({
 }) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language, highlightQuery);
+  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language, t, highlightQuery);
   const hasThumb = Boolean(vm.thumbnailUrl);
 
   if (skin === "text_primary") {

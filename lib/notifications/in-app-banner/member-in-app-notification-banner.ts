@@ -7,6 +7,12 @@ import {
   resolveNotificationPresentation,
 } from "@/lib/notifications/display/notification-presentation";
 import { defaultInboxFallbackHref, type InboxHrefRow } from "@/lib/notifications/resolve-notification-inbox-href";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import {
+  resolveNotificationInboxBody,
+  resolveNotificationInboxTitle,
+} from "@/lib/notifications/resolve-commerce-notification-inbox-text";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import {
   useInAppNotificationBannerStore,
@@ -61,7 +67,13 @@ export function isNotificationsCenterPath(pathname: string): boolean {
 
 export function resolveMemberInAppNotificationBanner(
   row: Record<string, unknown>,
-  ctx: { pathname: string; visible: boolean; currentDedupeKey?: string | null }
+  ctx: {
+    pathname: string;
+    visible: boolean;
+    currentDedupeKey?: string | null;
+    /** 보는 사람 언어 — 있으면 저장 문장 대신 알림함과 같은 함수로 다시 그린다(설계 §4-3) */
+    language?: AppLanguageCode | null;
+  }
 ): MemberInAppBannerDecision {
   if (text(row.source) !== "event") return { show: false, reason: "not_event_row" };
   if (!ctx.visible) return { show: false, reason: "not_visible" };
@@ -87,10 +99,21 @@ export function resolveMemberInAppNotificationBanner(
   if (row.muted_snapshot === true) return { show: false, reason: "muted" };
   if (row.is_read === true || text(row.read_at)) return { show: false, reason: "already_read" };
 
+  const rawTitle = text(row.title);
+  const rawBody = text(row.body);
+  const lang = ctx.language ?? null;
+  const shownTitle =
+    lang && rawTitle
+      ? resolveNotificationInboxTitle(lang, { notification_type: notificationType, title: rawTitle, body: rawBody, meta })
+      : rawTitle;
+  const shownBody =
+    lang && rawBody
+      ? resolveNotificationInboxBody(lang, { notification_type: notificationType, body: rawBody, meta }) ?? rawBody
+      : rawBody;
   const presentation = resolveNotificationPresentation({
     notification_type: notificationType || null,
-    title: text(row.title) || null,
-    body: text(row.body) || null,
+    title: shownTitle || null,
+    body: shownBody || null,
     meta,
     occurred_at: text(row.created_at) || null,
     push_kind: text(row.push_kind) || null,
@@ -141,6 +164,7 @@ export function pushMemberInAppNotificationBannerFromRealtimeRow(row: Record<str
     pathname: window.location.pathname,
     visible: document.visibilityState === "visible",
     currentDedupeKey: store.banner?.dedupeKey ?? null,
+    language: getRuntimeAppLanguage(),
   });
   if (!decision.show) return false;
   store.pushOrMerge(decision.push);

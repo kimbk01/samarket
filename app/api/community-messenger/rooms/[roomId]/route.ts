@@ -93,7 +93,6 @@ export async function GET(
     key: `community-messenger:room-snapshot:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "대화방 정보 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_snapshot_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -127,13 +126,13 @@ export async function GET(
     const access = canon.access;
     if (sb && (access ? access.deleted : await isPrivateGroupRoomDeleted(sb, roomId))) {
       return NextResponse.json(
-        { ok: false, error: "이 그룹은 더 이상 사용할 수 없습니다.", code: "group_deleted" },
+        { ok: false, error: "group_deleted", code: "group_deleted" },
         { status: 410 }
       );
     }
     if (sb && (access ? access.banned : await isUserBannedFromGroup(sb, roomId, auth.userId))) {
       return NextResponse.json(
-        { ok: false, error: "이 그룹에서 차단되어 입장할 수 없습니다.", code: "user_banned" },
+        { ok: false, error: "user_banned", code: "user_banned" },
         { status: 403 }
       );
     }
@@ -173,7 +172,7 @@ export async function PATCH(
     key: `community-messenger:room-patch:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "대화방 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    message: "community_messenger_room_patch_rate_limited",
     code: "community_messenger_room_patch_rate_limited",
   });
   const patch_room_rate_limit_ms = devPerfNow() - tRl0;

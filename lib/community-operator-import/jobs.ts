@@ -323,7 +323,7 @@ async function processItem(
     acceptPartial: Boolean(params.acceptPartial),
     rules,
   });
-  if (!res.ok) return { status: res.code === "already_published" ? "skipped" : "failed", message: `${res.code}: ${res.message}` };
+  if (!res.ok) return { status: res.code === "already_published" ? "skipped" : "failed", message: res.detail ? `${res.code}: ${res.detail}` : res.code };
   return { status: "done", message: res.warnings.length ? res.warnings.join("; ").slice(0, 500) : null, postId: res.postId };
 }
 

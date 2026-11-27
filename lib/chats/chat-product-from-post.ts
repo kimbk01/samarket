@@ -106,7 +106,7 @@ function numPrice(row: Record<string, unknown> | undefined): number {
 }
 
 /** 제목 컬럼이 비었을 때 본문 첫 줄 등으로 보조 */
-function displayTitleFromPost(post: Record<string, unknown> | undefined, postId: string): string {
+function displayTitleFromPost(post: Record<string, unknown> | undefined): string {
   const t = str(post?.title);
   if (t) return t;
   const c = post?.content ?? post?.description ?? post?.body;
@@ -118,8 +118,12 @@ function displayTitleFromPost(post: Record<string, unknown> | undefined, postId:
       .find((l) => l.length > 0);
     if (line) return line.slice(0, 80);
   }
-  return postId.length > 6 ? `글 · ${postId.slice(0, 8)}…` : "상품";
+  /** 제목·본문 모두 없음 — 빈 제목(화면이 `nav_trade_product_fallback` 키로 그림, 재감사 2026-11-27) */
+  return "";
 }
+
+/** 옛 캐시·옛 응답에 남은 기계적 폴백 제목(`글 · xxxxxxxx…`) — 새 코드는 빈 제목을 쓴다 */
+const LEGACY_MISSING_POST_TITLE_PREFIX = "\uAE00 \u00B7 ";
 
 /**
  * `posts` 행을 못 붙였을 때만 나오는 기계적 제목(`displayTitleFromPost` 폴백).
@@ -129,7 +133,7 @@ export function isMissingPostRowChatProductTitle(title: string, postId: string):
   const pid = typeof postId === "string" ? postId.trim() : "";
   const t = typeof title === "string" ? title.trim() : "";
   if (pid.length <= 6) return false;
-  return t === `글 · ${pid.slice(0, 8)}…`;
+  return t === "" || t === `${LEGACY_MISSING_POST_TITLE_PREFIX}${pid.slice(0, 8)}…`;
 }
 
 export type ChatProductSummaryBuildOptions = {
@@ -180,7 +184,7 @@ export function chatProductSummaryFromPostRow(
 
   return {
     id: postId,
-    title: displayTitleFromPost(post, postId),
+    title: displayTitleFromPost(post),
     thumbnail: firstImageUrl(post),
     price: numPrice(post),
     authorNickname: str(post?.author_nickname) || undefined,

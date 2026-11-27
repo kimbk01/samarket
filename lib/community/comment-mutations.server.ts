@@ -1,5 +1,5 @@
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityContentAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -23,7 +23,7 @@ export async function toggleCommentLikeServer(
   const cid = commentId?.trim() ?? "";
   const uid = userId?.trim() ?? "";
   if (!pid || !cid || !uid) {
-    return { ok: false, error: "요청이 올바르지 않습니다." };
+    return { ok: false, error: "invalid_request" };
   }
 
   const sb: Sb = getSupabaseServer();
@@ -42,16 +42,16 @@ export async function toggleCommentLikeServer(
       }
     | null;
   if (cErr || !cr?.id) {
-    return { ok: false, error: "댓글을 찾을 수 없어요." };
+    return { ok: false, error: "comment_not_found" };
   }
   if (!isCommunityCommentPubliclyVisible(cRow as never)) {
-    return { ok: false, error: "댓글에 공감할 수 없어요." };
+    return { ok: false, error: "comment_not_likeable" };
   }
   const authorId = String(cr.user_id ?? "").trim();
   if (authorId && authorId !== uid && (await isBlockedEitherWay(uid, authorId))) {
     return {
       ok: false,
-      error: "차단 관계에서는 공감할 수 없습니다.",
+      error: "community_like_blocked_relation",
       code: "community_like_blocked_relation",
     };
   }
@@ -67,7 +67,7 @@ export async function toggleCommentLikeServer(
     const cur0 = Math.max(0, Number((before as { like_count?: number } | null)?.like_count) || 0);
     const { error: delE } = await sb.from("community_comment_likes").delete().eq("id", (ex as { id: string }).id);
     if (delE) {
-      return { ok: false, error: "공감 취소에 실패했어요." };
+      return { ok: false, error: "like_remove_failed" };
     }
     const next0 = Math.max(0, cur0 - 1);
     const { data: after } = await sb
@@ -91,7 +91,7 @@ export async function toggleCommentLikeServer(
         .maybeSingle();
       return { ok: true, liked: true, like_count: Math.max(0, Number((row as { like_count?: number } | null)?.like_count) || 0) };
     }
-    return { ok: false, error: "공감 저장에 실패했어요." };
+    return { ok: false, error: "like_save_failed" };
   }
   const next1 = cur1 + 1;
   const { data: up } = await sb
@@ -103,21 +103,26 @@ export async function toggleCommentLikeServer(
   return { ok: true, liked: true, like_count: Math.max(0, Number((up as { like_count?: number } | null)?.like_count) || next1) };
 }
 
+/**
+ * 실패는 코드만(`error`) + 값은 `params` — 문구는 화면이 `COMMUNITY_COMMENT_ERROR_KEYS` 로 고른다 (재감사 2026-11-27).
+ */
+export type CommentMutationError = { ok: false; error: string; params?: Record<string, number | string> };
+
 export async function updateCommentContentServer(
   postId: string,
   commentId: string,
   userId: string,
   content: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | CommentMutationError> {
   const t = content?.trim() ?? "";
-  if (!t) return { ok: false, error: "내용을 입력하세요." };
+  if (!t) return { ok: false, error: "content_required" };
   const accepted = evaluateCommunityContentAcceptance(t, "comment");
   if (!accepted.ok) {
-    return { ok: false, error: communityAcceptanceErrorMessage(accepted.code) };
+    return { ok: false, error: communityAcceptanceErrorCode(accepted.code) };
   }
   const ops = await getCommunityFeedOps();
   if (t.length > ops.max_comment_length) {
-    return { ok: false, error: `댓글은 ${ops.max_comment_length}자 이하로 입력하세요.` };
+    return { ok: false, error: "comment_too_long", params: { max: ops.max_comment_length } };
   }
   const filtered = await guardBannedWords({
     userId,
@@ -125,13 +130,13 @@ export async function updateCommentContentServer(
     texts: [t],
     operatorWords: ops.banned_words,
   });
-  if (!filtered.ok) return { ok: false, error: filtered.error };
+  if (!filtered.ok) return { ok: false, error: filtered.code };
 
   const pid = (await resolveCanonicalCommunityPostId(postId))?.trim() ?? "";
   const cid = commentId?.trim() ?? "";
   const uid = userId?.trim() ?? "";
   if (!pid || !cid || !uid) {
-    return { ok: false, error: "요청이 올바르지 않습니다." };
+    return { ok: false, error: "bad_request" };
   }
   const sb: Sb = getSupabaseServer();
   const { data: cRow, error: cErr } = await sb
@@ -142,13 +147,16 @@ export async function updateCommentContentServer(
     .eq("user_id", uid)
     .maybeSingle();
   if (cErr || !cRow || !isCommunityCommentPubliclyVisible(cRow as never)) {
-    return { ok: false, error: "댓글을 찾을 수 없어요." };
+    return { ok: false, error: "comment_not_found" };
   }
   const { error: uErr } = await sb
     .from("community_comments")
     .update({ content: t, updated_at: new Date().toISOString() } as never)
     .eq("id", cid);
-  if (uErr) return { ok: false, error: "댓글 저장에 실패했어요." };
+  if (uErr) {
+    console.error("[comment-mutations] update failed", uErr.message);
+    return { ok: false, error: "comment_save_failed" };
+  }
   return { ok: true };
 }
 
@@ -156,12 +164,12 @@ export async function deleteCommentForAuthorServer(
   postId: string,
   commentId: string,
   userId: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | CommentMutationError> {
   const pid = (await resolveCanonicalCommunityPostId(postId))?.trim() ?? "";
   const cid = commentId?.trim() ?? "";
   const uid = userId?.trim() ?? "";
   if (!pid || !cid || !uid) {
-    return { ok: false, error: "요청이 올바르지 않습니다." };
+    return { ok: false, error: "bad_request" };
   }
   const sb: Sb = getSupabaseServer();
   const { data: cRow, error: cErr } = await sb
@@ -172,11 +180,11 @@ export async function deleteCommentForAuthorServer(
     .eq("user_id", uid)
     .maybeSingle();
   if (cErr || !cRow) {
-    return { ok: false, error: "댓글을 찾을 수 없어요." };
+    return { ok: false, error: "comment_not_found" };
   }
   /** 관리자가 숨긴 댓글·이미 삭제된 댓글은 작성자 삭제로 덮어쓰지 않는다 (CM-R-02) */
   if (!isCommunityCommentPubliclyVisible(cRow as never)) {
-    return { ok: false, error: "삭제할 수 없는 댓글입니다." };
+    return { ok: false, error: "comment_not_deletable" };
   }
   const { data: changed, error: uErr } = await sb
     .from("community_comments")
@@ -184,7 +192,10 @@ export async function deleteCommentForAuthorServer(
     .eq("id", cid)
     .eq("status", "active")
     .select("id");
-  if (uErr) return { ok: false, error: "댓글 삭제에 실패했어요." };
-  if (!changed || (changed as unknown[]).length === 0) return { ok: false, error: "삭제할 수 없는 댓글입니다." };
+  if (uErr) {
+    console.error("[comment-mutations] delete failed", uErr.message);
+    return { ok: false, error: "comment_delete_failed" };
+  }
+  if (!changed || (changed as unknown[]).length === 0) return { ok: false, error: "comment_not_deletable" };
   return { ok: true };
 }

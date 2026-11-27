@@ -76,7 +76,7 @@
 | 상품권 | Gift certificate | gift card, voucher |
 | 매장 | Store | shop, merchant |
 | 사장님 | Owner | boss, merchant |
-| 캐시(매장 화폐) | Cash | — |
+| 캐시(매장 화폐) | Cash — **한국어 화면도 「Cash」「Coin」 영어 표기** (Owner D1 2026-11-27) | — |
 | 기기 임시 데이터 | 한국어 「임시 데이터」 / 영어 Temporary data | 한국어 「캐시」(매장 화폐와 같은 단어), 영어 cache |
 
 용어집은 이 표와 `glossary.ts` 를 함께 바꾼다. 검사는 `glossary.ts` 를 기준으로 한다.
@@ -122,6 +122,7 @@
 | `user-hangul-literal` | **어드민 밖** 코드의 한국어 문자열(함수가 돌려주는 화면 문구·서버가 채우는 안내 등 — 재감사 2026-11-08 추가). 주석·`console`·`throw` 줄, `ko:`·`…Ko:` 표 값은 세지 않는다 | 파일별 증가 실패 — 새 화면 문구는 키로. 데이터(금칙어·시드 등)로 꼭 필요하면 이유를 적어 Owner 확인 후 기준선 갱신 |
 | `ko-latin-only` | 고객·사장님 키의 **ko 값에 한글이 없고 영어 단어만** 있음(한국어 화면에 영어 — 재감사 2026-11-27). 브랜드·고유명사·언어 이름·업계 약어는 허용 목록 `KO_LATIN_ALLOWED_WORDS` | 새 항목 실패 |
 | `client-raw-server-error` | 고객·사장님 화면 파일이 서버 `error`·`message` 문장을 그대로 보여 주는 형태(`data.error ?? t(…)`·`setError(json.error)`). 화면은 `resolveApiErrorText`(`lib/i18n/api-error-text.ts`)로만 그린다 | 파일별 증가 실패 |
+| `server-hangul-error` | 관리자 밖 서버(`app/api/**`·`lib/**`)가 오류 응답에 한국어 문장을 넣는 형태(`jsonError("한글…")`·`error: "한글…"`·`message: "한글…"`). 서버는 코드만 보낸다(§3-3) | 파일별 증가 실패 |
 
 - 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
   - 고객·사장님 화면 파일(`app`·`components`·`hooks`, 어드민 경로 밖)이 직접 쓰면 고객·사장님 키.

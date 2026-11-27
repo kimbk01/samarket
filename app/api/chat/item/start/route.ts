@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const sb = resolveServiceSupabaseForApi();
   if (!sb) {
     perf?.finish("item_start_route", { outcome: "no_service_sb" });
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
 
   let body: { itemId?: string };
@@ -37,12 +37,12 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     perf?.finish("item_start_route", { outcome: "bad_json" });
-    return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
   const itemId = typeof body.itemId === "string" ? body.itemId.trim() : "";
   if (!itemId) {
     perf?.finish("item_start_route", { outcome: "no_item_id" });
-    return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   perf?.mark("core_item_trade_start");

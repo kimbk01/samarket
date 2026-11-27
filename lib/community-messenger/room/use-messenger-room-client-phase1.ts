@@ -2,6 +2,7 @@
 
 /** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
 
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { roomHasOutboundAwaitingRead } from "@/lib/community-messenger/room/messenger-outbound-read-state";
 import { usePathname, useRouter } from "next/navigation";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
@@ -2092,7 +2093,7 @@ export function useMessengerRoomClientPhase1({
         }
       }
       if (!messageInList()) {
-        showMessengerSnackbar("메시지를 찾을 수 없습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("nav_messenger_message_not_found"), { variant: "error" });
         return;
       }
       scrollToRoomMessage(mid);

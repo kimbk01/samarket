@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const providerUserId = String(body.providerUserId ?? body.provider_user_id ?? "").trim();
   if (!isLinkableAuthProvider(provider) || !providerUserId) {
     return noStoreJson(
-      { ok: false, errorCode: "invalid_request", message: "provider와 providerUserId가 필요합니다." },
+      { ok: false, errorCode: "invalid_request", error: "invalid_request", code: "invalid_request" },
       400,
     );
   }

@@ -6,10 +6,6 @@ import { assertStoreOrderOwnedRoom } from "@/lib/messenger/store-order/identity"
 import {
   STORE_ORDER_DOMAIN,
 } from "@/lib/messenger/store-order/design-lock";
-import {
-  STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
-  STORE_ORDER_STORE_NAME_PLACEHOLDER,
-} from "@/lib/messenger/store-order/types";
 
 export type StoreOrderNotificationViewerRole = "customer" | "owner";
 
@@ -61,7 +57,8 @@ export function resolveStoreOrderNotificationDisplay(input: StoreOrderNotificati
     }
     return {
       domain: STORE_ORDER_DOMAIN,
-      title: input.storeName?.trim() || STORE_ORDER_STORE_NAME_PLACEHOLDER,
+      /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+      title: input.storeName?.trim() || "",
       avatarUrl: input.storeImageUrl?.trim() || null,
       preview: input.messagePreview?.trim() || "",
       viewerRole: "customer",
@@ -69,7 +66,7 @@ export function resolveStoreOrderNotificationDisplay(input: StoreOrderNotificati
   }
   return {
     domain: STORE_ORDER_DOMAIN,
-    title: input.customerName?.trim() || STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
+    title: input.customerName?.trim() || "",
     avatarUrl: input.customerAvatarUrl?.trim() || null,
     preview: input.messagePreview?.trim() || "",
     viewerRole: "owner",

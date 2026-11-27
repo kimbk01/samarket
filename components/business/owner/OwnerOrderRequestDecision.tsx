@@ -68,7 +68,8 @@ export function OwnerOrderRequestDecision({
     setBusy(null);
     if (!res.ok) {
       const key = ERROR_KEYS[res.error];
-      setErr(key ? t(key) : t("store_owner_decision_err_failed", { code: res.error }));
+      /** 언어 재감사 2026-11-27: 모르는 코드는 원문 「(code)」 없이 일반 실패 문구 */
+      setErr(key ? t(key) : t("owner_order_err_action_failed"));
       if (RELOAD_ERRORS.has(res.error)) await onDone();
       return false;
     }

@@ -10,8 +10,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { allowSoftDelete, deriveTradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
-import { OWNER_DELETE_LOCKED_COMPLETED_KO, ownerDeleteLockHintKey } from "@/lib/posts/post-list-owner-menu";
+import { ownerDeleteLockHintKey } from "@/lib/posts/post-list-owner-menu";
 import { publishTradeListingVisibility } from "@/lib/trade/listing-visibility/listing-visibility-server";
+
+/** 언어 재감사 2026-11-27: 서버 문장 대신 오류 코드만 보낸다 — 화면은 `resolveOwnerPostApiErrorText` */
+function ownerDeleteFail(code: string, status: number, extra?: Record<string, unknown>) {
+  return NextResponse.json({ ok: false, ...extra, error: code, code }, { status });
+}
 
 export async function POST(
   _req: NextRequest,
@@ -25,13 +30,13 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return ownerDeleteFail("server_unconfigured", 500);
   }
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return ownerDeleteFail("post_id_required", 400);
   }
 
   const sbAny = sb;
@@ -54,19 +59,17 @@ export async function POST(
   }
 
   if (postErr) {
-    return NextResponse.json(
-      { ok: false, error: `글 조회 오류: ${postErr.message}` },
-      { status: 500 }
-    );
+    console.error("[owner-delete] post lookup", postErr.message);
+    return ownerDeleteFail("post_lookup_failed", 500);
   }
   if (!post) {
-    return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
+    return ownerDeleteFail("post_not_found", 404);
   }
 
   const row = post as Record<string, unknown>;
   const ownerId = typeof row.user_id === "string" ? row.user_id : "";
   if (!ownerId || ownerId !== userId) {
-    return NextResponse.json({ ok: false, error: "본인 글만 삭제할 수 있습니다." }, { status: 403 });
+    return ownerDeleteFail("not_owner", 403);
   }
 
   const lifecycle = deriveTradeLifecycleStatus({
@@ -75,7 +78,7 @@ export async function POST(
     meta: row.meta as Record<string, unknown> | null | undefined,
   });
   if (!allowSoftDelete(lifecycle)) {
-    /** 재감사 B-12: 화면은 `lockKey` 로 번역한다(한국어 `error` 는 옛 화면 호환용). 숨김 글은 관리자 조치인지 1열 확인 */
+    /** 재감사 B-12: 화면은 `lockKey` 로 번역한다(`error` 는 코드만 — 2026-11-27). 숨김 글은 관리자 조치인지 1열 확인 */
     let moderationState: string | null = null;
     if (lifecycle === "hidden") {
       const { data: m } = await sbAny.from(POSTS_TABLE_WRITE).select("moderation_state").eq("id", id).maybeSingle();
@@ -89,18 +92,7 @@ export async function POST(
       meta: row.meta as Record<string, unknown> | null | undefined,
       moderation_state: moderationState,
     });
-    return NextResponse.json(
-      {
-        ok: false,
-        lockKey,
-        error:
-          lifecycle === "completed"
-            ? OWNER_DELETE_LOCKED_COMPLETED_KO
-            : "이 상태에서는 삭제할 수 없습니다. 숨김 처리를 이용해 주세요.",
-        code: "delete_not_allowed",
-      },
-      { status: 403 }
-    );
+    return ownerDeleteFail("delete_not_allowed", 403, { lockKey });
   }
 
   // 판매자 삭제 = 판매자 노출(owner_state)만 바꾼다 (설계 v2 §F-1-1). status 는 트리거가 hidden 으로 계산.
@@ -113,10 +105,8 @@ export async function POST(
     .eq("id", id);
 
   if (updErr) {
-    return NextResponse.json(
-      { ok: false, error: updErr.message ?? "삭제에 실패했습니다." },
-      { status: 500 }
-    );
+    console.error("[owner-delete] update", updErr.message);
+    return ownerDeleteFail("delete_failed", 500);
   }
 
   /** 설계 §1-3: 판매자 삭제 = 안 보임 방송 */

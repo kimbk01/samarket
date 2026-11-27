@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
 function groupRoomServiceJsonError(error: string) {
   switch (error) {
     case GROUP_ROOM_ERROR.FORBIDDEN:
-      return jsonError("권한이 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_NOT_FOUND:
-      return jsonError("그룹 대화방을 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     default:
-      return jsonError("초대 링크를 처리하지 못했습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
   }
 }
 

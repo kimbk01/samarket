@@ -112,7 +112,7 @@ export async function messengerRoomCanonicalOrJsonError(
   if (!raw) {
     return {
       ok: false,
-      response: jsonError("roomId가 필요합니다.", 400),
+      response: jsonError("bad_request", { status: 400, code: "bad_request" }),
       permission_query_ms: 0,
       membership_cache_hit: 0,
       permission_cache_lookup_ms: 0,
@@ -158,7 +158,7 @@ export async function messengerRoomCanonicalOrJsonError(
     if (resolved.error === "bad_request") {
       return {
         ok: false,
-        response: jsonError("roomId가 필요합니다.", 400),
+        response: jsonError("bad_request", { status: 400, code: "bad_request" }),
         permission_query_ms,
         membership_cache_hit: 0,
         ...breakdown,
@@ -166,7 +166,7 @@ export async function messengerRoomCanonicalOrJsonError(
     }
     return {
       ok: false,
-      response: jsonError("대화방을 찾을 수 없습니다.", 404, { code: resolved.error }),
+      response: jsonError("room_not_found", 404, { code: resolved.error || "room_not_found" }),
       permission_query_ms,
       membership_cache_hit: 0,
       ...breakdown,

@@ -1,5 +1,7 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
+import type { MessageKey } from "@/lib/i18n/message-key";
+import { translate } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 /**
@@ -12,11 +14,13 @@ const CURRENCY_SYMBOL: Record<string, string> = {
   USD: "$",
 };
 
-/** 어드민 통화 코드 → 가격 입력란에 쓸 단위 라벨 (₱, 원 등) — 페소는 화면 가격 표기와 같은 기호(Owner 2026-10-28) */
-const CURRENCY_UNIT_LABEL: Record<string, string> = {
-  PHP: "₱",
-  KRW: "원",
-  USD: "달러",
+/**
+ * 어드민 통화 코드 → 가격 입력란에 쓸 단위 라벨 (₱, 원 등) — 페소는 화면 가격 표기와 같은 기호(Owner 2026-10-28).
+ * 원·달러는 언어별 키 — ko 「원」「달러」(기존 그대로), en 「KRW」「USD」 (언어 재감사 2026-11-27).
+ */
+const CURRENCY_UNIT_LABEL_KEY: Record<string, MessageKey> = {
+  KRW: "currency_unit_krw",
+  USD: "currency_unit_usd",
 };
 
 function formatLocaleForCurrency(code: string): string {
@@ -40,10 +44,16 @@ export function formatMoneyPhp(amount: number | string): string {
   return formatPrice(amount, "PHP");
 }
 
-/** 가격 입력 필드 앞에 표시할 통화 단위 (어드민 defaultCurrency 기준) */
-export function getCurrencyUnitLabel(currencyCode?: string): string {
+/**
+ * 가격 입력 필드 앞에 표시할 통화 단위 (어드민 defaultCurrency 기준).
+ * `language` 없으면 화면(런타임) 언어 — 호출처는 가능하면 `useI18n().language` 를 넘긴다.
+ */
+export function getCurrencyUnitLabel(currencyCode?: string, language?: AppLanguageCode): string {
   const code = (currencyCode ?? "PHP").toUpperCase();
-  return CURRENCY_UNIT_LABEL[code] ?? code;
+  if (code === "PHP") return CURRENCY_SYMBOL.PHP;
+  const key = CURRENCY_UNIT_LABEL_KEY[code];
+  if (key) return translate(language ?? getRuntimeAppLanguage(), key);
+  return code;
 }
 
 /** 숫자만 추출 후 천 단위 콤마 포맷 (입력용). 빈 문자열이면 "" 반환 */

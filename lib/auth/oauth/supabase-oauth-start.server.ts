@@ -116,7 +116,8 @@ export async function runSupabaseOAuthStart(input: {
     return {
       ok: false,
       errorCode: "supabase_unconfigured",
-      message: "Supabase OAuth is not configured.",
+      /** 문장 대신 코드(언어 재감사 2026-11-27) — 화면은 errorCode → 키 */
+      message: "supabase_unconfigured",
       status: 503,
     };
   }
@@ -131,10 +132,11 @@ export async function runSupabaseOAuthStart(input: {
   });
 
   if (error) {
+    console.error("[oauth-start] signInWithOAuth failed", { provider: input.provider, message: error.message });
     return {
       ok: false,
       errorCode: "oauth_start_failed",
-      message: error.message || "OAuth start failed.",
+      message: "oauth_start_failed",
       status: 400,
     };
   }
@@ -144,7 +146,7 @@ export async function runSupabaseOAuthStart(input: {
     return {
       ok: false,
       errorCode: "missing_authorize_url",
-      message: "Supabase did not return an authorize URL.",
+      message: "missing_authorize_url",
       status: 400,
     };
   }

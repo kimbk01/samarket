@@ -19,7 +19,7 @@ export async function GET(
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+    return NextResponse.json({ error: "invalid_room_id", code: "invalid_room_id" }, { status: 400 });
   }
   const { loadChatRoomDetailForUser } = await import("@/lib/chats/server/load-chat-room-detail");
   const result = await loadChatRoomDetailForUser({

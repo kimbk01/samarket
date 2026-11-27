@@ -67,7 +67,9 @@ const DOWNLOAD_GAP_MS = 180;
 
 export async function saveChatImagesToDevice(
   srcs: ReadonlyArray<string>,
-  filenameBase = "samarket-chat"
+  filenameBase = "samarket-chat",
+  /** OS 공유창 제목 — 호출처가 화면 언어로 넘긴다(예: `t("chats_save_photo_aria")`). 없으면 제목 없이 공유 */
+  shareTitle?: string
 ): Promise<SaveChatImagesResult> {
   const list = srcs.map((s) => String(s ?? "").trim()).filter(Boolean);
   const total = list.length;
@@ -103,7 +105,7 @@ export async function saveChatImagesToDevice(
     }
     if (files) {
       try {
-        await navigator.share({ files, title: "사진 저장" });
+        await navigator.share(shareTitle ? { files, title: shareTitle } : { files });
         return done(images.length, "share");
       } catch (e) {
         if (isAbortError(e)) {
@@ -128,10 +130,10 @@ export async function saveChatImageToDevice(
   filenameBase = "samarket-chat"
 ): Promise<{ ok: boolean; error?: string; cancelled?: boolean }> {
   if (typeof window === "undefined" || !src?.trim()) {
-    return { ok: false, error: "이미지 주소가 없습니다." };
+    return { ok: false, error: "image_url_missing" };
   }
   const r = await saveChatImagesToDevice([src], filenameBase);
   if (r.status === "saved") return { ok: true };
   if (r.status === "cancelled") return { ok: false, cancelled: true };
-  return { ok: false, error: "저장에 실패했습니다. 네트워크·권한을 확인해 주세요." };
+  return { ok: false, error: "image_save_failed" };
 }

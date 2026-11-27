@@ -71,7 +71,8 @@ import { StoreProfileThumb } from "@/components/community-messenger/delivery-cha
 import {
   buildDeliveryChatListRowModel,
 } from "@/lib/community-messenger/delivery-chat-list/view-model";
-import { STORE_ORDER_DISPLAY_STORE_FALLBACK } from "@/lib/community-messenger/store-order-display-identity";
+import { STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY } from "@/lib/community-messenger/store-order-display-identity";
+import { tradeStoredListingLabelText } from "@/lib/trade/trade-api-error-text";
 import { buildDeliveryChatListPreviewLine } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-preview";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -345,7 +346,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ? room.peerUserId ?? null
       : null;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
-  const commerceSubline = presentCommunityMessengerRoomContextListText(commerceMeta) || null;
+  const commerceSubline = presentCommunityMessengerRoomContextListText(commerceMeta, t) || null;
   const archiveBusy = _busyId === `archive:${room.id}`;
   const readBusy = _busyId === `read:${room.id}`;
   const leaveBusy = _busyId === `leave:${room.id}`;
@@ -402,7 +403,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     if (commerceListPresentation.statusLabelKey) {
       return t(commerceListPresentation.statusLabelKey);
     }
-    return commerceMeta.itemStateLabel?.trim() || null;
+    /** 저장 상태 글자(「판매중」 등 옛 한국어) → 보는 사람 언어. 모르는 값은 그대로 */
+    return tradeStoredListingLabelText(commerceMeta.itemStateLabel?.trim(), t) || null;
   }, [commerceMeta, commerceListPresentation.statusLabelKey, t]);
   const deliveryStepLabel = useMemo(() => {
     if (commerceMeta?.kind !== "delivery") return null;
@@ -416,9 +418,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const isDeliveryChatListVisual = listVisual === "delivery";
   const isPillarChatListVisual = isTradeChatListVisual || isDeliveryChatListVisual;
   const listDisplayTitle = useMemo(() => {
+    /** 거래 방 상대 이름이 빈 값이면 제목이 빈칸 — 거래 목록 행 모델과 같은 대체 키 (재감사 2026-11-27) */
+    if (commerceMeta?.kind === "trade" && !room.title.trim()) return t("chats_trade_list_peer_fallback");
     if (isPillarChatListVisual || room.roomType !== "direct") return room.title;
     return incomingCallPeerNicknameLabel(room.title) || room.title;
-  }, [isPillarChatListVisual, room.roomType, room.title]);
+  }, [commerceMeta?.kind, isPillarChatListVisual, room.roomType, room.title, t]);
   /**
    * 거래·주문 목록(`/trade-chats`·`/delivery-chats`)은 `--messenger-bg` 가 없는 화면이다 — 투명이면 밀기 버튼이 비친다
    * (2026-11-10 운영 확인: 주문 목록 행 배경 rgba(0,0,0,0) → 「읽음·나가기」 상시 노출). 두 목록 모두 흰 바탕(불투명).
@@ -975,7 +979,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <StoreProfileThumb
         src={deliveryRowModel?.storeThumbnailUrl}
         storeId={deliveryRowModel?.storeId}
-        storeName={deliveryRowModel?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK}
+        storeName={deliveryRowModel?.storeName?.trim() || t(STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY)}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (
       <TradeProductThumb
@@ -1007,7 +1011,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const productStatusForTrailing =
     !isTradeChatListVisual && commerceMeta?.kind === "trade" && commerceMeta.itemStateLabel?.trim()
-      ? commerceMeta.itemStateLabel.trim()
+      ? tradeStoredListingLabelText(commerceMeta.itemStateLabel.trim(), t)
       : null;
 
   /** 거래·주문 목록 오른쪽 — 시각 12 회색 + 빨간 안 읽음 배지(20px · 12px 굵게). P4: 모든 대화 목록 같은 토큰(레거시 기준) */
@@ -1084,7 +1088,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        storeName={deliveryRowModel?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK}
+        storeName={deliveryRowModel?.storeName?.trim() || t(STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY)}
         previewLine={deliveryPreviewLine}
         statusChip={deliveryRowModel?.statusChip ?? null}
         unread={displayedUnreadCount > 0}

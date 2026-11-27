@@ -753,7 +753,9 @@ export async function loadChatRoomDetailForUser(input: {
           trimMessengerRoomId((ordRow as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id) ??
           trimMessengerRoomId((crSo as { community_messenger_room_id?: unknown }).community_messenger_room_id),
         roomTitle: titleSo,
-        roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
+        roomSubtitle: statusLabel
+          ? translate(viewerLang, "store_chat_room_subtitle_status", { status: statusLabel })
+          : translate(viewerLang, "store_chat_room_subtitle_delivery"),
         buyerReviewSubmitted: false,
         productChatRoomId: null,
         tradeFlowStatus: "chatting",
@@ -812,7 +814,7 @@ export async function loadChatRoomDetailForUser(input: {
       communityMessengerRoomId:
         trimMessengerRoomId((crSo as { community_messenger_room_id?: unknown }).community_messenger_room_id),
       roomTitle: titleSo,
-      roomSubtitle: "배달채팅",
+      roomSubtitle: translate(viewerLang, "store_chat_room_subtitle_delivery"),
       buyerReviewSubmitted: false,
       productChatRoomId: null,
       tradeFlowStatus: "chatting",

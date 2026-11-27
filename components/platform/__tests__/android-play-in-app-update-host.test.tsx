@@ -30,7 +30,11 @@ vi.mock("@/components/i18n/AppLanguageProvider", async () => {
   /** 언어 SSOT S6: 대체 문구 대신 실제 카탈로그 값(ko)으로 렌더 — 화면과 같은 문구를 확인한다 */
   const { safeTranslate } = await import("@/lib/i18n/safe-translate");
   return ({
-  useI18n: () => ({ safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o) }),
+  useI18n: () => ({
+    safeT: (k: string, o?: Parameters<typeof safeTranslate>[2]) => safeTranslate("ko", k as never, o),
+    /** 오버레이 닫기 aria(`common_close`)가 `t` 를 쓴다 — 언어 재감사 2026-11-27 */
+    t: (k: string, vars?: Record<string, string | number>) => safeTranslate("ko", k as never, { vars }),
+  }),
   });
 });
 vi.mock("@/lib/platform/capacitor-native", () => ({

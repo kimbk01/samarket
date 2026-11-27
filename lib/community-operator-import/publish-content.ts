@@ -140,6 +140,8 @@ export function buildPublishContent(input: {
   const feedImages = collectOrderedImageUrlsForFeed(article, edit, applied);
 
   // The source is written as the last line of the body whenever it is shown (Owner rule 2026-10-16).
+  // 저장 글자는 이 규칙 그대로 둔다(언어 재감사 2026-11-27 교차 수정 — Owner 규칙 우선). 보는 사람 언어로 바꿔 보이는 것은
+  // 화면만 한다: `localizeImportedPostBody`·`localizeImportedLinkText`(lib/community/community-display-fallbacks.ts).
   const sourceLine = `출처: ${attributionName} ${attributionUrl}`.trim();
   if (policy === "full") {
     return {

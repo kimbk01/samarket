@@ -11,7 +11,7 @@ import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityPostAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointReclaimOnPostDelete } from "@/lib/points/community-point-bridge";
@@ -21,6 +21,14 @@ import { resolveMemberRichBody } from "@/lib/community/member-rich-body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * 오류는 코드만(`error`=`code`) + 값은 `params` — 문구는 화면이 `COMMUNITY_POST_WRITE_ERROR_KEYS`·
+ * `COMMUNITY_POST_DELETE_ERROR_KEYS` 로 고른다 (재감사 2026-11-27). DB 원문은 로그로만.
+ */
+function postError(code: string, status: number, params?: Record<string, number | string>) {
+  return NextResponse.json({ ok: false, error: code, code, ...(params ? { params } : {}) }, { status });
+}
 
 interface Ctx {
   params: Promise<{ postId: string }>;
@@ -60,17 +68,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .toLowerCase();
   /** category 생략 = 기존 주제 유지 (숨김·비활성 주제 글 수정 시 자동 변경 방지 — CM-P2-09) */
   if (!title) {
-    return NextResponse.json({ ok: false, error: "제목을 입력해 주세요." }, { status: 400 });
+    return postError("title_required", 400);
   }
   if (!content) {
-    return NextResponse.json({ ok: false, error: "내용을 입력해 주세요." }, { status: 400 });
+    return postError("content_required", 400);
   }
   const accepted = evaluateCommunityPostAcceptance({ title, content });
   if (!accepted.ok) {
-    return NextResponse.json(
-      { ok: false, error: communityAcceptanceErrorMessage(accepted.code) },
-      { status: 400 }
-    );
+    return postError(communityAcceptanceErrorCode(accepted.code), 400);
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -94,7 +99,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     ({ data: row, error: findErr } = await sb.from("community_posts").select(selectCols).eq("id", id).maybeSingle());
   }
   if (findErr) {
-    return NextResponse.json({ ok: false, error: findErr.message }, { status: 500 });
+    console.error("[neighborhood-posts PATCH] read failed", findErr.message);
+    return postError("post_save_failed", 500);
   }
   const r = row as {
     id?: string;
@@ -113,7 +119,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   if (isCommunityImportedOrigin(r.origin_kind)) {
     return NextResponse.json(
-      { ok: false, error: "imported_not_editable", message: "가져온 글은 수정할 수 없습니다." },
+      { ok: false, error: "imported_not_editable", code: "imported_not_editable" },
       { status: 403 }
     );
   }
@@ -123,23 +129,17 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   /** 관리자가 숨긴 글은 작성자가 수정할 수 없다 — 운영 조치 우회 방지 (CM-P3-09) */
   if (r.status === "hidden" || (r as { is_hidden?: boolean }).is_hidden === true) {
     return NextResponse.json(
-      { ok: false, error: "moderated_not_editable", message: "운영 정책에 따라 숨겨진 글은 수정할 수 없습니다." },
+      { ok: false, error: "moderated_not_editable", code: "moderated_not_editable" },
       { status: 403 }
     );
   }
 
   const ops = await getCommunityFeedOps();
   if (title.length > ops.max_title_length) {
-    return NextResponse.json(
-      { ok: false, error: `제목은 ${ops.max_title_length}자 이하입니다.` },
-      { status: 400 }
-    );
+    return postError("title_too_long", 400, { max: ops.max_title_length });
   }
   if (content.length > ops.max_content_length) {
-    return NextResponse.json(
-      { ok: false, error: `본문은 ${ops.max_content_length}자 이하입니다.` },
-      { status: 400 }
-    );
+    return postError("content_too_long", 400, { max: ops.max_content_length });
   }
   const filtered = await guardBannedWords({
     userId: auth.userId,
@@ -183,7 +183,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       sectionId: sectionId || undefined,
     });
     if (!topicMeta) {
-      return NextResponse.json({ ok: false, error: "선택한 주제를 사용할 수 없습니다." }, { status: 400 });
+      return postError("topic_unavailable", 400);
     }
     patch.topic_id = topicMeta.topicId;
     patch.topic_slug = topicMeta.topicSlug;
@@ -198,7 +198,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     .eq("id", id)
     .eq("user_id", auth.userId);
   if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+    console.error("[neighborhood-posts PATCH] update failed", upErr.message);
+    return postError("post_save_failed", 500);
   }
 
   if (images.length > 0) {
@@ -211,10 +212,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }));
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
     if (imgErr) {
-      return NextResponse.json(
-        { ok: false, error: imgErr.message || "이미지 저장에 실패했습니다." },
-        { status: 500 }
-      );
+      console.error("[neighborhood-posts PATCH] image rows insert failed", imgErr.message ?? "");
+      return postError("image_save_failed", 500);
     }
   } else {
     await sb.from("community_post_images").delete().eq("post_id", id);
@@ -276,7 +275,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   }
   if (isCommunityImportedOrigin(r.origin_kind)) {
     return NextResponse.json(
-      { ok: false, error: "imported_not_deletable", message: "가져온 글은 일반 회원으로 삭제할 수 없습니다." },
+      { ok: false, error: "imported_not_deletable", code: "imported_not_deletable" },
       { status: 403 }
     );
   }
@@ -284,7 +283,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   /** 관리자 숨김 글은 작성자 삭제로 덮어쓰지 않는다 — 운영 상태·영구 삭제 타이머 보존 (CM-P3-09) */
   if (r.status === "hidden" || r.is_hidden === true) {
     return NextResponse.json(
-      { ok: false, error: "moderated_not_deletable", message: "운영 정책에 따라 숨겨진 글은 삭제할 수 없습니다." },
+      { ok: false, error: "moderated_not_deletable", code: "moderated_not_deletable" },
       { status: 403 }
     );
   }
@@ -293,7 +292,10 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     .update({ status: "deleted" })
     .eq("id", id)
     .eq("user_id", auth.userId);
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[neighborhood-posts DELETE] update failed", error.message);
+    return postError("post_delete_failed", 500);
+  }
   await applyCommunityPointReclaimOnPostDelete({ postId: id });
   return NextResponse.json({ ok: true });
 }

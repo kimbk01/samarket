@@ -210,7 +210,7 @@ export async function createStoreProductCore(
       // PRD-04 — 직접 입력 할인가는 판매가보다 작아야 한다 (DB CHECK store_products_discount_lt_price).
       if (!isDirectDiscountPriceValid(priceFloored, d)) {
         return NextResponse.json(
-          { ok: false, error: "invalid_discount_price", message: "할인가는 판매가보다 낮아야 합니다." },
+          { ok: false, error: "invalid_discount_price", code: "invalid_discount_price" },
           { status: 400 }
         );
       }
@@ -323,11 +323,7 @@ export async function createStoreProductCore(
   );
   if (!detailNorm.ok) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: detailNorm.error,
-        message: detailNorm.message,
-      },
+      { ok: false, error: detailNorm.error, code: detailNorm.error },
       { status: 400 }
     );
   }
@@ -350,7 +346,8 @@ export async function createStoreProductCore(
         {
           ok: false,
           error: "owner_recommended_limit",
-          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+          code: "owner_recommended_limit",
+          params: { max: OWNER_RECOMMENDED_MENU_MAX },
         },
         { status: 400 }
       );
@@ -431,7 +428,8 @@ export async function createStoreProductCore(
         {
           ok: false,
           error: "owner_recommended_limit",
-          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+          code: "owner_recommended_limit",
+          params: { max: OWNER_RECOMMENDED_MENU_MAX },
         },
         { status: 409 }
       );
@@ -595,11 +593,7 @@ export async function patchStoreProductCore(
         patch.price !== undefined ? Number(patch.price) : Math.floor(Number(productRow.price));
       if (!isDirectDiscountPriceValid(basePrice, d)) {
         return NextResponse.json(
-          {
-            ok: false,
-            error: "invalid_discount_price",
-            message: "할인가는 판매가보다 낮아야 합니다.",
-          },
+          { ok: false, error: "invalid_discount_price", code: "invalid_discount_price" },
           { status: 400 }
         );
       }
@@ -656,7 +650,7 @@ export async function patchStoreProductCore(
     const norm = normalizeOwnerProductDetailImageUrls(rawDetail, thumbForNorm);
     if (!norm.ok) {
       return NextResponse.json(
-        { ok: false, error: norm.error, message: norm.message },
+        { ok: false, error: norm.error, code: norm.error },
         { status: 400 }
       );
     }
@@ -779,7 +773,13 @@ export async function patchStoreProductCore(
       const statusBlock = ownerProductStatusChangeBlock(productRow, next);
       if (statusBlock) {
         return NextResponse.json(
-          { ok: false, error: statusBlock.error, message: statusBlock.message },
+          /** 언어 재감사 2026-11-27: 잠금 안내 한국어 `message` 는 보내지 않는다 — 화면은 코드 + `params.lock` 으로 키 */
+          {
+            ok: false,
+            error: statusBlock.error,
+            code: statusBlock.error,
+            ...(statusBlock.lock ? { params: { lock: statusBlock.lock } } : {}),
+          },
           { status: statusBlock.status }
         );
       }
@@ -820,7 +820,8 @@ export async function patchStoreProductCore(
         {
           ok: false,
           error: "owner_recommended_limit",
-          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+          code: "owner_recommended_limit",
+          params: { max: OWNER_RECOMMENDED_MENU_MAX },
         },
         { status: 400 }
       );
@@ -893,7 +894,7 @@ export async function patchStoreProductCore(
   if (upErr) {
     if (/store_products_discount_lt_price/.test(String(upErr.message))) {
       return NextResponse.json(
-        { ok: false, error: "invalid_discount_price", message: "할인가는 판매가보다 낮아야 합니다." },
+        { ok: false, error: "invalid_discount_price", code: "invalid_discount_price" },
         { status: 400 }
       );
     }
@@ -906,7 +907,7 @@ export async function patchStoreProductCore(
         {
           ok: false,
           error: "product_changed",
-          message: "다른 곳에서 상품이 변경되었습니다. 새로 불러온 뒤 다시 저장해 주세요.",
+          code: "product_changed",
           product: "product" in latest ? latest.product : null,
         },
         { status: 409 }

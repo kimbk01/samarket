@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityContentAcceptance,
   evaluateCommunityPostAcceptance,
 } from "@/lib/community-points/content-acceptance";
@@ -23,6 +23,8 @@ import {
   isSelfComment,
 } from "@/lib/community-points/reward-eligibility";
 import { normalizeCommunityText } from "@/lib/community-points/content-normalize";
+import { COMMUNITY_POST_WRITE_ERROR_KEYS } from "@/lib/community/community-api-error-text";
+import { translate } from "@/lib/i18n/messages";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 
 const root = process.cwd();
@@ -248,8 +250,13 @@ describe("source HARD LOCK greps", () => {
     expect(patch).not.toMatch(/banUser/i);
   });
 
-  it("acceptance error messages are user sentences", () => {
-    expect(communityAcceptanceErrorMessage("empty")).not.toMatch(/_/);
-    expect(communityAcceptanceErrorMessage("punctuation_only")).not.toMatch(/_/);
+  it("acceptance errors are codes — the screen picks the sentence by key (재감사 2026-11-27 · i18n SSOT §3-3)", () => {
+    for (const c of ["empty", "punctuation_only", "repeated_only"] as const) {
+      const code = communityAcceptanceErrorCode(c);
+      expect(code).toMatch(/^[a-z][a-z0-9_]*$/);
+      expect(COMMUNITY_POST_WRITE_ERROR_KEYS[code]).toBeTruthy();
+      expect(translate("en", COMMUNITY_POST_WRITE_ERROR_KEYS[code]!)).not.toMatch(/_|[가-힣]/);
+      expect(translate("ko", COMMUNITY_POST_WRITE_ERROR_KEYS[code]!)).not.toMatch(/_/);
+    }
   });
 });

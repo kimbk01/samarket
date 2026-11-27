@@ -6,6 +6,9 @@ import { adminActionLevel } from "@/lib/admin/operator-ux/admin-action-levels";
 import { formatAdminPhp } from "@/lib/admin/ui-standard/admin-format";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { POST_IMAGE_UPLOAD_ERROR_KEYS } from "@/lib/posts/post-image-upload-error-text";
+import { tradeShowcaseAdminSaveErrorText } from "@/lib/trade/showcase/trade-showcase-admin-error-text";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
@@ -122,7 +125,16 @@ export function TradeShowcaseAdminPage() {
         if (res.ok && data.url) {
           urls.push(data.url);
         } else {
-          await dibayAlert({ title: data.error ?? t("admin_trade_showcase_upload_failed") });
+          /** 재감사 2026-11-27: 서버 문장 대신 오류 코드 → 화면 언어 문구 (사진 올리기 표 공용) */
+          await dibayAlert({
+            title: resolveApiErrorText({
+              json: data,
+              status: res.status,
+              map: POST_IMAGE_UPLOAD_ERROR_KEYS,
+              fallbackKey: "admin_trade_showcase_upload_failed",
+              t,
+            }),
+          });
           break;
         }
       }
@@ -165,7 +177,8 @@ export function TradeShowcaseAdminPage() {
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setSaving(false);
     if (!res.ok || !data.ok) {
-      await dibayAlert({ title: data.error ?? t("admin_trade_showcase_save_failed") });
+      /** 재감사 2026-11-27: 서버 문장(DB 원문)을 그대로 띄우지 않는다 — 오류 코드 → 화면 언어 문구 */
+      await dibayAlert({ title: tradeShowcaseAdminSaveErrorText({ json: data, status: res.status }, t) });
       return;
     }
     setDraft(null);

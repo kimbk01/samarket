@@ -417,7 +417,7 @@ export function OwnerStoreSettlementsView() {
                   setOrderNo(e.target.value);
                 }}
                 placeholder={t("store_owner_settlement_filter_order_no")}
-                aria-label="order no"
+                aria-label={t("store_owner_settlement_filter_order_no")}
               />
               <button
                 type="button"

@@ -2,6 +2,7 @@
 import { networkFailureMessageKey } from "@/lib/net/network-health.client";
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerPostApiErrorText } from "@/lib/posts/owner-post-api-error-text";
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -65,13 +66,18 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       ) {
         return;
       }
+      /** 재감사 2026-11-27: 서버는 오류 코드만 보낸다 — 화면 언어 문구로 그린다 */
       if (res.status === 403 && data.locked) {
         setStatus("locked");
-        setErrorMessage(err || t("ui_product_edit_cannot_edit"));
+        setErrorMessage(
+          resolveOwnerPostApiErrorText({ json: data, status: res.status, fallbackKey: "ui_product_edit_cannot_edit", t })
+        );
         return;
       }
       setStatus("error");
-      setErrorMessage(err || t("ui_product_edit_load_failed"));
+      setErrorMessage(
+        resolveOwnerPostApiErrorText({ json: data, status: res.status, fallbackKey: "ui_product_edit_load_failed", t })
+      );
       return;
     }
     const post = data.post;

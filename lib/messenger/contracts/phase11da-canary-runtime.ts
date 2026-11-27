@@ -1,4 +1,5 @@
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 /**
  * Phase 11D-A — Domain Bootstrap HTTP (read-only) + Shadow / Shell capture.
  * persistent cache write 0 · Realtime 0 · production home wiring 0.
@@ -189,6 +190,8 @@ export async function tryPhase11dACanaryDomainBootstrap(input: {
         generation,
         snapshotKind: "full",
         source: createTradeLiveBootstrapSource(sb),
+        /** 언어 재감사 2026-11-27 — 저장 시스템 문장 미리보기를 요청 언어로 */
+        lang: await resolveRequestAppLanguageOr("en"),
       });
       if (access.mode === "canary") {
         seedDomainCacheAuthoritySnapshot({
@@ -220,6 +223,7 @@ export async function tryPhase11dACanaryDomainBootstrap(input: {
         snapshotKind: "full",
         surfaceRole: "customer",
         source: createStoreOrderCustomerLiveBootstrapSource(sb),
+        lang: await resolveRequestAppLanguageOr("en"),
       });
       if (access.mode === "canary") {
         seedDomainCacheAuthoritySnapshot({
@@ -315,6 +319,8 @@ export async function runPhase11dAShadowCompare(
      * Legacy CM bootstrap shadow observe must keep this false (UI/shell unlock 0).
      */
     recordShellUnlock?: boolean;
+    /** 행·hub 미리보기 언어 — 없으면 요청 언어(요청 밖이면 en) */
+    lang?: AppLanguageCode;
   }>
 ): Promise<Phase11dAShadowCompareResult> {
   assertPhase11dALayerContract();
@@ -330,6 +336,7 @@ export async function runPhase11dAShadowCompare(
     so: null,
   };
   const generation = `11da-shadow-${Date.now()}`;
+  const lang = opts?.lang ?? (await resolveRequestAppLanguageOr("en"));
 
   const [gd, group, trade, so] = await Promise.all([
     runGeneralDirectBootstrap({
@@ -355,6 +362,7 @@ export async function runPhase11dAShadowCompare(
       source: createTradeLiveBootstrapSource(sb, (m) => {
         metas.trade = m;
       }),
+      lang,
     }),
     runStoreOrderBootstrap({
       viewerUserId,
@@ -364,14 +372,15 @@ export async function runPhase11dAShadowCompare(
       source: createStoreOrderCustomerLiveBootstrapSource(sb, (m) => {
         metas.so = m;
       }),
+      lang,
     }),
   ]);
 
   const gdVms = gd.rows.map(buildGeneralDirectRowModel);
   const gVms = group.rows.map(buildGroupRowModel);
-  const trHub = buildTradeHubViewModel(trade.rows as ReadonlyArray<TradeListItem>);
-  const soHub = buildStoreOrderHubViewModel(so.rows as ReadonlyArray<StoreOrderListItem>);
-  const soList = so.rows.map((row) => buildStoreOrderCustomerListViewModel(row, DEFAULT_APP_LANGUAGE)); /* 감사 L2 — 검증 하네스(화면 아님): 기본값이던 언어를 명시 */
+  const trHub = buildTradeHubViewModel(trade.rows as ReadonlyArray<TradeListItem>, lang);
+  const soHub = buildStoreOrderHubViewModel(so.rows as ReadonlyArray<StoreOrderListItem>, lang);
+  const soList = so.rows.map((row) => buildStoreOrderCustomerListViewModel(row, lang));
   const trList = trade.rows.map(buildTradeListViewModel);
 
   const shell = composePhase10ShellFinal({

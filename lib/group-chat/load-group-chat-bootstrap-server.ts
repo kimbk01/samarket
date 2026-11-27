@@ -20,14 +20,14 @@ export async function loadGroupChatBootstrapForUser(
 ): Promise<LoadGroupChatBootstrapResult> {
   const rid = roomId.trim();
   if (!rid) {
-    return { ok: false, status: 400, error: "roomId 필요" };
+    return { ok: false, status: 400, error: "room_id_required" };
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return { ok: false, status: 500, error: "서버 설정 필요" };
+    return { ok: false, status: 500, error: "server_config" };
   }
 
   const { data: room, error: roomErr } = await sb
@@ -37,7 +37,7 @@ export async function loadGroupChatBootstrapForUser(
     .maybeSingle();
 
   if (roomErr || !(room as { id?: string } | null)?.id) {
-    return { ok: false, status: 404, error: "방을 찾을 수 없습니다." };
+    return { ok: false, status: 404, error: "room_not_found" };
   }
 
   const { data: memRow, error: memErr } = await sb
@@ -49,10 +49,11 @@ export async function loadGroupChatBootstrapForUser(
     .maybeSingle();
 
   if (memErr) {
-    return { ok: false, status: 500, error: memErr.message };
+    console.error("[group-chat] bootstrap member lookup failed", memErr.message);
+    return { ok: false, status: 500, error: "group_chat_load_failed" };
   }
   if (!(memRow as { id?: string } | null)?.id) {
-    return { ok: false, status: 403, error: "멤버만 볼 수 있습니다." };
+    return { ok: false, status: 403, error: "group_chat_members_only" };
   }
 
   const r = room as {
@@ -82,7 +83,8 @@ export async function loadGroupChatBootstrapForUser(
     .limit(GROUP_CHAT_BOOTSTRAP_MEMBER_CAP);
 
   if (listErr) {
-    return { ok: false, status: 500, error: listErr.message };
+    console.error("[group-chat] bootstrap member list failed", listErr.message);
+    return { ok: false, status: 500, error: "group_chat_load_failed" };
   }
 
   const membersRaw = (memberRows ?? []) as { user_id: string; role: string; joined_at: string }[];

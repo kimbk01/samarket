@@ -23,14 +23,16 @@ export function buildDibayWebAppManifest() {
      * 한 번 출시한 뒤에는 바꾸지 않는다 (바꾸면 다른 앱으로 인식된다).
      */
     id: "/",
-    description: `필리핀 거주 한국인을 위한 ${DIBAY_SERVICE_BRAND.MARKET}·${DIBAY_SERVICE_BRAND.LOUNGE}·${DIBAY_SERVICE_BRAND.DIPICK}·${DIBAY_SERVICE_BRAND.LETARING}`,
+    /** Owner D3 (2026-11-27): 설치 설명은 한 언어만 가능 → 영어 */
+    description: `${DIBAY_SERVICE_BRAND.MARKET}, ${DIBAY_SERVICE_BRAND.LOUNGE}, ${DIBAY_SERVICE_BRAND.DIPICK} and ${DIBAY_SERVICE_BRAND.LETARING} for Koreans living in the Philippines`,
     start_url: "/",
     scope: "/",
     display: "standalone" as const,
     orientation: "any" as const,
     background_color: "#FFFCFC",
     theme_color: "#0B421A",
-    lang: "ko",
+    /** name·short_name(dibaY)·description 이 모두 영어 → 설치 정보 언어도 en (언어 재감사 2026-11-27) */
+    lang: "en",
     icons: [
       {
         src: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),

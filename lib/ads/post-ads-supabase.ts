@@ -21,7 +21,8 @@ export function postAdToAdminRow(ad: PostAd): AdminPostAdRow {
   return {
     id: ad.id,
     postId: ad.postId,
-    postTitle: ad.postTitle?.trim() || "(제목 없음)",
+    /** 제목 없음 → 빈 값. 화면이 `community_no_title` 키로 그린다 (재감사 2026-11-27) */
+    postTitle: ad.postTitle?.trim() || "",
     userId: ad.userId,
     userNickname: ad.userNickname?.trim() || "",
     boardKey: ad.boardKey,
@@ -74,7 +75,8 @@ export function mapJoinedPostAdRow(row: PostAdJoinRow): AdminPostAdRow {
   return {
     id: row.id,
     postId: row.post_id,
-    postTitle: embedField(row.community_posts as { title?: string } | null, "title") ?? "(제목 없음)",
+    /** 제목 없음 → 빈 값. 화면이 `community_no_title` 키로 그린다 (재감사 2026-11-27) */
+    postTitle: embedField(row.community_posts as { title?: string } | null, "title") ?? "",
     userId: row.user_id,
     userNickname: "",
     boardKey: row.board_key ?? "plife",
@@ -218,7 +220,8 @@ export async function fetchActiveTopFixedAdFeedPostsFromDb(
   const ads: AdFeedPost[] = rows.map((row) => {
     const cp = row.community_posts;
     const post = Array.isArray(cp) ? cp[0] : cp ?? null;
-    const title = String(post?.title ?? "").trim() || "(제목 없음)";
+    /** 제목 없음 = 빈 값 — 화면이 `t("community_no_title")` 로 그린다 (재감사 2026-11-27, 서버 한국어 문장 저장·응답 금지) */
+    const title = String(post?.title ?? "").trim();
     const summaryRaw = String(post?.summary ?? "").trim();
     const postSummary = summaryRaw || excerptFromPostBody(String(post?.content ?? ""));
     const pid = String(row.post_id);

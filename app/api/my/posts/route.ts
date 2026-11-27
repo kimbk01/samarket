@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     if (pageLimit != null) return NextResponse.json({ error: "my_posts_load_failed" }, { status: 500 });
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 500 });
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 

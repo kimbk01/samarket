@@ -9,11 +9,10 @@ import {
   getCachedStoreIfOwner,
   peekOwnerStoreOwnershipCacheHit,
 } from "@/lib/stores/owner-store-ownership-cache";
-import {
-  BUYER_PUBLIC_LABEL_FALLBACK,
-  mapBuyerUserIdsToPublicLabels,
-} from "@/lib/stores/buyer-public-label";
+import { mapBuyerUserIdsToPublicLabels } from "@/lib/stores/buyer-public-label";
 import { internalErrorResponse } from "@/lib/security/internal-error-response";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
+import { translate } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,10 +68,12 @@ export async function GET(
     .eq("id", id)
     .maybeSingle();
 
+  /** 언어 재감사 2026-11-27: 매장명이 없으면 빈 값 — 목록 화면이 `store_owner_store_fallback` 키로 그린다 */
   const storeName =
-    typeof storeRow?.store_name === "string" && storeRow.store_name.trim() ?
-      storeRow.store_name.trim()
-    : "매장";
+    typeof storeRow?.store_name === "string" && storeRow.store_name.trim() ? storeRow.store_name.trim() : "";
+  /** 메신저 방 머리 글(contextMeta)은 링크에 실려 가므로 요청 언어 카탈로그로 만든다 */
+  const lang = await resolveRequestAppLanguageOr("en");
+  const headlineStoreName = storeName || translate(lang, "store_owner_store_fallback");
 
   const { data: orders, error: ordersErr } = await sb
     .from("store_orders")
@@ -155,12 +156,12 @@ export async function GET(
       const roomId = String(o.community_messenger_room_id ?? "").trim();
       if (!roomId) return null;
       const buyerId = String(o.buyer_user_id ?? "").trim();
-      const buyerLabel = buyerPublicById[buyerId] ?? BUYER_PUBLIC_LABEL_FALLBACK;
+      /** 공개 이름이 없으면 빈 값 — 목록 화면이 `store_buyer_public_label_fallback` 키로 그린다 */
+      const buyerLabel = buyerPublicById[buyerId] ?? "";
       const productTitle = firstItemTitleByOrder.get(o.id) ?? "";
-      const headline =
-        productTitle ?
-          `${storeName} · ${productTitle}`
-        : `${storeName} · 주문 ${o.order_no}`;
+      const headline = `${headlineStoreName} · ${
+        productTitle || translate(lang, "store_owner_order_line_short", { no: o.order_no })
+      }`;
       const meta = roomMetaById.get(roomId);
       const contextMeta = buildMessengerContextMetaFromStoreOrder({
         storeOrderId: o.id,
@@ -180,7 +181,8 @@ export async function GET(
         order_status_label: buyerOrderStatusLabel(o.order_status, undefined, o.fulfillment_type),
         unread_count: unreadByRoom.get(roomId) ?? 0,
         last_message_at: meta?.last_message_at ?? o.updated_at ?? o.created_at,
-        last_message_preview: meta?.last_message_preview?.trim() || "주문 채팅",
+        /** 미리보기가 없으면 빈 값 — 화면이 `nav_chat_order` 키로 그린다 */
+        last_message_preview: meta?.last_message_preview?.trim() || "",
         messenger_href: buildStoreOrderMessengerRoomHref(roomId, {
           contextMeta,
           entryOrigin: "delivery",

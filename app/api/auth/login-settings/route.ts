@@ -9,6 +9,8 @@ export async function GET() {
     const settings = await loadAuthLoginSettings();
     return jsonOk({ settings });
   } catch {
-    return jsonError(clientSafeInternalErrorMessage("로그인 방식을 불러오지 못했습니다."), 503);
+    return jsonError(clientSafeInternalErrorMessage("auth_login_settings_load_failed"), 503, {
+      code: "auth_login_settings_load_failed",
+    });
   }
 }

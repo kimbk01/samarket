@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
     key: `me:devices:register:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "기기 등록 요청이 너무 빠릅니다.",
     code: "device_register_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

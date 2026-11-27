@@ -33,7 +33,7 @@ export async function GET() {
     });
     if (!res.ok) {
       return NextResponse.json(
-        { error: "환율 조회 실패", status: res.status },
+        { error: "exchange_rate_fetch_failed", code: "exchange_rate_fetch_failed", status: res.status },
         { status: 502, headers: { "Cache-Control": "no-store" } }
       );
     }
@@ -41,7 +41,7 @@ export async function GET() {
     const picked = pickLatestTwoKrw(data?.rates);
     if (!picked) {
       return NextResponse.json(
-        { error: "환율 데이터 형식 오류" },
+        { error: "exchange_rate_invalid_data", code: "exchange_rate_invalid_data" },
         { status: 502, headers: { "Cache-Control": "no-store" } }
       );
     }
@@ -59,7 +59,7 @@ export async function GET() {
   } catch (e) {
     console.error("[exchange-rates]", e);
     return NextResponse.json(
-      { error: "환율 조회 중 오류" },
+      { error: "exchange_rate_error", code: "exchange_rate_error" },
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }

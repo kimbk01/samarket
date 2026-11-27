@@ -28,9 +28,16 @@ describe("clampStorePrepMinutes", () => {
 
 describe("parseCommerceExtrasFromHoursJson", () => {
   it("reads prep_time_minutes", () => {
-    const x = parseCommerceExtrasFromHoursJson({ prep_time_minutes: 42, est_prep_label: "99분" });
+    const x = parseCommerceExtrasFromHoursJson({ prep_time_minutes: 42, est_prep_label: "99분" }, "ko");
     expect(x.prepMinutes).toBe(42);
     expect(x.estPrepLabel).toBe("42분");
+  });
+
+  it("estPrepLabel 은 언어를 따른다 — en 에 한글 0 (재감사 2026-11-27)", () => {
+    expect(parseCommerceExtrasFromHoursJson({ prep_time_minutes: 42 }, "en").estPrepLabel).toBe("42 min");
+    const enDefault = parseCommerceExtrasFromHoursJson(null, "en").estPrepLabel;
+    expect(/[가-힣]/.test(enDefault)).toBe(false);
+    expect(parseCommerceExtrasFromHoursJson(null, "ko").estPrepLabel).toBe("20~40분");
   });
 
   it("reads delivery_ride_display_manual with cap", () => {

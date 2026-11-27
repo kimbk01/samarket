@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { requestUserBlock } from "@/lib/reports/request-user-block";
+import { reportClientFailureFromResponse, userBlockErrorText } from "@/lib/reports/report-block-error-text";
 import { dibayConfirm, DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -45,7 +46,7 @@ export function BlockActionSheet({
     const res = await requestUserBlock(targetUserId, { roomId });
     if (!res.ok) {
       setLoading(false);
-      setError(res.error);
+      setError(userBlockErrorText(res, t));
       return;
     }
     if (roomSource === "chat_room" && roomId && currentUserId) {
@@ -56,13 +57,13 @@ export function BlockActionSheet({
           body: JSON.stringify({}),
         });
         if (!r.ok) {
-          const d = await r.json().catch(() => ({}));
-          setError(d?.error ?? t("ui_report_room_block_failed"));
+          const d: unknown = await r.json().catch(() => ({}));
+          setError(userBlockErrorText(reportClientFailureFromResponse(r.status, d), t, "ui_report_room_block_failed"));
           setLoading(false);
           return;
         }
-      } catch (e) {
-        setError((e as Error)?.message ?? t("ui_report_room_block_failed"));
+      } catch {
+        setError(t("ui_report_room_block_failed"));
         setLoading(false);
         return;
       }

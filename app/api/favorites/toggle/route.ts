@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     sb = getSupabaseServer();
   } catch {
     return NextResponse.json(
-      { ok: false, error: "서버 설정이 필요합니다." },
+      { ok: false, error: "server_config", code: "server_config" },
       { status: 500 }
     );
   }
@@ -76,13 +76,13 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "잘못된 요청" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_json", code: "invalid_json" }, { status: 400 });
   }
 
   const postId = typeof body.postId === "string" ? body.postId.trim() : "";
 
   if (!postId) {
-    return NextResponse.json({ ok: false, error: "postId가 필요합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     /** 거래 H F-3: 없는 글은 404 */
     if (!postRow) {
-      return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "post_not_found", code: "post_not_found" }, { status: 404 });
     }
 
     const ownerId =
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
 
     if (ownerId && ownerId === userId) {
       return NextResponse.json(
-        { ok: false, error: "본인이 등록한 글에는 찜할 수 없습니다." },
+        { ok: false, error: "own_post_favorite", code: "own_post_favorite" },
         { status: 400 }
       );
     }
@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         pr.is_deleted === true;
       if (notPublic) {
         return NextResponse.json(
-          { ok: false, error: "찜할 수 없는 글입니다.", code: "post_not_public" },
+          { ok: false, error: "post_not_public", code: "post_not_public" },
           { status: 403 }
         );
       }
@@ -164,8 +164,9 @@ export async function POST(req: NextRequest) {
         .eq("post_id", postId)
         .select("id");
       if (error) {
+        console.error("[favorites/toggle] remove failed", { message: error.message });
         return NextResponse.json(
-          { ok: false, error: error.message ?? "삭제에 실패했습니다." },
+          { ok: false, error: "favorite_remove_failed", code: "favorite_remove_failed" },
           { status: 500 }
         );
       }
@@ -183,8 +184,9 @@ export async function POST(req: NextRequest) {
       )
       .select("id");
     if (error) {
+      console.error("[favorites/toggle] add failed", { message: error.message });
       return NextResponse.json(
-        { ok: false, error: error.message ?? "추가에 실패했습니다." },
+        { ok: false, error: "favorite_add_failed", code: "favorite_add_failed" },
         { status: 500 }
       );
     }
@@ -193,8 +195,9 @@ export async function POST(req: NextRequest) {
     const favoriteCount = await countFavoritesForPostId(sbAny, postId);
     return NextResponse.json({ ok: true, isFavorite: true, favoriteCount });
   } catch (e) {
+    console.error("[favorites/toggle] failed", { message: (e as Error)?.message });
     return NextResponse.json(
-      { ok: false, error: (e as Error)?.message ?? "처리에 실패했습니다." },
+      { ok: false, error: "favorite_toggle_failed", code: "favorite_toggle_failed" },
       { status: 500 }
     );
   }

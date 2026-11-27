@@ -13,6 +13,7 @@ import { buildTradeListSnapshot } from "@/lib/messenger/trade/list";
 import { buildTradeHubViewModel } from "@/lib/messenger/trade/hub";
 import { TRADE_DOMAIN, type TradeListItem, type TradeRoomInput } from "@/lib/messenger/trade/types";
 import type { TradeHubViewModel } from "@/lib/messenger/trade/ux-contract";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 export const tradePhase6Cache = createDomainPersistentCachePort<TradeListItem>(TRADE_DOMAIN, "chat.trade");
 
@@ -37,6 +38,8 @@ export async function runTradeBootstrap(input: {
   snapshotKind: "full" | "partial";
   source: TradeBootstrapSource;
   tombstones?: ReadonlyArray<DomainTombstone>;
+  /** 허브 미리보기 언어 — 서버 호출처는 요청 언어(`resolveRequestAppLanguageOr`)를 넘긴다. 없으면 실행 환경 언어(재감사 2026-11-27) */
+  lang?: AppLanguageCode | null;
 }): Promise<DomainBootstrapApiResponse<TradeListItem, TradeBootstrapHub>> {
   const viewerUserId = input.viewerUserId.trim();
   if (!viewerUserId) throw new DomainBootstrapHttpError(401, "unauthorized", "viewer required");
@@ -72,7 +75,7 @@ export async function runTradeBootstrap(input: {
     rooms: authorized,
   });
   if (!listed.ok) throw new DomainBootstrapHttpError(500, listed.error, listed.error);
-  const hubBase = buildTradeHubViewModel(listed.snapshot.rows);
+  const hubBase = buildTradeHubViewModel(listed.snapshot.rows, input.lang);
   const hub: TradeBootstrapHub = {
     ...hubBase,
     unreadRoomCount: hubBase.unreadCount,

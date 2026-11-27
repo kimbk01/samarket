@@ -93,7 +93,7 @@ export async function resolveProviderLogin(
     if (byUser.size > 1) {
       return {
         status: "provider_user_id_conflict",
-        message: "동일 이메일로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.",
+        message: "provider_user_id_conflict",
         conflictReason: "POLICY_DATA_INCONSISTENT",
       };
     }
@@ -138,7 +138,7 @@ async function resolvePasswordMemberEmailGate(
   if (lookup.status === "ambiguous") {
     return {
       status: "provider_user_id_conflict",
-      message: "동일 이메일로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.",
+      message: "provider_user_id_conflict",
       conflictReason: "AMBIGUOUS_ACCOUNT_CONFLICT",
     };
   }

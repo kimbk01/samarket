@@ -9,6 +9,7 @@
  * Dual writer vs Legacy on the same Domain cache surface remains forbidden.
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { assertNoDualWrite } from "@/lib/messenger/contracts/cutover";
 import { PHASE7_DOMAIN_REALTIME_PRODUCTION_WIRING } from "@/lib/messenger/contracts/domain-event-envelope";
 import {
@@ -70,6 +71,8 @@ export function createDomainRealtimeAuthorityPort(input: {
   domain: ChatDomain;
   viewerUserId: string;
   surfaceRole?: "customer" | "owner" | null;
+  /** 보는 사람 언어 — 저장 시스템 문장 미리보기(거래·주문)를 이 언어로 (언어 재감사 2026-11-27) */
+  lang?: AppLanguageCode | null;
 }):
   | DomainRealtimeApplyPort<GeneralDirectListItem>
   | DomainRealtimeApplyPort<GroupListItem>
@@ -93,6 +96,7 @@ export function createDomainRealtimeAuthorityPort(input: {
     return createTradeRealtimeApplyPort({
       viewerUserId: viewer,
       cache: tradePhase6Cache,
+      lang: input.lang ?? null,
     });
   }
   if (input.domain === "store_order") {
@@ -104,6 +108,7 @@ export function createDomainRealtimeAuthorityPort(input: {
       viewerUserId: viewer,
       surfaceRole: "customer",
       cache: storeOrderPhase6Cache,
+      lang: input.lang ?? null,
     });
   }
   throw new Error("dibay_domain_realtime_authority_unknown_domain");
@@ -118,6 +123,7 @@ export function applyDomainRealtimeAuthorityEnvelope(input: {
   viewerUserId: string;
   envelope: unknown;
   surfaceRole?: "customer" | "owner" | null;
+  lang?: AppLanguageCode | null;
 }): DomainRealtimeAuthorityApplyResult {
   const viewer = input.viewerUserId.trim();
   if (!isDomainRealtimeAuthorityEnabledForViewer(viewer)) {
@@ -131,6 +137,7 @@ export function applyDomainRealtimeAuthorityEnvelope(input: {
     domain: input.domain,
     viewerUserId: viewer,
     surfaceRole: input.domain === "store_order" ? "customer" : null,
+    lang: input.lang ?? null,
   });
   return port.applyEnvelope(input.envelope, "domain_realtime_authority");
 }

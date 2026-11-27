@@ -18,7 +18,6 @@ export async function enforceWebhookRateLimit(
     key,
     limit,
     windowMs,
-    message: "웹훅 요청 한도를 초과했습니다.",
     code: "webhook_rate_limited",
   });
   if (!rl.ok) return { ok: false, response: rl.response };

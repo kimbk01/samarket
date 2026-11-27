@@ -39,20 +39,20 @@ export function canSendMessageInRoom(input: {
   }
   const pc = input.tradeProductChat;
   if (!pc) {
-    return { ok: false, code: "trade_product_chat_unlinked", message: "거래 정보를 확인할 수 없습니다." };
+    return { ok: false, code: "trade_product_chat_unlinked", message: "trade_product_chat_unlinked" };
   }
   const uid = input.viewerUserId.trim();
   const seller = pc.sellerId.trim();
   const buyer = pc.buyerId.trim();
   if (uid !== seller && uid !== buyer) {
-    return { ok: false, code: "trade_not_counterpart", message: "참여자만 메시지를 보낼 수 있습니다." };
+    return { ok: false, code: "trade_not_counterpart", message: "trade_not_counterpart" };
   }
   const mode = String(pc.chatMode ?? "open").trim().toLowerCase() || "open";
   if (mode === "limited" || mode === "readonly") {
     return {
       ok: false,
       code: "trade_chat_mode_locked",
-      message: "이 채팅에서는 메시지를 보낼 수 없습니다.",
+      message: "trade_chat_mode_locked",
     };
   }
   const flow = String(pc.tradeFlowStatus ?? "chatting").trim().toLowerCase() || "chatting";
@@ -60,20 +60,20 @@ export function canSendMessageInRoom(input: {
     return {
       ok: false,
       code: "trade_flow_not_chatting",
-      message: "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.",
+      message: "trade_flow_not_chatting",
     };
   }
   if (uid === seller && pc.sellerLeftAt) {
-    return { ok: false, code: "trade_viewer_left_as_seller", message: "이미 나간 채팅방입니다." };
+    return { ok: false, code: "trade_viewer_left_as_seller", message: "trade_viewer_left_as_seller" };
   }
   if (uid === buyer && pc.buyerLeftAt) {
-    return { ok: false, code: "trade_viewer_left_as_buyer", message: "이미 나간 채팅방입니다." };
+    return { ok: false, code: "trade_viewer_left_as_buyer", message: "trade_viewer_left_as_buyer" };
   }
   if (uid === buyer && pc.sellerLeftAt) {
     return {
       ok: false,
       code: "trade_seller_closed_buyer_blocked",
-      message: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.",
+      message: "trade_seller_closed_buyer_blocked",
     };
   }
   return { ok: true };

@@ -13,6 +13,11 @@ const MAX_HTML = 1_200_000;
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+/** 오류는 코드만 — 문구는 화면이 `COMMUNITY_OG_IMAGE_ERROR_KEYS` 로 고른다 (재감사 2026-11-27) */
+function ogError(code: string, status?: number) {
+  return NextResponse.json({ ok: false, error: code, code }, status ? { status } : undefined);
+}
+
 /**
  * 기사/페이지 URL을 서버에서 받아 `og:image`·twitter 썸네일 URL을 돌려줍니다(붙여넣기 폴백).
  * 클라이언트에서 직접 페이지를 읽을 수 없을 때 사용합니다.
@@ -28,11 +33,11 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as { pageUrl?: unknown };
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 필요" }, { status: 400 });
+    return ogError("invalid_json", 400);
   }
   const raw = typeof body.pageUrl === "string" ? body.pageUrl.trim() : "";
   if (!raw) {
-    return NextResponse.json({ ok: false, error: "pageUrl 필드 필요" }, { status: 400 });
+    return ogError("page_url_required", 400);
   }
   const pageStr = normalizeHttpUrlString(raw);
 
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
   try {
     initial = await assertPublicHttpUrlForImageFetch(pageStr);
   } catch {
-    return NextResponse.json({ ok: false, error: "허용되지 않는 주소입니다." }, { status: 400 });
+    return ogError("url_not_allowed", 400);
   }
 
   /** 리다이렉트 홉별 공개 주소 검사 + 스트림 상한 (CM-P2-15) */
@@ -56,15 +61,15 @@ export async function POST(req: NextRequest) {
   });
   if (!fetched.ok) {
     if (fetched.reason === "too_large") {
-      return NextResponse.json({ ok: false, error: "페이지가 너무 깁니다." }, { status: 413 });
+      return ogError("page_too_large", 413);
     }
     if (fetched.reason === "blocked" || fetched.reason === "too_many_redirects") {
-      return NextResponse.json({ ok: false, error: "리다이렉트가 허용되지 않습니다." }, { status: 400 });
+      return ogError("redirect_not_allowed", 400);
     }
     if (fetched.reason === "http") {
-      return NextResponse.json({ ok: false, error: "페이지 응답 오류" }, { status: 502 });
+      return ogError("page_fetch_failed", 502);
     }
-    return NextResponse.json({ ok: false, error: "페이지를 불러오지 못했습니다." }, { status: 502 });
+    return ogError("page_fetch_failed", 502);
   }
 
   let text: string;
@@ -73,27 +78,27 @@ export async function POST(req: NextRequest) {
     const dec = new TextDecoder("utf-8", { fatal: false });
     text = dec.decode(new Uint8Array(buf));
   } catch {
-    return NextResponse.json({ ok: false, error: "본문 파싱 실패" }, { status: 502 });
+    return ogError("page_parse_failed", 502);
   }
 
   const rel = parseOgImageFromHtmlString(text) ?? parseFallbackNewsImageFromHtmlString(text);
   if (!rel) {
-    return NextResponse.json({ ok: false, error: "대표 이미지(og)나 본문 이미지를 찾지 못했습니다." });
+    return ogError("og_not_found");
   }
   let abs: string;
   try {
     abs = new URL(rel, fetched.finalUrl).href;
   } catch {
-    return NextResponse.json({ ok: false, error: "이미지 URL 형식 오류" });
+    return ogError("image_url_invalid");
   }
   if (!/^https?:\/\//i.test(abs)) {
-    return NextResponse.json({ ok: false, error: "이미지 URL이 아닙니다." });
+    return ogError("image_url_invalid");
   }
 
   try {
     await assertPublicHttpUrlForImageFetch(abs);
   } catch {
-    return NextResponse.json({ ok: false, error: "이미지 주소가 허용되지 않습니다." });
+    return ogError("image_url_not_allowed");
   }
 
   return NextResponse.json({ ok: true, imageUrl: abs, pageUrl: fetched.finalUrl });

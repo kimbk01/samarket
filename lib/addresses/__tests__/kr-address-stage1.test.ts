@@ -191,6 +191,6 @@ describe("3단계 보강 — 판매·구매 내역 · 가격 제안 · 다른 �
     const jobs = readFileSync("components/write/trade/generic/JobsExtendedWriteFields.tsx", "utf8");
     expect(jobs).toContain("<TradePriceCurrencyRadio");
     expect(jobs).toContain("meta = { ...meta, currency };");
-    expect(readFileSync("components/write/WriteSheetFlowInner.tsx", "utf8")).toContain("getCurrencyUnitLabel(masterTradeCurrency)");
+    expect(readFileSync("components/write/WriteSheetFlowInner.tsx", "utf8")).toContain("getCurrencyUnitLabel(masterTradeCurrency, language)");
   });
 });

@@ -24,6 +24,11 @@ const STREET_OR_BUILDING_RE =
 const PROVINCE_OR_COUNTRY_RE =
   /^(metro\s*manila|ncr|national\s*capital\s*region|philippines|필리핀|republic\s+of\s+the\s+philippines)$/i;
 
+/**
+ * `region_label`(NOT NULL) 저장 호환 기본값 — 옛 행과 같은 값을 유지한다(재감사 2026-11-27 · 브리프 STORED 규칙).
+ * 화면은 이 값을 그대로 보이지 않고 `communityRegionLabelText`(lib/community/community-display-fallbacks.ts)로
+ * 화면 언어 키(`community_region_fallback`)로 그린다.
+ */
 export const COMMUNITY_PUBLIC_REGION_FALLBACK = "동네";
 
 export function publicRegionLabelLeaksPrivateDetail(label: string): boolean {

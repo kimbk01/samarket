@@ -18,7 +18,7 @@ export async function toggleFavorite(
   favorite?: boolean
 ): Promise<ToggleFavoriteResult> {
   const user = getCurrentUser();
-  if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
+  if (!user?.id) return { ok: false, error: "login_required" };
 
   try {
     const res = await fetch("/api/favorites/toggle", {
@@ -34,8 +34,7 @@ export async function toggleFavorite(
       return {
         ok: false,
         error:
-          (data as { error?: string }).error ??
-          (res.status === 401 ? "로그인이 필요합니다." : "처리에 실패했습니다."),
+          (data as { error?: string }).error ?? (res.status === 401 ? "login_required" : "favorite_toggle_failed"),
       };
     }
     if ((data as { ok?: boolean }).ok === true && typeof (data as { isFavorite?: boolean }).isFavorite === "boolean") {
@@ -52,8 +51,8 @@ export async function toggleFavorite(
       );
       return favoriteCount == null ? { ok: true, isFavorite } : { ok: true, isFavorite, favoriteCount };
     }
-    return { ok: false, error: "응답 형식 오류" };
-  } catch (e) {
-    return { ok: false, error: (e as Error)?.message ?? "네트워크 오류" };
+    return { ok: false, error: "invalid_response" };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }

@@ -5,10 +5,10 @@ import { communityMessengerRoomIsConfirmedDelivery } from "@/lib/community-messe
 import {
   parseStoreNameFromDeliveryHeadline,
   resolveStoreOrderDisplayIdentity,
-  STORE_ORDER_DISPLAY_STORE_FALLBACK,
+  STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY,
 } from "@/lib/community-messenger/store-order-display-identity";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import {
   resolveDeliveryChatListFulfillmentType,
   resolveDeliveryChatListOrderStatusRaw,
@@ -82,7 +82,7 @@ export function buildDeliveryChatListRowModel(
 
   return {
     storeId: identity?.storeId ?? null,
-    storeName: identity?.storeName ?? STORE_ORDER_DISPLAY_STORE_FALLBACK,
+    storeName: identity?.storeName ?? translate(lang, STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY),
     orderStatusLabel: statusBadge.label,
     storeThumbnailUrl: identity?.storeProfileImageUrl ?? null,
     statusBadgeClassName: statusBadge.className,

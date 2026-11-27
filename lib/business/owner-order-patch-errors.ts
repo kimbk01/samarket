@@ -12,9 +12,10 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   store_commission_charge_failed: "store_biz_patch_err_commission_failed",
 };
 
+/** 코드 → 화면 문구. 모르는 코드·서버 문장은 원문 대신 기본 키 (재감사 2026-11-27) */
 export function formatOwnerOrderPatchErr(code: string, lang: AppLanguageCode): string {
-  const key = PATCH_ERR_KEYS[code];
-  return key ? translate(lang, key) : code;
+  const key = PATCH_ERR_KEYS[code] ?? "owner_order_err_action_failed";
+  return translate(lang, key);
 }
 
 export function formatOwnerOrderPatchErrAfterReconcile(lang: AppLanguageCode): string {

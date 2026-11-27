@@ -69,7 +69,7 @@ export async function saveOpsBoardBundleToDb(
   );
   if (error) {
     if (isMissingAdminSettings(error)) {
-      return { ok: false, error: "admin_settings 테이블이 없습니다." };
+      return { ok: false, error: "admin_settings_missing" };
     }
     return { ok: false, error: error.message };
   }

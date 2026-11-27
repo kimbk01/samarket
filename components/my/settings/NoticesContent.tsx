@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 
@@ -49,7 +50,8 @@ export function NoticesContent() {
         };
         if (cancelled) return;
         if (!res.ok || !json.ok) {
-          setError(typeof json.error === "string" ? json.error : t("settings_notices_load_failed"));
+          /** 서버 코드(service_unavailable 등)는 화면 문구로만 (재감사 2026-11-27) */
+          setError(resolveApiErrorText({ json, status: res.status, fallbackKey: "settings_notices_load_failed", t }));
           setNotices((prev) => (prev.length === 0 ? prev : []));
           return;
         }

@@ -21,11 +21,11 @@ export const dynamic = "force-dynamic";
 function groupRoomServiceJsonError(error: string) {
   switch (error) {
     case GROUP_ROOM_ERROR.FORBIDDEN:
-      return jsonError("권한이 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_NOT_FOUND:
-      return jsonError("그룹 대화방을 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     default:
-      return jsonError("공지를 설정하지 못했습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
   }
 }
 
@@ -60,7 +60,6 @@ export async function PATCH(
     key: `community-messenger:group-room-pin:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "공지 설정 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_group_room_pin_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

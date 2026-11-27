@@ -9,6 +9,8 @@ import { PostTextWithVideos } from "@/components/community/post-detail/PostTextW
 import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
 import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { localizeImportedLinkText } from "@/lib/community/community-display-fallbacks";
 
 /** Import keeps a video as "thumbnail image (alt video) + ▶ link"; the link now plays in place. */
 function isVideoThumbnailBlock(blocks: ImportedContentBlock[], i: number): boolean {
@@ -56,6 +58,7 @@ function RichRuns({ runs }: { runs: readonly RichRun[] }) {
  * rendered as React elements in DIBAY styling. Blocks are sanitized server-side; no HTML is injected.
  */
 export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[] }) {
+  const { t } = useI18n();
   /** Body images in order (the viewer pages through these) and each block's position in that list. */
   const { imageUrls, imageIndexByBlock } = useMemo(() => {
     const urls: string[] = [];
@@ -149,7 +152,7 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
                 <PostBodyImage
                   src={b.url}
                   alt={b.alt ?? ""}
-                  label={`이미지 ${at + 1} 크게 보기`}
+                  label={t("community_image_open_n", { n: at + 1 })}
                   onOpen={() => openAt(imageUrls, at)}
                   priority={at === 0}
                 />
@@ -163,7 +166,7 @@ export function ImportedRichContent({ blocks }: { blocks: ImportedContentBlock[]
             return (
               <p key={i} className="text-[15px]">
                 <a href={b.href} target="_blank" rel="noreferrer noopener" className="text-sam-primary underline underline-offset-2 break-all">
-                  {b.text}
+                  {localizeImportedLinkText(b.text, t)}
                 </a>
               </p>
             );

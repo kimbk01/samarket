@@ -7,6 +7,8 @@ import { fetchCommunityMyHubPostsDeduped } from "@/lib/community/fetch-community
 import { philifeAppPaths } from "@domain/philife/paths";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { COMMUNITY_FEED_ERROR_KEYS } from "@/lib/community/community-api-error-text";
 
 export function CommunityMyHubClient({ userId }: { userId: string }) {
   const { t, language } = useI18n();
@@ -19,13 +21,21 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
       const result = await fetchCommunityMyHubPostsDeduped(userId);
       const j = result.json as { ok?: boolean; posts?: NeighborhoodFeedPostDTO[]; error?: string };
       if (result.status < 200 || result.status >= 300 || !j.ok) {
-        setErr(j.error ?? t("community_hub_load_failed"));
+        setErr(
+          resolveApiErrorText({
+            json: j,
+            status: result.status,
+            map: COMMUNITY_FEED_ERROR_KEYS,
+            fallbackKey: "community_hub_load_failed",
+            t,
+          })
+        );
         setMine([]);
         return;
       }
       setMine(j.posts ?? []);
-    } catch (e) {
-      setErr((e as Error).message);
+    } catch {
+      setErr(t("community_hub_load_failed"));
     }
   }, [userId, t]);
 

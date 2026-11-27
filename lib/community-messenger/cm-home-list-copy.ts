@@ -1,3 +1,4 @@
+import { isStoreOrderMatchAckText } from "@/lib/chats/store-order-match-ack-text";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import type { AppLanguageCode } from "@/lib/i18n/config";
@@ -14,6 +15,7 @@ import {
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerMessageType,
@@ -134,6 +136,11 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
         formatSystemPreview(lastMessage)
       );
     }
+    /**
+     * 실시간 반영은 빈 system 본문을 빈 값으로 둔다(옛 「알림」 저장 대신). 종류 메타가 있으면 실제 시스템 메시지 →
+     * 보는 사람 언어 키. 메타가 없는 빈 system(방 생성 기본값)은 아래 빈 방 안내로 내려간다.
+     */
+    if (room.lastMessageMeta) return translateCmUi("cm_home_sys_message");
   } else if (lastMessageType === "gift_certificate") {
     return translateCmUi("cm_home_preview_gift");
   } else if (lastMessageType === "sticker") {
@@ -149,6 +156,11 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
       ? callText
       : translateCmUi("cm_home_preview_call_named", { detail: callText });
   }
+  /** 전원 삭제·관리자 숨김 저장 토큰 → 보는 사람 언어 */
+  const storedPlaceholderKey = resolveStoredMessagePlaceholderKey(lastMessage);
+  if (storedPlaceholderKey) return translateCmUi(storedPlaceholderKey);
+  /** 주문 「일치합니다」 자동 응답(ko·en 저장) → 보는 사람 언어 */
+  if (lastMessageType === "text" && isStoreOrderMatchAckText(lastMessage)) return translateCmUi("store_order_match_ack");
   /** 빈 방 안내(서버가 한 언어로 채움) → 보는 사람 언어 */
   const placeholderKey = messengerRoomLastMessagePlaceholderKey(lastMessage);
   if (placeholderKey) return translateCmUi(placeholderKey);

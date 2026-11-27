@@ -46,13 +46,13 @@ function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
 export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
   if (!requestHasSupabaseAuthCookies(request)) {
-    return jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
+    return jsonErrorWithRequest(request, "unauthorized", 401, { authenticated: false, code: "unauthorized" });
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) {
-    return jsonErrorWithRequest(request, "인증 설정이 준비되지 않았습니다.", 503, { authenticated: false });
+    return jsonErrorWithRequest(request, "supabase_unconfigured", 503, { authenticated: false, code: "supabase_unconfigured" });
   }
 
   let cookieCarrier = NextResponse.next({
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
   const userId = (await resolveRouteHandlerUserIdFromSupabase(supabase))?.trim() ?? "";
   const authMs = devPerfNow() - auth0;
   if (!userId) {
-    const res = jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
+    const res = jsonErrorWithRequest(request, "unauthorized", 401, { authenticated: false, code: "unauthorized" });
     mergeAuthCookies(cookieCarrier, res);
     return res;
   }

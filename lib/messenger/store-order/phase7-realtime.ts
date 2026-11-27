@@ -14,6 +14,7 @@ import {
 import { DomainEventEnvelopeError } from "@/lib/messenger/contracts/domain-event-envelope";
 import type { StoreOrderSurfaceRole } from "@/lib/messenger/store-order/phase6-bootstrap";
 import { buildStoreOrderHubViewModel } from "@/lib/messenger/store-order/hub";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { parseStoreOrderIdentityKey } from "@/lib/messenger/store-order/identity";
 import { STORE_ORDER_DOMAIN, type StoreOrderListItem } from "@/lib/messenger/store-order/types";
 
@@ -80,6 +81,8 @@ export function createStoreOrderRealtimeApplyPort(input: {
   surfaceRole: StoreOrderSurfaceRole;
   /** Authority path: inject Phase6 singleton. Default = isolated Map (harness only). */
   cache?: DomainPersistentCachePort<StoreOrderListItem>;
+  /** 허브 미리보기 언어 — 보는 사람 언어. 없으면 실행 환경 언어(재감사 2026-11-27) */
+  lang?: AppLanguageCode | null;
 }): DomainRealtimeApplyPort<StoreOrderListItem> {
   const cache =
     input.cache ??
@@ -225,7 +228,7 @@ export function createStoreOrderRealtimeApplyPort(input: {
       return { kind: "noop" };
     },
     recomputeHubBadge: ({ rows }) => {
-      const hub = buildStoreOrderHubViewModel(rows);
+      const hub = buildStoreOrderHubViewModel(rows, input.lang);
       return {
         hub: {
           ...hub,

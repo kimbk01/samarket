@@ -13,6 +13,7 @@ import { useOwnerCatalogEndpoints } from "@/components/business/owner/owner-cata
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
@@ -117,7 +118,7 @@ export function OwnerMenuCategoriesClient({
       const res = await fetch(base, { credentials: "include", cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!j?.ok) {
-        setError(typeof j?.error === "string" ? j.error : "load_failed");
+        setError(isOwnerApiErrorCode(j?.error) ? j.error : "load_failed");
         setSections([]);
         return;
       }
@@ -234,7 +235,7 @@ export function OwnerMenuCategoriesClient({
           setError(
             j?.error === "duplicate_section_name"
               ? t("business_phase7_474")
-              : typeof j?.error === "string"
+              : isOwnerApiErrorCode(j?.error)
                 ? j.error
                 : t("business_phase7_368")
           );
@@ -257,7 +258,7 @@ export function OwnerMenuCategoriesClient({
           setError(
             j?.error === "duplicate_section_name"
               ? t("business_phase7_474")
-              : typeof j?.error === "string"
+              : isOwnerApiErrorCode(j?.error)
                 ? j.error
                 : t("business_phase7_368")
           );
@@ -303,7 +304,7 @@ export function OwnerMenuCategoriesClient({
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
         setSections(previous);
-        setError(typeof j?.error === "string" ? j.error : t("business_phase7_476"));
+        setError(isOwnerApiErrorCode(j?.error) ? j.error : t("business_phase7_476"));
         return;
       }
       setSections(ordered.map((sec, idx) => ({ ...sec, sort_order: idx })));
@@ -336,7 +337,7 @@ export function OwnerMenuCategoriesClient({
         return;
       }
       if (!res.ok || !j?.ok) {
-        setError(typeof j?.error === "string" ? j.error : t("business_phase7_352"));
+        setError(isOwnerApiErrorCode(j?.error) ? j.error : t("business_phase7_352"));
         return;
       }
       setMoveDelete(null);
@@ -373,7 +374,7 @@ export function OwnerMenuCategoriesClient({
 
           <div className="py-4">
             {error ? (
-              <p className="mb-3 sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p>
+              <p className="mb-3 sam-text-body-secondary text-sam-danger">{isOwnerApiErrorCode(error) ? resolveOwnerApiErrorMessage(error, t) : error}</p>
             ) : null}
 
             {editorTab === "basic" ? (
@@ -499,7 +500,7 @@ export function OwnerMenuCategoriesClient({
           </Link>
         </div>
 
-        {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{isOwnerApiErrorCode(error) ? resolveOwnerApiErrorMessage(error, t) : error}</p> : null}
 
         {loading ? (
           <DibayPendingSpinner layout="inline" />

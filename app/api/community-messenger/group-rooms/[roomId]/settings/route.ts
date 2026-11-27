@@ -22,16 +22,16 @@ function trimText(v: unknown): string {
 function groupRoomServiceJsonError(error: string) {
   switch (error) {
     case GROUP_ROOM_ERROR.FORBIDDEN:
-      return jsonError("권한이 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_NOT_FOUND:
     case GROUP_ROOM_ERROR.NOT_GROUP_ROOM:
-      return jsonError("그룹 대화방을 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     case GROUP_ROOM_ERROR.MESSENGER_MIGRATION_REQUIRED:
-      return jsonError("그룹 대화 기능을 사용하려면 DB 마이그레이션이 필요합니다.", 503, {
+      return jsonError(error, 503, {
         code: error,
       });
     default:
-      return jsonError("그룹 설정을 변경하지 못했습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
   }
 }
 
@@ -50,7 +50,6 @@ export async function PATCH(
     key: `community-messenger:group-room-settings:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "그룹 설정 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_group_room_settings_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -69,7 +68,7 @@ export async function PATCH(
 
   const { roomId: rawRoomId } = await params;
   const roomId = trimText(rawRoomId);
-  if (!roomId) return jsonError("대화방 id가 필요합니다.", 400);
+  if (!roomId) return jsonError("bad_request", 400, { code: "bad_request" });
 
   const body = parsed.value;
   const settings: GroupRoomSettingsPatch = {

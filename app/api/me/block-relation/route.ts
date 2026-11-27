@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const otherUserId = req.nextUrl.searchParams.get("otherUserId")?.trim() ?? "";
   if (!otherUserId) {
     return NextResponse.json(
-      { ok: false, error: "otherUserId가 필요합니다." },
+      { ok: false, error: "other_user_id_required", code: "other_user_id_required" },
       { status: 400 }
     );
   }

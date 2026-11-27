@@ -2,6 +2,8 @@
  * 주문 직후 상세 화면 첫 페인트용 시드 — POST 응답 요약만 저장, TTL 후 폐기.
  */
 
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   dibayPerfRecordOrderDetailSeedCleared,
   dibayPerfRecordOrderDetailSeedSaved,
@@ -170,7 +172,9 @@ export function buildStoreOrderDetailSeedFromPostSuccess(args: {
     id: args.orderId.trim(),
     order_no: String(args.order_no ?? "").trim(),
     store_id: args.store_id.trim(),
-    store_name: String(args.store_name ?? "").trim() || "매장",
+    store_name:
+      String(args.store_name ?? "").trim() ||
+      translate(getRuntimeAppLanguage(), "my_store_orders_store_fallback"),
     order_status: "pending",
     ...(args.fulfillment_type?.trim() ? { fulfillment_type: args.fulfillment_type.trim() } : {}),
     payment_amount: pa,

@@ -7,6 +7,8 @@ import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import {
   buildStoreOrderSummaryTimelineSteps,
   type StoreOrderSummaryTimelineStep,
@@ -58,6 +60,8 @@ export type StoreOrderChatCardInput = {
   events?: Array<{ to_status?: string | null; created_at?: string | null }>;
   storeName?: string;
   storePickupAddressLines?: string[];
+  /** 대체 라벨(상품·매장) 언어 — 없으면 화면 언어 */
+  language?: AppLanguageCode;
 };
 
 function text(value: unknown): string {
@@ -101,6 +105,7 @@ function buildAddressLines(input: StoreOrderChatCardInput, fulfillmentType: stri
 
 export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): StoreOrderChatCardView {
   const order = input.order;
+  const lang = input.language ?? getRuntimeAppLanguage();
   const fulfillmentType = text(order.fulfillment_type) || "pickup";
   const status = text(order.order_status) || "pending";
   const items = (input.items ?? []).map((it) => {
@@ -108,8 +113,8 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
     const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
     const subtotal = money(it.subtotal) || unitPrice * qty;
     return {
-      title: text(it.product_title_snapshot) || "상품",
-      options: orderLineOptionsSummary(it.options_snapshot_json),
+      title: text(it.product_title_snapshot) || translate(lang, "mypage_hub_product_fallback"),
+      options: orderLineOptionsSummary(it.options_snapshot_json, lang),
       unitPrice,
       qty,
       subtotal,
@@ -132,9 +137,9 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
   return {
     orderId: text(order.id),
     orderNo: text(order.order_no),
-    storeName: input.storeName || text(order.store_name) || "매장",
+    storeName: input.storeName || text(order.store_name) || translate(lang, "my_store_orders_store_fallback"),
     status,
-    statusLabel: buyerOrderStatusLabel(status, getRuntimeAppLanguage(), fulfillmentType, order.cancel_kind),
+    statusLabel: buyerOrderStatusLabel(status, lang, fulfillmentType, order.cancel_kind),
     fulfillmentType,
     fulfillmentLabel: isDeliveryFulfillment(fulfillmentType) ? "배달" : "포장·픽업",
     isDelivery: isDeliveryFulfillment(fulfillmentType),

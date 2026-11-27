@@ -15,6 +15,7 @@ import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { loadTradeRatingContext } from "@/lib/trade/trade-rating";
 
 /** 판매완료 1건당 확인할 방 상한 — 요청 수를 묶는다(방마다 자격 확인 조회가 있다) */
@@ -79,6 +80,11 @@ export async function notifyTradeSoldToEligibleCounterparts(
           product_chat_id: raw.id,
           product_id: postId,
           actor_id: args.sellerUserId,
+          ...notificationCopyMeta({
+            titleKey: "notify_trade_sold_rate_title",
+            messageKey: "notify_trade_sold_rate_body",
+            vars: { product },
+          }),
         },
       });
       sent += 1;
@@ -127,6 +133,11 @@ export async function notifyTradeRatingReceived(
         product_chat_id: chat.id,
         product_id: chat.post_id,
         actor_id: args.reviewerId,
+        ...notificationCopyMeta({
+          titleKey: "notify_trade_rating_received_title",
+          messageKey: "notify_trade_rating_received_body",
+          vars: { name },
+        }),
       },
     });
     return true;

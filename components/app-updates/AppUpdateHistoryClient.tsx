@@ -56,7 +56,8 @@ export function AppUpdateHistoryClient() {
   }, [h.status, focusVersion]);
 
   const newest = useMemo(() => h.releases.find((r) => r.isNew) ?? null, [h.releases]);
-  const notesOf = (r: AppReleaseItem) => (language === "en" ? r.notesEn || r.notesKo : r.notesKo || r.notesEn);
+  /** 지금 언어의 안내만 — 비어 있으면 다른 언어로 대신하지 않고 안내 줄을 그리지 않는다(언어 재감사 2026-11-27 §4-5 R5) */
+  const notesOf = (r: AppReleaseItem) => (language === "en" ? r.notesEn : r.notesKo);
 
   const onUpdate = async () => {
     if (!h.hasUpdate || busy) return;

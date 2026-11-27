@@ -20,7 +20,7 @@ export const ownerUiCopyKeysMessages = {
     owner_copy_finance_cash_ledger_convert_from_coin: "Coin 전환",
     owner_copy_finance_cash_ledger_ad_spend: "광고",
     owner_copy_finance_cash_ledger_ad_refund: "광고 환불",
-    owner_copy_finance_cash_ledger_partner_spend: "Partner",
+    owner_copy_finance_cash_ledger_partner_spend: "Partner 사용",
     owner_copy_finance_cash_ledger_partner_refund: "Partner 환불",
     owner_copy_finance_cash_ledger_sale_fee: "수수료",
     owner_copy_finance_cash_ledger_sale_fee_settlement: "미납 수수료 정산",

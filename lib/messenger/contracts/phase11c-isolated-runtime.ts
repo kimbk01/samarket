@@ -1,4 +1,4 @@
-import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 /**
  * Phase 11C — Isolated Runtime Integration (harness only).
  *
@@ -207,8 +207,11 @@ export async function runPhase11cColdIsolatedPipeline(input: {
   viewerUserId: string;
   generation: string;
   sources: Phase11cIsolatedSources;
+  /** 행·hub·목록 미리보기 언어(검증 하네스 — 화면 아님). 없으면 기본 언어로 명시 고정(감사 L2) */
+  lang?: AppLanguageCode;
 }): Promise<Phase11cColdBootstrapResult> {
   assertPhase11cIsolatedOnly();
+  const lang: AppLanguageCode = input.lang ?? DEFAULT_APP_LANGUAGE;
   const viewer = input.viewerUserId.trim();
   const generation = input.generation.trim() || "1";
 
@@ -318,6 +321,7 @@ export async function runPhase11cColdIsolatedPipeline(input: {
     generation,
     snapshotKind: "full",
     source: input.sources.trade,
+    lang,
   });
   assertNoForeignRows(trBody.rows, "trade");
   const trKey = tradePhase6Cache.buildCacheKey({ viewerUserId: viewer, generation });
@@ -334,7 +338,7 @@ export async function runPhase11cColdIsolatedPipeline(input: {
     "isolated_harness"
   );
   const trRows = trBody.rows;
-  const trHub = buildTradeHubViewModel(trRows);
+  const trHub = buildTradeHubViewModel(trRows, lang);
   const trList = trRows.map(buildTradeListViewModel);
   const trUnread = buildTradeUnreadContribution({
     viewerUserId: viewer,
@@ -371,6 +375,7 @@ export async function runPhase11cColdIsolatedPipeline(input: {
       snapshotKind: "full",
       surfaceRole: role,
       source,
+      lang,
     });
     assertNoForeignRows(body.rows, "store_order");
     const key = buildStoreOrderCacheKeyForSurface({
@@ -391,11 +396,11 @@ export async function runPhase11cColdIsolatedPipeline(input: {
       },
       "isolated_harness"
     );
-    const hub = buildStoreOrderHubViewModel(body.rows);
+    const hub = buildStoreOrderHubViewModel(body.rows, lang);
     const listVms =
       role === "customer"
-        ? body.rows.map((row) => buildStoreOrderCustomerListViewModel(row, DEFAULT_APP_LANGUAGE)) /* 감사 L2 — 검증 하네스(화면 아님): 기본값이던 언어를 명시 */ 
-        : body.rows.map((row) => buildStoreOrderOwnerListViewModel(row, DEFAULT_APP_LANGUAGE));
+        ? body.rows.map((row) => buildStoreOrderCustomerListViewModel(row, lang))
+        : body.rows.map((row) => buildStoreOrderOwnerListViewModel(row, lang));
     const unread = buildStoreOrderUnreadContribution({
       viewerUserId: viewer,
       surfaceRole: role,

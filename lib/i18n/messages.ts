@@ -52,6 +52,13 @@ import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
 import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
+import { reauditTradeMessages } from "./catalog/reaudit-trade";
+import { reauditCommunityMessages } from "./catalog/reaudit-community";
+import { reauditMessengerMessages } from "./catalog/reaudit-messenger";
+import { reauditStoreMessages } from "./catalog/reaudit-store";
+import { reauditOwnerMessages } from "./catalog/reaudit-owner";
+import { reauditMiscMessages } from "./catalog/reaudit-misc";
+import { reauditNotifMessages } from "./catalog/reaudit-notif";
 import { notificationMessages } from "./catalog/notifications";
 import { popupSsotWordingMessages } from "./catalog/popup-ssot-wording";
 import { adsImpl1104PromotionMessages } from "./catalog/ads-impl-1104-p";
@@ -179,6 +186,13 @@ function buildKoMessages(): LocaleMessageBag {
   ...storeOrderChatSummaryLabelsMessages.ko,
   ...storeOrderStageTermsMessages.ko,
   ...navigationMessages.ko,
+  ...reauditTradeMessages.ko,
+  ...reauditCommunityMessages.ko,
+  ...reauditMessengerMessages.ko,
+  ...reauditStoreMessages.ko,
+  ...reauditOwnerMessages.ko,
+  ...reauditMiscMessages.ko,
+  ...reauditNotifMessages.ko,
   ...notificationMessages.ko,
   ...chatsMessages.ko,
   ...ptrMessages.ko,
@@ -295,6 +309,13 @@ function buildEnMessages(): LocaleMessageBag {
   ...storeOrderChatSummaryLabelsMessages.en,
   ...storeOrderStageTermsMessages.en,
   ...navigationMessages.en,
+  ...reauditTradeMessages.en,
+  ...reauditCommunityMessages.en,
+  ...reauditMessengerMessages.en,
+  ...reauditStoreMessages.en,
+  ...reauditOwnerMessages.en,
+  ...reauditMiscMessages.en,
+  ...reauditNotifMessages.en,
   ...notificationMessages.en,
   ...chatsMessages.en,
   ...ptrMessages.en,

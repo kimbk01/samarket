@@ -14,7 +14,7 @@ import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/ph
 import { resolveTopicForNeighborhoodCategory } from "@/lib/neighborhood/resolve-topic-for-category";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityPostAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
@@ -35,6 +35,14 @@ import { ensureLguLocationId, legacyLocationRowToLguId, lguPublicName, parseLguL
 import type { ResolveNeighborhoodLocationResult } from "@/lib/neighborhood/ensure-location";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * 오류는 코드만(`error`=`code`) + 값은 `params` — 문구는 화면이 `COMMUNITY_POST_WRITE_ERROR_KEYS` 로 고른다
+ * (재감사 2026-11-27 · `docs/i18n-ssot.md` §3-3). DB 원문·운영 안내는 로그로만.
+ */
+function postError(code: string, status: number, params?: Record<string, number | string>) {
+  return NextResponse.json({ ok: false, error: code, code, ...(params ? { params } : {}) }, { status });
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -80,27 +88,24 @@ export async function POST(req: NextRequest) {
     .trim()
     .toLowerCase();
   if (!locationKey) {
-    return NextResponse.json({ ok: false, error: "동네를 선택해 주세요." }, { status: 400 });
+    return postError("location_required", 400);
   }
   if (!rawCat) {
-    return NextResponse.json({ ok: false, error: "카테고리를 선택해 주세요." }, { status: 400 });
+    return postError("category_required", 400);
   }
   /** 옛 모임(meetup) 글 작성은 폐지됨 — 모임은 신규 `moim` 도메인 (docs/design/moim/moim-design-v1-2026-11-12.md) */
   if (rawCat === "meetup") {
     return NextResponse.json({ ok: false, error: "category_unavailable", code: "meetup_removed" }, { status: 400 });
   }
   if (!title) {
-    return NextResponse.json({ ok: false, error: "제목을 입력해 주세요." }, { status: 400 });
+    return postError("title_required", 400);
   }
   if (!content) {
-    return NextResponse.json({ ok: false, error: "내용을 입력해 주세요." }, { status: 400 });
+    return postError("content_required", 400);
   }
   const accepted = evaluateCommunityPostAcceptance({ title, content });
   if (!accepted.ok) {
-    return NextResponse.json(
-      { ok: false, error: communityAcceptanceErrorMessage(accepted.code) },
-      { status: 400 }
-    );
+    return postError(communityAcceptanceErrorCode(accepted.code), 400);
   }
   /** images SSOT = 본문 이미지 순서 ∪ 본문 밖 첨부 — 외부·data URL 거부, 10장 초과 거부 (CM-P1-02·CM-P2-11) */
   const imagesRes = resolveMemberPostImages({ userId: auth.userId, content, candidates: body.images });
@@ -163,16 +168,10 @@ export async function POST(req: NextRequest) {
   ]);
 
   if (title.length > ops.max_title_length) {
-    return NextResponse.json(
-      { ok: false, error: `제목은 ${ops.max_title_length}자 이하입니다.` },
-      { status: 400 }
-    );
+    return postError("title_too_long", 400, { max: ops.max_title_length });
   }
   if (content.length > ops.max_content_length) {
-    return NextResponse.json(
-      { ok: false, error: `본문은 ${ops.max_content_length}자 이하입니다.` },
-      { status: 400 }
-    );
+    return postError("content_too_long", 400, { max: ops.max_content_length });
   }
   const filtered = await guardBannedWords({
     userId: auth.userId,
@@ -188,53 +187,35 @@ export async function POST(req: NextRequest) {
   if (ops.max_posts_per_day > 0) {
     const n = await countUserCommunityPostsToday(auth.userId);
     if (n >= ops.max_posts_per_day) {
-      return NextResponse.json(
-        { ok: false, error: `하루에 올릴 수 있는 글은 ${ops.max_posts_per_day}개까지입니다.` },
-        { status: 429 }
-      );
+      return postError("daily_post_limit", 429, { max: ops.max_posts_per_day });
     }
   }
 
   if (!loc.locationId) {
     if (loc.failure === "invalid_key") {
-      return NextResponse.json({ ok: false, error: "동네 설정이 올바르지 않습니다. 상단에서 동네를 다시 선택해 주세요." }, { status: 400 });
+      return postError("location_invalid", 400);
     }
     if (loc.failure === "schema_missing") {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "동네 DB(locations)가 없습니다. Supabase에 마이그레이션 20260326120000_neighborhood_community.sql 을 적용했는지 확인하세요.",
-        },
-        { status: 500 }
-      );
+      console.error("[neighborhood-posts] locations table missing (migration 20260326120000_neighborhood_community.sql)");
+      return postError("location_persist_failed", 500);
     }
-    const hint = loc.supabaseMessage ? ` (${loc.supabaseMessage.slice(0, 180)})` : "";
-    return NextResponse.json(
-      { ok: false, error: `동네 정보를 저장하지 못했습니다.${hint}` },
-      { status: 500 }
-    );
+    if (loc.supabaseMessage) {
+      console.error("[neighborhood-posts] location persist failed", loc.supabaseMessage.slice(0, 180));
+    }
+    return postError("location_persist_failed", 500);
   }
   const locationId = loc.locationId;
 
   const secRow = secRes.data as { id?: string; slug?: string } | null;
   if (secRes.error || !secRow?.id) {
-    return NextResponse.json(
-      { ok: false, error: `community_sections(${philifeSectionSlug}) 없음` },
-      { status: 500 }
-    );
+    console.error("[neighborhood-posts] community_sections missing", philifeSectionSlug, secRes.error?.message ?? "");
+    return postError("section_missing", 500);
   }
 
   const topicMeta = await resolveTopicForNeighborhoodCategory(sb, rawCat, { sectionId: secRow.id });
   if (!topicMeta) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          `선택한 주제를 사용할 수 없습니다. 어드민 → 피드 주제에서 동네 피드 섹션(${philifeSectionSlug}) 주제를 확인해 주세요.`,
-      },
-      { status: 400 }
-    );
+    console.error("[neighborhood-posts] topic unavailable — check admin feed topics for section", philifeSectionSlug, rawCat);
+    return postError("topic_unavailable", 400);
   }
 
   /** Legacy enum column only — Topic identity is topic_id/topic_slug above */
@@ -267,7 +248,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insErr || !inserted) {
-    return NextResponse.json({ ok: false, error: insErr?.message ?? "등록 실패" }, { status: 500 });
+    console.error("[neighborhood-posts] insert failed", insErr?.message ?? "no_row");
+    return postError("post_save_failed", 500);
   }
 
   const postId = (inserted as { id: string }).id;
@@ -281,7 +263,8 @@ export async function POST(req: NextRequest) {
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
     if (imgErr) {
       await sb.from("community_posts").delete().eq("id", postId);
-      return NextResponse.json({ ok: false, error: imgErr.message ?? "이미지 저장 실패" }, { status: 500 });
+      console.error("[neighborhood-posts] image rows insert failed", imgErr.message ?? "");
+      return postError("image_save_failed", 500);
     }
   }
 

@@ -235,3 +235,23 @@ describe("C1–C7 chat structured message search", () => {
     expect(hits.map((h) => h.room.id)).toEqual(["r-a", "r-b"]);
   });
 });
+
+describe("global chat search — viewer language (재감사 2026-11-27)", () => {
+  it("trade role summary uses the passed t (en has no Hangul)", async () => {
+    const { chatGlobalSearchDisplayFields } = await import("@/lib/search/global/adapters/chat-search-adapter");
+    const { translate } = await import("@/lib/i18n/messages");
+    const raw = JSON.stringify({ v: 1, kind: "trade", headline: "x", roleLabel: "판매자" });
+    const r = room({
+      id: "t-lang",
+      title: "trade",
+      summary: raw,
+      contextMeta: parseCommunityMessengerRoomContextMeta(raw),
+      chatDomain: "trade",
+    });
+    const en = chatGlobalSearchDisplayFields(r, (key) => translate("en", key)).summary;
+    const ko = chatGlobalSearchDisplayFields(r, (key) => translate("ko", key)).summary;
+    expect(en.length).toBeGreaterThan(0);
+    expect(/[가-힣]/.test(en)).toBe(false);
+    expect(/[가-힣]/.test(ko)).toBe(true);
+  });
+});

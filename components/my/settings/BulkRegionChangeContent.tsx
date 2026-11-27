@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveApiErrorText, type ApiErrorCodeMap } from "@/lib/i18n/api-error-text";
+
+/** `POST /api/me/posts/bulk-region` 오류 코드 → 문구 키 (서버 문장은 그리지 않는다) */
+const BULK_REGION_ERROR_MAP: ApiErrorCodeMap = {
+  location_required: "settings_bulk_region_location_required",
+  bulk_region_update_failed: "settings_bulk_region_error",
+};
 
 export function BulkRegionChangeContent() {
   const { t } = useI18n();
@@ -32,7 +39,15 @@ export function BulkRegionChangeContent() {
         location?: { label?: string | null; source?: string | null };
       };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : t("settings_bulk_region_error"));
+        setError(
+          resolveApiErrorText({
+            json,
+            status: res.status,
+            map: BULK_REGION_ERROR_MAP,
+            fallbackKey: "settings_bulk_region_error",
+            t,
+          }),
+        );
         return;
       }
       const label =

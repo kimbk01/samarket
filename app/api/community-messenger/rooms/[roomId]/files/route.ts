@@ -29,7 +29,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     key: `community-messenger:file-upload:${getRateLimitKey(req, auth.userId)}`,
     limit: 20,
     windowMs: 60_000,
-    message: "파일 업로드 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_file_upload_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

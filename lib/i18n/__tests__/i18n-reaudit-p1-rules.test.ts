@@ -9,7 +9,8 @@ describe("ko-latin-only — 한국어 값이 영어", () => {
   it("주소 「House」 같은 영어 한국어 값을 잡는다", () => {
     expect(isKoLatinOnly("House")).toBe(true);
     expect(isKoLatinOnly("Store · {name}")).toBe(true);
-    expect(isKoLatinOnly("Cash")).toBe(true);
+    expect(isKoLatinOnly("Partner spend")).toBe(true);
+    expect(isKoLatinOnly("Cash")).toBe(false); // Owner D1 — 매장 화폐 이름은 영어 표기
   });
   it("한글·브랜드·치환값만인 값은 잡지 않는다", () => {
     expect(isKoLatinOnly("집")).toBe(false);
@@ -67,5 +68,19 @@ describe("SNS 임시 닉네임 언어 (A1)", () => {
     expect(isOAuthSystemDisplayName("DIBAY 사용자")).toBe(true);
     expect(isOAuthSystemDisplayName("DIBAY user")).toBe(true);
     expect(isOAuthSystemDisplayName("Kim")).toBe(false);
+  });
+});
+
+import { countServerHangulError } from "@/lib/i18n/quality/i18n-quality-rules";
+
+describe("server-hangul-error — 서버 한국어 오류 문장", () => {
+  it("한국어 문장 응답을 센다", () => {
+    expect(countServerHangulError(`return jsonError("로그인이 필요합니다.", 401);`)).toBe(1);
+    expect(countServerHangulError(`return NextResponse.json({ ok: false, error: "저장 실패" });`)).toBe(1);
+  });
+  it("코드·주석·로그는 세지 않는다", () => {
+    expect(countServerHangulError(`return jsonError("login_required", 401);`)).toBe(0);
+    expect(countServerHangulError(`// error: "한글"`)).toBe(0);
+    expect(countServerHangulError(`console.error("실패", { error: "한글" });`)).toBe(0);
   });
 });

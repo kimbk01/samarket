@@ -491,7 +491,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         <p
           className={`text-[length:var(--cm-chat-font-quote)] font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
         >
-          {formatReplyQuoteKakaoHeader(tt(replyQuote.senderLabel))}
+          {formatReplyQuoteKakaoHeader(tt(replyQuote.senderLabel), t)}
         </p>
         <p
           className={`mt-0.5 line-clamp-2 text-[length:var(--cm-chat-font-quote)] leading-snug ${

@@ -124,7 +124,8 @@ export async function adminApproveOwnerEventPromoRequest(
         starts_at: request.requestedStartsAt,
         ends_at: request.requestedEndsAt,
         timezone: request.timezone,
-        cta_label: "자세히 보기",
+        /** 언어 재감사 2026-11-27 — 문장·코드 대신 빈 값. 고객 화면이 현재 언어 기본 이름으로 그린다(`resolvePlatformEventCtaLabel`) */
+        cta_label: null,
         cta_type: cta.ctaType,
         cta_target: cta.ctaTarget,
         cta_external_url: cta.ctaExternalUrl,

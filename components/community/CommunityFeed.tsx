@@ -109,6 +109,8 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { COMMUNITY_FEED_ERROR_KEYS } from "@/lib/community/community-api-error-text";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -773,12 +775,14 @@ export function CommunityFeed({
           if (code === "invalid_category") {
             setCategory("");
           }
-          const human =
-            code === "invalid_category"
-              ? t("community_feed_invalid_category")
-              : code === "server_config"
-                ? t("community_feed_server_config")
-                : (j.error ?? t("community_feed_load_failed"));
+          /** 코드 → 키만 — 모르는 코드·서버 문장은 일반 실패 문구 (재감사 2026-11-27) */
+          const human = resolveApiErrorText({
+            json: j,
+            status: res.status,
+            map: COMMUNITY_FEED_ERROR_KEYS,
+            fallbackKey: "community_feed_load_failed",
+            t,
+          });
           setErr(human);
           failHasMore();
           return "error";

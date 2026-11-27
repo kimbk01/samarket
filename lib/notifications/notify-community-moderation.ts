@@ -12,6 +12,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 
 /** 이의신청·문의 진입 (고객센터) */
 export const COMMUNITY_APPEAL_HREF = "/support/enter";
@@ -85,6 +86,11 @@ export async function notifyCommunityContentModerated(
       post_id: args.postId,
       ...(args.commentId ? { comment_id: args.commentId } : {}),
       ...(reason ? { reason } : {}),
+      ...notificationCopyMeta({
+        titleKey: CONTENT_TITLE_KEY[target][args.kind],
+        messageKey: reason ? "notify_community_mod_reason_body" : "notify_community_mod_default_body",
+        vars: reason ? { reason } : undefined,
+      }),
     },
   });
 }
@@ -126,6 +132,15 @@ export async function notifyCommunitySanction(
       sanction_id: args.sanctionId,
       ...(args.restriction ? { restriction: args.restriction } : {}),
       ...(args.endAt ? { end_at: args.endAt } : {}),
+      ...notificationCopyMeta({
+        titleKey: SANCTION_KEYS[args.kind].title,
+        messageKey: SANCTION_KEYS[args.kind].body,
+        vars: { until, reason: reason || "-" },
+        varKeys: {
+          scope: RESTRICTION_SCOPE_KEY[args.restriction ?? "all"],
+          ...(args.endAt ? {} : { until: "notify_community_restriction_permanent" as const }),
+        },
+      }),
     },
   });
 }
@@ -149,7 +164,14 @@ export async function notifyCommunityReportProcessed(
     body: notifySafeT(lang, "notify_community_report_processed_body"),
     // 알림 최종 설계 §5-5 — 목적지 = 내 신고 건 상세 (이전: 커뮤니티 홈)
     link_url: buildMyReportDetailPath("community", args.reportId),
-    meta: { kind: "community_report_processed", report_id: args.reportId },
+    meta: {
+      kind: "community_report_processed",
+      report_id: args.reportId,
+      ...notificationCopyMeta({
+        titleKey: "notify_community_report_processed_title",
+        messageKey: "notify_community_report_processed_body",
+      }),
+    },
   });
 }
 
@@ -170,7 +192,11 @@ export async function notifyCommunityPostPinned(
     title: notifySafeT(lang, "notify_community_pinned_title"),
     body: notifySafeT(lang, "notify_community_pinned_body"),
     link_url: buildCommunityPostNotificationPath(args.postId),
-    meta: { kind: "community_pinned", post_id: args.postId },
+    meta: {
+      kind: "community_pinned",
+      post_id: args.postId,
+      ...notificationCopyMeta({ titleKey: "notify_community_pinned_title", messageKey: "notify_community_pinned_body" }),
+    },
   });
 }
 
@@ -199,6 +225,15 @@ export async function notifyCommunityPromotionEnded(
       ? notifySafeT(lang, "notify_community_promotion_ended_refund_body", { vars: { points: refund.toLocaleString(), reason } })
       : notifySafeT(lang, "notify_community_promotion_ended_body", { vars: { reason } }),
     link_url: "/mypage/points",
-    meta: { kind: "community_promotion_ended", order_id: args.orderId, refund_points: refund },
+    meta: {
+      kind: "community_promotion_ended",
+      order_id: args.orderId,
+      refund_points: refund,
+      ...notificationCopyMeta({
+        titleKey: "notify_community_promotion_ended_title",
+        messageKey: refund > 0 ? "notify_community_promotion_ended_refund_body" : "notify_community_promotion_ended_body",
+        vars: { points: refund.toLocaleString(), reason },
+      }),
+    },
   });
 }

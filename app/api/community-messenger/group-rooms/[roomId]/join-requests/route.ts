@@ -18,15 +18,15 @@ export const dynamic = "force-dynamic";
 function err(error: string) {
   switch (error) {
     case GROUP_ROOM_ERROR.FORBIDDEN:
-      return jsonError("권한이 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     case GROUP_ROOM_ERROR.ROOM_NOT_FOUND:
-      return jsonError("가입 요청을 찾을 수 없습니다.", 404, { code: error });
+      return jsonError(error, 404, { code: error });
     case GROUP_ROOM_ERROR.REQUEST_ALREADY_DECIDED:
-      return jsonError("이미 처리된 가입 요청입니다.", 409, { code: error });
+      return jsonError(error, 409, { code: error });
     case GROUP_ROOM_ERROR.USER_BANNED:
-      return jsonError("차단된 사용자는 승인할 수 없습니다.", 403, { code: error });
+      return jsonError(error, 403, { code: error });
     default:
-      return jsonError("가입 요청을 처리하지 못했습니다.", 400, { code: error });
+      return jsonError(error, 400, { code: error });
   }
 }
 
@@ -62,7 +62,7 @@ export async function POST(
   const requestId = typeof parsed.value.requestId === "string" ? parsed.value.requestId.trim() : "";
   const decisionRaw = typeof parsed.value.decision === "string" ? parsed.value.decision.trim() : "";
   const decision = decisionRaw === "approved" || decisionRaw === "rejected" ? decisionRaw : null;
-  if (!requestId || !decision) return jsonError("요청과 결정이 필요합니다.", 400);
+  if (!requestId || !decision) return jsonError("bad_request", 400, { code: "bad_request" });
   const result = await decideGroupJoinRequest({
     actorUserId: auth.userId,
     requestId,

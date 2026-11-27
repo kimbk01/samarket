@@ -2,6 +2,7 @@
 
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
@@ -41,6 +42,7 @@ export function DibayFullSheet({
   headerExtra,
   showCloseButton = true,
 }: DibayFullSheetProps) {
+  const { t } = useI18n();
   const { titleId } = useOverlayTitleIds("full-sheet");
   const headerRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -113,7 +115,7 @@ export function DibayFullSheet({
               type="button"
               onClick={onClose}
               className="dibay-overlay-btn dibay-overlay-btn--text !min-h-9 !w-9 !flex-none !p-0"
-              aria-label="Close"
+              aria-label={t("common_close")}
             >
               <X className="h-5 w-5" aria-hidden />
             </button>

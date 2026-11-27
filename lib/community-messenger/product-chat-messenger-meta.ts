@@ -28,11 +28,26 @@ function trimmedMetaString(input: string | null | undefined): string | undefined
 }
 
 /**
- * 거래방 contextMeta `roleLabel` — 보는 사람 역할 표기 SSOT.
- * `messengerTradeViewerRoleFromContextMeta` 가 이 두 값만 판매자/구매자로 인식한다.
+ * 거래방 contextMeta `roleLabel` — 보는 사람 역할 **저장 토큰** SSOT (화면 문구 아님).
+ * `messengerTradeViewerRoleFromContextMeta` 가 이 두 값만 판매자/구매자로 인식하고, 운영 방 summary 에도
+ * 이 값으로 저장돼 있어 토큰은 바꾸지 않는다. 화면에 그릴 때는 `tradeContextMetaRoleLabelKey` 로 키를 얻어 `t()` 한다.
  */
+const TRADE_ROLE_TOKEN_SELLER = "판매자";
+const TRADE_ROLE_TOKEN_BUYER = "구매자";
+
 export function tradeContextMetaRoleLabel(role: "seller" | "buyer"): string {
-  return role === "seller" ? "판매자" : "구매자";
+  return role === "seller" ? TRADE_ROLE_TOKEN_SELLER : TRADE_ROLE_TOKEN_BUYER;
+}
+
+/** 저장된 `roleLabel` 토큰(또는 이미 번역된 값) → 화면 문구 키. 모르는 값이면 null */
+export function tradeContextMetaRoleLabelKey(
+  roleLabel: string | null | undefined
+): "cm_ui_trade_role_seller" | "cm_ui_trade_role_buyer" | null {
+  const r = (roleLabel ?? "").trim();
+  if (!r) return null;
+  if (r === TRADE_ROLE_TOKEN_SELLER || r.toLowerCase() === "seller") return "cm_ui_trade_role_seller";
+  if (r === TRADE_ROLE_TOKEN_BUYER || r.toLowerCase() === "buyer") return "cm_ui_trade_role_buyer";
+  return null;
 }
 
 /**
@@ -87,13 +102,12 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   listDisplayStringsAlreadyNormalized?: boolean;
 }): CommunityMessengerRoomContextMetaV1 {
   const trustListStrings = Boolean(input.listDisplayStringsAlreadyNormalized);
-  const headline = trustListStrings
-    ? input.productTitle || "거래"
-    : input.productTitle.trim() || "거래";
+  /** 제목 없으면 headline 생략 — 화면이 `cm_ui_trade_headline_fallback` 키로 그림 */
+  const headline = trustListStrings ? input.productTitle : input.productTitle.trim();
   const meta: CommunityMessengerRoomContextMetaV1 = {
     v: 1,
     kind: "trade",
-    headline,
+    ...(headline ? { headline } : {}),
     productChatId: trustListStrings ? input.productChatId : input.productChatId.trim(),
   };
   const postId =

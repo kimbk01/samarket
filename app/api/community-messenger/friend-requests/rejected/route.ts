@@ -18,7 +18,6 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:friend-requests-rejected:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_friend_requests_rejected_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:friend-request-release:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_friend_request_release_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

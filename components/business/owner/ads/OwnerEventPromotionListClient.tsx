@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import type { PlatformEventOwnerRequestRow } from "@/lib/platform-event-owner-requests/types";
 import { ownerRequestStatusLabelKey } from "@/lib/platform-event-owner-requests/types";
 
 type Props = { storeId: string };
 
 export function OwnerEventPromotionListClient({ storeId }: Props) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const [items, setItems] = useState<PlatformEventOwnerRequestRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,7 +81,10 @@ export function OwnerEventPromotionListClient({ storeId }: Props) {
           {safeT("owner_event_promo_create")}
         </button>
       </div>
-      {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
+      {/* 언어 재감사 2026-11-27: 코드 → 키 (서버 글·코드 원문 노출 0) */}
+      {error ? (
+        <p className="text-sm text-sam-danger">{resolveOwnerApiErrorText(error, t, "owner_ads_error_generic")}</p>
+      ) : null}
       {items.length === 0 ? (
         <p className="text-sm text-sam-muted">
           {safeT("owner_event_promo_empty")}

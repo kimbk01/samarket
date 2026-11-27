@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:monitoring-events:${getRateLimitKey(req, auth.userId)}`,
     limit: RATE_LIMIT.limit,
     windowMs: RATE_LIMIT.windowMs,
-    message: "모니터링 전송이 너무 빠릅니다.",
     code: "community_messenger_monitoring_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

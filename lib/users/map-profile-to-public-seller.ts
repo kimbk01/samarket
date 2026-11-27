@@ -25,8 +25,12 @@ export type PublicSellerProfileDTO = {
   tradeLocationLine?: string | null;
 };
 
-export function mapProfileRowToPublicSeller(row: Record<string, unknown>): PublicSellerProfileDTO {
-  const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields);
+export function mapProfileRowToPublicSeller(
+  row: Record<string, unknown>,
+  /** 이름 없는 회원 대체 이름 언어(보는 사람) — 서버는 요청 언어, 클라이언트는 화면 언어 */
+  lang?: string | null
+): PublicSellerProfileDTO {
+  const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, { lang });
   const id = identity?.userId || String(row.id ?? "");
   return {
     id,

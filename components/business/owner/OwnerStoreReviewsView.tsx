@@ -8,7 +8,7 @@ import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import { ownerFetchJson } from "@/lib/business/owner-fetch-json";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -141,9 +141,14 @@ export function OwnerStoreReviewsView() {
           }
         );
         if (!res.ok) {
-          const msg = resolveOwnerApiErrorMessage(
-            res.code === "request_failed" || res.code === "invalid_response" ? fallbackCode : res.code,
-            t
+          /** 언어 재감사 2026-11-27: 금칙어 등은 응답 `code`(content_filter_blocked)로 판정 — 서버 문장은 쓰지 않는다 */
+          const rawBodyCode = res.body?.code;
+          const bodyCode = typeof rawBodyCode === "string" ? rawBodyCode : null;
+          const code = bodyCode ?? res.code;
+          const msg = resolveOwnerApiErrorText(
+            code === "request_failed" || code === "invalid_response" ? fallbackCode : code,
+            t,
+            "business_phase7_426"
           );
           setRowErr((prev) => ({ ...prev, [reviewId]: msg }));
           toast.error(msg);
@@ -185,7 +190,7 @@ export function OwnerStoreReviewsView() {
     return (
       <OwnerStateView
         kind={err === "unauthorized" || err === "forbidden" ? "no_permission" : "error"}
-        message={resolveOwnerApiErrorMessage(err, t)}
+        message={resolveOwnerApiErrorText(err, t, "business_phase7_353")}
         onRetry={() => void load()}
       />
     );
@@ -198,7 +203,7 @@ export function OwnerStoreReviewsView() {
         {rows.map((r) => (
           <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="sam-text-body font-semibold text-sam-fg">{r.buyer_public_label}</p>
+              <p className="sam-text-body font-semibold text-sam-fg">{r.buyer_public_label || t("store_buyer_public_label_fallback")}</p>
               <p className="sam-text-helper text-sam-muted">{new Date(r.created_at).toLocaleDateString(dateLocale)}</p>
             </div>
             <p className="mt-1 sam-text-body-secondary text-sam-warning">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>

@@ -7141,6 +7141,8 @@ async function runBootstrapLiteMissingOnlyBatch(args: {
   tradeDiag?: CommunityMessengerBootstrapDiagnostics;
   cpuMergeMsRef?: { ms: number };
 }): Promise<number> {
+  /** 거래 카테고리 대체 이름은 보는 사람(요청) 언어 — 저장하지 않는 응답 전용 조립 */
+  const categoryLang = await resolveRequestAppLanguageOr("en");
   const { userId, missing, fetchPostsCached, tradeDiag, cpuMergeMsRef } = args;
   const t0 = performance.now();
   let deferred = 0;
@@ -7178,6 +7180,7 @@ async function runBootstrapLiteMissingOnlyBatch(args: {
     const role: "seller" | "buyer" =
       sellerIdFromPost && sellerIdFromPost === userId ? "seller" : "buyer";
     s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+      categoryLang,
       productChatId: pcid || postId,
       postId,
       post: post as Record<string, unknown> | null | undefined,
@@ -7534,6 +7537,8 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
   summaries: CommunityMessengerRoomSummary[],
   shared?: TradeEnrichBootstrapSharedCtx
 ): Promise<void> {
+  /** 거래 카테고리 대체 이름은 보는 사람(요청) 언어 — 저장하지 않는 응답 전용 조립 */
+  const categoryLang = await resolveRequestAppLanguageOr("en");
   const sb = getSupabaseOrNull();
   if (!sb) return;
 
@@ -7740,6 +7745,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
           const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
           const role: "seller" | "buyer" = userId === sellerId ? "seller" : "buyer";
           summary.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            categoryLang,
             productChatId: productChatIdForMeta,
             postId,
             post: post as Record<string, unknown> | null | undefined,
@@ -8231,6 +8237,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
     const role: "seller" | "buyer" = userId === sellerId ? "seller" : "buyer";
     summary.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+      categoryLang,
       productChatId: productChatIdForMeta,
       postId,
       post: post as Record<string, unknown> | null | undefined,
@@ -8695,6 +8702,8 @@ async function enrichTradeRoomContextMetaForBootstrap(
     megaBundlePrefetchPromise?: Promise<HomeSyncMegaDirectKeysBundleFetchResult>;
   }
 ): Promise<void> {
+  /** 거래 카테고리 대체 이름은 보는 사람(요청) 언어 — 저장하지 않는 응답 전용 조립 */
+  const categoryLang = await resolveRequestAppLanguageOr("en");
   const sb = getSupabaseOrNull();
   if (!sb) return;
 
@@ -9259,6 +9268,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
         touchTradeRoomMeta(s.id);
         if (listMetaOrch) listMetaOrch.contextMetaAssigns += 1;
         s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+          categoryLang,
           productChatId: pcid,
           postId: pc.postId,
           post: post as Record<string, unknown> | null | undefined,
@@ -9364,6 +9374,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
           const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
           const nextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            categoryLang,
             productChatId: pc.pcid,
             postId: pc.postId,
             post: post as Record<string, unknown> | null | undefined,
@@ -9417,6 +9428,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
           const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
           const nextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            categoryLang,
             productChatId: pc.pcid,
             postId: pc.postId,
             post: post as Record<string, unknown> | null | undefined,
@@ -9563,6 +9575,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           }
           listMetaOrch.contextMetaAssigns += 1;
           s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            categoryLang,
             productChatId: pcidForMeta,
             postId: cr.postId,
             post: post as Record<string, unknown> | null | undefined,
@@ -9592,6 +9605,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           const role: "seller" | "buyer" = userId === cr.sellerId ? "seller" : "buyer";
           touchTradeRoomMeta(s.id);
           s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            categoryLang,
             productChatId: pcidForMeta,
             postId: cr.postId,
             post: post as Record<string, unknown> | null | undefined,
@@ -9729,6 +9743,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
         touchTradeRoomMeta(s.id);
         if (listMetaOrch) listMetaOrch.contextMetaAssigns += 1;
         s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+          categoryLang,
           productChatId: pc.id,
           postId: pc.postId,
           post: post as Record<string, unknown> | null | undefined,
@@ -14521,6 +14536,8 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
   sellerDisplayName?: string | null;
   /** dev home-sync deep-steps: 목록 enrich 에서만 전달 — 빌더 내부 CPU 분해 누적 */
   tradeMetaBuildTrace?: HomeSyncTrace;
+  /** 카테고리 대체 이름 언어 — 응답 전용 조립만 넘긴다(DB 저장 경로는 비움 → 화면 키) */
+  categoryLang?: AppLanguageCode;
 }): CommunityMessengerRoomContextMetaV1 {
   const post = args.post;
   const trace = args.tradeMetaBuildTrace;
@@ -14546,7 +14563,7 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
   if (!homeSyncTraceMeterEnabled(trace)) {
     const pcl = tradeChatProductCategoryDisplayName(post, args.categoryById);
     const productTitle = tradePostHeadlineForMessengerList(post) || cmTradePostTitleFallback();
-    const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById);
+    const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById, args.categoryLang);
     return toSnap(pcl, productTitle, categoryMenuLabel);
   }
 
@@ -14557,7 +14574,7 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
   const productTitle = tradePostHeadlineForMessengerList(post) || cmTradePostTitleFallback();
   const dHead = performance.now() - t;
   t = performance.now();
-  const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById);
+  const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById, args.categoryLang);
   const dMenu = performance.now() - t;
   t = performance.now();
   const meta = toSnap(pcl, productTitle, categoryMenuLabel);
@@ -15133,10 +15150,11 @@ async function loadTradeChatCategoryMetaByPostRows(
 
 function tradeChatCategoryMenuLabelForPost(
   post: Record<string, unknown> | null | undefined,
-  categoryById: Map<string, TradeChatCategoryMetaLike>
+  categoryById: Map<string, TradeChatCategoryMetaLike>,
+  lang?: AppLanguageCode
 ): string {
   const category = categoryById.get(tradePostCategoryId(post));
-  return resolveTradeChatCategoryLabelForList(post, category);
+  return resolveTradeChatCategoryLabelForList(post, category, lang);
 }
 
 function firstPostThumbnailForMessengerTradeList(post: Record<string, unknown> | null | undefined): string | null {

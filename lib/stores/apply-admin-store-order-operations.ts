@@ -7,6 +7,7 @@ import {
 } from "@/lib/stores/order-status-transitions";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { ADMIN_REJECT_LEDGER_REASON_FALLBACK } from "@/lib/stores/store-order-reject-reason-text";
 
 export type AdminOrderOpsAudit = {
   adminUserId: string;
@@ -214,7 +215,12 @@ export async function adminRejectStoreOrderCancelRequest(
   if (rErr) return { ok: false, error: rErr.message, httpStatus: 500 };
   if (!reqRow?.id) return { ok: false, error: "cancel_request_not_found", httpStatus: 404 };
 
-  const reason = rejectedReason.trim().slice(0, 500) || "Rejected by admin";
+  /**
+   * 관리자 사유 없음 → 이벤트·알림에는 문장을 넣지 않는다(화면·푸시가 받는 사람 언어 기본 문구 키로 그림).
+   * 취소 요청 원장 RPC 는 거절 사유가 비면 `reason_required` 라서 원장에만 호환 최소값을 넣는다 (재감사 2026-11-27).
+   */
+  const adminReason = rejectedReason.trim().slice(0, 500) || null;
+  const ledgerReason = adminReason ?? ADMIN_REJECT_LEDGER_REASON_FALLBACK;
   const previousStatus =
     typeof (reqRow as { previous_order_status?: unknown }).previous_order_status === "string" &&
     (reqRow as { previous_order_status?: string }).previous_order_status?.trim()
@@ -232,9 +238,13 @@ export async function adminRejectStoreOrderCancelRequest(
     actor: "ADMIN",
     expectedCurrentStatus: expectedOf(opts) ?? "cancel_requested",
     restoreToStatus: previousStatus,
-    cancelRequestDecision: { decision: "reject", actorRole: "admin", reason },
-    eventMessage: reason,
-    eventMetadata: { source: "admin_cancel_request_reject", rejected_reason: reason },
+    cancelRequestDecision: { decision: "reject", actorRole: "admin", reason: ledgerReason },
+    eventMessage: adminReason,
+    eventMetadata: {
+      source: "admin_cancel_request_reject",
+      rejected_reason: adminReason,
+      ...(adminReason ? {} : { rejected_reason_code: "admin_default" }),
+    },
     audit: {
       actor_type: "admin",
       actor_id: audit.adminUserId,
@@ -455,7 +465,8 @@ export async function adminRejectRefundStoreOrder(
     return { ok: false, error: "invalid_restore_status", httpStatus: 400 };
   }
 
-  const rejectedReason = reason.trim().slice(0, 500) || "Refund request rejected by admin";
+  /** 관리자 사유 없음 → 문장 대신 null (화면·푸시가 기본 문구 키로 그림 · 재감사 2026-11-27) */
+  const rejectedReason = reason.trim().slice(0, 500) || null;
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
@@ -475,7 +486,11 @@ export async function adminRejectRefundStoreOrder(
     expectedCurrentStatus: expectedOf(opts) ?? "refund_requested",
     restoreToStatus: restore,
     eventMessage: rejectedReason,
-    eventMetadata: { source: "admin_refund_reject", rejected_reason: rejectedReason },
+    eventMetadata: {
+      source: "admin_refund_reject",
+      rejected_reason: rejectedReason,
+      ...(rejectedReason ? {} : { rejected_reason_code: "admin_default" }),
+    },
     audit: {
       actor_type: "admin",
       actor_id: audit.adminUserId,

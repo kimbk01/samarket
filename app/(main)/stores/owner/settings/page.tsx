@@ -149,7 +149,8 @@ function MyBusinessSettingsPageInner() {
   if (phase.kind === "error") {
     return (
       <p className="sam-text-body text-sam-danger">
-        {t("owner_store_settings_load_failed")} ({phase.message})
+        {/* 언어 재감사 2026-11-27: 영문 코드를 괄호로 붙이지 않는다 */}
+        {phase.message === "unauthorized" ? t("common_login_required") : t("owner_store_settings_load_failed")}
       </p>
     );
   }

@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
     key: `me:push:subscribe:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "푸시 등록 요청이 너무 빠릅니다.",
     code: "push_subscribe_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

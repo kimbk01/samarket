@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:bridge-product-chat:${getRateLimitKey(req, auth.userId)}`,
     limit: 12,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_bridge_product_chat_rate_limited",
   });
   if (!rl.ok) return rl.response;
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseJsonBody<{ roomId?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const roomIdInput = String(parsed.value.roomId ?? "").trim();
-  if (!roomIdInput) return jsonError("roomId가 필요합니다.", 400, { code: "bad_request" });
+  if (!roomIdInput) return jsonError("bad_request", 400, { code: "bad_request" });
 
   let sb: ReturnType<typeof getSupabaseServer> | null = null;
   try {
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
   } catch {
     sb = null;
   }
-  if (!sb) return jsonError("서버 설정이 필요합니다.", 500);
+  if (!sb) return jsonError("supabase_unconfigured", 500, { code: "supabase_unconfigured" });
 
   const ensured = await ensureCommunityMessengerDirectRoomFromProductChat(auth.userId, roomIdInput);
   if (!ensured.ok || !ensured.roomId) {
@@ -64,7 +63,7 @@ export async function POST(req: NextRequest) {
       href: buildCommunityMessengerRoomUrlWithContext(ensured.roomId, {
         v: 1,
         kind: "trade",
-        headline: "제목 없음",
+        /** headline 생략 — 화면이 `cm_ui_trade_headline_fallback` 키로 그림 */
       }),
     });
   }
@@ -84,7 +83,6 @@ export async function POST(req: NextRequest) {
       v: 1 as const,
       kind: "trade" as const,
       productChatId: resolved.productChatId,
-      headline: "제목 없음",
     };
 
   const href = buildCommunityMessengerRoomUrlWithContext(ensured.roomId, meta);

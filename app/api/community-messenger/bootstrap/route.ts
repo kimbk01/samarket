@@ -382,7 +382,6 @@ export async function GET(request: NextRequest) {
     key: `community-messenger:bootstrap:${getRateLimitKey(request, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "메신저 초기 데이터 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_bootstrap_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

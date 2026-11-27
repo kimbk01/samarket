@@ -14,10 +14,6 @@ import { resolveStoreOrderNotificationDisplay } from "@/lib/messenger/store-orde
 import {
   STORE_ORDER_DOMAIN,
 } from "@/lib/messenger/store-order/design-lock";
-import {
-  STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
-  STORE_ORDER_STORE_NAME_PLACEHOLDER,
-} from "@/lib/messenger/store-order/types";
 
 /** 매장 이미지 없을 때 avatar fallback — owner 개인 avatar 금지 */
 export const STORE_ORDER_STORE_IMAGE_PLACEHOLDER = "store_placeholder" as const;
@@ -85,7 +81,8 @@ export function applyStoreOrderNotificationEnvelope(
       surfaceRole: "customer",
       orderId: ctx.orderId,
       storeId: ctx.storeId,
-      title: display.title || STORE_ORDER_STORE_NAME_PLACEHOLDER,
+      /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+      title: display.title,
       avatarUrl: hasStoreImage ? display.avatarUrl : null,
       avatarPlaceholder: hasStoreImage ? null : STORE_ORDER_STORE_IMAGE_PLACEHOLDER,
       preview: display.preview,
@@ -112,7 +109,7 @@ export function applyStoreOrderNotificationEnvelope(
     surfaceRole: "owner",
     orderId: ctx.orderId,
     storeId: ctx.storeId,
-    title: display.title || STORE_ORDER_CUSTOMER_NAME_PLACEHOLDER,
+    title: display.title,
     avatarUrl: display.avatarUrl,
     avatarPlaceholder: null,
     preview: display.preview,

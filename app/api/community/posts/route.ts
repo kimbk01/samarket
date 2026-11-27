@@ -20,11 +20,10 @@ import {
   jsonError,
   jsonOk,
   parseJsonBody,
-  safeErrorMessage,
 } from "@/lib/http/api-route";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityPostAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
@@ -64,7 +63,6 @@ export async function POST(req: NextRequest) {
     key: `community-post:create:${getRateLimitKey(req, auth.userId)}`,
     limit: 8,
     windowMs: 60_000,
-    message: "게시글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_post_create_rate_limited",
   });
   if (!createRateLimit.ok) return createRateLimit.response;
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
     content?: string;
     is_question?: boolean;
     imageUrls?: string[];
-  }>(req, "JSON 본문이 필요합니다.");
+  }>(req);
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
 
@@ -86,29 +84,30 @@ export async function POST(req: NextRequest) {
   const content = (body.content ?? "").trim();
 
   if (!topicSlug) {
-    return jsonError("주제를 선택하세요.", 400);
+    return jsonError("category_required", { status: 400, code: "category_required" });
   }
   if (!title) {
-    return jsonError("제목을 입력하세요.", 400);
+    return jsonError("title_required", { status: 400, code: "title_required" });
   }
   if (!content) {
-    return jsonError("내용을 입력하세요.", 400);
+    return jsonError("content_required", { status: 400, code: "content_required" });
   }
   const accepted = evaluateCommunityPostAcceptance({ title, content });
   if (!accepted.ok) {
-    return jsonError(communityAcceptanceErrorMessage(accepted.code), 400);
+    const acceptanceCode = communityAcceptanceErrorCode(accepted.code);
+    return jsonError(acceptanceCode, { status: 400, code: acceptanceCode });
   }
 
   const ops = await getCommunityFeedOps();
   if (title.length > ops.max_title_length) {
     return NextResponse.json(
-      { ok: false, error: `제목은 ${ops.max_title_length}자 이하로 입력하세요.` },
+      { ok: false, error: "title_too_long", code: "title_too_long", params: { max: ops.max_title_length } },
       { status: 400 }
     );
   }
   if (content.length > ops.max_content_length) {
     return NextResponse.json(
-      { ok: false, error: `본문은 ${ops.max_content_length}자 이하로 입력하세요.` },
+      { ok: false, error: "content_too_long", code: "content_too_long", params: { max: ops.max_content_length } },
       { status: 400 }
     );
   }
@@ -123,7 +122,7 @@ export async function POST(req: NextRequest) {
 
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort) {
-    return jsonError("유효한 주제가 아닙니다.", 400);
+    return jsonError("topic_unavailable", { status: 400, code: "topic_unavailable" });
   }
 
   const is_question = meta.allow_question ? !!body.is_question : false;
@@ -136,7 +135,7 @@ export async function POST(req: NextRequest) {
     const n = await countUserCommunityPostsToday(auth.userId);
     if (n >= ops.max_posts_per_day) {
       return NextResponse.json(
-        { ok: false, error: `하루에 올릴 수 있는 글은 ${ops.max_posts_per_day}개까지입니다.` },
+        { ok: false, error: "daily_post_limit", code: "daily_post_limit", params: { max: ops.max_posts_per_day } },
         { status: 429 }
       );
     }
@@ -149,7 +148,7 @@ export async function POST(req: NextRequest) {
     .eq("is_active", true)
     .maybeSingle();
   if (se || !sec) {
-    return jsonError("섹션을 찾을 수 없습니다.", 400);
+    return jsonError("section_not_found", { status: 400, code: "section_not_found" });
   }
 
   let region_label: string;
@@ -157,7 +156,7 @@ export async function POST(req: NextRequest) {
     region_label = await resolveCommunityPublicRegionLabelForUser(sb, auth.userId);
   } catch (e) {
     console.error("[community-posts] region_label", e);
-    return jsonError("지역 정보를 확인하지 못했습니다.", 500, { code: "region_label_resolve_failed" });
+    return jsonError("region_label_resolve_failed", { status: 500, code: "region_label_resolve_failed" });
   }
 
   const { data: inserted, error: insErr } = await sb
@@ -182,7 +181,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insErr || !inserted) {
-    return jsonError(safeErrorMessage(insErr, "등록에 실패했습니다."), 500, {
+    console.error("[community/posts] insert failed", { message: insErr?.message ?? null });
+    return jsonError("community_post_insert_failed", 500, {
       code: "community_post_insert_failed",
     });
   }
@@ -201,7 +201,8 @@ export async function POST(req: NextRequest) {
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
     if (imgErr) {
       await sb.from("community_posts").delete().eq("id", newId);
-      return jsonError(safeErrorMessage(imgErr, "이미지 저장에 실패했습니다."), 500, {
+      console.error("[community/posts] image insert failed", { message: imgErr.message });
+      return jsonError("community_post_image_insert_failed", 500, {
         code: "community_post_image_insert_failed",
       });
     }

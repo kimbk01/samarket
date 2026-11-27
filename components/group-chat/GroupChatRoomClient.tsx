@@ -14,6 +14,9 @@ import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-cha
 import type { GroupChatBootstrapApiBody } from "@/lib/group-chat/group-chat-bootstrap-types";
 import { mapGroupApiRowToChatMessage } from "@/lib/group-chat/map-api-messages";
 import { GROUP_CHAT_LIST_HREF } from "@/lib/group-chat/constants";
+import { GROUP_CHAT_API_ERROR_CODE_MAP } from "@/lib/group-chat/group-chat-error-text";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
@@ -44,6 +47,12 @@ export function GroupChatRoomClient({
   listHref?: string;
   initialBootstrap?: GroupChatBootstrapApiBody | null;
 }) {
+  const { t } = useI18n();
+  /** 오류 문구만 그리는 용도 — 언어가 바뀌어도 부트스트랩을 다시 부르지 않게 ref 로 읽는다 */
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const primed = initialBootstrap && initialBootstrap.room?.id === roomId.trim();
   const applied = primed ? applyBootstrapPayload(roomId, initialBootstrap) : null;
@@ -76,12 +85,20 @@ export function GroupChatRoomClient({
     try {
       const { status, data } = await fetchGroupChatBootstrapDeduped(roomId);
       if (status < 200 || status >= 300) {
-        setErr(typeof data?.error === "string" ? data.error : "불러오지 못했습니다.");
+        setErr(
+          resolveApiErrorText({
+            json: data,
+            status,
+            map: GROUP_CHAT_API_ERROR_CODE_MAP,
+            fallbackKey: "common_chat_room_load_failed",
+            t: tRef.current,
+          })
+        );
         setMessages([]);
         return;
       }
       if (!data.ok || !data.room) {
-        setErr("방 정보가 없습니다.");
+        setErr(tRef.current("common_chat_room_load_failed"));
         return;
       }
       setTitle(data.room.title ?? "");
@@ -93,7 +110,7 @@ export function GroupChatRoomClient({
       );
       setBootstrapReady(true);
     } catch {
-      setErr("네트워크 오류입니다.");
+      setErr(tRef.current("common_network_error"));
     } finally {
       setLoading(false);
     }
@@ -194,8 +211,8 @@ export function GroupChatRoomClient({
             left={<AppBackButton backHref={listHref} preferHistoryBack={false} />}
             center={
               <div className="sector-header-title-cluster sector-header-title-cluster--left">
-                <h1 className="sector-header-title sector-header-title--left">{title || "그룹 채팅"}</h1>
-                {memberCount != null ? <p className="sector-header-subtitle">{memberCount}명</p> : null}
+                <h1 className="sector-header-title sector-header-title--left">{title || t("ui_group_chat_title")}</h1>
+                {memberCount != null ? <p className="sector-header-subtitle">{t("nav_chat_count_people", { count: memberCount })}</p> : null}
               </div>
             }
           />
@@ -232,7 +249,7 @@ export function GroupChatRoomClient({
             onSend={handleSend}
             draftStorageKey={`group-chat:${roomId}`}
             disabled={!currentUserId}
-            placeholder={currentUserId ? "메시지를 입력하세요" : "로그인 후 메시지를 보낼 수 있어요"}
+            placeholder={currentUserId ? t("ui_group_chat_input_placeholder") : t("ui_group_chat_login_to_send")}
           />
         </div>
       ) : null}

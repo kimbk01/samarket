@@ -9,6 +9,7 @@ import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/lib/http/shared-flight-deadline";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 
 type ChatRow = {
   order_id: string;
@@ -79,7 +80,7 @@ export function OwnerStoreOrderChatsView() {
       if (!payload.json.ok || !Array.isArray(payload.json.chats)) {
         setState({
           kind: "error",
-          message: payload.json.error ?? t("store_owner_err_load_list"),
+          message: resolveOwnerApiErrorText(payload.json.error, t, "store_owner_err_load_list"),
         });
         return;
       }
@@ -159,7 +160,7 @@ export function OwnerStoreOrderChatsView() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate text-[14px] font-semibold text-sam-fg">
-                      {c.buyer_public_label}
+                      {c.buyer_public_label || t("store_buyer_public_label_fallback")}
                     </p>
                     <span className="shrink-0 text-[11px] text-sam-meta">
                       {formatListTime(c.last_message_at, language)}
@@ -170,7 +171,7 @@ export function OwnerStoreOrderChatsView() {
                   </p>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className="min-w-0 flex-1 truncate text-[13px] text-sam-muted">
-                      {c.last_message_preview}
+                      {c.last_message_preview || t("nav_chat_order")}
                     </p>
                     {c.unread_count > 0 ?
                       <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-sam-danger px-1.5 text-[10px] font-bold text-sam-on-primary">

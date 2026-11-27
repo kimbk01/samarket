@@ -58,7 +58,7 @@ export async function loadChatRoomBootstrapForUser(input: {
 }): Promise<ChatRoomBootstrapPayload> {
   const roomId = parseRoomId(input.roomId);
   if (!roomId) {
-    return { ok: false, status: 400, error: "roomId 형식이 올바르지 않습니다." };
+    return { ok: false, status: 400, error: "invalid_room_id" };
   }
   const userId = input.userId;
   const sourceHint = input.sourceHint ?? null;

@@ -4,6 +4,7 @@ import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MoimRole } from "@/lib/moim/moim-permission-contract";
 
@@ -75,7 +76,16 @@ async function sendOne(
       title: notifySafeT(lang, `notify_${keyBase}_title` as MessageKey),
       body: notifySafeT(lang, `notify_${keyBase}_body` as MessageKey, { vars }),
       link_url: input.linkUrl,
-      meta: { kind: input.kind, moim_id: input.moimId },
+      meta: {
+        kind: input.kind,
+        moim_id: input.moimId,
+        ...notificationCopyMeta({
+          titleKey: `notify_${keyBase}_title` as MessageKey,
+          messageKey: `notify_${keyBase}_body` as MessageKey,
+          vars: input.vars,
+          varKeys: input.roleVar ? { role: ROLE_KEY[input.roleVar] } : undefined,
+        }),
+      },
     });
   } catch (err) {
     console.warn("[moim-notify] failed", input.kind, err);

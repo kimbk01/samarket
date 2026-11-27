@@ -20,6 +20,7 @@ import {
   roomActivityFromMessengerMessage,
 } from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
   cmReceiveLatencyKey,
@@ -294,13 +295,13 @@ function createPlaceholderMessage(args: {
      * (2026-10-28 실기: 거래방에서 상대 메시지 위 이름이 「새 메시지」로 남음 — 방 요약이 없거나 1:1 일반 방이 아닐 때)
      */
     senderLabel: isMine
-      ? "나"
+      ? translateCmUi("common_me")
       : (senderId
           ? [...(args.existingMessages ?? [])]
               .reverse()
               .find((m) => m.senderId && messengerUserIdsEqual(m.senderId, senderId) && m.senderLabel?.trim())
               ?.senderLabel
-          : undefined) ?? (room?.roomType === "direct" ? room.title : "새 메시지"),
+          : undefined) ?? (room?.roomType === "direct" ? room.title : translateCmUi("cm_ui_new_message_label")),
     messageType: mt,
     content: typeof row.content === "string" ? row.content : "",
     createdAt,

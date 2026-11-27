@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import {
   applyCompletedOrderToCommerceCart,
+  reorderToCartErrorText,
   type CompletedOrderReorderPayload,
 } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -40,7 +41,7 @@ export function useStoreOrderReorderAgain(payload: CompletedOrderReorderPayload 
       );
       if (!r.ok) {
         if (r.error === "cancelled") return;
-        await dibayAlert({ title: t("popup_error_title"), description: r.error });
+        await dibayAlert({ title: t("popup_error_title"), description: reorderToCartErrorText(r.error, t) });
         return;
       }
       router.push(`/stores/${encodeURIComponent(payload.storeSlug.trim())}`);

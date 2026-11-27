@@ -17,6 +17,7 @@ import {
 import type { AdapterConfig, ContentPolicy, SourceEngine } from "@/lib/community-operator-import/types";
 import { verifyStoredSource } from "@/lib/community-operator-import/verify";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorDetail, importRouteErrorParts } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -30,7 +31,8 @@ export async function GET() {
     const sources = await loadManagedSources(getSupabaseServer());
     return jsonOk({ sources });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "sources_load_failed", 500, { code: "sources_load_failed" });
+    const detail = importRouteErrorDetail(e, "sources_load_failed");
+    return jsonError("sources_load_failed", 500, { code: "sources_load_failed", ...(detail ? { detail } : {}) });
   }
 }
 
@@ -196,7 +198,7 @@ export async function POST(req: NextRequest) {
     }
     return jsonError(await adminServerText("admin_api_import_actions_sources"), 400, { code: "unsupported_action" });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "sources_action_failed";
-    return jsonError(msg, 400, { code: msg.split(":")[0] || "sources_action_failed" });
+    const { code, detail } = importRouteErrorParts(e, "sources_action_failed");
+    return jsonError(code, 400, { code, ...(detail ? { detail } : {}) });
   }
 }

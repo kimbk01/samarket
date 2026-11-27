@@ -14,9 +14,15 @@
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { CommunityMessengerRoomDeliveryDetectSource } from "@/lib/community-messenger/room-context-meta";
 import { resolveStoreProductMediaUrl } from "@/lib/media/resolve-store-product-media-url";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
-/** 매장 정보 누락 시 표면 라벨 — 회원명 노출 대신 매장 표면 유지 */
+/**
+ * 매장 정보 누락 시 옛 표면 라벨 — **비교용 토큰**(옛 저장값·`merge-critical-home-sync-room-summary` 약한 이름 판정).
+ * 화면에는 쓰지 않는다: 화면 대체 문구는 `STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY` 를 `t()` 한다.
+ */
 export const STORE_ORDER_DISPLAY_STORE_FALLBACK = "매장";
+/** 매장 정보 누락 시 화면 대체 문구 키 — 회원명 노출 대신 매장 표면 유지 */
+export const STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY = "common_store" as const;
 
 /** GENERAL room.title fallback (`cm_ui_new_conversation`) — 매장 identity로 쓰지 않는다. */
 const STORE_ORDER_PLACEHOLDER_TITLES = new Set(["새 대화", "new conversation", "cm_ui_new_conversation"]);
@@ -66,7 +72,7 @@ export function resolveStoreOrderDisplayIdentity(
 
   return {
     storeId: trimOrNull(meta.storeId),
-    storeName: resolvedName ?? STORE_ORDER_DISPLAY_STORE_FALLBACK,
+    storeName: resolvedName ?? translateCmUi(STORE_ORDER_DISPLAY_STORE_FALLBACK_KEY),
     storeProfileImageUrl,
     hasResolvedStoreName: Boolean(resolvedName),
   };

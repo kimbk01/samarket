@@ -1,5 +1,6 @@
 import type { StoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 /** `stores-browse-build` import 금지 — 클라 헤더 훅이 server-only `next/headers` 그래프를 끌어옴 */
 function normalizeBizTypeSeparators(raw: string): string {
@@ -42,7 +43,7 @@ export function buyerNicknameForOwnerHeader(
   if (fromPeer) return fromPeer;
   const title = roomTitle?.trim() ?? "";
   if (title.length > 0 && !title.includes(" · ")) return title;
-  return "주문자";
+  return translateCmUi("cm_ui_store_order_customer_fallback");
 }
 
 const STORE_ORDER_ROOM_UUID_RE =
@@ -119,7 +120,7 @@ export function resolveDeliveryStoreDisplayName(input: {
     if (head && !isUnusableStoreWindowLabel(head) && !isStoreTechnicalIdentifier(head, ids)) return head;
   }
 
-  return "매장";
+  return translateCmUi("common_store");
 }
 
 /** 하단 주문 카드 1줄 제목 — 매장=주문자, 구매자=매장 */

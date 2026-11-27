@@ -29,7 +29,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
 
   const { postId } = await params;
@@ -42,7 +42,7 @@ export async function POST(
   }
   const action = typeof body.action === "string" ? body.action.trim().toLowerCase() : "";
   if (!id || (action !== "resume_active" && action !== "cancel_trade")) {
-    return NextResponse.json({ ok: false, error: "postId, action(resume_active|cancel_trade) 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient;
@@ -67,15 +67,16 @@ export async function POST(
   }
 
   if (fetchErr) {
-    return NextResponse.json({ ok: false, error: fetchErr.message }, { status: 500 });
+    console.error("[trade-lifecycle] post load failed", { message: fetchErr.message });
+    return NextResponse.json({ ok: false, error: "post_load_failed", code: "post_load_failed" }, { status: 500 });
   }
   if (!row) {
-    return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "post_not_found", code: "post_not_found" }, { status: 404 });
   }
 
   const owner = String((row as { user_id?: string }).user_id ?? "");
   if (!owner || owner !== userId) {
-    return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "seller_only", code: "seller_only" }, { status: 403 });
   }
 
   const prevLifecycle = deriveTradeLifecycleStatus({
@@ -99,7 +100,7 @@ export async function POST(
   if (action === "resume_active") {
     if (prevLifecycle !== "cancelled") {
       return NextResponse.json(
-        { ok: false, error: "취소된 글만 판매중으로 돌릴 수 있습니다." },
+        { ok: false, error: "resume_requires_cancelled", code: "resume_requires_cancelled" },
         { status: 403 }
       );
     }
@@ -114,7 +115,7 @@ export async function POST(
     /* cancel_trade */
     if (prevLifecycle !== "in_progress") {
       return NextResponse.json(
-        { ok: false, error: "거래 진행 중일 때만 거래 취소를 할 수 있습니다." },
+        { ok: false, error: "cancel_requires_in_progress", code: "cancel_requires_in_progress" },
         { status: 403 }
       );
     }
@@ -139,7 +140,8 @@ export async function POST(
   }
 
   if (updErr) {
-    return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
+    console.error("[trade-lifecycle] update failed", { message: updErr.message });
+    return NextResponse.json({ ok: false, error: "trade_lifecycle_save_failed", code: "trade_lifecycle_save_failed" }, { status: 500 });
   }
 
   await insertPostTradeStatusLog(sbAny, {

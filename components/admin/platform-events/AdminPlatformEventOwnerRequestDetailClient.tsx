@@ -40,7 +40,8 @@ function previewFromRequest(req: PlatformEventOwnerRequestRow): PlatformEventRow
     startsAt: req.requestedStartsAt,
     endsAt: req.requestedEndsAt,
     timezone: req.timezone,
-    ctaLabel: "자세히 보기",
+    /** 승인 시 저장값과 같게 빈 값 — 미리보기는 `sourceOwnerRequestId` 로 기본 이름을 그린다 */
+    ctaLabel: null,
     ctaType: req.destinationType === "store" ? "store" : "internal_page",
     ctaTarget: req.destinationTarget || req.storeId,
     ctaExternalUrl: null,

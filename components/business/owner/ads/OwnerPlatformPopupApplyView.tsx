@@ -705,7 +705,7 @@ export function OwnerPlatformPopupApplyView() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={cropPreviewUrl}
-              alt="36:25 crop preview"
+              alt={safeT("owner_platform_popup_crop_preview_alt")}
               className="max-w-full rounded-ui-rect border border-sam-border"
             />
             <button

@@ -1,4 +1,5 @@
 
+import { storeOrderRejectReasonForDisplay } from "@/lib/stores/store-order-reject-reason-text";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 /** 언어 SSOT B4 — 불리언 언어 값으로 카탈로그 문구를 고른다(원래 `ko ? "…" : "…"` 와 같은 결과). */
@@ -91,7 +92,10 @@ export function describeStoreOrderAudit(
   const after = obj(row.after_json);
   const fromStatus = strOrNull(before.order_status) ?? strOrNull(before.status);
   const toStatus = strOrNull(after.order_status) ?? strOrNull(after.status) ?? strOrNull(after.next_status);
-  const reason = strOrNull(after.reason) ?? strOrNull(after.rejected_reason) ?? strOrNull(after.cancel_reason);
+  /** 옛 관리자 기본 거절 문장(「Rejected by admin」 등)은 사유 없음으로 — 재감사 2026-11-27 */
+  const reason = storeOrderRejectReasonForDisplay(
+    strOrNull(after.reason) ?? strOrNull(after.rejected_reason) ?? strOrNull(after.cancel_reason)
+  );
 
   if (isQaAuditAction(action)) {
     return { label: tx(ko, "admin_store_orders_qa_record", { action: String(action) }), category: "qa", known: true, fromStatus, toStatus, reason };

@@ -78,7 +78,8 @@ function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel
   const line1 = [jobChip, title, payText, metaText].filter(Boolean).join(" · ");
   const line2 = sellerText;
   const out: PostListBodyBlock[] = [
-    { className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 || title || "상품" },
+    /** 비면 빈 값 — 화면이 상품 폴백 키로 그린다 (재감사 2026-11-27) */
+    { className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 || title },
   ];
   if (line2) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: line2 });
   return {

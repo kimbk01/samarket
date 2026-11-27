@@ -32,6 +32,11 @@ import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-fee
 import { mergePostBodyImages, COMMUNITY_MEMBER_POST_MAX_IMAGES } from "@/lib/philife/post-body-images";
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
 import { communityImageUploadErrorKey, isCommunityPostImageErrorCode } from "@/lib/philife/community-image-upload-error";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import {
+  COMMUNITY_OG_IMAGE_ERROR_KEYS,
+  COMMUNITY_POST_WRITE_ERROR_KEYS,
+} from "@/lib/community/community-api-error-text";
 import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 import { usePhilifeWriteLeaveGuard } from "@/components/philife/use-philife-write-leave-guard";
 import { PhilifeWritePhotoStrip } from "@/components/philife/PhilifeWritePhotoStrip";
@@ -90,6 +95,7 @@ import {
 } from "@/lib/community/invalidate-community-author-posts-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { registerWriteLeaveNavigationGuard } from "@/lib/philife/write-leave-navigation-guard";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
@@ -320,6 +326,19 @@ export function PhilifeNeighborhoodWriteForm({
     [t]
   );
 
+  /** 글 등록·수정 오류 코드 → 화면 언어 문구 — 서버 문장은 내보내지 않는다 (재감사 2026-11-27) */
+  const postWriteErrorText = useCallback(
+    (json: unknown, status: number) =>
+      resolveApiErrorText({
+        json,
+        status,
+        map: COMMUNITY_POST_WRITE_ERROR_KEYS,
+        fallbackKey: "philife_write_err_register_failed",
+        t,
+      }),
+    [t]
+  );
+
   /** 업로드 실패도 결과로 돌려준다 — 네트워크·비 JSON(413)·서버 오류 (CM-P1-03) */
   const postMultipartFile = useCallback(
     async (f: File): Promise<{ ok?: boolean; url?: string; error?: string }> => {
@@ -473,7 +492,8 @@ export function PhilifeNeighborhoodWriteForm({
 
     let usedOgForInitialWork = false;
     if (work.length === 0 && pageRef) {
-      let jg: { ok?: boolean; imageUrl?: string; error?: string } = {};
+      let jg: { ok?: boolean; imageUrl?: string; error?: string; code?: string } = {};
+      let jgStatus: number | null = null;
       try {
         const res = await fetch(philifeArticleOgImageUrl(), {
           method: "POST",
@@ -481,15 +501,24 @@ export function PhilifeNeighborhoodWriteForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pageUrl: pageRef }),
         });
+        jgStatus = res.status;
         jg = (await res.json()) as typeof jg;
       } catch {
-        jg = { ok: false, error: t("philife_write_err_network") };
+        jg = { ok: false, error: "network_error" };
       }
       if (jg.ok && jg.imageUrl) {
         work = [{ kind: "http" as const, value: jg.imageUrl }];
         usedOgForInitialWork = true;
       } else {
-        setErr(jg.error ?? t("philife_write_err_og_article"));
+        setErr(
+          resolveApiErrorText({
+            json: jg,
+            status: jgStatus,
+            map: COMMUNITY_OG_IMAGE_ERROR_KEYS,
+            fallbackKey: "philife_write_err_og_article",
+            t,
+          })
+        );
         setUploading(false);
         return;
       }
@@ -588,7 +617,8 @@ export function PhilifeNeighborhoodWriteForm({
       }
 
       if (out.length === 0 && pageRef && !usedOgForInitialWork) {
-        let j2: { ok?: boolean; imageUrl?: string; error?: string } = {};
+        let j2: { ok?: boolean; imageUrl?: string; error?: string; code?: string } = {};
+        let j2Status: number | null = null;
         try {
           const res2 = await fetch(philifeArticleOgImageUrl(), {
             method: "POST",
@@ -596,9 +626,10 @@ export function PhilifeNeighborhoodWriteForm({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pageUrl: pageRef }),
           });
+          j2Status = res2.status;
           j2 = (await res2.json()) as typeof j2;
         } catch {
-          j2 = { ok: false, error: t("philife_write_err_network") };
+          j2 = { ok: false, error: "network_error" };
         }
         if (j2.ok && j2.imageUrl) {
           const rh = await tryRehostFromHttp(j2.imageUrl);
@@ -609,7 +640,15 @@ export function PhilifeNeighborhoodWriteForm({
             setErr(t("philife_write_err_thumb_upload"));
           }
         } else {
-          setErr(j2.error ?? t("philife_write_err_og_meetup"));
+          setErr(
+            resolveApiErrorText({
+              json: j2,
+              status: j2Status,
+              map: COMMUNITY_OG_IMAGE_ERROR_KEYS,
+              fallbackKey: "philife_write_err_og_meetup",
+              t,
+            })
+          );
         }
       }
       if (useInterleaved && richMd) {
@@ -854,11 +893,13 @@ export function PhilifeNeighborhoodWriteForm({
             return;
           }
           if (!res.ok || !j.ok) {
-            const msg = isCommunityPostImageErrorCode(j.code)
-              ? imageErrorText(j.code, res.status)
-              : (j.error ?? t("philife_write_err_register_failed"));
-            if (redirectForBlockedAction(router, msg, pathname)) return;
-            setErr(msg);
+            if (isCommunityPostImageErrorCode(j.code)) {
+              setErr(imageErrorText(j.code, res.status));
+              return;
+            }
+            /** 가입·로그인 막힘 판정은 서버 원래 값으로, 화면 문구는 코드 → 키 (재감사 2026-11-27) */
+            if (redirectForBlockedAction(router, j.error, pathname)) return;
+            setErr(postWriteErrorText(j, res.status));
             return;
           }
           discardUnusedUploads(body.images);
@@ -950,11 +991,13 @@ export function PhilifeNeighborhoodWriteForm({
           return;
         }
         if (!res.ok || !j.ok || !j.id) {
-          const msg = isCommunityPostImageErrorCode(j.code)
-            ? imageErrorText(j.code, res.status)
-            : (j.error ?? t("philife_write_err_register_failed"));
-          if (redirectForBlockedAction(router, msg, pathname)) return;
-          setErr(msg);
+          if (isCommunityPostImageErrorCode(j.code)) {
+            setErr(imageErrorText(j.code, res.status));
+            return;
+          }
+          /** 가입·로그인 막힘 판정은 서버 원래 값으로, 화면 문구는 코드 → 키 (재감사 2026-11-27) */
+          if (redirectForBlockedAction(router, j.error, pathname)) return;
+          setErr(postWriteErrorText(j, res.status));
           return;
         }
         discardUnusedUploads(bodyForSubmit.images);
@@ -1085,7 +1128,7 @@ export function PhilifeNeighborhoodWriteForm({
   const topicLabel = selectedTopicOption
     ? philifeWriteTopicOptionLabel(t, selectedTopicOption, language)
     : isEditMode && category
-      ? `${initialTopicName?.trim() || category} ${t("philife_write_topic_paused_suffix")}`
+      ? `${resolveCommunityTopicUILabel(language, initialTopicName ?? "", null, category)} ${t("philife_write_topic_paused_suffix")}`
       : null;
   const noTopics = writeTopicOptionsLoad === "ready" && writeTopicOptions.length === 0 && !isEditMode;
   const showAdminTopicsLink = shouldShowNoTopicsAdminLink(noTopics, me);

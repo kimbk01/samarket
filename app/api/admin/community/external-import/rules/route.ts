@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { loadRules, type RuleInput, saveRule, setRuleEnabled } from "@/lib/community-operator-import/rules";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorDetail, importRouteErrorParts } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -15,7 +16,8 @@ export async function GET() {
   try {
     return jsonOk({ rules: await loadRules(getSupabaseServer()) });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "rules_load_failed", 500, { code: "rules_load_failed" });
+    const detail = importRouteErrorDetail(e, "rules_load_failed");
+    return jsonError("rules_load_failed", 500, { code: "rules_load_failed", ...(detail ? { detail } : {}) });
   }
 }
 
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
     return jsonError(await adminServerText("admin_api_import_actions_rules"), 400, { code: "unsupported_action" });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "rule_failed";
-    return jsonError(msg, 400, { code: msg });
+    const { code, detail } = importRouteErrorParts(e, "rule_failed");
+    return jsonError(code, 400, { code, ...(detail ? { detail } : {}) });
   }
 }

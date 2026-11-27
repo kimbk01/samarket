@@ -5,6 +5,8 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { pickApiErrorCode } from "@/lib/i18n/api-error-text";
+import { tradeChatEntryErrorText } from "@/lib/trade/trade-api-error-text";
 
 const COL = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
@@ -23,6 +25,14 @@ export function TradeChatComposePreparingShell({
   const price = preview?.priceText?.trim() || t("chats_compose_fallback_price");
   const seller = preview?.sellerName?.trim() || t("chats_compose_fallback_seller");
   const thumb = preview?.productThumbnail?.trim() ?? "";
+  /**
+   * 오류 배너 — 서버가 보낸 오류 코드는 거래 채팅 시작 표로 문구를 고른다(서버 문장 노출 0).
+   * 코드 모양이 아닌 값은 화면(`createOrGetChatRoom`)이 이미 키로 만든 문구다.
+   */
+  const bannerRaw = errorBanner?.message?.trim() ?? "";
+  const errorBannerText = pickApiErrorCode({ code: bannerRaw })
+    ? tradeChatEntryErrorText({ code: bannerRaw }, t)
+    : bannerRaw;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" aria-busy="true" aria-live="polite">
@@ -50,7 +60,7 @@ export function TradeChatComposePreparingShell({
           className="border-b border-sam-danger/20 bg-sam-danger-soft px-4 py-2.5 text-center"
           role="alert"
         >
-          <p className="text-[13px] text-sam-danger">{errorBanner.message}</p>
+          <p className="text-[13px] text-sam-danger">{errorBannerText}</p>
           <button
             type="button"
             onClick={errorBanner.onRetry}

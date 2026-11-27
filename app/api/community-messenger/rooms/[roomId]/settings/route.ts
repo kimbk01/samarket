@@ -18,7 +18,6 @@ export async function PATCH(
     key: `community-messenger:open-group-settings:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "오픈채팅 설정 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_open_group_settings_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

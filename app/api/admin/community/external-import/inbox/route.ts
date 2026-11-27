@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { INBOX_STATUSES, INBOX_TABLE, type InboxKey, type InboxStatus, listInbox, setInboxStatus } from "@/lib/community-operator-import/inbox-store";
 import type { QualityVerdict } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorDetail } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
     });
     return jsonOk({ rows, total });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "inbox_failed", 500, { code: "inbox_failed" });
+    const detail = importRouteErrorDetail(e, "inbox_failed");
+    return jsonError("inbox_failed", 500, { code: "inbox_failed", ...(detail ? { detail } : {}) });
   }
 }
 
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const { action, keys, status } = parsed.value;
   if (action !== "status") return jsonError(await adminServerText("admin_api_import_actions_status"), 400, { code: "unsupported_action" });
-  if (!status || !["hidden", "skipped", "new"].includes(status)) return jsonError("status: hidden | skipped | new", 400, { code: "invalid_status" });
+  if (!status || !["hidden", "skipped", "new"].includes(status)) return jsonError("invalid_status", 400, { code: "invalid_status", detail: "status: hidden | skipped | new" });
   const list = (Array.isArray(keys) ? keys : []).slice(0, 200);
   if (!list.length) return jsonError(await adminServerText("admin_api_import_keys_required"), 400, { code: "keys_required" });
   try {
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
     });
     return jsonOk({ updated, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "inbox_status_failed", 400, { code: "inbox_status_failed" });
+    const detail = importRouteErrorDetail(e, "inbox_status_failed");
+    return jsonError("inbox_status_failed", 400, { code: "inbox_status_failed", ...(detail ? { detail } : {}) });
   }
 }

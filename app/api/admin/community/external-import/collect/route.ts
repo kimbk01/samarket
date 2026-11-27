@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { collectBoardToInbox } from "@/lib/community-operator-import/collect";
 import { resolvePreviewPair, tryLockBoard } from "@/lib/community-operator-import/source-store";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorParts } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -29,7 +30,10 @@ export async function POST(req: NextRequest) {
     const res = await collectBoardToInbox(sb, source, board, { pages: Math.max(1, Math.min(3, Number(parsed.value.pages) || 1)), maxItems: 60 });
     const { rows: _rows, ...summary } = res;
     void _rows;
-    if (!res.ok) return jsonError(res.error || "collect_failed", 502, { code: `collect_${res.errorKind || "failed"}`, result: summary });
+    if (!res.ok) {
+      const code = `collect_${res.errorKind || "failed"}`;
+      return jsonError(code, 502, { code, result: summary, ...(res.error && res.error !== code ? { detail: res.error } : {}) });
+    }
     await appendCommunityAdminAudit(sb, req, {
       actorId: auth.userId,
       targetType: "community_import_board",
@@ -46,7 +50,7 @@ export async function POST(req: NextRequest) {
     });
     return jsonOk({ result: summary });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "collect_failed";
-    return jsonError(msg, 400, { code: msg });
+    const { code, detail } = importRouteErrorParts(e, "collect_failed");
+    return jsonError(code, 400, { code, ...(detail ? { detail } : {}) });
   }
 }

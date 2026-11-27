@@ -1,3 +1,6 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { tradeContextMetaRoleLabelKey } from "@/lib/community-messenger/product-chat-messenger-meta";
 import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
@@ -129,11 +132,16 @@ export function isCommunityMessengerStoreOrderDeliveryRoom(
  * Envelope keys (`v`, `kind`, ids) are never display text.
  */
 export function presentCommunityMessengerRoomContextListText(
-  meta: CommunityMessengerRoomContextMetaV1 | null | undefined
+  meta: CommunityMessengerRoomContextMetaV1 | null | undefined,
+  /** 보는 사람 언어 번역 — 없으면 화면 런타임 언어(`translateCmUi`) */
+  t: (key: MessageKey) => string = (key) => translateCmUi(key)
 ): string {
   if (!meta) return "";
   if (meta.kind === "trade") {
-    return (meta.roleLabel ?? "").trim();
+    const roleLabel = (meta.roleLabel ?? "").trim();
+    /** 저장 역할 토큰(「판매자」「구매자」) → 보는 사람 언어. 모르는 값은 그대로 */
+    const roleKey = tradeContextMetaRoleLabelKey(roleLabel);
+    return roleKey ? t(roleKey) : roleLabel;
   }
   const parts = [meta.headline, meta.priceLabel]
     .map((value) => (typeof value === "string" ? value.trim() : ""))

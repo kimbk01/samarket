@@ -23,7 +23,6 @@ export async function POST(
     key: `community-messenger:friend-favorite-toggle:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "즐겨찾기 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_friend_favorite_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

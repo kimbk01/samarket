@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tradeApiError, tradeErrorCodeOf } from "@/lib/trade/trade-api-error-response";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -47,13 +48,13 @@ export async function POST(req: NextRequest) {
     body = (await req.json()) as EntryResolveBody;
   } catch {
     perf?.finish("entry_resolve_route", { outcome: "bad_json" });
-    return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
 
   const productId = typeof body.productId === "string" ? body.productId.trim() : "";
   if (!productId) {
     perf?.finish("entry_resolve_route", { outcome: "no_product_id" });
-    return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
 
   /**
@@ -80,7 +81,11 @@ export async function POST(req: NextRequest) {
 
   if (!result.ok) {
     perf?.finish("entry_resolve_route", { outcome: "error", httpStatus: result.status });
-    return NextResponse.json({ ok: false, error: result.error }, { status: result.status >= 400 ? result.status : 400 });
+    const code = tradeErrorCodeOf(result.error);
+    return NextResponse.json(
+      { ok: false, error: result.error, ...(code ? { code } : {}) },
+      { status: result.status >= 400 ? result.status : 400 }
+    );
   }
 
   perf?.mark("resolve_json_response");

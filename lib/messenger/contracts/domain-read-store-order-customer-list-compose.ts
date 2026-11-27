@@ -123,19 +123,20 @@ export async function composeDomainReadStoreOrderCustomerListDto(
     const sb = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    /** 언어 SSOT B3 — 행·hub 미리보기를 같은 요청 언어로(hub_preview_mismatch 방지) */
+    const lang = await resolveDomainReadRequestLanguage();
     const so = await runStoreOrderBootstrap({
       viewerUserId,
       generation: `so-cust-list-${Date.now()}`,
       snapshotKind: "full",
       surfaceRole: "customer",
       source: createStoreOrderCustomerLiveBootstrapSource(sb, undefined, { inboxOnly: true }),
+      lang,
     });
     if (so.viewerUserId !== viewerUserId) {
       return { ok: false, trigger: "viewer_mismatch" };
     }
 
-    /** 언어 SSOT B3 — 행·hub 미리보기를 같은 요청 언어로(hub_preview_mismatch 방지) */
-    const lang = await resolveDomainReadRequestLanguage();
     const hub = buildStoreOrderHubViewModel(so.rows, lang);
     const latest = selectLatestRowByActivityAt(so.rows, (r) => ({
       activityAt: r.latestChatMessageAt,

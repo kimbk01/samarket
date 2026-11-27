@@ -107,7 +107,8 @@ export function buildTradePublicLine(a: UserAddressDTO): string {
   if (a.latitude != null && a.longitude != null) {
     return `${a.latitude.toFixed(4)}, ${a.longitude.toFixed(4)}`;
   }
-  return "주소 미입력";
+  /** 비어 있음 표시 — 언어와 무관한 「—」(예전 「주소 미입력」은 영어 화면에도 한국어 · 언어 재감사 2026-11-27) */
+  return "—";
 }
 
 /**
@@ -227,7 +228,7 @@ export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string
     });
   }
   const trade = buildTradePublicLine(a);
-  if (trade !== "주소 미입력") return trade;
+  if (trade !== "—") return trade;
   const street = (a.streetAddress ?? "").trim();
   if (street) {
     const unitInStreet = unit.length > 0 && street.toLowerCase().includes(unit.toLowerCase());

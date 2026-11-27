@@ -137,7 +137,8 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
     const post = postById.get(String(row.target_id));
     if (!post) continue;
 
-    const title = String(post.title ?? "").trim() || "(제목 없음)";
+    /** 제목 없음·이름 없음 → 빈 값. 표시처는 `community_no_title`·작성자 키로 그린다 (재감사 2026-11-27, 서버 한국어 금지) */
+    const title = String(post.title ?? "").trim();
     const summaryRaw = String(post.summary ?? "").trim();
     const postSummary = summaryRaw || excerptFromPostBody(String(post.content ?? ""));
     const pid = String(row.target_id);
@@ -155,7 +156,7 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
       priority: 0,
       startAt: row.start_at,
       endAt: row.end_at,
-      advertiserName: nicknameById.get(String(row.user_id)) ?? "회원",
+      advertiserName: nicknameById.get(String(row.user_id)) ?? "",
     });
   }
 

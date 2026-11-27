@@ -2,9 +2,18 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   notifySafeT,
-  resolveInboxNotificationDisplayText,
+  resolveInboxNotificationDisplayText as resolveStoredKeyOrText,
 } from "@/lib/notifications/notify-safe-translate";
+import {
+  mapLegacyNotificationText,
+  renderNotificationCopyFromMeta,
+} from "@/lib/notifications/notification-stored-copy";
 import { formatMoneyPhp } from "@/lib/utils/format";
+
+/** 저장 문장 — 알려진 알림 문구면 보는 사람 언어로(설계 §4-3 옛 행), 아니면 기존 처리(키 문자열 번역·그대로) */
+function resolveInboxNotificationDisplayText(lang: AppLanguageCode, text: string | null | undefined): string {
+  return mapLegacyNotificationText(lang, text) ?? resolveStoredKeyOrText(lang, text);
+}
 
 export type CommerceNotificationMeta = {
   kind?: string;
@@ -334,7 +343,9 @@ export function resolveCommerceNotificationInboxTitle(
   const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "title") : null;
   const baseKey =
     variant && variant !== "stored" ? variant.key : commerceTitleKey(kind, String(m.order_status ?? ""));
-  if (!baseKey) return resolveInboxNotificationDisplayText(lang, storedTitle);
+  if (!baseKey) {
+    return renderNotificationCopyFromMeta(lang, meta, "title") ?? resolveInboxNotificationDisplayText(lang, storedTitle);
+  }
   const key = senderVariantKey(baseKey, kind, m, storedBody, "title");
 
   const store = metaStoreLabel(m, lang, storedBody);
@@ -359,7 +370,7 @@ export function resolveCommerceNotificationInboxBody(
 
   if (!baseKey) {
     if (!raw) return null;
-    return resolveInboxNotificationDisplayText(lang, raw);
+    return renderNotificationCopyFromMeta(lang, meta, "body") ?? resolveInboxNotificationDisplayText(lang, raw);
   }
 
   const key = senderVariantKey(baseKey, kind, m, storedBody, "body");
@@ -399,7 +410,22 @@ export function resolveNotificationInboxTitle(
       row.body ?? null
     );
   }
+  if (isCallRow(row)) return resolveStoredKeyOrText(lang, row.title);
+  const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "title");
+  if (fromMeta) return fromMeta;
+  if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, row.title);
   return resolveInboxNotificationDisplayText(lang, row.title);
+}
+
+/**
+ * 통화(부재중 등)는 통화 규정 대상이라 저장 문장 처리를 바꾸지 않는다(meta·대응표 모두 쓰지 않음).
+ * 채팅 행은 본문이 사람이 쓴 메시지라 옛 문장 대응표를 쓰지 않는다(「좋아요」 같은 메시지가 알림 문구로 바뀌지 않게) —
+ * 발송 코드가 meta 에 키를 넣은 행(선물 등)만 meta 로 다시 그린다.
+ */
+function isCallRow(row: { notification_type: string; meta?: Record<string, unknown> | null }): boolean {
+  const type = String(row.notification_type ?? "");
+  const kind = String((row.meta as { kind?: unknown } | null | undefined)?.kind ?? "");
+  return /call/i.test(type) || /call/i.test(kind);
 }
 
 export function resolveNotificationInboxBody(
@@ -415,5 +441,9 @@ export function resolveNotificationInboxBody(
   }
   const raw = (row.body ?? "").trim();
   if (!raw) return null;
+  if (isCallRow(row)) return resolveStoredKeyOrText(lang, raw);
+  const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "body");
+  if (fromMeta) return fromMeta;
+  if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, raw);
   return resolveInboxNotificationDisplayText(lang, raw);
 }

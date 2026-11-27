@@ -8,6 +8,7 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
+import { communityAuthorNameText } from "@/lib/community/community-display-fallbacks";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
@@ -100,7 +101,10 @@ export function CommunityCommentItem({
     normalized === "댓글이 삭제 되엇습니다";
   const canReportComment = me.length > 0 && !isOwner && !isDeleted && Boolean(onReportComment);
   const isReplyOpen = replyOpenCommentId === node.id;
-  const authorLabel = node.is_removed ? "" : communityAuthorDisplayName(node.author_name, node.author_name);
+  /** 서버가 빈 이름을 주면(작성자 없음) 화면 언어 「익명」 — 재감사 2026-11-27 */
+  const authorLabel = node.is_removed
+    ? ""
+    : communityAuthorNameText(communityAuthorDisplayName(node.author_name, node.author_name), t);
   const authorUserId = String(node.user_id ?? "").trim();
   const canBlockAuthor =
     me.length > 0 && !isOwner && !node.is_removed && authorUserId.length > 0 && Boolean(onBlockCommentAuthor);

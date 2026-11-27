@@ -8,6 +8,10 @@ import {
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 import { OWNER_STORE_OPS_NOTICE_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import {
+  resolveNotificationInboxBody,
+  resolveNotificationInboxTitle,
+} from "@/lib/notifications/resolve-commerce-notification-inbox-text";
 
 /** `GET /api/me/notifications?owner_store_id=` 행 (형태 유지). */
 export type OwnerNotificationRow = {
@@ -127,6 +131,22 @@ export function ownerRowToInboxItem(
   const kindLabel = commerceMetaKindLabel(kind, language);
   const typeLabel = notificationTypeLabel(r.notification_type, language);
   const orderNo = String((r.meta as { order_no?: string } | undefined)?.order_no ?? "").trim();
+  /** 저장 문장 대신 보는 사람 언어로 — 회원 알림함과 같은 함수(commerce 는 meta 로 다시 그림 · 옛 행은 대응표 · 설계 §4-3) */
+  const title = r.title?.trim()
+    ? resolveNotificationInboxTitle(language, {
+        notification_type: r.notification_type,
+        title: r.title,
+        body: r.body,
+        meta: r.meta ?? null,
+      })
+    : r.title;
+  const body = r.body?.trim()
+    ? resolveNotificationInboxBody(language, {
+        notification_type: r.notification_type,
+        body: r.body,
+        meta: r.meta ?? null,
+      })
+    : r.body;
   return {
     key: r.id,
     notification_id: r.id,
@@ -134,9 +154,9 @@ export function ownerRowToInboxItem(
     isThread: false,
     isOrderGroup: orderNo.length > 0,
     notification_type: "owner_store_commerce",
-    title: r.title,
-    displayTitle: r.title,
-    body: r.body,
+    title,
+    displayTitle: title,
+    body,
     href: resolveOwnerNotificationHref(r, storeId),
     created_at: r.created_at,
     unreadCount: r.is_read ? 0 : 1,

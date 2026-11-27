@@ -12,6 +12,10 @@ export function coalesceNeighborhoodLocationInput(
   const parts = locationKey.split(":").map((p) => p.trim()).filter(Boolean);
   const cityFromKey = parts.length >= 2 ? parts[1]! : "";
   const city = (partial.city ?? "").trim() || cityFromKey || parts[0] || "";
+  /**
+   * 「동네」= `locations.name`(NOT NULL)·기존 행 찾기 키 호환값 — 바꾸면 같은 입력에 새 행이 생긴다.
+   * 화면은 `communityRegionLabelText` 가 화면 언어 키로 그린다 (재감사 2026-11-27).
+   */
   const name = (partial.name ?? "").trim() || city || "동네";
   return {
     country: "Philippines",

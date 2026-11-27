@@ -1031,8 +1031,8 @@ export function assembleStoresBrowseResponse(
     const distanceOutOfRange = rowDistance.outOfRange;
     const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, distanceOutOfRange);
     const regionLabel = formatStoreLocationLine(r) ?? translate(uiLang, "store_location_unregistered");
-    const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-    const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
+    const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json, uiLang);
+    const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json, uiLang);
 
     let distanceKm: number | null = null;
     if (distById) {

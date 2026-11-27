@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { translateBy } from "@/lib/i18n/translate-by";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -67,7 +68,11 @@ export async function notifyFeedAdMember(
       push_kind: input.domain === "community" ? "community" : "trade",
       ref_id: requestId,
       dedupe_key: `feed-ad-${input.kind}:${requestId}`,
-      meta: { kind: `feed_ad_${input.kind}`, request_id: requestId },
+      meta: {
+        kind: `feed_ad_${input.kind}`,
+        request_id: requestId,
+        ...notificationCopyMeta({ titleKey: keys.title, messageKey: keys.body, vars: { reason: reason || "—" } }),
+      },
     });
   } catch {
     return false;

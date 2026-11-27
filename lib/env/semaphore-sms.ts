@@ -28,7 +28,7 @@ export function requireSemaphoreSmsEnv(): SemaphoreSmsEnv {
   if (missing.length > 0) {
     return {
       ok: false,
-      error: "인증번호 발송에 실패했습니다.",
+      error: "sms_send_failed",
       missing,
     };
   }

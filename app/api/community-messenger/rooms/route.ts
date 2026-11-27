@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:rooms-list:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "대화 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_rooms_list_rate_limited",
   });
   if (!listRateLimit.ok) return listRateLimit.response;
@@ -85,7 +84,6 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:room-create:${getRateLimitKey(req, auth.userId)}`,
     limit: 6,
     windowMs: 60_000,
-    message: "대화방 생성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_create_rate_limited",
   });
   if (!createRateLimit.ok) return createRateLimit.response;
@@ -131,7 +129,7 @@ export async function POST(req: NextRequest) {
       title: String(body.title ?? ""),
       memberIds: Array.isArray(body.memberIds) ? body.memberIds.map(String) : [],
     });
-    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "대화방 생성에 실패했습니다.", 400, result);
+    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "room_create_failed", 400, result);
   }
 
   if (body.roomType === "open_group") {
@@ -147,7 +145,7 @@ export async function POST(req: NextRequest) {
       creatorIdentityMode: body.creatorIdentityMode === "alias" ? "alias" : "real_name",
       creatorAliasProfile: body.creatorAliasProfile,
     });
-    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "오픈 그룹 생성에 실패했습니다.", 400, result);
+    return result.ok ? jsonOkWithRequest(req, result) : jsonError(result.error ?? "room_create_failed", 400, result);
   }
 
   const storeOrderId = typeof body.storeOrderId === "string" ? body.storeOrderId.trim() : "";
@@ -175,7 +173,7 @@ export async function POST(req: NextRequest) {
         : err === "product_chat_not_found" || err === "order_chat_not_found"
           ? 404
           : 400;
-    return jsonError(result.error ?? "대화방 준비에 실패했습니다.", status, result);
+    return jsonError(err, status, result);
   }
   if (storeOrderId) {
     await syncStoreOrderCommunityMessengerRoomId({

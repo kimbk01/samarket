@@ -31,7 +31,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
   const routeSb = await createSupabaseRouteHandlerClient();
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
-  if (!readSb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
+  if (!readSb) return jsonError("supabase_unconfigured", 503, { code: "supabase_unconfigured" });
   const [profile, required, ageState] = await Promise.all([
     fetchProfileRowSafe(readSb, auth.userId),
     resolveRequiredConsentVersions(),
@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const routeSb = await createSupabaseRouteHandlerClient();
-  if (!routeSb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
+  if (!routeSb) return jsonError("supabase_unconfigured", 503, { code: "supabase_unconfigured" });
   let body: {
     agreeTerms?: boolean;
     agreePrivacy?: boolean;
@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest) {
     data: { user },
   } = await routeSb.auth.getUser();
   if (!user?.id || user.id !== auth.userId) {
-    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
+    return jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" });
   }
   const quota = await enforceLegalConsentSubmitQuota(auth.userId);
   if (!quota.ok) return quota.response;
@@ -104,7 +104,7 @@ export async function PATCH(req: NextRequest) {
   try {
     required = await resolveRequiredConsentVersionsStrict();
   } catch {
-    return jsonError("약관 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.", 503, {
+    return jsonError("consent_versions_unavailable", 503, {
       code: "consent_versions_unavailable",
     });
   }
@@ -116,7 +116,7 @@ export async function PATCH(req: NextRequest) {
     (seenTerms && seenTerms !== required.termsVersion) ||
     (seenPrivacy && seenPrivacy !== required.privacyVersion)
   ) {
-    return jsonError("약관이 개정되었습니다. 변경된 약관을 확인한 뒤 다시 동의해 주세요.", 409, {
+    return jsonError("consent_version_stale", 409, {
       code: "consent_version_stale",
       requiredConsent: { termsVersion: required.termsVersion, privacyVersion: required.privacyVersion },
     });
@@ -143,7 +143,7 @@ export async function PATCH(req: NextRequest) {
     return saved.ok;
   };
   const marketingSaveFailed = () =>
-    jsonError("선택 동의를 저장하지 못했습니다. 다시 시도해 주세요.", 500, { code: "marketing_save_failed" });
+    jsonError("marketing_save_failed", 500, { code: "marketing_save_failed" });
 
   const existing = await fetchProfileRowSafe(sb, auth.userId);
   const termsOk = hasStoreTermsConsent(
@@ -160,14 +160,14 @@ export async function PATCH(req: NextRequest) {
   const ageOk = hasAgeGateConsent(ageState.fields);
 
   if (!termsOk && (body.agreeTerms !== true || body.agreePrivacy !== true)) {
-    return jsonError("이용약관과 개인정보처리방침 동의가 필요합니다.", 400);
+    return jsonError("consent_required", 400, { code: "consent_required" });
   }
   let dateOfBirth: string | null = null;
   if (!ageOk) {
     const decision = evaluateAgeAttestationInput({ attestAge: body.attestAge, dateOfBirth: body.dateOfBirth });
     // Under-14: refused before any write (no DOB, no optional consent). The RPC refuses it again.
     if (!decision.ok) {
-      return jsonError(decision.messageKo, decision.code === "age_under_minimum" ? 403 : 400, {
+      return jsonError(decision.code, decision.code === "age_under_minimum" ? 403 : 400, {
         code: decision.code,
       });
     }
@@ -212,7 +212,12 @@ export async function PATCH(req: NextRequest) {
     source: existing?.terms_accepted_at ? "reconsent" : "signup",
     updateTermsPrivacy: !termsOk,
   });
-  if (!recorded.ok) return jsonError(recorded.message, recorded.httpStatus, { code: recorded.code });
+  if (!recorded.ok) {
+    if (recorded.code === "record_failed") {
+      console.error("[legal-consent] record_failed", { message: recorded.message });
+    }
+    return jsonError(recorded.code, recorded.httpStatus, { code: recorded.code });
+  }
 
   const termsAt = termsOk ? existing?.terms_accepted_at ?? null : recorded.recordedAt;
   const privacyAt = termsOk ? existing?.privacy_accepted_at ?? null : recorded.recordedAt;
@@ -231,6 +236,6 @@ export async function PATCH(req: NextRequest) {
 }
 
 const ageStateUnavailable = () =>
-  jsonError("동의 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.", 503, {
+  jsonError("consent_state_unavailable", 503, {
     code: "consent_state_unavailable",
   });

@@ -25,20 +25,19 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:media-auto-save-candidates:${getRateLimitKey(req, userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "자동 저장 확인 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_media_auto_save_candidates_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
 
   const sinceIso = normalizeMessengerImageAutoSaveSince(new URL(req.url).searchParams.get("since"), Date.now());
-  if (!sinceIso) return jsonError("since 가 필요합니다.", { status: 400, code: "since_required" });
+  if (!sinceIso) return jsonError("since_required", { status: 400, code: "since_required" });
 
   const sb = resolveGroupRoomSupabase();
-  if (!sb) return jsonError("서비스를 사용할 수 없습니다.", 503);
+  if (!sb) return jsonError("messenger_storage_unavailable", 503, { code: "messenger_storage_unavailable" });
 
   const result = await listMessengerImageAutoSaveCandidates(sb as any, { viewerUserId: userId, sinceIso });
   if (!result.ok) {
-    return jsonError("자동 저장 후보를 불러오지 못했습니다.", { status: 500, code: "auto_save_candidates_failed" });
+    return jsonError("auto_save_candidates_failed", { status: 500, code: "auto_save_candidates_failed" });
   }
   const body: MessengerImageAutoSaveCandidatesResponse = {
     ok: true,

@@ -20,8 +20,8 @@ export function ProductPriceField({
   onPriceOfferChange,
   error,
 }: ProductPriceFieldProps) {
-  const { t } = useI18n();
-  const unit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
+  const { t, language } = useI18n();
+  const unit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency, language), [language]);
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       <label className="mb-2 block sam-text-body font-medium text-sam-fg">

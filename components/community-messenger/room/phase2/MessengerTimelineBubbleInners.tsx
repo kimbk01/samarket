@@ -1,11 +1,13 @@
 "use client";
 
+import { isStoreOrderMatchAckText } from "@/lib/chats/store-order-match-ack-text";
 import { MessengerChatVideoBubble } from "@/components/community-messenger/room/MessengerChatVideoBubble";
 import { memo } from "react";
 import { FileText } from "lucide-react";
 import type { DibayImageViewerItem } from "@/lib/ui/dibay-image-viewer-items";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import {
   communityMessengerVoiceAudioSrc,
   formatFileMeta,
@@ -305,13 +307,20 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
   metaSpacerClock?: string;
   metaSpacerIcon?: boolean;
 }) {
+  const { t } = useI18n();
   const mineLight = item.isMine;
-  const body =
-    highlightMentions && item.messageType === "text" ? (
-      <GroupMentionText content={item.content} isMine={mineLight} />
-    ) : (
-      <MessengerLinkifiedText content={item.content} />
-    );
+  /** 전원 삭제·관리자 숨김 저장 토큰(서버가 본문 자리에 넣음) → 보는 사람 언어 */
+  const storedPlaceholderKey = resolveStoredMessagePlaceholderKey(item.content);
+  const body = storedPlaceholderKey ? (
+    t(storedPlaceholderKey)
+  ) : item.messageType === "text" && isStoreOrderMatchAckText(item.content) ? (
+    /** 주문 「일치합니다」 자동 응답(ko·en 저장) → 보는 사람 언어 */
+    t("store_order_match_ack")
+  ) : highlightMentions && item.messageType === "text" ? (
+    <GroupMentionText content={item.content} isMine={mineLight} />
+  ) : (
+    <MessengerLinkifiedText content={item.content} />
+  );
   return (
     <div className="flex w-max max-w-full flex-col gap-2">
       <p

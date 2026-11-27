@@ -2,8 +2,14 @@
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
+import {
+  reportClientFailure,
+  reportClientFailureFromResponse,
+  type ReportClientFailure,
+} from "@/lib/reports/report-block-error-text";
 
-export type CreateReportResult = { ok: true; id: string; already: boolean } | { ok: false; error: string };
+/** 실패는 코드만 — 문구는 화면이 `reportErrorText` 로 고른다 (재감사 2026-11-27) */
+export type CreateReportResult = { ok: true; id: string; already: boolean } | ReportClientFailure;
 
 /**
  * 게시글(post) 신고 — public.reports (통합 스키마)
@@ -18,10 +24,10 @@ export async function createReport(
   detail?: string
 ): Promise<CreateReportResult> {
   const user = getCurrentUser();
-  if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
+  if (!user?.id) return reportClientFailure("login_required");
 
   const text = reason?.trim();
-  if (!text) return { ok: false, error: "신고 사유를 선택하거나 입력해 주세요." };
+  if (!text) return reportClientFailure("report_reason_required");
 
   try {
     const reason_code = reasonCode?.trim() || inferReportReasonCode(text);
@@ -41,17 +47,13 @@ export async function createReport(
       ok?: boolean;
       id?: string;
       already?: boolean;
-      error?: string;
     };
 
     if (!res.ok || !json.ok) {
-      return {
-        ok: false,
-        error: json.error ?? `신고 접수에 실패했습니다. (${res.status})`,
-      };
+      return reportClientFailureFromResponse(res.status, json);
     }
     return { ok: true, id: json.id ?? "", already: json.already === true };
-  } catch (e) {
-    return { ok: false, error: (e as Error)?.message ?? "신고 접수에 실패했습니다." };
+  } catch {
+    return reportClientFailure("network_error");
   }
 }

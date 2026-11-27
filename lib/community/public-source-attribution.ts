@@ -52,7 +52,8 @@ export async function loadPublicSourceAttributionFromPost(
   const url = urlRaw != null && String(urlRaw).trim() ? String(urlRaw).trim() : null;
   if (!name && !url) return null;
   return {
-    sourceName: name || "출처",
+    /** 이름이 없으면 빈 값 — 「출처」 제목은 상세 화면이 키(`community_source_attribution_label`)로 그린다 (재감사 2026-11-27) */
+    sourceName: name,
     canonicalUrl: url,
     sourcePublishedAt: null,
   };
@@ -122,7 +123,7 @@ export function postExtrasFromCommunityPostRow(
         ? sanitizeMemberContentBlocks(row.content_blocks)
         : [];
   return {
-    attribution: name || url ? { sourceName: name || "출처", canonicalUrl: url, sourcePublishedAt: null } : null,
+    attribution: name || url ? { sourceName: name, canonicalUrl: url, sourcePublishedAt: null } : null,
     contentBlocks: blocks.length ? blocks : null,
     topFields: hasTopFields ? row : null,
   };

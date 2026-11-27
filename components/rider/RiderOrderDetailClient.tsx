@@ -1,6 +1,7 @@
 "use client";
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveRiderApiErrorText } from "@/lib/rider/rider-api-error-text";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -39,12 +40,12 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
     const r = await fetch(`/api/me/rider/orders/${encodeURIComponent(oid)}`, { cache: "no-store" });
     const j = (await r.json()) as DetailPayload;
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? t("ui_rider_load_failed"));
+      setErr(typeof j.error === "string" ? j.error : "load_failed");
       setData(null);
       return;
     }
     setData(j);
-  }, [oid, t]);
+  }, [oid]);
 
   useEffect(() => {
     let alive = true;
@@ -67,7 +68,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
     });
     const j = (await r.json()) as { ok?: boolean; error?: string };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? t("ui_rider_request_failed"));
+      setErr(typeof j.error === "string" ? j.error : "request_failed");
       return;
     }
     await load();
@@ -166,7 +167,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
   if (!data?.delivery) {
     return (
       <div className={`${Sam.page} bg-sam-app px-4 py-8`}>
-        <p className="text-red-600 text-sm">{err ?? t("ui_rider_no_data")}</p>
+        <p className="text-red-600 text-sm">{err ? resolveRiderApiErrorText(err, t, "ui_rider_load_failed") : t("ui_rider_no_data")}</p>
         <Link href="/rider/orders" className={`mt-4 inline-flex ${Sam.btn.secondary}`}>
           {t("ui_rider_list_label")}
         </Link>
@@ -246,7 +247,8 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
         </div>
       ) : null}
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {/* 언어 재감사 2026-11-27: `err` 는 코드만 — 코드 → 키 */}
+      {err ? <p className="text-sm text-red-600">{resolveRiderApiErrorText(err, t)}</p> : null}
 
       <section className="space-y-4">
         {st === "rider_assigned" && !del.rider_accepted_at ? (

@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   mapProfileRowToPublicSeller,
   mapTestUserRowToPublicSeller,
@@ -72,7 +73,7 @@ export async function GET(
     } catch {
       /* snapshot table may not exist yet — bridge trust_score */
     }
-    const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>);
+    const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>, await resolveRequestAppLanguageOr("en"));
     if (profile.id) {
       let tradeLocationLine: string | null = null;
       try {

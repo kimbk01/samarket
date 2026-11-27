@@ -31,13 +31,17 @@ import {
 } from "@/lib/community-messenger/pillar-chat-list/pillar-chat-list-model";
 import { buildDeliveryChatListRowModel } from "@/lib/community-messenger/delivery-chat-list/view-model";
 import { formatChatListKakaoTime } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
-import { STORE_ORDER_DISPLAY_STORE_FALLBACK } from "@/lib/community-messenger/store-order-display-identity";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import {
+  getMessengerRoomActionErrorMessage,
+  pickMessengerApiErrorField,
+} from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchDomainListCanaryWithRetry,
@@ -344,9 +348,10 @@ export function DomainStoreOrderCustomerListCanaryGate({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "participant_settings", isMuted: nextMuted }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
         if (!res.ok || !json.ok) {
-          setActionError(json.error ?? "room_settings_update_failed");
+          /** 서버 문장·코드 원문 대신 코드 → 화면 언어 문구 */
+          setActionError(getMessengerRoomActionErrorMessage(pickMessengerApiErrorField(json), translateCmUi));
           return;
         }
         const viewerUserId = resolveViewerUserId();
@@ -377,7 +382,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
         if (viewerUserId) applyDomainStoreOrderListRemoveRow({ viewerUserId, roomId });
         setRoomActionSheet(null);
       } else {
-        setActionError(result.error ?? "leave_failed");
+        setActionError(getMessengerRoomActionErrorMessage(result.error, translateCmUi));
       }
     } finally {
       setBusyId(null);
@@ -401,7 +406,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
   const sheetHeader = useMemo(() => {
     if (!sheetItem) return null;
     const model = buildDeliveryChatListRowModel(sheetItem.room, t, language);
-    const storeName = model?.storeName?.trim() || STORE_ORDER_DISPLAY_STORE_FALLBACK;
+    const storeName = model?.storeName?.trim() || t("common_store");
     const date = formatChatListKakaoTime(sheetItem.lastEventAt, t);
     const status = model?.statusChip?.label ?? "";
     return {

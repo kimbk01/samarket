@@ -83,7 +83,7 @@ export function resolveMemberPostImages(input: {
       return {
         ok: false,
         error: "image_not_allowed",
-        message: "업로드가 완료되지 않았거나 사용할 수 없는 이미지가 있습니다. 해당 사진을 삭제하거나 다시 올려 주세요.",
+        message: "image_not_allowed",
       };
     }
   }
@@ -92,7 +92,7 @@ export function resolveMemberPostImages(input: {
     return {
       ok: false,
       error: "too_many_images",
-      message: `사진은 ${max}장까지 올릴 수 있습니다.`,
+      message: "too_many_images",
     };
   }
   return { ok: true, images: merged };

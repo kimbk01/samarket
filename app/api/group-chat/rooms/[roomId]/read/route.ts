@@ -18,14 +18,14 @@ export async function POST(
 
   const { roomId } = await params;
   if (!roomId?.trim()) {
-    return jsonError("roomId 필요", 400);
+    return jsonError("invalid_request", { status: 400, code: "invalid_request" });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return jsonError("서버 설정 필요", 500);
+    return jsonError("server_config", { status: 500, code: "server_config" });
   }
 
   const { data: room, error: roomErr } = await sb
@@ -35,7 +35,7 @@ export async function POST(
     .maybeSingle();
 
   if (roomErr || !(room as { id?: string } | null)?.id) {
-    return jsonError("방을 찾을 수 없습니다.", 404);
+    return jsonError("room_not_found", { status: 404, code: "room_not_found" });
   }
 
   const r = room as { message_seq: number; last_message_id: string | null };
@@ -49,7 +49,7 @@ export async function POST(
     .maybeSingle();
 
   if (memErr || !(mem as { id?: string } | null)?.id) {
-    return jsonError("멤버만 읽음 처리할 수 있습니다.", 403);
+    return jsonError("not_member", { status: 403, code: "not_member" });
   }
 
   const now = new Date().toISOString();

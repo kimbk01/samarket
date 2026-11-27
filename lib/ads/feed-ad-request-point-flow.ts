@@ -5,6 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { buildPointLedgerDescription } from "@/lib/points/point-ledger-description";
 import {
   appendUserPointLedgerAudit,
   creditUserPoints,
@@ -34,7 +35,7 @@ export async function holdPointsForFeedAdRequest(
     entryType: "ad_hold",
     relatedType: "feed_ad_request",
     relatedId: `hold:${params.requestId}`,
-    description: "피드 광고 신청 — 포인트 보류",
+    description: buildPointLedgerDescription("point_desc_feed_ad_hold"),
     actorType: "system",
   });
   if (!spent.ok) {
@@ -62,7 +63,7 @@ export async function holdPointsForFeedAdRequest(
       entryType: "ad_hold_release",
       relatedType: "feed_ad_request",
       relatedId: `hold_insert_fail_release:${params.requestId}`,
-      description: "피드 광고 신청 — 보류 행 생성 실패 환급",
+      description: buildPointLedgerDescription("point_desc_feed_ad_hold_rollback"),
       actorType: "system",
     });
     if (!rolled.ok) {
@@ -102,7 +103,7 @@ export async function releaseHeldPointsForFeedAdRequest(
       entryType: "ad_hold_release",
       relatedType: "feed_ad_request",
       relatedId: `release:${h.id}`,
-      description: "피드 광고 거절/취소 — 보류 해제",
+      description: buildPointLedgerDescription("point_desc_feed_ad_release"),
       actorType: "system",
     });
     if (!credited.ok) {
@@ -152,7 +153,7 @@ export async function captureHeldPointsForFeedAdRequest(
     entryType: "ad_purchase",
     relatedType: "feed_ad_request",
     relatedId: `capture:${params.requestId}`,
-    description: `피드 광고 승인 — ${cost}P 확정`,
+    description: buildPointLedgerDescription("point_desc_feed_ad_capture", { cost }),
     actorType: "admin",
   }).catch(() => {
     /* audit best-effort */
@@ -198,8 +199,8 @@ export async function compensateFeedAdPointHold(
       relatedId: `compensate:${h.id}`,
       description:
         h.status === "captured"
-          ? "피드 광고 승인 실패 보상 — 확정 포인트 환급"
-          : "피드 광고 승인 실패 보상 — 보류 해제",
+          ? buildPointLedgerDescription("point_desc_feed_ad_comp_refund")
+          : buildPointLedgerDescription("point_desc_feed_ad_comp_release"),
       actorType: "system",
     });
     if (!credited.ok) {

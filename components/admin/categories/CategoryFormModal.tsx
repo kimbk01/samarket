@@ -10,7 +10,7 @@ import {
   TRADE_SUBTYPE_PRESET_VALUES,
   COMMUNITY_SKIN_OPTIONS,
 } from "@/lib/types/category";
-import { validateSlugFormat } from "@/lib/categories/validateSlug";
+import { categorySlugErrorKey, validateSlugFormat } from "@/lib/categories/validateSlug";
 import { checkSlugAvailable } from "@/lib/categories/admin/checkSlugAvailable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -218,12 +218,12 @@ export function CategoryFormModal({
 
       const formatCheck = validateSlugFormat(slugTrim);
       if (!formatCheck.ok) {
-        setSlugError(formatCheck.error);
+        setSlugError(t(categorySlugErrorKey(formatCheck.error)));
         return;
       }
       const slugCheck = await checkSlugAvailable(slugTrim, category?.id);
       if (!slugCheck.available) {
-        setSlugError(slugCheck.error);
+        setSlugError(t(categorySlugErrorKey(slugCheck.error)));
         return;
       }
 

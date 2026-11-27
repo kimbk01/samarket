@@ -22,7 +22,6 @@ export async function POST(
     key: `community-messenger:room-leave:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "대화방 나가기 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_leave_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

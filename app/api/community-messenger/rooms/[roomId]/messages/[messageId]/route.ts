@@ -22,7 +22,7 @@ export async function GET(
 
   const { roomId: rawRoomId, messageId } = await params;
   if (!messageId?.trim()) {
-    return jsonError("messageId가 필요합니다.", 400);
+    return jsonError("bad_request", 400, { code: "bad_request" });
   }
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
   if (!canon.ok) {
@@ -33,7 +33,6 @@ export async function GET(
     key: `community-messenger:message-by-id:${getRateLimitKey(_req, auth.userId)}:${canon.canonicalRoomId}`,
     limit: 72,
     windowMs: 60_000,
-    message: "이 방의 메시지 조회가 너무 빈번합니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_message_by_id_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -45,12 +44,12 @@ export async function GET(
   });
   if (!result.ok) {
     if (result.error === "not_found") {
-      return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      return jsonError(result.error, 404, { code: result.error });
     }
     if (result.error === "room_not_found") {
-      return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+      return jsonError(result.error, 404, { code: result.error });
     }
-    return jsonError("메시지를 불러오지 못했습니다.", 400, { code: result.error });
+    return jsonError(result.error, 400, { code: result.error });
   }
   return jsonOk({ message: result.message });
 }
@@ -66,7 +65,6 @@ export async function PATCH(
     key: `community-messenger:message-patch:${getRateLimitKey(req, auth.userId)}`,
     limit: 40,
     windowMs: 60_000,
-    message: "메시지 수정 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_message_patch_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -89,12 +87,12 @@ export async function PATCH(
     });
     if (!result.ok) {
       if (result.error === "not_found") {
-        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
       if (result.error === "forbidden") {
-        return jsonError("이 메시지를 숨길 수 없습니다.", 403, { code: result.error });
+        return jsonError(result.error, 403, { code: result.error });
       }
-      return jsonError("메시지를 숨기지 못했습니다.", 400, { code: result.error });
+      return jsonError(result.error, 400, { code: result.error });
     }
     return jsonOk({ ok: true });
   }
@@ -107,15 +105,15 @@ export async function PATCH(
     });
     if (!result.ok) {
       if (result.error === "not_found") {
-        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
       if (result.error === "forbidden") {
-        return jsonError("모두에게 삭제할 수 없습니다.", 403, { code: result.error });
+        return jsonError(result.error, 403, { code: result.error });
       }
       if (result.error === "unsupported_type") {
-        return jsonError("이 메시지는 모두에게 삭제할 수 없습니다.", 400, { code: result.error });
+        return jsonError(result.error, 400, { code: result.error });
       }
-      return jsonError("메시지를 삭제하지 못했습니다.", 400, { code: result.error });
+      return jsonError(result.error, 400, { code: result.error });
     }
     return jsonOk({ ok: true });
   }
@@ -123,7 +121,7 @@ export async function PATCH(
   if (action === "edit_content") {
     const content = String(parsed.value.content ?? "").trim();
     if (!content) {
-      return jsonError("메시지 내용이 필요합니다.", 400, { code: "content_required" });
+      return jsonError("content_required", 400, { code: "content_required" });
     }
     const result = await editCommunityMessengerTextMessage({
       userId: auth.userId,
@@ -133,23 +131,23 @@ export async function PATCH(
     });
     if (!result.ok) {
       if (result.error === "not_found") {
-        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+        return jsonError(result.error, 404, { code: result.error });
       }
       if (result.error === "forbidden") {
-        return jsonError("이 메시지를 수정할 수 없습니다.", 403, { code: result.error });
+        return jsonError(result.error, 403, { code: result.error });
       }
       if (result.error === "room_readonly") {
-        return jsonError("읽기 전용 방에서는 수정할 수 없습니다.", 403, { code: result.error });
+        return jsonError(result.error, 403, { code: result.error });
       }
       if (result.error === "room_blocked") {
-        return jsonError("차단된 방에서는 수정할 수 없습니다.", 403, { code: result.error });
+        return jsonError(result.error, 403, { code: result.error });
       }
-      return jsonError("메시지를 수정하지 못했습니다.", 400, { code: result.error });
+      return jsonError(result.error, 400, { code: result.error });
     }
     return jsonOk({ ok: true, message: result.message });
   }
 
-  return jsonError("지원하지 않는 action 입니다.", 400, { code: "bad_request" });
+  return jsonError("bad_request", 400, { code: "bad_request" });
 }
 
 export async function DELETE(
@@ -163,7 +161,6 @@ export async function DELETE(
     key: `community-messenger:voice-message-delete:${getRateLimitKey(req, auth.userId)}`,
     limit: 30,
     windowMs: 60_000,
-    message: "메시지 삭제 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_voice_message_delete_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

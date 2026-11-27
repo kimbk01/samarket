@@ -56,7 +56,7 @@ import {
   setOwnerBasicInfoDirty,
   type OwnerBasicInfoLeaveDetail,
 } from "@/lib/business/owner-basic-info-guard";
-import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
+import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC_KEY } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
   parseFiniteLatitude,
@@ -1122,7 +1122,7 @@ export function OwnerStoreBasicInfoForm({
             {addressReady && !storeLinkedUserAddress?.id ? (
               <OwnerBasicInfoSubBlock title={t("business_phase7_285")}>
                 <StoreAddressLocationSection
-                  sectionHint={STORE_LOCATION_SECTION_HINT_STORE_PUBLIC}
+                  sectionHint={t(STORE_LOCATION_SECTION_HINT_STORE_PUBLIC_KEY)}
                   regionId={regionId}
                   cityId={cityId}
                   onRegionChange={(id) => {

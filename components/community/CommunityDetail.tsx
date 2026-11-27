@@ -11,6 +11,10 @@ import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { createCommunityFeedCommentReport } from "@/lib/reports/createCommunityFeedCommentReport";
 import { requestUserBlock } from "@/lib/reports/request-user-block";
+import { reportErrorText, userBlockErrorText } from "@/lib/reports/report-block-error-text";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { COMMUNITY_POST_DELETE_ERROR_KEYS } from "@/lib/community/community-api-error-text";
+import { communityAuthorNameText, communityRegionLabelText } from "@/lib/community/community-display-fallbacks";
 import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
@@ -391,7 +395,7 @@ export function CommunityDetail({
         setActionToast(t("community_block_success_toast"));
         void retryComments();
       } else {
-        setActionToast(res.error);
+        setActionToast(userBlockErrorText(res, t));
       }
       window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
     },
@@ -406,11 +410,20 @@ export function CommunityDetail({
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE", credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
       if (res.ok && j.ok) {
         invalidateCommunityFeedCachesAfterPostModeration(post.id);
         router.replace(philifeAppPaths.home);
-      } else setDeleteErr(j.error ?? t("community_delete_failed"));
+      } else
+        setDeleteErr(
+          resolveApiErrorText({
+            json: j,
+            status: res.status,
+            map: COMMUNITY_POST_DELETE_ERROR_KEYS,
+            fallbackKey: "community_delete_failed",
+            t,
+          })
+        );
     } catch {
       setDeleteErr(t("community_delete_failed"));
     } finally {
@@ -450,7 +463,7 @@ export function CommunityDetail({
         setReportTarget(null);
         setActionToast(t("community_report_submitted"));
         window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
-      } else setReportErr(res.error);
+      } else setReportErr(reportErrorText(res, t, "ui_report_failed"));
     } finally {
       setBusy(false);
     }
@@ -486,9 +499,9 @@ export function CommunityDetail({
             isAd={isAd}
           />
           <CommunityPostDetailAuthorRow
-            authorName={post.author_name}
+            authorName={communityAuthorNameText(post.author_name, t)}
             authorAvatarUrl={post.author_avatar_url}
-            locationLabel={post.location_label}
+            locationLabel={communityRegionLabelText(post.location_label, t)}
             createdAt={authorDisplayClock}
             showMoreMenu
             postId={post.id}
@@ -501,10 +514,10 @@ export function CommunityDetail({
             ownDeleteBusy={busy}
           />
           <CommunityPostDetailBody post={post} />
-          {post.source_attribution?.sourceName ? (
+          {post.source_attribution?.sourceName || post.source_attribution?.canonicalUrl ? (
             <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]" data-user-content="">
               <div className="font-medium text-[var(--cm-fg)]">{t("community_source_attribution_label")}</div>
-              <div className="mt-1">{post.source_attribution.sourceName}</div>
+              {post.source_attribution.sourceName ? <div className="mt-1">{post.source_attribution.sourceName}</div> : null}
               {post.source_attribution.canonicalUrl ? (
                 <a
                   href={post.source_attribution.canonicalUrl}
@@ -531,7 +544,7 @@ export function CommunityDetail({
             onSave={() => void onSave()}
           />
           {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
-            <CommunityNeighborPrompt authorName={post.author_name} targetUserId={memberPeerUserId} />
+            <CommunityNeighborPrompt authorName={communityAuthorNameText(post.author_name, t)} targetUserId={memberPeerUserId} />
           ) : null}
           {likeActionErr || commentLikeErr ? (
             <p className="mt-2 text-sm text-[var(--cm-danger)]" role="alert">

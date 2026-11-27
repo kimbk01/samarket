@@ -73,7 +73,6 @@ export async function GET(
     key: `community-messenger:voice-audio:${getRateLimitKey(req, auth.userId)}`,
     limit: 300,
     windowMs: 60_000,
-    message: "음성 재생 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_voice_audio_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

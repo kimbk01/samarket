@@ -7,6 +7,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchPostCommunityCommentsShared } from "@/lib/posts/fetch-post-community-comments-client";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityCommentReport } from "@/lib/reports/createCommunityCommentReport";
+import { reportErrorText } from "@/lib/reports/report-block-error-text";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { COMMUNITY_COMMENT_ERROR_KEYS } from "@/lib/community/community-api-error-text";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -122,15 +125,24 @@ export function PostCommunityCommentsSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
       if (!res.ok || !data.ok) {
         setComments((prev) => prev.filter((comment) => comment.id !== tempId));
         const profileHandled = handleProfileIncompleteApiResponse(data);
         if (profileHandled.handled) {
-          setError(profileHandled.error);
+          /** 서버·공통 함수 문장 대신 화면 언어 키 (재감사 2026-11-27) */
+          setError(t("community_comment_err_profile_incomplete"));
           return;
         }
-        setError(data.error ?? t("post_comment_submit_failed"));
+        setError(
+          resolveApiErrorText({
+            json: data,
+            status: res.status,
+            map: COMMUNITY_COMMENT_ERROR_KEYS,
+            fallbackKey: "post_comment_submit_failed",
+            t,
+          })
+        );
         return;
       }
       void load({ silent: true });
@@ -176,7 +188,7 @@ export function PostCommunityCommentsSection({
     const res = await createCommunityCommentReport(commentId, text);
     setReportBusyId((prev) => (prev === null ? prev : null));
     if (res.ok) await dibayAlert({ title: t("cm_ui_report_submitted") });
-    else setError(res.error);
+    else setError(reportErrorText(res, t, "ui_report_failed"));
   };
 
   const renderCommentRow = (c: CommentRow, opts: { isChild: boolean; allowReply: boolean }) => {

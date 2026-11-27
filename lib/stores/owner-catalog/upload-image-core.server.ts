@@ -14,11 +14,8 @@ import { storeProductListDerivativeOriginalPath } from "@/lib/media/canonical-im
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 import type { StoreCatalogActor } from "@/lib/stores/owner-catalog/store-catalog-actor";
 
-const DIMENSION_ERROR_MESSAGES: Record<string, string> = {
-  image_dimension_too_large:
-    "이미지 가로·세로는 각 8192px 이하여야 합니다. 512×512 이상의 고해상도도 업로드할 수 있습니다.",
-  image_dimension_invalid: "이미지 크기를 확인할 수 없습니다. 다른 파일로 시도해 주세요.",
-};
+/** 언어 재감사 2026-11-27: 크기 오류는 코드만 보낸다(한국어 `message` 없음) — 화면이 코드로 키 */
+const DIMENSION_ERROR_CODES: ReadonlySet<string> = new Set(["image_dimension_too_large", "image_dimension_invalid"]);
 
 export async function uploadStoreImageCore(
   sb: SupabaseClient<any>,
@@ -63,15 +60,8 @@ export async function uploadStoreImageCore(
     if (code === "invalid_type") {
       return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
     }
-    if (code in DIMENSION_ERROR_MESSAGES) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: code,
-          message: DIMENSION_ERROR_MESSAGES[code],
-        },
-        { status: 400 }
-      );
+    if (DIMENSION_ERROR_CODES.has(code)) {
+      return NextResponse.json({ ok: false, error: code, code }, { status: 400 });
     }
     console.error("[upload-image] process", e);
     return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
@@ -103,13 +93,9 @@ export async function uploadStoreImageCore(
       /bucket not found/i.test(raw) ||
       (raw.toLowerCase().includes("not found") && raw.toLowerCase().includes("bucket"));
     if (bucketMissing) {
+      /** 언어 재감사 2026-11-27: 개발 안내 문장은 화면에 보내지 않는다 — 버킷 추가 방법은 운영 로그(위)·마이그레이션 20260322213000 */
       return NextResponse.json(
-        {
-          ok: false,
-          error: "storage_bucket_missing",
-          message:
-            "Supabase Storage에 버킷 store-product-images가 없습니다. SQL Editor에서 storage.buckets에 추가하거나, 마이그레이션 20260322213000_storage_store_product_images_bucket.sql(또는 20250320210000)을 적용한 뒤 다시 시도해 주세요.",
-        },
+        { ok: false, error: "storage_bucket_missing", code: "storage_bucket_missing" },
         { status: 503 }
       );
     }

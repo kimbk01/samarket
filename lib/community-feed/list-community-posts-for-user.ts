@@ -146,7 +146,7 @@ function mapAuthorPostRow(
       profile_display_name: nickMap.get(uid) ?? null,
       profile_avatar_url: null,
     },
-    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "")
   );
   return {
     id: String(r.id),

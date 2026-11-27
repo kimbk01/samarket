@@ -47,14 +47,14 @@ export async function POST(req: NextRequest) {
       // P1-4 — 새 credential 이 제출되면 그 검증 결과만 사용. 실패 시 stash 로 fallback 하지 않는다.
       const verified = await verifyProviderCredentialInput(credentialInput).catch(() => null);
       if (!verified || "errorCode" in verified) {
+        const errorCode = verified && "errorCode" in verified ? verified.errorCode : "credential_verify_failed";
         return noStoreJson(
           {
             ok: false,
-            errorCode: verified && "errorCode" in verified ? verified.errorCode : "credential_verify_failed",
-            message:
-              verified && "errorCode" in verified
-                ? verified.message
-                : "로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.",
+            errorCode,
+            error: errorCode,
+            code: errorCode,
+            message: errorCode,
           },
           400,
         );
@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
           {
             ok: false,
             errorCode: "provider_link_token_invalid",
-            message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
+            error: "provider_link_token_invalid",
+            code: "provider_link_token_invalid",
           },
           400,
         );
@@ -84,7 +85,8 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         errorCode: "credential_missing",
-        message: "로그인 정보가 없습니다. 다시 시도해 주세요.",
+        error: "credential_missing",
+        code: "credential_missing",
       },
       400,
     );
@@ -96,7 +98,8 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         errorCode: "provider_link_token_invalid",
-        message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
+        error: "provider_link_token_invalid",
+        code: "provider_link_token_invalid",
       },
       400,
     );

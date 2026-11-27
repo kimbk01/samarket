@@ -19,7 +19,7 @@ export async function requireAuthenticatedUserId(): Promise<
   if (!userId) {
     return {
       ok: false,
-      response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }),
+      response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }),
     };
   }
   return { ok: true, userId };
@@ -32,7 +32,7 @@ export async function requireAuthenticatedUserIdStrict(): Promise<
   if (!userId) {
     return {
       ok: false,
-      response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }),
+      response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }),
     };
   }
   return { ok: true, userId };

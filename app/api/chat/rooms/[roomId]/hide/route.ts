@@ -22,11 +22,11 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -40,7 +40,7 @@ export async function POST(
     .single();
 
   if (upErr || !part) {
-    return NextResponse.json({ ok: false, error: "참여 정보를 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "participant_not_found", code: "participant_not_found" }, { status: 404 });
   }
   try {
     await sbAny.from("chat_event_logs").insert({

@@ -4,7 +4,7 @@ import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import type { OwnerStoreOrderReviewDetail } from "@/lib/stores/owner-store-order-review-meta";
 import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
 
@@ -85,9 +85,12 @@ export function OwnerStoreOrderReviewBlock({
           body: JSON.stringify({ reply }),
         }
       );
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
       if (!res.ok || !j?.ok) {
-        setReplyErr(typeof j?.error === "string" ? j.error : "reply_failed");
+        /** 언어 재감사 2026-11-27: 금칙어 등은 `code`(content_filter_blocked)로 판정 — 서버 문장(`error`)은 쓰지 않는다 */
+        setReplyErr(
+          typeof j?.code === "string" ? j.code : typeof j?.error === "string" ? j.error : "reply_failed"
+        );
         return;
       }
       applyReplyLocally(reply);
@@ -159,7 +162,7 @@ export function OwnerStoreOrderReviewBlock({
     if (loadErr) {
       return (
         <OwnerReviewShell>
-          <p className="text-[12px] text-sam-danger">{resolveOwnerApiErrorMessage(loadErr, t)}</p>
+          <p className="text-[12px] text-sam-danger">{resolveOwnerApiErrorText(loadErr, t, "business_phase7_353")}</p>
         </OwnerReviewShell>
       );
     }
@@ -249,7 +252,7 @@ export function OwnerStoreOrderReviewBlock({
           </p>
         ) : null}
         {replyErr ? (
-          <p className="mt-2 text-[12px] text-sam-danger">{resolveOwnerApiErrorMessage(replyErr, t)}</p>
+          <p className="mt-2 text-[12px] text-sam-danger">{resolveOwnerApiErrorText(replyErr, t, "business_phase7_368")}</p>
         ) : null}
       </div>
     </OwnerReviewShell>

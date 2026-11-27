@@ -17,6 +17,7 @@ import {
   runJobChunk,
 } from "@/lib/community-operator-import/jobs";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorParts } from "@/lib/community-operator-import/route-error";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
     }
     return jsonError(await adminServerText("admin_api_import_actions_jobs"), 400, { code: "unsupported_action" });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "job_failed";
-    return jsonError(msg, 400, { code: msg.split(":")[0] || "job_failed" });
+    const { code, detail } = importRouteErrorParts(e, "job_failed");
+    return jsonError(code, 400, { code, ...(detail ? { detail } : {}) });
   }
 }

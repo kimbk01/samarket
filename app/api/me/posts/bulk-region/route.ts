@@ -1,5 +1,6 @@
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
@@ -25,13 +26,7 @@ export async function POST() {
   /** 거래 글 위치 SSOT: 대표 주소의 시/군 LGU + 동네 칸(ID) — 화면 표시 이름이 아니라 글쓰기와 같은 값 */
   const location = await resolveTradePostLocationForUser(sb, auth.userId, null);
   if (!location) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "대표·거래·생활 기본 주소 또는 프로필 지역을 먼저 설정해 주세요.",
-      },
-      { status: 400 },
-    );
+    return tradeApiError("location_required", 400);
   }
 
   const patch = {

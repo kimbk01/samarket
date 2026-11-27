@@ -22,9 +22,13 @@ function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/**
+ * 받는 사람이 여럿이라 언어 없는 공용 값 — 닉네임·아이디만. 둘 다 없으면 빈 값 →
+ * `buildMessageNotificationDisplay` 가 받는 사람 언어 `notify_peer_fallback` 으로 그린다(한국어 「회원」 고정 금지).
+ */
 function resolveSenderDisplayName(row: MemberIdentityProfileFields | null | undefined): string {
   const identity = resolvePublicMemberIdentity(row);
-  return identity?.displayLabel?.trim() || "";
+  return identity?.nickname?.trim() || identity?.handleLabel?.trim() || "";
 }
 
 async function loadMessageRow(
@@ -258,8 +262,7 @@ export async function loadMessageNotificationDisplaySharedContext(
       textContent: messageRowFast.textContent ?? (trimText(input.preview) || null),
       sender: {
         displayName:
-          resolveSenderDisplayName(senderProfileFast) ||
-          notifySafeT("ko", "notify_peer_fallback"),
+          resolveSenderDisplayName(senderProfileFast),
         avatarUrl: trimText(senderProfileFast?.avatar_url) || null,
       },
       room: {
@@ -299,8 +302,7 @@ export async function loadMessageNotificationDisplaySharedContext(
     textContent: messageRow.textContent ?? (trimText(input.preview) || null),
     sender: {
       displayName:
-        resolveSenderDisplayName(senderProfile) ||
-        notifySafeT("ko", "notify_peer_fallback"),
+        resolveSenderDisplayName(senderProfile),
       avatarUrl: trimText(senderProfile?.avatar_url) || null,
     },
     room: {

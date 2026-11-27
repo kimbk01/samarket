@@ -17,18 +17,18 @@ export async function GET(
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ error: "postId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const clients = resolvePostsReadClients(req);
   if (!clients) {
-    return NextResponse.json({ error: "서버 설정이 필요합니다." }, { status: 503 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 503 });
   }
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const post = await loadPostDetailShared(clients, id, viewerId);
   if (!post) {
-    return NextResponse.json({ error: "글을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ error: "post_not_found", code: "post_not_found" }, { status: 404 });
   }
 
   return NextResponse.json(post, {

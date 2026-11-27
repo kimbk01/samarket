@@ -40,7 +40,8 @@ export async function mirrorCommunityMessengerTextToItemTradeLedger(
     .maybeSingle();
   if (roomErr || !room) return;
 
-  const preview = content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
+  /** 화면 문장 저장 금지 — 빈 본문은 빈 값 그대로(화면이 종류로 그림) */
+  const preview = content.length > 120 ? `${content.slice(0, 117)}…` : content;
 
   const { data: msg, error: insErr } = await sb
     .from("chat_messages")
@@ -48,7 +49,7 @@ export async function mirrorCommunityMessengerTextToItemTradeLedger(
       room_id: roomId,
       sender_id: sender,
       message_type: "text",
-      body: content || "(메시지)",
+      body: content,
       metadata: { source: "community_messenger" },
     })
     .select("id, created_at")

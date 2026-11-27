@@ -16,6 +16,7 @@ import { APP_MYPAGE_SUBPAGE_BODY_CLASS, APP_TRADE_WRITE_HORIZONTAL_CLASS } from 
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useReleaseDroppedBlobUrls } from "@/lib/media/use-release-dropped-blob-urls";
+import { tradeWriteErrorText } from "@/lib/trade/trade-api-error-text";
 
 const defaultCondition: ProductCondition = "good";
 
@@ -96,6 +97,10 @@ export function ProductForm({
         };
         const id = await saveProduct(payload);
         onSubmitSuccess?.(id);
+      } catch (err) {
+        /** `saveProduct` 는 오류 코드만 던진다 — 화면 문구는 카탈로그 키 (서버 문장 표시 금지) */
+        const code = err instanceof Error ? err.message : null;
+        setErrors((prev) => ({ ...prev, submit: tradeWriteErrorText({ code }, t) }));
       } finally {
         setSubmitting(false);
       }
@@ -111,6 +116,7 @@ export function ProductForm({
       validate,
       saveProduct,
       onSubmitSuccess,
+      t,
     ]
   );
 
@@ -170,6 +176,11 @@ export function ProductForm({
       />
       <ProductLocationSelect onReadyChange={setLocationReady} error={errors.region} />
       <ProductConditionSelect value={condition} onChange={setCondition} />
+      {errors.submit && (
+        <p role="alert" className="mt-3 sam-text-body-secondary text-red-500">
+          {errors.submit}
+        </p>
+      )}
       <div
         data-form-keyboard-footer="1"
         data-form-keyboard-open={keyboardOpen ? "true" : "false"}

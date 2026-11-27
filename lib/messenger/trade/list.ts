@@ -5,8 +5,6 @@ import { buildTradeIdentity, parseTradeIdentityKey } from "@/lib/messenger/trade
 import { resolveTradeViewerRole } from "@/lib/messenger/trade/viewer-role";
 import {
   TRADE_DOMAIN,
-  TRADE_PEER_PLACEHOLDER,
-  TRADE_PRODUCT_TITLE_PLACEHOLDER,
   type TradeListItem,
   type TradeListSnapshot,
   type TradeRoomInput,
@@ -80,9 +78,10 @@ export function mapTradeListItem(
     sellerUserId,
     counterpartyUserId,
     viewerRole,
-    itemTitle: trimOrEmpty(row.itemTitle) || TRADE_PRODUCT_TITLE_PLACEHOLDER,
+    /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+    itemTitle: trimOrEmpty(row.itemTitle),
     itemImageUrl: trimOrEmpty(row.itemImageUrl) || null,
-    peerDisplayName: trimOrEmpty(row.peerDisplayName) || TRADE_PEER_PLACEHOLDER,
+    peerDisplayName: trimOrEmpty(row.peerDisplayName),
     peerAvatarUrl: trimOrEmpty(row.peerAvatarUrl) || null,
     productChatId: trimOrEmpty(row.productChatId) || null,
     directKey: trimOrEmpty(row.directKey) || null,

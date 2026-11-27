@@ -498,7 +498,7 @@ export async function GET(request: NextRequest) {
   const cookieAuth = await getOptionalRouteHandlerCookieAuth();
   const requireAuthMs = devPerfNow() - auth0;
   if (!cookieAuth.userId) {
-    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
+    return jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" });
   }
   const userId = cookieAuth.userId;
   const bypassRouteCache = shouldBypassRouteMemoryCache(request.nextUrl.searchParams);

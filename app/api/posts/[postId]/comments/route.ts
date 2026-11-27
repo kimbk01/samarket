@@ -2,6 +2,7 @@
  * GET /api/posts/[postId]/comments — 댓글 목록(+닉네임)
  * POST /api/posts/[postId]/comments — 댓글 작성 (세션)
  */
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
@@ -22,11 +23,11 @@ export async function GET(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정이 필요합니다." }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
-  if (!id) return NextResponse.json({ error: "postId 필요" }, { status: 400 });
+  if (!id) return tradeApiError("invalid_request", 400);
 
   const sbAny = sb;
   const { data: rows, error } = await sbAny
@@ -37,7 +38,9 @@ export async function GET(
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    /** 재감사 2026-11-27: DB 원문은 로그로만, 응답은 코드 */
+    console.error("[posts/comments] list failed", error.message);
+    return tradeApiError("comments_load_failed", 500);
   }
   const list = (rows ?? []) as { id: string; post_id: string; user_id: string; content: string; created_at: string }[];
   const uids = [...new Set(list.map((r) => String(r.user_id ?? "").trim()).filter(Boolean))];
@@ -65,7 +68,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
 
   const signupGate = await requireSignupCompleteForUser(
@@ -83,7 +86,7 @@ export async function POST(
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
-  if (!id) return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+  if (!id) return tradeApiError("invalid_request", 400);
 
   const sbAny = sb;
 
@@ -91,10 +94,10 @@ export async function POST(
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "content 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
   const content = typeof body.content === "string" ? body.content.trim() : "";
-  if (!content) return NextResponse.json({ ok: false, error: "댓글 내용을 입력해 주세요." }, { status: 400 });
+  if (!content) return tradeApiError("content_required", 400);
 
   const parentIdRaw = typeof body.parentId === "string" ? body.parentId.trim() : "";
   let parentId: string | null = null;
@@ -105,14 +108,15 @@ export async function POST(
       .eq("id", parentIdRaw)
       .maybeSingle();
     if (pErr) {
-      return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
+      console.error("[posts/comments] parent lookup failed", pErr);
+      return tradeApiError("comment_save_failed", 500);
     }
     const p = parentRow as { id?: string; post_id?: string; parent_id?: string | null } | null;
     if (!p?.id || p.post_id !== id) {
-      return NextResponse.json({ ok: false, error: "원 댓글을 찾을 수 없습니다." }, { status: 400 });
+      return tradeApiError("community_comment_parent_not_found", 400);
     }
     if (p.parent_id) {
-      return NextResponse.json({ ok: false, error: "대댓글에는 다시 답글을 달 수 없습니다." }, { status: 400 });
+      return tradeApiError("community_comment_depth_limit", 400);
     }
     parentId = p.id;
   }
@@ -129,18 +133,9 @@ export async function POST(
   const { data: inserted, error } = await db.from("comments").insert(insertPayload).select("id").single();
 
   if (error) {
-    const msg = String(error.message ?? "");
-    if (/parent_id|column/i.test(msg)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "대댓글 컬럼이 없습니다. Supabase에 마이그레이션 comments.parent_id(20250322170000)를 적용해 주세요.",
-        },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ ok: false, error: error.message ?? "등록 실패" }, { status: 500 });
+    /** DB 원문(대댓글 컬럼 없음 등)은 로그로만 — 화면은 코드 */
+    console.error("[posts/comments] insert failed", error);
+    return tradeApiError("comment_save_failed", 500);
   }
   const row = inserted as { id?: string } | null;
   return NextResponse.json({ ok: true, id: row?.id ?? "" });

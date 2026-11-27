@@ -54,7 +54,7 @@ export async function startNativeKakaoLogin(input?: {
 
   const flow = tryBeginOAuthFlow("kakao");
   if (!flow.ok) {
-    const err = new Error("OAuth가 이미 진행 중입니다.");
+    const err = new Error("oauth_flow_in_flight");
     err.name = "oauth_flow_in_flight";
     throw err;
   }

@@ -6,6 +6,7 @@
  *
  * 제품 정의·원인·폴백 순서: `docs/community-messenger-trade-chat-list.md`
  */
+import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import {
   parseCommunityMessengerRoomContextMeta,
   serializeCommunityMessengerRoomContextMeta,
@@ -288,6 +289,9 @@ function messengerMessageToPreviewSnippet(
       : `${t("chats_trade_list_call")} · ${content}`;
   }
   if (type === "system") return content || t("chats_trade_list_notification");
+  /** 전원 삭제·관리자 숨김 저장 토큰 → 보는 사람 언어 */
+  const storedPlaceholderKey = resolveStoredMessagePlaceholderKey(content);
+  if (storedPlaceholderKey) return t(storedPlaceholderKey);
   return content || t("chats_trade_list_new_message");
 }
 

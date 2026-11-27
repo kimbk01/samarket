@@ -18,10 +18,10 @@ export type MemberNicknameCheck =
 export function validateMemberNicknameInput(raw: unknown): MemberNicknameCheck {
   const nickname = String(raw ?? "").trim();
   if (nickname.length < MEMBER_NICKNAME_MIN) {
-    return { ok: false, status: 400, message: "닉네임은 2자 이상으로 입력해 주세요." };
+    return { ok: false, status: 400, message: "nickname_too_short" };
   }
   if (nickname.length > MEMBER_NICKNAME_MAX) {
-    return { ok: false, status: 400, message: "닉네임은 20자 이내로 입력해 주세요." };
+    return { ok: false, status: 400, message: "nickname_too_long" };
   }
   return { ok: true, nickname };
 }

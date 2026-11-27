@@ -34,7 +34,7 @@ export function buildTradeHubViewModel(
   }));
   const preview = latest
     ? resolveTradeListItemPreview(latest, lang)
-    : resolveTradePreview(null);
+    : resolveTradePreview(null, lang);
   const unreadRoomCount = rows.filter((r) => r.unreadCount > 0).length;
   return {
     domain: TRADE_DOMAIN,

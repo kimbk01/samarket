@@ -18,6 +18,28 @@ import {
 } from "@/lib/stores/store-cart-conflict-meta";
 import { requestStoreCartBulkClearReplace } from "@/lib/stores/store-cart-conflict-ui-store";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  resolveApiErrorText,
+  type ApiErrorCodeMap,
+  type ApiErrorTranslate,
+} from "@/lib/i18n/api-error-text";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+
+/** 다시 주문 실패 코드 → 문구 키 (`cancelled` 는 사용자가 취소 — 화면이 조용히 끝낸다) */
+export const REORDER_TO_CART_ERROR_KEYS: ApiErrorCodeMap = {
+  store_missing: "mypage_comp_store_reorder_store_missing",
+  no_items: "store_reorder_err_no_items",
+};
+
+export function reorderToCartErrorText(code: string | null | undefined, t: ApiErrorTranslate): string {
+  return resolveApiErrorText({
+    code,
+    map: REORDER_TO_CART_ERROR_KEYS,
+    fallbackKey: "mypage_comp_store_reorder_store_missing",
+    t,
+  });
+}
 
 export type ReorderCartItemInput = {
   product_id: string;
@@ -54,10 +76,10 @@ export async function applyCompletedOrderToCommerceCart(
   const sid = storeId.trim();
   const slug = storeSlug.trim();
   if (!sid || !slug) {
-    return { ok: false, error: "매장 정보를 찾을 수 없어 다시 주문할 수 없습니다." };
+    return { ok: false, error: "store_missing" };
   }
   if (!items.length) {
-    return { ok: false, error: "담을 메뉴가 없습니다." };
+    return { ok: false, error: "no_items" };
   }
 
   const others = deps.otherBucketsExcluding(sid);
@@ -90,7 +112,8 @@ export async function applyCompletedOrderToCommerceCart(
     const snapshotSummary = orderLineOptionsSummary(it.options_snapshot_json);
     const lineNote = lineNoteFromOrderOptionsSnapshot(it.options_snapshot_json);
 
-    let title = String(it.product_title_snapshot ?? "").trim() || "메뉴";
+    let title =
+      String(it.product_title_snapshot ?? "").trim() || translate(getRuntimeAppLanguage(), "store_item_type_menu");
     let unitPrice = Math.round(Number(it.price_snapshot) || 0);
     let thumbnailUrl: string | null = null;
     let pickupAvailable = true;

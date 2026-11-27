@@ -4,6 +4,7 @@ import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveRiderApiErrorText } from "@/lib/rider/rider-api-error-text";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type RiderRow = {
@@ -36,14 +37,14 @@ export function RiderHomeClient() {
       return;
     }
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? t("ui_rider_load_failed"));
+      setErr(typeof j.error === "string" ? j.error : "load_failed");
       setRider(null);
       setCounts(null);
       return;
     }
     setRider(j.rider ?? null);
     setCounts(j.counts ?? null);
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +67,7 @@ export function RiderHomeClient() {
     });
     const j = (await r.json()) as { ok?: boolean; error?: string; rider?: RiderRow };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? t("ui_rider_status_change_failed"));
+      setErr(typeof j.error === "string" ? j.error : "status_change_failed");
       return;
     }
     if (j.rider) setRider(j.rider);
@@ -103,7 +104,8 @@ export function RiderHomeClient() {
         </Link>
       </header>
 
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {/* 언어 재감사 2026-11-27: `err` 는 코드만 — 코드 → 키 */}
+      {err ? <p className="text-sm text-red-600">{resolveRiderApiErrorText(err, t)}</p> : null}
 
       {rider ? (
         <section className={`${Sam.card.base} ${Sam.card.pad}`}>

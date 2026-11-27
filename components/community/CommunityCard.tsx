@@ -10,6 +10,12 @@ import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleave
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { ApiErrorTranslate } from "@/lib/i18n/api-error-text";
+import {
+  communityAuthorNameText,
+  communityRegionLabelText,
+  localizeImportedPostBody,
+} from "@/lib/community/community-display-fallbacks";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import {
   FeedListLayoutThumbLeft,
@@ -24,7 +30,8 @@ import {
 function buildNeighborhoodFeedListViewModel(
   post: NeighborhoodFeedPostDTO,
   untitledLabel: string,
-  language: AppLanguageCode
+  language: AppLanguageCode,
+  t: ApiErrorTranslate
 ): FeedListCardViewModel {
   const clockIso = communityPostPublicDisplayClock({
     origin_kind: post.origin_kind,
@@ -38,9 +45,16 @@ function buildNeighborhoodFeedListViewModel(
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
   const contentForTags = stripMarkdownImageSyntaxForFeedPreview(previewSource);
-  const placeLineRaw = skin === "location_pin" ? post.location_label?.trim() || "" : "";
+  /** 재감사 2026-11-27: 저장 기본값 「동네」·빈 작성자 이름은 화면 언어로 (`community-display-fallbacks`) */
+  const regionLabel = communityRegionLabelText(post.location_label, t);
+  const placeLineRaw = skin === "location_pin" ? regionLabel : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
-  const summaryBase = (post.summary ?? "").trim() || (post.content ?? "");
+  /** 요약이 없으면 본문 — 가져온 글의 옛 「출처:」 줄·「원문 링크만」 줄은 상세와 같이 화면 언어로 (재감사 2026-11-27) */
+  const summaryBase =
+    (post.summary ?? "").trim() ||
+    (post.origin_kind === "imported"
+      ? localizeImportedPostBody(post.content ?? "", null, t)
+      : (post.content ?? ""));
   const imageUrls = Array.isArray(post.images) ? post.images.filter((u) => (u ?? "").trim()) : [];
   const imageCount = imageUrls.length;
 
@@ -56,8 +70,8 @@ function buildNeighborhoodFeedListViewModel(
     title: post.title?.trim() || untitledLabel,
     summary: normalizeFeedListBodyPreview(summaryBase),
     timeLabel: time,
-    authorName: post.author_name,
-    secondaryMeta: post.location_label?.trim() ?? "",
+    authorName: communityAuthorNameText(post.author_name, t),
+    secondaryMeta: regionLabel,
     likeCount: post.like_count,
     commentCount: post.comment_count,
     viewCount: post.view_count,
@@ -110,7 +124,7 @@ export const CommunityCard = memo(function CommunityCard({
 }) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const base = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
+  const base = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language, t);
   /** 광고 ② DS-1 (2026-11-04): 상위노출 카드도 글 상세로 보낸다. */
   const vm = { ...base, isAd };
   const hasThumb = Boolean(vm.thumbnailUrl);

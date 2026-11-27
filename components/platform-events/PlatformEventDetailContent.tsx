@@ -6,6 +6,7 @@ import { openDestination } from "@/lib/destination/open-destination";
 import { formatPlatformEventPeriod } from "@/lib/platform-events/board";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { resolvePlatformEventFinalCtaHref } from "@/lib/platform-events/destination";
+import { resolvePlatformEventCtaLabel } from "@/lib/platform-events/platform-event-cta-label";
 import type { PlatformEventRow, PlatformEventSection } from "@/lib/platform-events/types";
 
 export type PlatformEventDetailViewModel = {
@@ -54,7 +55,15 @@ function EventCtaButton({
   );
 }
 
-function SectionBlock({ section, ctaDisabled }: { section: PlatformEventSection; ctaDisabled: boolean }) {
+function SectionBlock({
+  section,
+  ctaDisabled,
+  language,
+}: {
+  section: PlatformEventSection;
+  ctaDisabled: boolean;
+  language: "ko" | "en";
+}) {
   if (section.type === "text") {
     return (
       <section className="space-y-2">
@@ -108,7 +117,9 @@ function SectionBlock({ section, ctaDisabled }: { section: PlatformEventSection;
   if (section.type === "terms") {
     return (
       <section className="space-y-1">
-        <h3 className="text-[13px] font-semibold text-sam-muted">Terms</h3>
+        <h3 className="text-[13px] font-semibold text-sam-muted">
+          {safeTranslate(language, "platform_event_terms_title")}
+        </h3>
         <div className="text-[12px] leading-relaxed text-sam-muted">
           <CustomerCenterSafeMarkdownBody body={section.body} />
         </div>
@@ -128,8 +139,11 @@ export function PlatformEventDetailContent({
   language = "ko",
 }: PlatformEventDetailViewModel & { language?: "ko" | "en" }) {
   const period = formatPlatformEventPeriod(event.startsAt, event.endsAt, language);
+  const ctaLabel = resolvePlatformEventCtaLabel(event.ctaLabel, language, {
+    defaultWhenEmpty: Boolean(event.sourceOwnerRequestId),
+  });
   const primary =
-    showPrimaryCta && event.ctaLabel && event.ctaType
+    showPrimaryCta && ctaLabel && event.ctaType
       ? resolvePlatformEventFinalCtaHref({
           ctaType: event.ctaType,
           ctaTarget: event.ctaTarget,
@@ -175,13 +189,13 @@ export function PlatformEventDetailContent({
       </header>
 
       {event.sections.map((section, i) => (
-        <SectionBlock key={`${section.type}-${i}`} section={section} ctaDisabled={ended} />
+        <SectionBlock key={`${section.type}-${i}`} section={section} ctaDisabled={ended} language={language} />
       ))}
 
-      {primary && primary.ok && event.ctaLabel ? (
+      {primary && primary.ok && ctaLabel ? (
         <EventCtaButton
           href={primary.href}
-          label={event.ctaLabel}
+          label={ctaLabel}
           disabled={ended}
           sizeClass="text-[16px]"
           primary

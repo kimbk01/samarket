@@ -13,6 +13,7 @@ import { categoryForEventType } from "@/lib/notifications/core/notification-poli
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import {
   collectAppStoreRelease,
   collectPlayReleases,
@@ -235,6 +236,7 @@ export async function notifyReleaseFanOut(
       platform: release.platform,
       version: release.version_name,
       version_code: release.version_code,
+      ...notificationCopyMeta({ titleKey: "notify_app_release_title" }),
     };
     // createAndDispatch: duplicate 와 신규를 구분해 재개 시 상한을 중복에 낭비하지 않음.
     // push_kind notice → admin_notice → 공지 채널(D-N2). 공지 OFF 는 preference gate 가 푸시만 막음(D-N3).

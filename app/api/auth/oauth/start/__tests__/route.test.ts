@@ -152,14 +152,30 @@ describe("/api/auth/oauth/start", () => {
     });
   });
 
-  it("OA-14: rejects provider disabled in auth_providers with 403 provider_disabled", async () => {
+  it("OA-14: rejects provider disabled — native JSON 403 provider_disabled (문장 없음)", async () => {
     serviceClient = providerRowClient({ provider: "kakao", enabled: false });
     const { GET } = await import("@/app/api/auth/oauth/start/route");
     const res = await GET(
-      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao"),
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao&launch=native&dibay_app=android"),
     );
     expect(res.status).toBe(403);
-    expect((await res.json()).errorCode).toBe("provider_disabled");
+    const json = await res.json();
+    expect(json.errorCode).toBe("provider_disabled");
+    expect(json.message).toBe("provider_disabled");
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it("OA-14: web browser start disabled → /login?error=provider_not_enabled (JSON 원문 페이지 없음 · 언어 재감사 2026-11-27)", async () => {
+    serviceClient = providerRowClient({ provider: "kakao", enabled: false });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+    const res = await GET(
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao&next=%2Fmypage"),
+    );
+    expect(res.status).toBe(302);
+    const loc = new URL(res.headers.get("location") ?? "");
+    expect(loc.pathname).toBe("/login");
+    expect(loc.searchParams.get("error")).toBe("provider_not_enabled");
+    expect(loc.searchParams.get("next")).toBe("/mypage");
     expect(signInWithOAuth).not.toHaveBeenCalled();
   });
 

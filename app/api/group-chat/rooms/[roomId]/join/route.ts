@@ -18,19 +18,19 @@ export async function POST(
 
   const { roomId } = await params;
   if (!roomId?.trim()) {
-    return jsonError("roomId 필요", 400);
+    return jsonError("room_id_required", { status: 400, code: "room_id_required" });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return jsonError("서버 설정 필요", 500);
+    return jsonError("server_config", { status: 500, code: "server_config" });
   }
 
   const { data: room } = await sb.from("group_rooms").select("id, member_count").eq("id", roomId).maybeSingle();
   if (!(room as { id?: string } | null)?.id) {
-    return jsonError("방을 찾을 수 없습니다.", 404);
+    return jsonError("room_not_found", { status: 404, code: "room_not_found" });
   }
 
   const { data: existing } = await sb
@@ -42,7 +42,7 @@ export async function POST(
 
   const ex = existing as { id?: string; left_at?: string | null } | null;
   if (ex?.id && !ex.left_at) {
-    return jsonError("이미 참여 중입니다.", 409);
+    return jsonError("group_chat_already_joined", { status: 409, code: "group_chat_already_joined" });
   }
 
   const now = new Date().toISOString();
@@ -52,14 +52,20 @@ export async function POST(
       .from("group_room_members")
       .update({ left_at: null, joined_at: now, updated_at: now, role: "member" })
       .eq("id", ex.id);
-    if (upErr) return jsonError(upErr.message, 500);
+    if (upErr) {
+      console.error("[group-chat] join update failed", upErr.message);
+      return jsonError("group_chat_join_failed", { status: 500, code: "group_chat_join_failed" });
+    }
   } else {
     const { error: insErr } = await sb.from("group_room_members").insert({
       room_id: roomId,
       user_id: auth.userId,
       role: "member",
     });
-    if (insErr) return jsonError(insErr.message, 500);
+    if (insErr) {
+      console.error("[group-chat] join insert failed", insErr.message);
+      return jsonError("group_chat_join_failed", { status: 500, code: "group_chat_join_failed" });
+    }
   }
 
   const prev = Number((room as { member_count?: number }).member_count ?? 0);

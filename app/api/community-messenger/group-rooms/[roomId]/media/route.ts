@@ -35,7 +35,6 @@ export async function GET(
     key: `community-messenger:group-room-media:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "미디어 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_group_room_media_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -53,9 +52,9 @@ export async function GET(
   });
   if (!result.ok) {
     if (result.error === GROUP_ROOM_ERROR.FORBIDDEN) {
-      return jsonError("권한이 없습니다.", 403, { code: result.error });
+      return jsonError(result.error, 403, { code: result.error });
     }
-    return jsonError("미디어 목록을 불러오지 못했습니다.", 400, { code: result.error });
+    return jsonError(result.error, 400, { code: result.error });
   }
   return jsonOk({ ok: true, page: result.page });
 }
@@ -80,11 +79,11 @@ export async function POST(
   if (!messageIds.length) return jsonOk({ ok: true, readCounts: {} });
 
   const sb = resolveGroupRoomSupabase();
-  if (!sb) return jsonError("서비스를 사용할 수 없습니다.", 503);
+  if (!sb) return jsonError("messenger_storage_unavailable", 503, { code: "messenger_storage_unavailable" });
   /** S-1 — GET listGroupRoomMedia 와 동일: active membership (`left_at IS NULL`) 만 POST 허용 */
   const participant = await fetchActiveParticipant(sb, roomId.trim(), auth.userId);
   if (!participant) {
-    return jsonError("권한이 없습니다.", 403, { code: GROUP_ROOM_ERROR.FORBIDDEN });
+    return jsonError(GROUP_ROOM_ERROR.FORBIDDEN, 403, { code: GROUP_ROOM_ERROR.FORBIDDEN });
   }
   const counts = await fetchGroupMessageReadCounts(sb, roomId.trim(), messageIds.slice(0, 50));
   /** P1: 라벨 문구는 요청 언어로(클라이언트 메뉴는 readCount 로 t() 를 다시 쓴다) */

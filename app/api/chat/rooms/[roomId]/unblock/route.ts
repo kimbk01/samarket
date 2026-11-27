@@ -24,11 +24,11 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -39,13 +39,13 @@ export async function POST(
     .maybeSingle();
 
   if (!room || (room as { blocked_by: string | null }).blocked_by !== userId) {
-    return NextResponse.json({ ok: false, error: "차단한 사용자만 해제할 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "not_blocker", code: "not_blocker" }, { status: 403 });
   }
   const r = room as { seller_id: string | null; buyer_id: string | null; initiator_id: string; peer_id: string | null };
   const ids = [r.seller_id, r.buyer_id, r.initiator_id, r.peer_id].filter(Boolean) as string[];
   const blockedUserId = ids.find((id) => id !== userId);
   if (!blockedUserId) {
-    return NextResponse.json({ ok: false, error: "상대 정보를 찾을 수 없습니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "peer_not_found", code: "peer_not_found" }, { status: 400 });
   }
   const unblockResult = await unblockUserSocial(userId, blockedUserId);
   if (!unblockResult.ok) {

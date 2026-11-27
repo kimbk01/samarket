@@ -181,10 +181,13 @@ function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | n
   if (!isCustomBottomNavTabId(id)) return null;
   const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : "/philife";
   const icon = isIconKey(raw.icon) ? raw.icon : "home";
+  /** 이름 빈 칸 → 저장값은 비워 두고 화면은 키(언어 재감사 2026-11-27) */
+  const label = trimLabel(raw.label, "");
   return {
     id,
     href,
-    label: trimLabel(raw.label, "새 메뉴"),
+    label,
+    ...(label ? {} : { labelKey: "nav_new_menu" as const }),
     icon,
     iconSizeClass: optTwClass(raw.iconSizeClass, undefined),
     labelInactiveExtraClass: optTwClass(raw.labelInactiveExtraClass, undefined),

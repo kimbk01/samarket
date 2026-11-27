@@ -12,9 +12,14 @@ export const PH_LOCAL_MOBILE_DB_RE = /^09\d{9}$/;
 
 export const PH_LOCAL_MOBILE_LENGTH = 11;
 
-/** 사용자 안내 (폼·API 공통) */
-export const PH_LOCAL_MOBILE_RULE_MESSAGE_KO =
-  "휴대전화는 09로 시작하는 11자리만 입력할 수 있습니다. 형식: 09## ### #### (+63으로 붙여넣기 가능).";
+/**
+ * API 오류 코드 — 서버는 문장 대신 이 코드만 보낸다(언어 재감사 2026-11-27 · `docs/i18n-ssot.md` §3-3).
+ * 화면 문구는 키 `phone_rule`(`getPhLocalMobileRuleMessage`) · 사장님 매장 저장은 `PATCH_ERR_KEYS.invalid_ph_phone`.
+ */
+export const PH_LOCAL_MOBILE_RULE_ERROR_CODE = "invalid_ph_phone";
+
+/** @deprecated 이름만 호환 — 값은 오류 코드(`PH_LOCAL_MOBILE_RULE_ERROR_CODE`). 화면 문구는 `getPhLocalMobileRuleMessage`. */
+export const PH_LOCAL_MOBILE_RULE_MESSAGE_KO = PH_LOCAL_MOBILE_RULE_ERROR_CODE;
 
 export function getPhLocalMobileRuleMessage(language: AppLanguageCode): string {
   return translate(language, "phone_rule");
@@ -124,10 +129,10 @@ export function normalizeOptionalPhMobileDb(
   if (!d) {
     const hadDigits = /\d/.test(String(raw ?? ""));
     if (!hadDigits) return { ok: true, value: null };
-    return { ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO };
+    return { ok: false, error: PH_LOCAL_MOBILE_RULE_ERROR_CODE };
   }
   const norm = normalizePhMobileDb(d);
-  if (!norm) return { ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO };
+  if (!norm) return { ok: false, error: PH_LOCAL_MOBILE_RULE_ERROR_CODE };
   return { ok: true, value: norm };
 }
 
