@@ -1,5 +1,6 @@
 "use client";
 
+import { isStoreOrderMatchAckText } from "@/lib/chats/store-order-match-ack-text";
 import {
   cloneElement,
   isValidElement,
@@ -12,6 +13,13 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import type { ChatMessage } from "@/lib/types/chat";
+import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  TRADE_CHAT_PREVIEW_TOKEN_MESSAGE,
+  tradeChatStoredPreviewText,
+} from "@/lib/trade/trade-api-error-text";
+import { resolveTradeListingChangeSystemState } from "@/lib/trade/trade-listing-change-system-message";
+import { sellerListingStateMessageKey } from "@/lib/products/seller-listing-state";
 import {
   IG_DM_BODY_TEXT,
   IG_DM_BUBBLE_PAD,
@@ -184,6 +192,22 @@ function getMineBubbleRadius(pos: "single" | "first" | "middle" | "last", ig = f
   return getOpponentBubbleRadius(pos, ig);
 }
 
+/**
+ * 말풍선 본문 — 서버가 빈 본문 대신 저장한 고정 토큰을 보는 사람 언어로 그린다.
+ * 사진 말풍선은 사진 토큰(「사진」「사진 N장」)까지, 글 말풍선은 「(메시지)」 토큰만 바꾼다(회원이 쓴 「사진」 글은 그대로).
+ */
+function chatBubbleDisplayText(
+  msg: ChatMessage,
+  isImage: boolean,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string
+): string {
+  const raw = (msg.message || "").trim();
+  if (isImage) return tradeChatStoredPreviewText(raw, t).trim();
+  /** 주문 「일치합니다」 자동 응답(ko·en 저장) → 보는 사람 언어 */
+  if (isStoreOrderMatchAckText(raw)) return t("store_order_match_ack");
+  return raw === TRADE_CHAT_PREVIEW_TOKEN_MESSAGE ? tradeChatStoredPreviewText(raw, t).trim() : raw;
+}
+
 export function ChatMessageList({
   messages,
   currentUserId,
@@ -234,7 +258,21 @@ export function ChatMessageList({
       }
 
       if (block.type === "system") {
-        const body = ((block.msg.message || "").trim() || t("common_system_message")).trim();
+        /**
+         * 상품 상태 변경 — 메신저 방 줄과 같은 판정 함수(메타 우선, 없으면 옛 한국어 본문)로 보는 사람 언어 문장 (재감사 2026-11-27).
+         * 저장 토큰(「(시스템)」「거래 상태 안내」 등) → 보는 사람 언어. 그 밖 시스템 문장은 그대로
+         */
+        const rawMeta = block.msg.metadata;
+        const listingState = resolveTradeListingChangeSystemState({
+          content: block.msg.message,
+          metadata: rawMeta && typeof rawMeta === "object" ? (rawMeta as Record<string, unknown>) : null,
+        });
+        const body = listingState
+          ? t("cm_home_preview_listing_change", {
+              title: t("trade_listing_change_system_title"),
+              state: t(sellerListingStateMessageKey(listingState)),
+            })
+          : (tradeChatStoredPreviewText((block.msg.message || "").trim(), t) || t("common_system_message")).trim();
         if (ig) {
           items.push(
             <li key={block.msg.id} className={`flex justify-start ${gapFromPrev}`}>
@@ -305,7 +343,7 @@ export function ChatMessageList({
                   const pos = getBubblePosition(msgs, i);
                   const showTime = isLastInMinuteGroup(msgs, i);
                   const isImage = msg.messageType === "image" || !!msg.imageUrl;
-                  const text = (msg.message || "").trim();
+                  const text = chatBubbleDisplayText(msg, isImage, t);
                   const hasReply = !!msg.replyTo?.text;
                   const emojiOnly = !isImage && isEmojiOnlyMessage(text);
 
@@ -384,7 +422,7 @@ export function ChatMessageList({
                 const pos = getBubblePosition(msgs, i);
                 const showTime = isLastInMinuteGroup(msgs, i);
                 const isImage = msg.messageType === "image" || !!msg.imageUrl;
-                const text = (msg.message || "").trim();
+                const text = chatBubbleDisplayText(msg, isImage, t);
                 const hasReply = !!msg.replyTo?.text;
                 const emojiOnly = !isImage && isEmojiOnlyMessage(text);
 

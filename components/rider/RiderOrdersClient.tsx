@@ -4,6 +4,7 @@ import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveRiderApiErrorText } from "@/lib/rider/rider-api-error-text";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { messengerPrivateBroadcastChannelOptions } from "@/lib/community-messenger/realtime/private-broadcast-client";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -38,12 +39,12 @@ export function RiderOrdersClient() {
       orders?: { delivery: DeliveryRow; order: OrderRow }[];
     };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? t("ui_rider_list_failed"));
+      setErr(typeof j.error === "string" ? j.error : "list_failed");
       return;
     }
     setRiderId(j.rider?.id ?? null);
     setRows(Array.isArray(j.orders) ? j.orders : []);
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -154,7 +155,8 @@ export function RiderOrdersClient() {
           {t("ui_rider_home")}
         </Link>
       </header>
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {/* 언어 재감사 2026-11-27: `err` 는 코드만 — 코드 → 키 */}
+      {err ? <p className="text-sm text-red-600">{resolveRiderApiErrorText(err, t, "ui_rider_list_failed")}</p> : null}
       <Section title={t("ui_rider_section_queue")} items={queue} />
       <Section title={t("ui_rider_section_active")} items={active} />
       <Section title={t("ui_rider_section_done")} items={done} />

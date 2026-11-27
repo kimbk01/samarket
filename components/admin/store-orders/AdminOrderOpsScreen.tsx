@@ -11,6 +11,7 @@
  * 초기화 = screen defaults. A failed request keeps the previous result and shows the error (never 0 rows).
  * Return: list state lives in the URL; the scroll position is kept per URL in sessionStorage.
  */
+import { storeOrderRejectReasonForDisplay } from "@/lib/stores/store-order-reject-reason-text";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
@@ -743,9 +744,9 @@ export function AdminOrderOpsScreen({
                       {r.decided_role ? ` · ${role(r.decided_role)}` : ""}
                     </div>
                   ) : null}
-                  {isCancel && r.cancel_rejected_reason ? (
+                  {isCancel && storeOrderRejectReasonForDisplay(r.cancel_rejected_reason) ? (
                     <div className="sam-text-xxs text-sam-muted">
-                      {t("admin_store_orders_reason_2")}: {r.cancel_rejected_reason}
+                      {t("admin_store_orders_reason_2")}: {storeOrderRejectReasonForDisplay(r.cancel_rejected_reason)}
                     </div>
                   ) : null}
                 </td>

@@ -109,7 +109,7 @@ export async function validateActiveSession(
 ): Promise<{ ok: true; profile: ProfileRow } | { ok: false; response: NextResponse; profile?: ProfileRow | null }> {
   const profile = await getCurrentProfile(userId);
   if (!profile) {
-    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+    return { ok: false, response: jsonError("profile_not_found", { status: 404, code: "profile_not_found" }) };
   }
   {
     const loginDenied = resolveLoginDeniedForMemberAccount(profile);
@@ -126,7 +126,7 @@ export async function validateActiveSession(
   }
   const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
   if (!sessionId) {
-    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
+    return { ok: false, response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }), profile };
   }
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
@@ -138,10 +138,10 @@ export async function validateActiveSession(
       }
     }
     if (!registryOk) {
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
+      return { ok: false, response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }), profile };
     }
   } else if (!sessionId) {
-    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
+    return { ok: false, response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }), profile };
   }
   return { ok: true, profile };
 }
@@ -166,7 +166,7 @@ export async function validateActiveSessionLight(
   if (!sessionId) {
     breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
     if (opts?.logBreakdown) logAuthHotPathBreakdown({ ...breakdown, route: opts.route, phase: "light" });
-    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
+    return { ok: false, response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }), breakdown };
   }
 
   const snap = peekAuthLightSessionSnapshot(userId, sessionId);
@@ -248,7 +248,7 @@ export async function validateActiveSessionLight(
   const sbRead = tryCreateSupabaseServiceClient() ?? (await createSupabaseRouteHandlerClient());
   if (!sbRead) {
     breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-    return { ok: false, response: jsonError("인증 설정이 준비되지 않았습니다.", 503, { authenticated: false }), breakdown };
+    return { ok: false, response: jsonError("supabase_unconfigured", 503, { authenticated: false, code: "supabase_unconfigured" }), breakdown };
   }
 
   let activeSessionId = "";
@@ -294,7 +294,7 @@ export async function validateActiveSessionLight(
     if (profileResult.error || !profileResult.pr) {
       breakdown.auth_db_round_trips = dbTrips;
       breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
+      return { ok: false, response: jsonError("profile_not_found", { status: 404, code: "profile_not_found" }), breakdown };
     }
     {
       const loginDenied = resolveLoginDeniedForMemberAccount(
@@ -322,7 +322,7 @@ export async function validateActiveSessionLight(
       if (!ensured) {
         breakdown.auth_db_round_trips = dbTrips;
         breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-        return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
+        return { ok: false, response: jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" }), breakdown };
       }
     }
   } else {
@@ -389,7 +389,7 @@ export async function requirePhoneVerified(
   }
   const profile = await getCurrentProfile(userId);
   if (!profile) {
-    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+    return { ok: false, response: jsonError("profile_not_found", { status: 404, code: "profile_not_found" }) };
   }
   const privilegedAdmin = await resolvePrivilegedAdminForUser(userId, profile.role);
   if (profilePassesPhoneVerificationGate(profile, privilegedAdmin)) {
@@ -419,7 +419,7 @@ export async function requireAdmin(
 > {
   const profile = opts?.profile ?? (await getCurrentProfile(userId));
   if (!profile) {
-    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+    return { ok: false, response: jsonError("profile_not_found", { status: 404, code: "profile_not_found" }) };
   }
   // Application authority: active admin_memberships ONLY (no profiles.role fallback)
   // 판정식 = hasActiveAdminMembershipOrLegacyRole — 행까지 함께 받아 같은 요청에서 재조회하지 않는다.
@@ -434,7 +434,7 @@ export async function requireAdmin(
       /* deny */
     }
   }
-  return { ok: false, response: jsonError("관리자만 가능합니다.", 403), profile };
+  return { ok: false, response: jsonError("admin_required", { status: 403, code: "admin_required" }), profile };
 }
 
 /** GET `/api/me/profile` 동일 세션·기기 시 profiles · registry 갱신 최소 간격(초). `last_login_at` 경과 기준. */

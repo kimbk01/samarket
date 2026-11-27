@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
@@ -22,7 +23,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
 
   const access = await assertVerifiedMemberForAction(sb as any, applicantId);
@@ -33,7 +34,7 @@ export async function POST(
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient;
@@ -44,20 +45,21 @@ export async function POST(
     .maybeSingle();
 
   if (fetchErr) {
-    return NextResponse.json({ ok: false, error: fetchErr.message }, { status: 500 });
+    console.error("[posts/job-apply] post lookup failed", fetchErr);
+    return tradeApiError("job_apply_failed", 500);
   }
   if (!row) {
-    return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    return tradeApiError("post_not_found", 404);
   }
 
   const owner = String((row as { user_id?: string }).user_id ?? "");
   if (!owner || owner === applicantId) {
-    return NextResponse.json({ ok: false, error: "본인 글에는 지원할 수 없습니다." }, { status: 403 });
+    return tradeApiError("own_post_apply", 403);
   }
 
   const tradeType = String((row as { trade_type?: string }).trade_type ?? "product");
   if (tradeType !== "job") {
-    return NextResponse.json({ ok: false, error: "일자리 글이 아닙니다." }, { status: 400 });
+    return tradeApiError("not_job_post", 400);
   }
 
   const meta =
@@ -68,12 +70,12 @@ export async function POST(
       : {};
   const listingKind = String(meta.listing_kind ?? "").trim();
   if (listingKind !== "hire") {
-    return NextResponse.json({ ok: false, error: "구인 공고만 지원할 수 있습니다." }, { status: 400 });
+    return tradeApiError("not_hiring_post", 400);
   }
 
   const status = String((row as { status?: string }).status ?? "");
   if (status !== "active") {
-    return NextResponse.json({ ok: false, error: "지원할 수 없는 상태입니다." }, { status: 400 });
+    return tradeApiError("job_not_open", 400);
   }
 
   let message: string | undefined;
@@ -93,12 +95,10 @@ export async function POST(
   if (insErr) {
     const msg = insErr.message ?? "";
     if (/duplicate|unique/i.test(msg)) {
-      return NextResponse.json(
-        { ok: false, code: "duplicate_application", error: "이미 지원한 공고입니다." },
-        { status: 409 }
-      );
+      return tradeApiError("duplicate_application", 409);
     }
-    return NextResponse.json({ ok: false, error: msg || "지원에 실패했습니다." }, { status: 500 });
+    console.error("[posts/job-apply] insert failed", insErr);
+    return tradeApiError("job_apply_failed", 500);
   }
 
   return NextResponse.json({ ok: true });

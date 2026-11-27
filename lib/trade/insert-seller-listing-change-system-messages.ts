@@ -71,7 +71,11 @@ export async function syncCommunityMessengerTradeStateSummariesServer(
         parsed && parsed.kind === "trade" ? { ...parsed, kind: "trade" } : { v: 1, kind: "trade" };
       nextMeta.postId = pid;
       nextMeta.itemStateLabel = itemStateLabel;
-      if (!nextMeta.headline) nextMeta.headline = trimMid(args.postTitle) ?? "거래";
+      /** 제목 없으면 headline 을 비워 둔다 — 화면이 키로 그린다 (재감사 2026-11-27, 저장 문장 금지) */
+      if (!nextMeta.headline) {
+        const title = trimMid(args.postTitle);
+        if (title) nextMeta.headline = title;
+      }
       if (!nextMeta.productChatId) {
         const productChatId = productChatIdByRoomId.get(roomId) ?? null;
         if (productChatId) nextMeta.productChatId = productChatId;
@@ -123,7 +127,8 @@ export async function insertSellerListingChangeSystemMessagesServer(
           sender_id: null,
           message_type: "system",
           body,
-          metadata: {},
+          /** 종류 코드 — 화면이 보는 사람 언어로 다시 그린다(본문은 옛 호환 문장 유지) */
+          metadata: buildTradeListingChangeSystemMetadata(args.nextState),
         })
         .select("id, room_id, sender_id, message_type, body, metadata, created_at, read_at, deleted_by_sender, is_hidden_by_admin, hidden_reason");
       if (error || !ins?.length) continue;

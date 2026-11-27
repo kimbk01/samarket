@@ -1,5 +1,6 @@
 "use client";
 
+import { tradeChatStoredPreviewText } from "@/lib/trade/trade-api-error-text";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -27,7 +28,8 @@ export function SellerTradeRow({ row }: { row: SalesHistoryRow }) {
   const buyerLabel = row.buyerNickname?.trim()
     ? row.buyerNickname.trim()
     : t("mypage_comp_sales_no_chat_yet");
-  const preview = row.lastMessagePreview?.trim() ?? "";
+  /** 저장 토큰(「사진」「사진 N장」「거래 상태 안내」 등) → 보는 사람 언어. 회원 글은 그대로 */
+  const preview = tradeChatStoredPreviewText(row.lastMessagePreview?.trim() ?? "", t);
   const timeRaw = row.lastMessageAt ?? row.createdAt;
   const timeLabel = timeRaw ? formatTimeAgo(timeRaw) : "";
 

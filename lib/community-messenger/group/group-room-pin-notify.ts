@@ -5,6 +5,7 @@ import { categoryForEventType } from "@/lib/notifications/core/notification-poli
 import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -55,6 +56,13 @@ export async function notifyGroupPinMessage(
       unread: true,
       chatDomain: domain.domain,
       domainIdentityKey: domain.identityKey,
+      /** 알림함이 보는 사람 언어로 다시 그리는 키(설계 §4-3) — 목적지·분류 필드는 넣지 않는다 */
+      displayPayload: {
+        legacyMeta: notificationCopyMeta({
+          titleKey: "notify_group_pin_message_title",
+          messageKey: input.pinned ? "notify_group_pin_message_body_pinned" : "notify_group_pin_message_body_unpinned",
+        }),
+      },
     });
     if (created.ok && created.row) {
       await dispatchNotificationPushIfAllowed(sb, created.row).catch(() => {});

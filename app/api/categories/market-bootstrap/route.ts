@@ -15,12 +15,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim();
   if (!q) {
-    return jsonError("q 파라미터가 필요합니다.", 400);
+    return jsonError("q_required", { status: 400, code: "q_required" });
   }
 
   const postsClients = resolvePostsReadClients(req);
   if (!postsClients) {
-    return jsonError("데이터베이스 설정이 없습니다.", 503);
+    return jsonError("server_config", { status: 503, code: "server_config" });
   }
 
   const includePosts = req.nextUrl.searchParams.get("includePosts") === "1";
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!result.ok) {
-    return jsonError(result.message, result.httpStatus);
+    return jsonError(result.message, { status: result.httpStatus, code: result.message });
   }
 
   const { category, children, childrenForFilter, initialFeed } = result.data;

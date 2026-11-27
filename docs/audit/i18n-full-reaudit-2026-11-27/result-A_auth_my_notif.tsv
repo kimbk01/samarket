@@ -1,0 +1,311 @@
+hangul	app/api/account/phone/send-otp/route.ts	22	인증번호 발송에 실패했습니다.	HARMLESS_CODE_USED	화면 PhoneVerificationBox.tsx:363 → phone-otp-client-errors resolvePhoneOtpUiError 코드·상태로 키 선택	
+hangul	app/api/account/phone/verify-otp/route.ts	24	인증에 실패했습니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:410 resolvePhoneOtpUiError(code/status→키)	
+hangul	app/api/account/phone/verify-otp/route.ts	37	인증번호를 확인해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:410 resolvePhoneOtpUiError(code/status→키)	
+hangul	app/api/auth/login-settings/route.ts	12	로그인 방식을 불러오지 못했습니다.	HARMLESS_CODE_USED	LoginPageClient.tsx:240·AuthLoginPanel.tsx:114·AuthModal.tsx:105 는 settings.enabled 만 읽음, error 미표시	
+hangul	app/api/auth/password-login/resolve-identifier/route.ts	25	아이디 로그인이 비활성화되어 있습니다.	HARMLESS_CODE_USED	usePasswordLogin.ts:158-163 code→mapPasswordResolveErrorCodeToMessage, 문장은 mapPasswordLoginErrorMessage 가 키로만 바꿈(login-error-i18n.ts:16)	
+hangul	app/api/auth/profile/ensure/route.ts	25	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	화면 호출처 0 (POST /api/auth/profile/ensure fetch 없음, 주석만 me-profile-read-pipeline.ts:233)	
+hangul	app/api/auth/profile/ensure/route.ts	32	로그인이 필요합니다.	HARMLESS_CODE_USED	화면 호출처 0 (POST /api/auth/profile/ensure fetch 없음, 주석만 me-profile-read-pipeline.ts:233)	
+hangul	app/api/auth/profile/ensure/route.ts	51	프로필 동기화에 실패했습니다.	HARMLESS_CODE_USED	화면 호출처 0 (POST /api/auth/profile/ensure fetch 없음, 주석만 me-profile-read-pipeline.ts:233)	
+hangul	app/api/auth/profile/ensure/route.ts	69	프로필 동기화에 실패했습니다.	HARMLESS_CODE_USED	화면 호출처 0 (POST /api/auth/profile/ensure fetch 없음, 주석만 me-profile-read-pipeline.ts:233)	
+hangul	app/api/auth/provider/conflict-check/route.ts	37	provider와 providerUserId가 필요합니다.	HARMLESS_CODE_USED	화면 호출처 0 (/api/auth/provider/conflict-check fetch 없음)	
+hangul	app/api/auth/provider/link/complete/route.ts	57	로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98 실패 시 키 auth_provider_link_blocked_toast 만, message 미표시	
+hangul	app/api/auth/provider/link/complete/route.ts	71	계정 연결 요청이 만료되었거나 유효하지 않습니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98 실패 시 키 auth_provider_link_blocked_toast 만, message 미표시	
+hangul	app/api/auth/provider/link/complete/route.ts	87	로그인 정보가 없습니다. 다시 시도해 주세요.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98 실패 시 키 auth_provider_link_blocked_toast 만, message 미표시	
+hangul	app/api/auth/provider/link/complete/route.ts	99	계정 연결 요청이 만료되었거나 유효하지 않습니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98 실패 시 키 auth_provider_link_blocked_toast 만, message 미표시	
+hangul	app/api/auth/provider/link/start/route.ts	32	계정 연결 요청이 만료되었거나 유효하지 않습니다.	HARMLESS_CODE_USED	화면 호출처 0 (/api/auth/provider/link/start fetch 없음)	
+hangul	app/api/auth/provider/link/start/route.ts	42	계정 연결을 시작하려면 로그인 정보 또는 stashToken이 필요합니다.	HARMLESS_CODE_USED	화면 호출처 0 (/api/auth/provider/link/start fetch 없음)	
+hangul	app/api/auth/session/route.ts	49	로그인이 필요합니다.	HARMLESS_CODE_USED	세션 확인 클라이언트(fetch-auth-session-client 등)는 status·authenticated 만 봄, error 표시처 grep 0	
+hangul	app/api/auth/session/route.ts	55	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	세션 확인 클라이언트(fetch-auth-session-client 등)는 status·authenticated 만 봄, error 표시처 grep 0	
+hangul	app/api/auth/session/route.ts	102	로그인이 필요합니다.	HARMLESS_CODE_USED	세션 확인 클라이언트(fetch-auth-session-client 등)는 status·authenticated 만 봄, error 표시처 grep 0	
+hangul	app/api/me/auth-providers/[provider]/route.ts	23	지원하지 않는 로그인 방식입니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:121-128 errorCode→키	
+hangul	app/api/me/auth-providers/[provider]/route.ts	43	보안을 위해 다시 로그인한 뒤 연결을 해제해 주세요.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:121-128 errorCode→키	
+hangul	app/api/me/block-relation/route.ts	19	otherUserId가 필요합니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:299 j.ok·isBlocked 만 읽음	
+hangul	app/api/me/consent-events/route.ts	21	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	MyConsentHistory.tsx:49 실패 시 setFailed(키 화면), error 미표시	
+hangul	app/api/me/devices/register/route.ts	51	기기 등록 요청이 너무 빠릅니다.	HARMLESS_CODE_USED	기기 등록은 백그라운드(register-native-push-client·Android NativePushRegisterHelper), 화면 표시 없음	
+hangul	app/api/me/legal-consent/route.ts	34	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	75	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	97	로그인이 필요합니다.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	107	약관 정보를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	119	약관이 개정되었습니다. 변경된 약관을 확인한 뒤 다시 동의해 주세요.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	146	선택 동의를 저장하지 못했습니다. 다시 시도해 주세요.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	163	이용약관과 개인정보처리방침 동의가 필요합니다.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/legal-consent/route.ts	234	동의 상태를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	AuthConsentForm.tsx:192-226 code 로 키 선택, 그 외 auth_consent_save_failed 키	
+hangul	app/api/me/notification-targets/clear/route.ts	33	JSON 필요	HARMLESS_CODE_USED	CommunityDetail.tsx:134 응답 무시(.catch 만)	
+hangul	app/api/me/notification-targets/clear/route.ts	40	targetType과 targetId가 필요합니다.	HARMLESS_CODE_USED	CommunityDetail.tsx:134 응답 무시(.catch 만)	
+hangul	app/api/me/notification-targets/clear/route.ts	43	지원하지 않는 targetType입니다.	HARMLESS_CODE_USED	CommunityDetail.tsx:134 응답 무시(.catch 만)	
+hangul	app/api/me/notifications/route.ts	297	${logPrefix} Supabase unreachable (DNS/네트워크). .env 의 NEXT_PUBLIC_SUPABASE_URL 과 연결을 확인하세요.	HARMLESS_LOG	console.warn 진단 문구, 응답은 code upstream_unreachable	
+hangul	app/api/me/profile/route.ts	501	로그인이 필요합니다.	HARMLESS_CODE_USED	GET 401 — 호출처(OnboardingProfileClient.tsx:40·OwnerDeliveryAdsHubView.tsx:177)는 res.ok 만 봄	
+hangul	app/api/me/push/subscribe/route.ts	33	푸시 등록 요청이 너무 빠릅니다.	HARMLESS_CODE_USED	WebPushSettingsRow.tsx:136-144 error 코드→키 (rate-limit 문장은 settings_web_push_err_register_failed 로)	
+hangul	app/api/me/signup-status/route.ts	24	인증 설정이 준비되지 않았습니다.	HARMLESS_CODE_USED	fetch-signup-status-client 호출 화면들 error 문장 미표시(grep 0)	
+hangul	app/api/my/purchases/route.ts	30	서버 설정 필요	HARMLESS_CODE_USED	SalesHistoryView.tsx:76-79 catch→키 mypage_comp_sales_load_failed; 구매 fetch 는 표시 화면 없음	
+hangul	app/api/my/sales/route.ts	35	서버 설정 필요	HARMLESS_CODE_USED	SalesHistoryView.tsx:76-79 catch→키 mypage_comp_sales_load_failed; 구매 fetch 는 표시 화면 없음	
+raw-error	components/auth/usePasswordLogin.ts	159	resolveJson?.error ?? t("auth_err_login_identifier_lookup_failed"),	FALSE_POSITIVE	mapPasswordLoginErrorMessage(login-error-i18n.ts:16) 가 원문을 키로만 바꾸고 원문은 콘솔만	
+raw-error	components/auth/usePasswordLogin.ts	203	const normalizedRaw = String(err.message ?? "").trim().toLowerCase();	FALSE_POSITIVE	mapPasswordLoginErrorMessage(login-error-i18n.ts:16) 가 원문을 키로만 바꾸고 원문은 콘솔만	
+raw-error	components/auth/usePasswordLogin.ts	207	: mapPasswordLoginErrorMessage(err.message || t("auth_err_login_failed"), t);	FALSE_POSITIVE	mapPasswordLoginErrorMessage(login-error-i18n.ts:16) 가 원문을 키로만 바꾸고 원문은 콘솔만	
+raw-error	components/my/settings/LogoutContent.tsx	65	setError(result.message ?? t("auth_logout_err_failed"));	FALSE_POSITIVE	result.message 는 logout-client.ts:23 logoutT(key) 번역값	
+raw-error	components/my/settings/LogoutContent.tsx	138	setError(result.message ?? t("auth_logout_err_failed"));	FALSE_POSITIVE	result.message 는 logout-client.ts:23 logoutT(key) 번역값	
+hangul	components/mypage/MyPageQuickActions.tsx	19	바로 이동	FALSE_POSITIVE	기본값 미도달 — 호출 3곳(CommunityTab:186·StoreTab:148,152,167·AccountTab:81-106) 모두 caption 키 전달 (죽은 한국어 기본값, 정리 권장)	
+hangul	lib/auth/api-session-require.ts	22	로그인이 필요합니다.	EXPOSED	requireAuthenticatedUserId → lib/reports/request-user-block.ts:42 → BlockActionSheet.tsx:48,88 (POST /api/chat/rooms/[roomId]/block 401)	jsonError code unauthorized + 화면 resolveApiErrorText(common_login_required)
+hangul	lib/auth/api-session-require.ts	35	로그인이 필요합니다.	EXPOSED	requireAuthenticatedUserIdStrict → POST /api/community/reports → createCommunityFeedPostReport.ts:26 → CommunityDetail.tsx:453,642	code unauthorized + 화면 resolveApiErrorText
+hangul	lib/auth/auth-phone-settings.ts	35	필리핀(+63)·한국(+82) 휴대폰 번호만 인증할 수 있습니다.	HARMLESS_CODE_USED	phone-verification-public-settings.ts:34-39 영어 화면이면 한글 안내 비움 → PhoneVerificationBox.tsx:996 키 my_phone_tg_desc	
+hangul	lib/auth/client-access-flow.ts	79	로그인이 필요	HARMLESS_DATA	문장 포함 비교값(isLoginRequiredError·isSignupIncompleteError)	
+hangul	lib/auth/client-access-flow.ts	90	처리방침 동의 후 이용	HARMLESS_DATA	문장 포함 비교값(isLoginRequiredError·isSignupIncompleteError)	
+hangul	lib/auth/client-access-flow.ts	91	연령 확인(만 14세 이상) 후 이용	HARMLESS_DATA	문장 포함 비교값(isLoginRequiredError·isSignupIncompleteError)	
+hangul	lib/auth/dibay-id-policy.ts	73	이미 사용 중인 아이디입니다.	HARMLESS_ADMIN	dibayIdErrorMessageKo 호출처 AdminMemberDibayIdDialog.tsx:61,99 만	
+hangul	lib/auth/dibay-id-policy.ts	75	비슷한 아이디(점·밑줄만 다름)가 이미 있습니다. 다른 아이디를 입력하세요.	HARMLESS_ADMIN	dibayIdErrorMessageKo 호출처 AdminMemberDibayIdDialog.tsx:61,99 만	
+hangul	lib/auth/dibay-id-policy.ts	77	dibay 로 시작하는 아이디는 시스템 전용이라 사용할 수 없습니다.	HARMLESS_ADMIN	dibayIdErrorMessageKo 호출처 AdminMemberDibayIdDialog.tsx:61,99 만	
+hangul	lib/auth/enforce-api-member-mutation-policy.ts	233	약관·개인정보 처리방침 동의 후 이용할 수 있습니다.	HARMLESS_CODE_USED	jsonDenied(enforce-api-member-mutation-policy.ts:41) error=code·message 별도; message 표시처 grep 0, 화면은 isSignupIncompleteError→동의 화면 이동	
+hangul	lib/auth/enforce-api-member-mutation-policy.ts	238	연령 확인(만 14세 이상) 후 이용할 수 있습니다.	HARMLESS_CODE_USED	jsonDenied(enforce-api-member-mutation-policy.ts:41) error=code·message 별도; message 표시처 grep 0, 화면은 isSignupIncompleteError→동의 화면 이동	
+hangul	lib/auth/login-settings.ts	26	내부/운영 로그인	HARMLESS_ADMIN	label 은 관리자 AuthLoginSettingsForm 만, 고객 로그인 화면은 provider·enabled 만 읽음	
+hangul	lib/auth/login-settings.ts	110	로그인 방식을 불러오지 못했습니다.	HARMLESS_CODE_USED	fetchAuthLoginSettingsClient 호출처 0	
+hangul	lib/auth/member-access-constants.ts	8	전화번호 인증 후 이용할 수 있습니다.	HARMLESS_CODE_USED	문장 감지 후 전화 인증 시트(client-access-flow.ts:122·phone-verification-required-detect.ts:11) — TradeWriteForm:2004·ChatDetailView:1495·PhilifeNeighborhoodWriteForm:956	
+hangul	lib/auth/member-account-state.ts	93	이 회원은 현재 활동이 제한되어 있습니다.	EXPOSED	app/api/community/neighborhood-posts/route.ts:45 error=문장 → PhilifeNeighborhoodWriteForm.tsx:954-957 setErr(j.error) (redirect 대상 아님)	error=code member_activity_restricted + 화면 표(키) — 다른 호출 라우트(community/posts·store-orders·store-cart·moim)도 같이
+hangul	lib/auth/native/apple-native-session.server.ts	117	탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.	HARMLESS_CODE_USED	native exchange 실패는 errorCode → use-oauth-login.ts:501 mapOAuthErrorToMessage(키)	
+hangul	lib/auth/native/google-native-session.server.ts	93	탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.	HARMLESS_CODE_USED	native exchange 실패는 errorCode → use-oauth-login.ts:501 mapOAuthErrorToMessage(키)	
+hangul	lib/auth/native/google-native-session.server.ts	449	프로필 동기화에 실패했습니다. 다시 로그인해 주세요.	HARMLESS_CODE_USED	native exchange 실패는 errorCode → use-oauth-login.ts:501 mapOAuthErrorToMessage(키)	
+hangul	lib/auth/native/kakao-native-session.server.ts	101	탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.	HARMLESS_CODE_USED	native exchange 실패는 errorCode → use-oauth-login.ts:501 mapOAuthErrorToMessage(키)	
+hangul	lib/auth/native/start-native-apple-login.client.ts	187	OAuth가 이미 진행 중입니다.	HARMLESS_CODE_USED	err.name=oauth_flow_in_flight → use-oauth-login.ts:245 키 auth_err_oauth_start_failed	
+hangul	lib/auth/native/start-native-google-login.client.ts	183	OAuth가 이미 진행 중입니다.	HARMLESS_CODE_USED	err.name=oauth_flow_in_flight → use-oauth-login.ts:245 키 auth_err_oauth_start_failed	
+hangul	lib/auth/native/start-native-kakao-login.client.ts	57	OAuth가 이미 진행 중입니다.	HARMLESS_CODE_USED	err.name=oauth_flow_in_flight → use-oauth-login.ts:245 키 auth_err_oauth_start_failed	
+hangul	lib/auth/oauth/start-oauth-login.ts	124	OAuth 시작 URL을 만들지 못했습니다.	HARMLESS_CODE_USED	startError(code,…) → NativeOAuthLaunchClient·use-oauth-login 은 code 로 키 선택	
+hangul	lib/auth/oauth/start-oauth-login.ts	171	OAuth 시작 URL을 만들지 못했습니다.	HARMLESS_CODE_USED	startError(code,…) → NativeOAuthLaunchClient·use-oauth-login 은 code 로 키 선택	
+hangul	lib/auth/phone-otp-client-errors.ts	37	먼저 인증번호	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	38	만료	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	39	다른 계정	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	40	번호가 다릅	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	40	일치하지	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	41	올바르지 않	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	42	재발송은	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	42	시도 횟수	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	43	비활성화	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	44	발송에 실패	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	45	휴대폰 번호 형식	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-client-errors.ts	46	인증번호를 확인	HARMLESS_DATA	구 서버 문장 → 코드 변환용 비교값	
+hangul	lib/auth/phone-otp-ops.ts	222	변경 사유를 입력해 주세요.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	233	필수 보안·공급자 설정이 충족되지 않아 활성화할 수 없습니다.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	254	전화 인증 ON/OFF RPC를 사용할 수 없습니다. 마이그레이션 적용 전에는 설정을 변경하지 않습니다.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	263	전화 인증 설정 변경에 실패했습니다.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	273	다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	282	전화 인증 설정을 찾을 수 없습니다.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-ops.ts	290	전화 인증 설정 변경에 실패했습니다.	HARMLESS_ADMIN	setAuthPhoneOtpEnabled — app/api/admin/users/phone-verification/ops 만	
+hangul	lib/auth/phone-otp-server-sync.ts	72	이름을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	patchProfileDisplayName 호출처 /api/me/phone-verification/send 뿐, 그 라우트 화면 호출처 0	
+hangul	lib/auth/phone-otp-service.ts	54	필리핀(+63)·한국(+82) 휴대폰 번호만 인증할 수 있습니다. 번호를 확인해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	59	이미 다른 계정에서 사용 중인 전화번호입니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	162	전화 인증 기능이 현재 비활성화되어 있습니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	169	전화 인증 보안 설정이 완료되지 않았습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	300	재발송은 ${left}초 후 가능합니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	319	인증번호 발송에 실패했습니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	342	인증번호 발송에 실패했습니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	369	인증번호를 확인해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	382	인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	390	먼저 인증번호를 요청해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	394	요청한 전화번호와 인증 대상 번호가 다릅니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	397	인증번호가 만료되었습니다. 다시 요청해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	404	인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-otp-service.ts	413	인증번호가 올바르지 않습니다.	HARMLESS_CODE_USED	PhoneVerificationBox.tsx:363,410 resolvePhoneOtpUiError 코드→키 (me/phone-verification/* 는 화면 호출처 0)	
+hangul	lib/auth/phone-verification-required-detect.ts	12	전화번호	HARMLESS_DATA	isPhoneVerificationRequiredError 비교값	
+hangul	lib/auth/phone-verification-required-detect.ts	12	인증	HARMLESS_DATA	isPhoneVerificationRequiredError 비교값	
+hangul	lib/auth/phone-verification-required-detect.ts	13	필리핀	HARMLESS_DATA	isPhoneVerificationRequiredError 비교값	
+hangul	lib/auth/phone-verification-required-detect.ts	13	인증	HARMLESS_DATA	isPhoneVerificationRequiredError 비교값	
+hangul	lib/auth/provider-identity/link-provider.server.ts	25	계정 연결 요청이 만료되었거나 유효하지 않습니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	38	이미 연결된 로그인 방식입니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	47	이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	59	이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	108	최소 1개의 로그인 방법은 유지해야 합니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	117	연결된 로그인 방식이 아닙니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/link-provider.server.ts	126	연결된 로그인 방식이 아닙니다.	HARMLESS_CODE_USED	LinkedLoginProvidersContent.tsx:90-98,121-128 errorCode→키	
+hangul	lib/auth/provider-identity/native-session-bridge.server.ts	128	보안을 위해 기존 로그인 확인이 필요합니다.	HARMLESS_CODE_USED	provider_email_conflict → 충돌 모달(AuthProviderEmailConflictModal, 키) · 콜백은 code 만 화면	
+hangul	lib/auth/provider-identity/oauth-rebind-safety.server.ts	9	이 로그인 계정은 기존 dibaY 계정과 연결 상태를 확인해야 합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.	HARMLESS_CODE_USED	auth/callback/route.ts:167 auth_error_detail → LoginPageClient.tsx:200,205 mapAuthErrorMessage(code) — detail 은 로그만	
+hangul	lib/auth/provider-identity/password-member-lookup.server.ts	16	이 로그인 방법은 기존 계정 연결 확인이 필요합니다. 다른 로그인 방법을 사용하거나 고객지원에 문의해 주세요.	HARMLESS_CODE_USED	auth/callback/route.ts:167 auth_error_detail → LoginPageClient.tsx:200,205 mapAuthErrorMessage(code) — detail 은 로그만	
+hangul	lib/auth/provider-identity/password-member-lookup.server.ts	122	탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.	HARMLESS_CODE_USED	lifecycle_deny errorCode(account_withdrawn/blocked/suspended) → mapAuthErrorMessage 키	
+hangul	lib/auth/provider-identity/password-member-lookup.server.ts	129	이용이 차단된 계정입니다. 관리자 차단 해제 후 다시 로그인해 주세요.	HARMLESS_CODE_USED	lifecycle_deny errorCode(account_withdrawn/blocked/suspended) → mapAuthErrorMessage 키	
+hangul	lib/auth/provider-identity/password-member-lookup.server.ts	136	이 회원은 현재 활동이 제한되어 있습니다.	HARMLESS_CODE_USED	lifecycle_deny errorCode(account_withdrawn/blocked/suspended) → mapAuthErrorMessage 키	
+hangul	lib/auth/provider-identity/provider-credential-verify.server.ts	28	지원하지 않는 로그인 방식입니다.	HARMLESS_CODE_USED	link/complete·conflict-check·link/start 전용 — 화면 LinkedLoginProvidersContent 는 키만	
+hangul	lib/auth/provider-identity/provider-credential-verify.server.ts	34	Google 로그인 정보가 없습니다.	HARMLESS_CODE_USED	link/complete·conflict-check·link/start 전용 — 화면 LinkedLoginProvidersContent 는 키만	
+hangul	lib/auth/provider-identity/provider-credential-verify.server.ts	50	Apple 로그인 정보가 없습니다.	HARMLESS_CODE_USED	link/complete·conflict-check·link/start 전용 — 화면 LinkedLoginProvidersContent 는 키만	
+hangul	lib/auth/provider-identity/provider-display.ts	6	카카오	FALSE_POSITIVE	PROVIDER_LABEL_KO/EN 언어별 표, 호출 6곳 모두 language 전달	
+hangul	lib/auth/provider-identity/provider-display.ts	8	네이버	FALSE_POSITIVE	PROVIDER_LABEL_KO/EN 언어별 표, 호출 6곳 모두 language 전달	
+hangul	lib/auth/provider-identity/provider-display.ts	9	이메일	FALSE_POSITIVE	PROVIDER_LABEL_KO/EN 언어별 표, 호출 6곳 모두 language 전달	
+hangul	lib/auth/provider-identity/resolve-provider-login.server.ts	96	동일 이메일로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.	HARMLESS_CODE_USED	콜백 code → LoginPageClient mapAuthErrorMessage / native errorCode → mapOAuthErrorToMessage	
+hangul	lib/auth/provider-identity/resolve-provider-login.server.ts	141	동일 이메일로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.	HARMLESS_CODE_USED	콜백 code → LoginPageClient mapAuthErrorMessage / native errorCode → mapOAuthErrorToMessage	
+hangul	lib/auth/provider-identity/web-oauth-policy.server.ts	292	보안을 위해 기존 로그인 확인이 필요합니다.	HARMLESS_CODE_USED	콜백 code → LoginPageClient mapAuthErrorMessage / native errorCode → mapOAuthErrorToMessage	
+hangul	lib/auth/provider-identity/web-oauth-policy.server.ts	323	보안을 위해 기존 로그인 확인이 필요합니다.	HARMLESS_CODE_USED	콜백 code → LoginPageClient mapAuthErrorMessage / native errorCode → mapOAuthErrorToMessage	
+hangul	lib/auth/provider-identity/web-oauth-policy.server.ts	431	이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.	HARMLESS_CODE_USED	콜백 code → LoginPageClient mapAuthErrorMessage / native errorCode → mapOAuthErrorToMessage	
+hangul	lib/auth/resolve-password-login-identifier.ts	94	이메일 또는 아이디를 입력하세요.	HARMLESS_CODE_USED	usePasswordLogin.ts:158-163 code→키	
+hangul	lib/auth/resolve-password-login-identifier.ts	113	로그인 식별자 조회 구성이 준비되지 않았습니다.	HARMLESS_CODE_USED	usePasswordLogin.ts:158-163 code→키	
+hangul	lib/auth/resolve-password-login-identifier.ts	160	로그인 식별자를 확인하지 못했습니다.	HARMLESS_CODE_USED	usePasswordLogin.ts:158-163 code→키	
+hangul	lib/auth/semaphore-sms.ts	4	인증번호 발송에 실패했습니다.	HARMLESS_CODE_USED	Semaphore 실패 문장은 서버 내부 → phone-otp-service code otp_send_failed → 화면 키	
+hangul	lib/auth/server-guards.ts	112	프로필을 찾을 수 없습니다.	EXPOSED	validateActiveSession 404 → lib/reports/request-user-block.ts:42 → BlockActionSheet.tsx:48,88 (POST /api/chat/rooms/[roomId]/block 401)	code profile_not_found + 화면 표
+hangul	lib/auth/server-guards.ts	129	로그인이 필요합니다.	EXPOSED	validateActiveSession 401 → lib/reports/request-user-block.ts:42 → BlockActionSheet.tsx:48,88 (POST /api/chat/rooms/[roomId]/block 401)	code unauthorized + 화면 resolveApiErrorText
+hangul	lib/auth/server-guards.ts	141	로그인이 필요합니다.	EXPOSED	validateActiveSession 401 → lib/reports/request-user-block.ts:42 → BlockActionSheet.tsx:48,88 (POST /api/chat/rooms/[roomId]/block 401)	code unauthorized + 화면 resolveApiErrorText
+hangul	lib/auth/server-guards.ts	144	로그인이 필요합니다.	EXPOSED	validateActiveSession 401 → lib/reports/request-user-block.ts:42 → BlockActionSheet.tsx:48,88 (POST /api/chat/rooms/[roomId]/block 401)	code unauthorized + 화면 resolveApiErrorText
+hangul	lib/auth/server-guards.ts	169	로그인이 필요합니다.	EXPOSED	validateActiveSessionLight → POST /api/me/stores/[storeId]/products → owner-product-register-error.ts:110-112 → owner-api-error-i18n.ts:47 원문 반환 → OwnerProductForm.tsx:670 오류 창(사장님)	code unauthorized + owner-api-error-i18n 이 문장 반환하지 않게
+hangul	lib/auth/server-guards.ts	251	인증 설정이 준비되지 않았습니다.	EXPOSED	validateActiveSessionLight → POST /api/me/stores/[storeId]/products → owner-product-register-error.ts:110-112 → owner-api-error-i18n.ts:47 원문 반환 → OwnerProductForm.tsx:670 오류 창(사장님) (503)	code supabase_unconfigured + 화면 키
+hangul	lib/auth/server-guards.ts	297	프로필을 찾을 수 없습니다.	EXPOSED	validateActiveSessionLight → POST /api/me/stores/[storeId]/products → owner-product-register-error.ts:110-112 → owner-api-error-i18n.ts:47 원문 반환 → OwnerProductForm.tsx:670 오류 창(사장님) (404)	code profile_not_found + 화면 키
+hangul	lib/auth/server-guards.ts	325	로그인이 필요합니다.	EXPOSED	validateActiveSessionLight → POST /api/me/stores/[storeId]/products → owner-product-register-error.ts:110-112 → owner-api-error-i18n.ts:47 원문 반환 → OwnerProductForm.tsx:670 오류 창(사장님)	code unauthorized + 화면 키
+hangul	lib/auth/server-guards.ts	392	프로필을 찾을 수 없습니다.	SERVER_TEXT(표시 경로 미확인)	requirePhoneVerified 404 — store-reviews 는 키(StoreOrderReviewForm.tsx:280), 메신저 그룹방 등 다른 호출 화면 미추적	code profile_not_found
+hangul	lib/auth/server-guards.ts	422	프로필을 찾을 수 없습니다.	HARMLESS_ADMIN	requireAdmin — 관리자 API 전용	
+hangul	lib/auth/server-guards.ts	437	관리자만 가능합니다.	HARMLESS_ADMIN	requireAdmin — 관리자 API 전용	
+hangul	lib/legal/app-legal-document-edit-policy.ts	116	게시 중단 확인이 필요합니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	124	게시 중인 약관은 임시저장으로 내릴 수 없습니다. 「게시 중단」을 사용해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	136	게시된 약관의 종류·언어·버전·시행일은 바꿀 수 없습니다. 새 버전은 새 문서로 추가해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	141	제목과 본문은 비울 수 없습니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	143	변경된 내용이 없습니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	149	게시된 약관의 문구는 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	156	같은 버전으로 본문을 수정하면 회원 재동의가 발생하지 않습니다. 확인 후 다시 시도해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	167	게시 중인 문서가 아닙니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	183	한 번 게시된 약관은 바꿀 수 없습니다. 개정은 새 버전 문서로 작성해 게시해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	186	변경된 내용이 없습니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	187	게시 확인이 필요합니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	192	문서 종류가 올바르지 않습니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	196	언어가 올바르지 않습니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	205	게시 확인이 필요합니다.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	209	제목·본문·버전을 입력해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/app-legal-document-edit-policy.ts	217	개정 유형(재동의 필요 / 공지만)을 선택해 주세요.	HARMLESS_ADMIN	약관 편집 정책 — admin/app-legal-documents 라우트·AdminAppLegalDocumentForm 만	
+hangul	lib/legal/dibay-privacy-policy-content.ts	363	개인정보처리방침	FALSE_POSITIVE	ko/en 쌍 (en: Privacy Policy)	
+hangul	lib/legal/record-required-consent.server.ts	47	만 14세 이상만 가입할 수 있습니다.	HARMLESS_CODE_USED	legal-consent → AuthConsentForm.tsx:204-226 code→키	
+hangul	lib/legal/record-required-consent.server.ts	50	생년월일이 필요합니다.	HARMLESS_CODE_USED	legal-consent → AuthConsentForm.tsx:204-226 code→키	
+hangul	lib/legal/record-required-consent.server.ts	53	생년월일이 올바르지 않습니다.	HARMLESS_CODE_USED	legal-consent → AuthConsentForm.tsx:204-226 code→키	
+hangul	lib/legal/record-required-consent.server.ts	62	약관 버전이 필요합니다.	HARMLESS_CODE_USED	legal-consent → AuthConsentForm.tsx:204-226 code→키	
+hangul	lib/legal/record-required-consent.server.ts	73	동의 기록 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	legal-consent → AuthConsentForm.tsx:204-226 code→키	
+hangul	lib/my/my-page-defaults.ts	5	내상품	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	6	내 상점	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	7	광고 신청	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	8	포인트	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	9	회원 혜택	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	10	동네 설정	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	11	차단 목록	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	15	거래	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	16	게시판	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	17	매장·주문	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/my/my-page-defaults.ts	18	개인 설정	HARMLESS_DATA	my_services/my_page_sections 기본값 — 고객 컴포넌트에서 services·sections 렌더 0(어드민 AdminMyServicesPage 만)	
+hangul	lib/mypage/buyer-manage-tabs.ts	10	거래중	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/buyer-manage-tabs.ts	11	구매완료	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/buyer-manage-tabs.ts	12	구매취소	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/favorite-manage-tabs.ts	10	전체 찜	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/favorite-manage-tabs.ts	11	판매중	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/favorite-manage-tabs.ts	12	거래완료	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/favorite-manage-tabs.ts	13	볼 수 없는 글	FALSE_POSITIVE	TradeManagementTabBar.tsx:34,54 labelKey 우선(모든 행 labelKey 있음)	
+hangul	lib/mypage/purchase-history-ui.ts	25	분쟁 처리중	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	26	종료	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	27	판매자가 거래완료 처리함	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	30	관리자완료(거래완료 확인)	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	31	자동 거래완료 확인됨	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	32	거래완료	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/purchase-history-ui.ts	34	판매중	HARMLESS_DATA	purchaseTradeStatusBadge 호출처 PurchaseHistoryCard.tsx:80 — 이 컴포넌트는 렌더 호출처 0(타입 import 만). 미사용, 되살리면 결함	
+hangul	lib/mypage/sales-history-scope.ts	10	구매	HARMLESS_DATA	trade_intent 비교값	
+hangul	lib/mypage/seller-manage-tabs.ts	14	거래 진행	FALSE_POSITIVE	TradeManagementTabBar labelKey 우선·getSellerManageTabLabel translate	
+hangul	lib/mypage/seller-manage-tabs.ts	15	거래 완료	FALSE_POSITIVE	TradeManagementTabBar labelKey 우선·getSellerManageTabLabel translate	
+hangul	lib/mypage/seller-manage-tabs.ts	16	판매 취소	FALSE_POSITIVE	TradeManagementTabBar labelKey 우선·getSellerManageTabLabel translate	
+hangul	lib/notifications/badge-writer-authority.ts	122	syncNativeBadgeCount → Capawesome Badge.set (Android echo only · iOS 는 DibayAppIconDeliver	HARMLESS_LOG	배지 작성 권한 설명 문자열(계약·테스트용)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	34	시스템 안내	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	35	마케팅·이벤트	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	36	업데이트 안내	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	37	이전 관리자 공지	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	38	결제 실패·환불 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	39	리뷰 답글	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	40	구매자 문제 제기	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	41	거래글 조치·제재	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	42	거래 신고 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	43	거래글 상위노출 심사	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	44	내 글 상단 고정	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	45	모임 활동	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	46	게시글 조치·제재	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	47	커뮤니티 신고 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	48	커뮤니티 상위노출 종료	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	49	고객센터 답변	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	50	고객센터 문의 상태	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	51	관리자 문의 답변	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	52	관리자 쪽지	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	53	채팅 신고 처리 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	54	채팅 신고 제재	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	55	그룹 초대	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	56	그룹 공지 고정	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	58	상품권 선물 받음	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	59	상품권 선물 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	60	환불 요청	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	62	매장 포인트	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	63	광고 심사·상태	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	64	광고 캐시 충전 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	66	Coin 출금 결과	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	67	매장 심사·운영 조치	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	68	매장 운영 공지	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-item-sound-seeds.ts	69	플랫폼 문의 답변	FALSE_POSITIVE	labelKo+labelEn 쌍 → 알림음 이벤트 label_ko/label_en → Android 채널 이름, DibayNotificationSoundChannelStore.java:487 en 이면 labelEn (구 바이너리는 labelEn 무시 — 네이티브 위험)	
+hangul	lib/notifications/notification-sound-registry.ts	22	무음	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	34	기본 일반 알림	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	46	기본 메시지 수신	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	58	1:1 메시지 (legacy direct)	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	74	그룹 메시지 (legacy group)	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	90	거래 채팅 (legacy trade)	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	106	주문 알림 (legacy order)	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	118	매장/스토어 (legacy store)	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	130	오너 긴급 주문	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	146	주문 매칭 채팅	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	162	음성 수신 벨	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	178	영상 수신 벨	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	194	음성 발신 연결음	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	210	영상 발신 연결음	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	226	부재중 통화	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	242	통화 종료음	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	258	통화 fallback	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	274	관리자 긴급	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	286	OS 기본 알림음	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	298	OS 기본 벨소리	HARMLESS_ADMIN	알림음 asset label — displayNotificationSoundAssetLabel 호출처 AdminNotificationSoundSsotTable·AdminSentNotificationPanels 만	
+hangul	lib/notifications/notification-sound-registry.ts	345	시스템 기본	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	358	메시지 발신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	369	1:1 메시지 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	379	그룹 메시지 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	389	친구 요청 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	399	친구 요청 승인	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	409	거래 채팅 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	419	가격 제안	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	429	거래 예약	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	439	거래 완료	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	449	주문 상태 변경	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	459	주문 채팅 수신 (구매자)	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	469	사장님 신규 주문	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	479	사장님 주문 채팅	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	489	사장님 주문 취소	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	499	사장님 주문 지연	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	509	사장님 품절	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	519	리뷰 알림	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	529	문의 알림	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	539	주문 매칭 채팅	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	549	음성 통화 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	559	영상 통화 수신	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	569	음성 발신 연결	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	579	영상 발신 연결	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	589	부재중 통화	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	599	통화 종료	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	609	통화 거절	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	619	신고 접수	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	629	관리자 공지	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	639	잔액 부족	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	649	충전 승인	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	659	충전 반려	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	669	충전 요청 (관리자)	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	679	댓글	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	689	멘션	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/notification-sound-registry.ts	699	좋아요	FALSE_POSITIVE	ev(label_ko,label_en) 쌍 → native-notification-sound-channel-sync.ts:82-83 → Android 채널 이름 언어 선택(DibayNotificationSoundChannelStore.java:487)	
+hangul	lib/notifications/publish-notification-side-effect.ts	63	[Kasama 알림]	HARMLESS_LOG	Slack 운영 웹훅 한 줄(publish-notification-side-effect.ts:135)	
+hangul	lib/profile/ensure-profile-for-user-id.ts	83	회원	STORED	닉네임 없음·이메일 없음 시 profiles.nickname/display_name 에 「회원」 저장 → 공개 이름으로 모든 화면 표시	preferredLanguage 로 카탈로그 profile_default_display_name(P1 A1 과 같은 방식) 또는 빈 값+화면 키
+hangul	lib/profile/handle-profile-incomplete-api-response.ts	15	프로필 정보를 먼저 완성해 주세요.	EXPOSED	createPost.ts:44 → TradeWriteForm.tsx:2005,3266 (setErrors.submit 표시) · ServiceWriteForm:95	반환을 키(code profile_incomplete)로, 화면 t()
+hangul	lib/profile/member-nickname-policy.ts	21	닉네임은 2자 이상으로 입력해 주세요.	HARMLESS_ADMIN	validateMemberNicknameInput 화면 경로는 admin/users/[id] PATCH 만 (phone-otp-server-sync 경로는 화면 호출처 0)	
+hangul	lib/profile/member-nickname-policy.ts	24	닉네임은 20자 이내로 입력해 주세요.	HARMLESS_ADMIN	validateMemberNicknameInput 화면 경로는 admin/users/[id] PATCH 만 (phone-otp-server-sync 경로는 화면 호출처 0)	
+hangul	lib/profile/member-nickname-policy.ts	47	이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해 주세요.	HARMLESS_CODE_USED	MEMBER_NICKNAME_TAKEN_MESSAGE — phone-otp-server-sync → /api/me/phone-verification/send 만, 화면 호출처 0	
+hangul	lib/settings/user-settings-store.ts	232	필리핀	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/settings/user-settings-store.ts	233	한국	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/settings/user-settings-store.ts	234	미국	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/settings/user-settings-store.ts	238	항상	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/settings/user-settings-store.ts	239	Wi-Fi에서만	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/settings/user-settings-store.ts	240	끔	HARMLESS_DATA	COUNTRY_NAMES·VIDEO_AUTOPLAY_LABELS import 0 (미사용)	
+hangul	lib/time/format-pht-display.ts	39	${month}월 ${day}일 ${hh}:${mm}	FALSE_POSITIVE	language==='en' 분기 있음(format-pht-display.ts:38)	
+en-literal	app/auth/oauth/launch/NativeOAuthLaunchClient.tsx	60	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/auth/DibayAuthLogoHiddenGate.tsx	15	nowMs - t	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/auth/PcQrLoginPanel.tsx	33	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/home/HomeProductList.tsx	308	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/my/MyNotificationsView.tsx	112	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/my/settings/VersionContent.tsx	350	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/mypage/StoreOrderReorderAgainButton.tsx	15	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/mypage/ds/MyToggle.tsx	11	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	
+en-literal	components/mypage/profile/PhoneVerificationBox.tsx	159	Promise	FALSE_POSITIVE	TypeScript 타입/식(Promise·nowMs - t), 화면 글자 아님	

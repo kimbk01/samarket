@@ -11,7 +11,7 @@ import {
   type TradeNationalPickerHit,
 } from "@/components/trade/TradeLocationNationalPicker";
 import { useTradeBrowseMyRegion } from "@/components/trade/location/use-trade-browse-my-region";
-import { getBestCurrentPosition } from "@/lib/map/geolocation";
+import { geolocationFailMessageKey, getBestCurrentPosition } from "@/lib/map/geolocation";
 import { getAppSettings } from "@/lib/admin-settings/app-settings-client";
 import {
   TRADE_LEGACY_PRODUCT_ALIAS_TO_CANONICAL,
@@ -109,7 +109,7 @@ export function TradeBrowseLocationSheet({ open, onClose }: { open: boolean; onC
     try {
       const pos = await getBestCurrentPosition();
       if (!pos.ok) {
-        setGeoError(pos.message || t("trade_location_geo_failed"));
+        setGeoError(t(geolocationFailMessageKey(pos.reason)));
         return;
       }
       const resolved = await resolveBrowseLguFromLatLng(pos.latitude, pos.longitude);

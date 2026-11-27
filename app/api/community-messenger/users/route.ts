@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:users-search:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "친구 검색 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_users_search_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

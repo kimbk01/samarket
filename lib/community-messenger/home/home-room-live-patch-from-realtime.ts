@@ -150,7 +150,8 @@ export function normalizeHomeRoomTipUpdateLivePatch(
     source: "room_summary_update",
     roomId,
     preview: {
-      lastMessage: lastMessage || "새 메시지",
+      /** 화면 문장을 넣지 않는다 — 빈 값은 목록 렌더러가 보는 사람 언어 키로 그림 */
+      lastMessage,
       lastMessageType,
       lastMessageAt,
     },

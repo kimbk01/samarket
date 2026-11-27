@@ -98,7 +98,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
   next?: string | null,
 ): Promise<string> {
   if (!isSupabaseOAuthProvider(provider)) {
-    throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
+    throw startError("invalid_provider");
   }
 
   ensureCapacitorNativeMarkerOnBoot();
@@ -121,7 +121,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
   if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
     throw startError(
       json?.ok === false ? json.errorCode || "oauth_start_failed" : "oauth_start_failed",
-      json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
+      json?.ok === false ? json.message : "oauth_start_failed",
     );
   }
 
@@ -156,7 +156,7 @@ export async function fetchWindowsShellOAuthAuthorizeUrl(
   next?: string | null,
 ): Promise<string> {
   if (!isSupabaseOAuthProvider(provider)) {
-    throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
+    throw startError("invalid_provider");
   }
   const startPath = buildNativeStartPath(provider, next);
   const res = await fetchWithTimeout(startPath, {
@@ -168,7 +168,7 @@ export async function fetchWindowsShellOAuthAuthorizeUrl(
   if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
     throw startError(
       json?.ok === false ? json.errorCode || "oauth_start_failed" : "oauth_start_failed",
-      json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
+      json?.ok === false ? json.message : "oauth_start_failed",
     );
   }
   const redirectTo = json.redirectTo?.trim() ?? "";
@@ -195,11 +195,11 @@ export async function fetchWindowsShellOAuthAuthorizeUrl(
 export function startOAuthLogin(input: { provider: OAuthProvider; next?: string | null }): void {
   const { provider, next } = input;
   if (!isSupabaseOAuthProvider(provider)) {
-    throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
+    throw startError("invalid_provider");
   }
   const flow = tryBeginOAuthFlow(provider);
   if (!flow.ok) {
-    throw startError("oauth_flow_in_flight", "OAuth가 이미 진행 중입니다.");
+    throw startError("oauth_flow_in_flight");
   }
   try {
     if (typeof window === "undefined") {

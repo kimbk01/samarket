@@ -23,12 +23,12 @@ export async function GET(
   const regionId = req.nextUrl.searchParams.get("regionId")?.trim() ?? "";
 
   if (!id || !categoryId) {
-    return NextResponse.json({ ok: false, error: "postId·categoryId 필요", posts: [] }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request", posts: [] }, { status: 400 });
   }
 
   const clients = resolvePostsReadClients(req);
   if (!clients) {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다.", posts: [] }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config", posts: [] }, { status: 503 });
   }
 
   const posts = await fetchSimilarPostsWithSupabase(clients.readSb, id, categoryId, limit, {

@@ -65,7 +65,6 @@ async function handleRoomBootstrapGet(
     key: `community-messenger:room-bootstrap:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "대화방 부트스트랩 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_bootstrap_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -121,7 +120,7 @@ async function handleRoomBootstrapGet(
         ? { deleted: access.deleted, roomType: access.roomType }
         : await readRoomEntryGateFields(sb, roomKey);
       if (gate.deleted) {
-        return jsonErrorWithRequest(req, "이 그룹은 더 이상 사용할 수 없습니다.", {
+        return jsonErrorWithRequest(req, "group_deleted", {
           status: 410,
           code: "group_deleted",
         });
@@ -132,7 +131,7 @@ async function handleRoomBootstrapGet(
         );
         const banned = access ? access.banned : await isUserBannedFromGroup(sb, roomKey, auth.userId);
         if (banned) {
-          return jsonErrorWithRequest(req, "이 그룹에서 차단되어 입장할 수 없습니다.", {
+          return jsonErrorWithRequest(req, "user_banned", {
             status: 403,
             code: "user_banned",
           });

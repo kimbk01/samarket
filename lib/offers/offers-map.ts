@@ -88,7 +88,8 @@ export async function enrichPriceOffersToListItems(
     const pid = normalizeOfferProductId(row.id) || str(row.id);
     if (!pid) continue;
     postMap.set(pid, {
-      title: str(row.title) || "상품",
+      /** 제목 없음 = 빈 값 — 화면이 키(`mypage_r5_offer_product_fallback`)로 그린다 */
+      title: str(row.title),
       thumbnail_url: toNullableTrimmedString(row.thumbnail_url),
       status: toNullableTrimmedString(row.status),
       /** 글 가격 통화(meta.currency) — 없으면 null(화면이 앱 기본) */
@@ -109,7 +110,7 @@ export async function enrichPriceOffersToListItems(
       status: offer.status,
       createdAt: offer.created_at,
       updatedAt: offer.updated_at,
-      productTitle: post?.title ?? "상품",
+      productTitle: post?.title ?? "",
       productThumbnailUrl: post?.thumbnail_url ?? null,
       productStatus: post?.status ?? null,
       productCurrency: post?.currency ?? null,

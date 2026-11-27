@@ -106,7 +106,8 @@ export function mapPostAdRowToApplication(row: PostAdApplicationSource): AdAppli
     applicantNickname: row.userNickname?.trim() || row.userId.slice(0, 8),
     targetType: "banner" satisfies AdTargetType,
     targetId: row.postId,
-    targetTitle: row.postTitle?.trim() || "(제목 없음)",
+    /** 제목 없음 → 빈 값. 관리자 화면이 `community_no_title` 키로 그린다 (재감사 2026-11-27) */
+    targetTitle: row.postTitle?.trim() || "",
     placement: mapAdTypeToPlacement(row.adType),
     planName: row.adProductName?.trim() || "-",
     durationDays,
@@ -131,7 +132,8 @@ export function mapPostAdRowToPromotedItem(row: PostAdApplicationSource): Promot
     adApplicationId: row.id,
     targetType: "banner",
     targetId: row.postId,
-    targetTitle: row.postTitle?.trim() || "(제목 없음)",
+    /** 제목 없음 → 빈 값. 관리자 화면이 `community_no_title` 키로 그린다 (재감사 2026-11-27) */
+    targetTitle: row.postTitle?.trim() || "",
     placement: mapAdTypeToPlacement(row.adType),
     status,
     startAt: row.startAt,

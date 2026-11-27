@@ -4,6 +4,8 @@ import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdmi
 import { OwnerMenuCategoriesClient } from "@/components/business/owner/OwnerMenuCategoriesClient";
 import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
 import { loadOwnerMenuSectionsForRsc } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+/** 언어 재감사 2026-11-27: 로더 DB 원문을 화면에 넘기지 않는다 — 코드만 */
+import { toOwnerBootstrapErrorCode } from "@/lib/business/owner-api-error-text";
 
 export default function MenuCategoriesPage({
   searchParams,
@@ -33,7 +35,7 @@ async function MenuCategoriesPageBody({
   if (!sec.ok) {
     return (
       <OwnerAdminPageScrollShell>
-        <OwnerMenuCategoriesClient key={storeId} storeId={storeId} rscBootstrapError={sec.error} />
+        <OwnerMenuCategoriesClient key={storeId} storeId={storeId} rscBootstrapError={toOwnerBootstrapErrorCode(sec.error)} />
       </OwnerAdminPageScrollShell>
     );
   }

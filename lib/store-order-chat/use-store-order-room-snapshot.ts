@@ -10,6 +10,8 @@ import type {
 import type { OwnerDeliveryOrderRef } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { fetchMeStoreOrderDetailDeduped, isDeliveryPrivateScopeChangedResponse } from "@/lib/stores/store-delivery-api-client";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   buildStoreOrderChatCardView,
   type StoreOrderChatCardView,
@@ -181,7 +183,9 @@ export function useStoreOrderRoomSnapshot(input: {
         return;
       }
       const orderRow = json.order;
-      const storeName = String(orderRow.store_name ?? "").trim() || "매장";
+      const storeName =
+        String(orderRow.store_name ?? "").trim() ||
+        translate(getRuntimeAppLanguage(), "my_store_orders_store_fallback");
       const buyerOrder = mapBuyerOrder(orderRow, storeName);
       if (
         Array.isArray(orderRow.store_pickup_address_lines) &&

@@ -1,4 +1,5 @@
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { resolveTradePostLocationForUser } from "@/lib/trade/location/resolve-trade-post-location.server";
 
 export const runtime = "nodejs";
@@ -32,21 +33,21 @@ const ALLOWED_TYPES: PostType[] = ["trade", "community", "service", "feature"];
 
 function parseCreatePayload(body: unknown): CreatePostPayload | { error: string } {
   if (!body || typeof body !== "object") {
-    return { error: "JSON 본문이 필요합니다." };
+    return { error: "invalid_request" };
   }
   const raw = body as Record<string, unknown>;
   const type = typeof raw.type === "string" ? raw.type.trim() : "";
   if (!ALLOWED_TYPES.includes(type as PostType)) {
-    return { error: "유효하지 않은 글 유형입니다." };
+    return { error: "invalid_post_type" };
   }
   const categoryId = typeof raw.categoryId === "string" ? raw.categoryId.trim() : "";
   if (!categoryId) {
-    return { error: "카테고리가 필요합니다." };
+    return { error: "category_required" };
   }
   const title = typeof raw.title === "string" ? raw.title.trim() : "";
   const content = typeof raw.content === "string" ? raw.content.trim() : "";
-  if (!title) return { error: "제목을 입력해 주세요." };
-  if (!content) return { error: "내용을 입력해 주세요." };
+  if (!title) return { error: "title_required" };
+  if (!content) return { error: "content_required" };
 
   const base = { type: type as PostType, categoryId, title, content };
 
@@ -130,19 +131,19 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
 
   const parsed = parseCreatePayload(body);
   if ("error" in parsed) {
-    return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+    return tradeApiError(parsed.error, 400);
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
 
   if (parsed.type === "trade") {
@@ -230,7 +231,7 @@ export async function POST(req: NextRequest) {
     ))
   ) {
     return NextResponse.json(
-      { ok: false, error: "사진을 1장 이상 올려 주세요.", code: "trade_photo_required" },
+      { ok: false, error: "trade_photo_required", code: "trade_photo_required" },
       { status: 400 }
     );
   }
@@ -255,15 +256,13 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message ?? "저장에 실패했습니다." },
-      { status: 500 }
-    );
+    console.error("[posts/create] insert failed", error);
+    return tradeApiError("post_save_failed", 500);
   }
 
   const id = typeof data?.id === "string" ? data.id.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "저장에 실패했습니다." }, { status: 500 });
+    return tradeApiError("post_save_failed", 500);
   }
 
   if (parsed.type === "community") {

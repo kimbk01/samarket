@@ -35,12 +35,15 @@ function normalizeOwnerEditRow(raw: Record<string, unknown>): Record<string, unk
   };
 }
 
+/** 언어 재감사 2026-11-27: DB 원문·한국어 문장 대신 코드만 돌려준다(원문은 로그) */
+export type OwnerEditPostRowErrorCode = "post_id_required" | "post_load_failed";
+
 export async function fetchPostRowForOwnerEdit(
   sbAny: SupabaseClient<any>,
   postId: string
-): Promise<{ row: Record<string, unknown> | null; errorMessage: string | null }> {
+): Promise<{ row: Record<string, unknown> | null; errorCode: OwnerEditPostRowErrorCode | null }> {
   const id = typeof postId === "string" ? postId.trim() : "";
-  if (!id) return { row: null, errorMessage: "postId 필요" };
+  if (!id) return { row: null, errorCode: "post_id_required" };
 
   let lastMsg = "";
   for (const sel of OWNER_EDIT_POST_SELECT_TIERS) {
@@ -54,7 +57,7 @@ export async function fetchPostRowForOwnerEdit(
         : null;
 
     if (!error && okRow) {
-      return { row: normalizeOwnerEditRow(okRow), errorMessage: null };
+      return { row: normalizeOwnerEditRow(okRow), errorCode: null };
     }
 
     const msg =
@@ -63,9 +66,11 @@ export async function fetchPostRowForOwnerEdit(
         : String(error ?? "");
     lastMsg = msg;
     if (msg && !isSchemaOrMissingColumnError(msg)) {
-      return { row: null, errorMessage: msg };
+      console.error("[owner-edit] post select", msg);
+      return { row: null, errorCode: "post_load_failed" };
     }
   }
 
-  return { row: null, errorMessage: lastMsg || "글을 불러오지 못했습니다." };
+  if (lastMsg) console.error("[owner-edit] post select", lastMsg);
+  return { row: null, errorCode: "post_load_failed" };
 }

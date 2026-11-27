@@ -20,16 +20,17 @@ import {
   pointChargeStatusDisplay,
 } from "@/lib/finance/finance-display-labels";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { localizePointLedgerDescription } from "@/lib/points/point-ledger-description";
 
-const HANGUL = /[\u3131-\u318e\uac00-\ud7a3]/;
-
-/** 부제 — 영어 화면에서 한글 원문(관리자 입력 사유 등)은 영어 부제가 있으면 그것을 쓴다 */
+/**
+ * 부제 — 원장 설명 중 시스템 문장(광고·피드 광고·커뮤니티 보상)은 키로 보는 사람 언어로 그린다(설계 §4-3).
+ * 대응표에 없는 글(관리자 사유·게시판 이름 등)은 그대로 보인다 — 영어 화면에서 숨기지 않는다.
+ */
 function pointItemSubtitle(item: PointFinancialHistoryItem, lang: AppLanguageCode): string {
   if (item.relatedObject?.missing) return translateBy(lang, "points_deleted_post");
-  const ko = item.subtitle ?? "";
-  if (lang !== "en") return ko;
-  if (item.subtitleEn) return item.subtitleEn;
-  return HANGUL.test(ko) && item.adjustment == null ? "" : ko;
+  if (lang === "en" && item.subtitleEn) return item.subtitleEn;
+  const raw = item.subtitle ?? "";
+  return localizePointLedgerDescription(lang, raw) ?? raw;
 }
 
 /** 줄 제목 — 번역 키만 (재감사 R8-b · 키 목록은 `pointFinancialCategoryTitle`·커뮤니티·Apple 환불, 모두 카탈로그에 있음 · B4) */

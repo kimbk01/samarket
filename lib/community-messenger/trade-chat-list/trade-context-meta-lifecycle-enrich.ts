@@ -164,7 +164,8 @@ export async function enrichTradeRoomLifecycleFieldsFromProductChats(
     const base: CommunityMessengerRoomContextMetaV1 =
       summary.contextMeta?.kind === "trade"
         ? summary.contextMeta
-        : { v: 1, kind: "trade", headline: summary.title.trim() || "거래" };
+        : /** 제목 없으면 headline 생략 — 화면이 `cm_ui_trade_headline_fallback` 키로 그림 */
+          { v: 1, kind: "trade", ...(summary.title.trim() ? { headline: summary.title.trim() } : {}) };
 
     summary.contextMeta = mergeProductChatLifecycleIntoTradeContextMeta(base, row);
     if (productChatChatModeIsReadonly(row.chat_mode)) {

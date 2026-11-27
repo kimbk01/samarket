@@ -7,7 +7,7 @@ import {
 } from "@/lib/community/comment-mutations.server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
-import { jsonError, jsonOk, parseJsonBody, safeErrorMessage } from "@/lib/http/api-route";
+import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import {
   applyCommunityPointReclaimOnCommentDelete,
@@ -30,15 +30,15 @@ export async function PATCH(
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";
-  if (!rawP || !rawC) return jsonError("요청이 올바르지 않습니다.", 400);
+  if (!rawP || !rawC) return jsonError("bad_request", { status: 400, code: "bad_request" });
   if (process.env.NODE_ENV !== "production" && getNeighborhoodDevSamplePost(rawP)) {
     return jsonOk({ ok: true, fallback: "dev_samples" });
   }
-  const parsed = await parseJsonBody<{ content?: string }>(req, "JSON 필요");
+  const parsed = await parseJsonBody<{ content?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const content = parsed.value.content?.trim() ?? "";
   const id = await resolveCanonicalCommunityPostId(rawP);
-  if (!id) return jsonError("not_found", 404);
+  if (!id) return jsonError("not_found", { status: 404, code: "not_found" });
   const out = await updateCommentContentServer(id, rawC, auth.userId, content);
   logServerPerf("community-comment.patch", {
     postId: id,
@@ -47,7 +47,8 @@ export async function PATCH(
     elapsedMs: Date.now() - startedAt,
   });
   if (!out.ok) {
-    return jsonError(safeErrorMessage({ message: out.error }, out.error), 400);
+    /** 코드만 — 문구는 화면이 `COMMUNITY_COMMENT_ERROR_KEYS` 로 고른다 (재감사 2026-11-27) */
+    return jsonError(out.error, { status: 400, code: out.error }, out.params ? { params: out.params } : {});
   }
   await applyCommunityPointReclaimOnCommentEdit({ commentId: rawC, content });
   return jsonOk({});
@@ -63,12 +64,12 @@ export async function DELETE(
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";
-  if (!rawP || !rawC) return jsonError("요청이 올바르지 않습니다.", 400);
+  if (!rawP || !rawC) return jsonError("bad_request", { status: 400, code: "bad_request" });
   if (process.env.NODE_ENV !== "production" && getNeighborhoodDevSamplePost(rawP)) {
     return jsonOk({ ok: true, fallback: "dev_samples" });
   }
   const id = await resolveCanonicalCommunityPostId(rawP);
-  if (!id) return jsonError("not_found", 404);
+  if (!id) return jsonError("not_found", { status: 404, code: "not_found" });
   const out = await deleteCommentForAuthorServer(id, rawC, auth.userId);
   logServerPerf("community-comment.delete", {
     postId: id,
@@ -77,7 +78,7 @@ export async function DELETE(
     elapsedMs: Date.now() - startedAt,
   });
   if (!out.ok) {
-    return jsonError(safeErrorMessage({ message: out.error }, out.error), 400);
+    return jsonError(out.error, { status: 400, code: out.error });
   }
   await applyCommunityPointReclaimOnCommentDelete({ commentId: rawC });
   return jsonOk({});

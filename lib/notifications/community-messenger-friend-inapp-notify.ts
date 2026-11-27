@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 
 /** 받은 친구 요청 화면 — 친구 탭 + 받은 요청 시트 */
 export const CM_FRIEND_REQUESTS_INBOX_LINK = "/community-messenger?section=friends&friendRequests=received";
@@ -46,7 +47,8 @@ export async function notifyCommunityMessengerFriendRequestReceived(
   const language = await loadNotificationUserLanguage(sb, uid);
   const label = trimText(args.requesterLabel);
   // 4절 문구 — 아이디(@…)·빈 이름 대신 「회원」
-  const name = label && !label.startsWith("@") ? label : notifySafeT(language, "notify_member_fallback_name");
+  const realName = label && !label.startsWith("@") ? label : "";
+  const name = realName || notifySafeT(language, "notify_member_fallback_name");
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "status",
@@ -57,7 +59,17 @@ export async function notifyCommunityMessengerFriendRequestReceived(
     ref_id: requestId,
     sender_id: requesterId,
     dedupe_key: `cm_friend_request:${requestId}:${sendInstanceBucket(args.sendInstanceAt)}`,
-    meta: { kind: "friend_request", request_id: requestId, actor_id: requesterId },
+    meta: {
+      kind: "friend_request",
+      request_id: requestId,
+      actor_id: requesterId,
+      ...notificationCopyMeta({
+        titleKey: "notify_friend_request_received_title",
+        messageKey: "notify_friend_request_received_body",
+        vars: realName ? { name: realName } : undefined,
+        varKeys: realName ? undefined : { name: "notify_member_fallback_name" },
+      }),
+    },
   });
 }
 
@@ -78,7 +90,8 @@ export async function notifyCommunityMessengerFriendRequestAccepted(
   const requestId = trimText(args.requestId);
   if (!uid || !accepterId || !requestId) return;
   const language = await loadNotificationUserLanguage(sb, uid);
-  const name = trimText(args.accepterLabel) || notifySafeT(language, "notify_peer_fallback");
+  const realName = trimText(args.accepterLabel);
+  const name = realName || notifySafeT(language, "notify_peer_fallback");
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "status",
@@ -89,7 +102,17 @@ export async function notifyCommunityMessengerFriendRequestAccepted(
     ref_id: requestId,
     sender_id: accepterId,
     dedupe_key: `cm_friend_accepted:${requestId}:${sendInstanceBucket(args.sendInstanceAt)}`,
-    meta: { kind: "friend_accepted", request_id: requestId, actor_id: accepterId },
+    meta: {
+      kind: "friend_accepted",
+      request_id: requestId,
+      actor_id: accepterId,
+      ...notificationCopyMeta({
+        titleKey: "notify_friend_request_accepted_title",
+        messageKey: "notify_friend_request_accepted_body",
+        vars: realName ? { name: realName } : undefined,
+        varKeys: realName ? undefined : { name: "notify_peer_fallback" },
+      }),
+    },
   });
 }
 
@@ -106,7 +129,8 @@ export async function notifyCommunityMessengerFriendAddedViaQr(
   if (!uid || !scannerId) return;
   const language = await loadNotificationUserLanguage(sb, uid);
   const label = trimText(args.scannerLabel);
-  const name = label && !label.startsWith("@") ? label : notifySafeT(language, "notify_member_fallback_name");
+  const realName = label && !label.startsWith("@") ? label : "";
+  const name = realName || notifySafeT(language, "notify_member_fallback_name");
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "status",
@@ -117,6 +141,16 @@ export async function notifyCommunityMessengerFriendAddedViaQr(
     ref_id: scannerId,
     sender_id: scannerId,
     dedupe_key: `cm_friend_qr:${scannerId}:${uid}:${dayBucket()}`,
-    meta: { kind: "friend_accepted", via: "qr", actor_id: scannerId },
+    meta: {
+      kind: "friend_accepted",
+      via: "qr",
+      actor_id: scannerId,
+      ...notificationCopyMeta({
+        titleKey: "notify_friend_added_via_qr_title",
+        messageKey: "notify_friend_added_via_qr_body",
+        vars: realName ? { name: realName } : undefined,
+        varKeys: realName ? undefined : { name: "notify_member_fallback_name" },
+      }),
+    },
   });
 }

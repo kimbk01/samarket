@@ -29,7 +29,8 @@ const COMMUNITY_ORIGIN_SELECT =
   "origin_kind, display_author_name, display_author_avatar_url";
 
 function memberAuthorNameFallback(uid: string): string {
-  return uid ? uid.slice(0, 8) : "익명";
+  /** 작성자 id 가 없으면 빈 값 — 화면이 「익명」 키로 그린다 (재감사 2026-11-27) */
+  return uid ? uid.slice(0, 8) : "";
 }
 
 function mapCommunityPostAuthorFields(

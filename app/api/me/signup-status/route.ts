@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const routeSb = await createSupabaseRouteHandlerClient();
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
   if (!readSb) {
-    return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
+    return jsonError("supabase_unconfigured", 503, { code: "supabase_unconfigured" });
   }
 
   try {

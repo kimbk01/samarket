@@ -7,6 +7,7 @@ import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
+import { communityRegionLabelText } from "@/lib/community/community-display-fallbacks";
 
 export function PublicUserProfileView({
   profile,
@@ -56,7 +57,7 @@ export function PublicUserProfileView({
                       post.topic_name_en,
                       post.topic_slug
                     )}{" "}
-                    · {post.region_label || t("mypage_comp_community_region_none")}
+                    · {communityRegionLabelText(post.region_label, t) || t("mypage_comp_community_region_none")}
                   </p>
                 </Link>
               </li>

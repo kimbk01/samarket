@@ -130,7 +130,8 @@ function storeRowFromOrder(row: StoreOrderMessengerOrderRow) {
 
 function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessengerRoomContextMetaV1 {
   const store = storeRowFromOrder(row);
-  const storeName = trimText(store?.store_name) || "매장";
+  /** 매장명 없으면 빈 값 — 화면이 매장 대체 키로 그림(한 언어 고정 「매장」 저장 금지) */
+  const storeName = trimText(store?.store_name);
   const orderId = trimText(row.id);
   const orderNo = trimText(row.order_no);
   const fulfillmentType = trimText(row.fulfillment_type);
@@ -191,7 +192,8 @@ async function loadStoreOrderSummaryFields(
   const status = trimText(row.order_status);
   const fulfillmentType = trimText(row.fulfillment_type);
   const order: ChatSummaryOrderFields = {
-    store_name: trimText(store?.store_name) || "매장",
+    /** 빈 값이면 화면(`build-store-order-chat-card-view`)이 키로 그림 */
+    store_name: trimText(store?.store_name),
     order_no: trimText(row.order_no),
     order_status: buyerOrderStatusLabel(
       status,
@@ -227,7 +229,8 @@ async function loadStoreOrderSummaryFields(
     .select("product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
     .eq("order_id", orderId);
   const items = ((itemRows ?? []) as ChatSummaryItemFields[]).map((it) => ({
-    product_title_snapshot: trimText(it.product_title_snapshot) || "상품",
+    /** 빈 값이면 화면(`build-store-order-chat-card-view`)이 키로 그림 */
+    product_title_snapshot: trimText(it.product_title_snapshot),
     price_snapshot: Number(it.price_snapshot) || 0,
     qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
     subtotal: Number((it as { subtotal?: unknown }).subtotal ?? 0) || undefined,
@@ -673,7 +676,7 @@ export async function ensureStoreOrderMessengerRoom(
     storeId: trimText(row.store_id),
     orderStatus: storeOrderStatusToShared(trimText(row.order_status)) ?? "pending",
     orderFlow: flowFromFulfillment(row.fulfillment_type),
-    storeName: trimText(store?.store_name) || "매장",
+    storeName: trimText(store?.store_name),
     orderNo: trimText(row.order_no),
   };
 
@@ -852,9 +855,12 @@ export async function appendStoreOrderMessengerPaymentCompletedLine(
   sb: SupabaseClient<any>,
   orderId: string
 ): Promise<void> {
+  /** 저장 본문은 호환용 기본 언어 문장, 화면은 `messageKey` 로 보는 사람 언어로 다시 그린다 */
+  const messageKey: MessageKey = "cm_ui_store_order_payment_confirmed_line";
   await appendStoreOrderMessengerSystemMessage(sb, {
     orderId,
-    content: "결제·금액이 확정되었어요. 매장에서 확인하면 접수·준비 안내가 이어집니다.",
+    content: translate(DEFAULT_APP_LANGUAGE, messageKey),
+    messageKey,
   });
 }
 

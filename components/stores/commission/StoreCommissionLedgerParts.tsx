@@ -518,7 +518,11 @@ export function CommissionReviewFilterChips({
   reviewCount?: number;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="review filter">
+    <div
+      className="flex flex-wrap gap-1.5"
+      role="tablist"
+      aria-label={translateBy(lang, "store_commission_review_filter_aria", undefined, "en")}
+    >
       {COMMISSION_REVIEW_FILTERS.map((f) => (
         <button key={f} type="button" role="tab" aria-selected={value === f} className={chipClass(value === f)} onClick={() => onChange(f)}>
           {REVIEW_FILTER_LABEL[f][lang]}

@@ -107,8 +107,7 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   if (messageType === "call_stub") {
     lastMessage = callStubRoomTipFromMessage({ content, metadata: row.metadata }) || "통화";
   }
-  if (messageType === "system") lastMessage = lastMessage || "알림";
-  if (!lastMessage) lastMessage = "새 메시지";
+  /** system·text 빈 내용은 빈 값 그대로 — 화면 문장(한 언어 고정)을 넣지 않는다 */
   const lastMessageMeta =
     messageType === "system"
       ? cmRoomLastMessageMetaFromMessage(

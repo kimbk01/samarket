@@ -4,14 +4,19 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { safeErrorMessage } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import {
-  ADMIN_CHAT_SUSPENDED_MESSAGE,
+  ADMIN_CHAT_SUSPENDED_CODE,
   fetchItemTradeAdminSuspended,
 } from "@/lib/chat/chat-room-admin-suspend";
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
+import {
+  TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE,
+  TRADE_CHAT_PREVIEW_TOKEN_SYSTEM,
+  tradeChatPhotoPreviewToken,
+} from "@/lib/trade/trade-api-error-text";
 import {
   buildProductChatImageContent,
   normalizeIncomingImageUrlList,
@@ -33,7 +38,7 @@ export async function POST(
   const { roomId: rawRoomId } = await params;
   const roomId = parseRoomId(rawRoomId);
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -48,7 +53,7 @@ export async function POST(
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "본문 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
   const text = String(body.text ?? "").trim();
   const rawType = String(body.messageType ?? "text").toLowerCase();
@@ -61,15 +66,15 @@ export async function POST(
   });
   if (messageType === "image") {
     if (imageList.length === 0) {
-      return NextResponse.json({ ok: false, error: "이미지 URL이 필요합니다." }, { status: 400 });
+      return tradeApiError("image_required", 400);
     }
   } else if (!text && messageType === "text") {
-    return NextResponse.json({ ok: false, error: "메시지를 입력하세요" }, { status: 400 });
+    return tradeApiError("message_required", 400);
   }
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const [access, { data: room, error: roomErr }] = await Promise.all([
@@ -87,23 +92,20 @@ export async function POST(
   }
 
   if (roomErr || !room) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return tradeApiError("chat_room_not_found", 404);
   }
   if (room.seller_id !== userId && room.buyer_id !== userId) {
-    return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+    return tradeApiError("not_participant", 403);
   }
   const leftRow = room as { seller_left_at?: string | null; buyer_left_at?: string | null };
   if (room.seller_id === userId && leftRow.seller_left_at) {
-    return NextResponse.json({ ok: false, error: "이미 나간 채팅방입니다." }, { status: 403 });
+    return tradeApiError("chat_room_left", 403);
   }
   if (room.buyer_id === userId && leftRow.buyer_left_at) {
-    return NextResponse.json({ ok: false, error: "이미 나간 채팅방입니다." }, { status: 403 });
+    return tradeApiError("chat_room_left", 403);
   }
   if (room.buyer_id === userId && leftRow.seller_left_at) {
-    return NextResponse.json(
-      { ok: false, error: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다." },
-      { status: 403 }
-    );
+    return tradeApiError("seller_left_chat", 403);
   }
 
   const postId = String((room as { post_id?: string }).post_id ?? "").trim();
@@ -111,20 +113,17 @@ export async function POST(
     postId &&
     (await fetchItemTradeAdminSuspended(sbAny, postId, room.seller_id as string, room.buyer_id as string))
   ) {
-    return NextResponse.json({ ok: false, error: ADMIN_CHAT_SUSPENDED_MESSAGE }, { status: 403 });
+    return tradeApiError(ADMIN_CHAT_SUSPENDED_CODE, 403);
   }
 
   const mode = String((room as { chat_mode?: string }).chat_mode ?? "open");
   if (mode === "limited" || mode === "readonly") {
-    return NextResponse.json(
-      { ok: false, error: "이 채팅은 제한 모드라 메시지를 보낼 수 없습니다." },
-      { status: 409 }
-    );
+    return tradeApiError("chat_limited_mode", 409);
   }
 
   const peerUserId = String((room.seller_id === userId ? room.buyer_id : room.seller_id) ?? "").trim();
   if (peerUserId && (await isBlockedEitherWay(userId, peerUserId))) {
-    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
+    return tradeApiError("peer_blocked", 403);
   }
 
   if (messageType !== "system" && text) {
@@ -141,7 +140,7 @@ export async function POST(
 
   const content =
     messageType === "system"
-      ? text || "(시스템)"
+      ? text || TRADE_CHAT_PREVIEW_TOKEN_SYSTEM
       : messageType === "image"
         ? buildProductChatImageContent(imageList, text)
         : text;
@@ -158,21 +157,17 @@ export async function POST(
     .single();
 
   if (msgErr) {
-    return NextResponse.json(
-      { ok: false, error: safeErrorMessage(msgErr, "전송에 실패했습니다. 잠시 후 다시 시도해 주세요.") },
-      { status: 500 }
-    );
+    console.error("[chat/room/send] insert failed", msgErr);
+    return tradeApiError("send_failed", 500);
   }
 
   const preview =
     messageType === "system"
-      ? "거래 상태 안내"
+      ? TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE
       : messageType === "image"
         ? text
           ? text.slice(0, 100)
-          : imageList.length > 1
-            ? `사진 ${imageList.length}장`
-            : "사진"
+          : tradeChatPhotoPreviewToken(imageList.length)
         : text.slice(0, 100);
   const isSeller = room.seller_id === userId;
   const updates: Record<string, unknown> = {

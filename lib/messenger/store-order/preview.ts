@@ -2,6 +2,7 @@
  * StoreOrderPreviewPort — 최신 주문채팅 메시지만.
  * lastMessage/headline/summary 필드 혼용 입력 거부.
  */
+import { isStoreOrderMatchAckText } from "@/lib/chats/store-order-match-ack-text";
 import type { DomainPreview, MessengerPreviewPort } from "@/lib/messenger/contracts/ports";
 import {
   assertStoreOrderPreviewDoesNotUseMetadata,
@@ -12,6 +13,8 @@ import {
 import { resolveDomainListSystemPreviewText } from "@/lib/messenger/contracts/domain-list-system-preview";
 import type { StoreOrderListItem } from "@/lib/messenger/store-order/types";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 /** PreviewPort 유일한 메시지 입력 — 다른 필드명으로 우회 금지 */
 export type StoreOrderLatestChatMessage = Readonly<{
@@ -29,16 +32,22 @@ export type StoreOrderPreviewPortInput = Readonly<{
   summary?: string | null;
   orderNumber?: string | null;
   orderStatus?: string | null;
+  /** 보는 사람 언어 — 서버 조립은 요청 언어를 넘긴다. 없으면 클라이언트 런타임 언어 */
+  lang?: AppLanguageCode | null;
 }>;
 
-/** 메시지 없음 · body 빈 문자열 — 주문/상품 summary로 대체하지 않음 */
+/** 메시지 없음 · body 빈 문자열 — 주문/상품 summary로 대체하지 않음 (옛 한국어 고정값 — 비교·테스트 호환용, 화면은 키) */
 export const STORE_ORDER_EMPTY_CONVERSATION_PREVIEW = "메시지가 없습니다" as const;
+/** 메시지 없음 화면 문구 키 */
+export const STORE_ORDER_EMPTY_CONVERSATION_PREVIEW_KEY = "community_messenger_no_messages" as const;
 
 /**
  * Latest body is an order-summary template (design-lock forbids showing it as list preview).
  * Row-level redact — do not throw (would kill whole Domain list compose).
  */
 export const STORE_ORDER_SUMMARY_REDACTED_PREVIEW = "새 메시지" as const;
+/** 주문 요약 가림 화면 문구 키 (옛 고정값 `STORE_ORDER_SUMMARY_REDACTED_PREVIEW` 대신) */
+export const STORE_ORDER_SUMMARY_REDACTED_PREVIEW_KEY = "cm_ui_new_message_label" as const;
 
 export function resolveStoreOrderPreview(input: StoreOrderPreviewPortInput): DomainPreview {
   assertStoreOrderPreviewOwnDomainOnly(input.chatDomain);
@@ -51,31 +60,39 @@ export function resolveStoreOrderPreview(input: StoreOrderPreviewPortInput): Dom
     orderSummaryAsPreview: input.summary,
     metadataHeadlineAsPreview: input.headline,
   });
+  const viewerLang = input.lang ?? getRuntimeAppLanguage();
+  const emptyText = translate(viewerLang, STORE_ORDER_EMPTY_CONVERSATION_PREVIEW_KEY);
   const message = input.latestChatMessage;
-  if (!message) return { text: STORE_ORDER_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+  if (!message) return { text: emptyText, source: "empty" };
   const type = (message.messageType ?? "text").trim();
   const content = (message.text ?? "").trim();
   // Intentional policy: never surface 주문 요약/주문번호 templates in list preview.
   // Soften marker hit to row fallback (list compose must continue for other rooms).
   if (contentHitsStoreOrderPreviewForbiddenMarkers(content)) {
-    return { text: STORE_ORDER_SUMMARY_REDACTED_PREVIEW, source: "empty" };
+    return { text: translate(viewerLang, STORE_ORDER_SUMMARY_REDACTED_PREVIEW_KEY), source: "empty" };
   }
   assertStoreOrderPreviewDoesNotUseMetadata({ content });
-  if (type === "image") return { text: "사진", source: "latest_user_message" };
-  if (type === "voice") return { text: "음성 메시지", source: "latest_user_message" };
-  if (type === "file") return { text: content || "파일", source: "latest_user_message" };
+  if (type === "image") return { text: translate(viewerLang, "cm_home_preview_photo"), source: "latest_user_message" };
+  if (type === "voice") return { text: translate(viewerLang, "cm_home_preview_voice"), source: "latest_user_message" };
+  if (type === "file") {
+    return { text: content || translate(viewerLang, "cm_home_preview_file"), source: "latest_user_message" };
+  }
   if (type === "system") {
     if (message.isSystemAllowed === false) {
-      return { text: STORE_ORDER_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+      return { text: emptyText, source: "empty" };
     }
     return {
-      text: content || STORE_ORDER_EMPTY_CONVERSATION_PREVIEW,
+      text: content || emptyText,
       source: content ? "allowed_system_message" : "empty",
     };
   }
-  if (!content) return { text: STORE_ORDER_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+  if (!content) return { text: emptyText, source: "empty" };
   if (isBareOrderStatusPreview(content)) {
     throw new Error("dibay_store_order_preview_status_text_forbidden");
+  }
+  /** 주문 「일치합니다」 자동 응답(ko·en 저장) → 보는 사람 언어 */
+  if (isStoreOrderMatchAckText(content)) {
+    return { text: translate(viewerLang, "store_order_match_ack"), source: "latest_user_message" };
   }
   return { text: content, source: "latest_user_message" };
 }

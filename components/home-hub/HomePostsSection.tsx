@@ -5,6 +5,7 @@ import { untilLaunchDestinationSettled } from "@/lib/startup/launch-push-destina
 import { useRouter } from "next/navigation";
 import { Eye, MessageSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { homePostCardImageSrc } from "@/lib/home/home-feed-image";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
@@ -84,7 +85,8 @@ export function HomePostMagCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   const { language } = useI18n();
   const router = useRouter();
   const img = post.images?.[0] ? homePostCardImageSrc(post.images[0]) : "";
-  const topic = language === "en" && post.category_name_en ? post.category_name_en : post.category_label;
+  /** 재감사 2026-11-27: 서버가 주제 이름을 비워 보내도(옛 행·영어) 화면 언어 주제 이름으로 — 빈칸 0 */
+  const topic = resolveCommunityTopicUILabel(language, post.category_label, post.category_name_en, post.category);
   return (
     <button
       type="button"

@@ -1,3 +1,5 @@
+import { isStoreOrderMatchAckText } from "@/lib/chats/store-order-match-ack-text";
+import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import type { DeliveryChatListTranslate } from "@/lib/community-messenger/delivery-chat-list/view-model";
 
@@ -21,6 +23,10 @@ function messengerMessageToPreviewSnippet(
       : `${t("chats_trade_list_call")} · ${content}`;
   }
   if (type === "system") return content || t("chats_trade_list_notification");
+  /** 전원 삭제·관리자 숨김 저장 토큰 → 보는 사람 언어 */
+  const storedPlaceholderKey = resolveStoredMessagePlaceholderKey(content);
+  if (storedPlaceholderKey) return t(storedPlaceholderKey);
+  if (isStoreOrderMatchAckText(content)) return t("store_order_match_ack");
   return content || t("chats_trade_list_new_message");
 }
 

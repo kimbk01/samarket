@@ -10,6 +10,8 @@ import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 import { GROUP_CHAT_LIST_HREF } from "@/lib/group-chat/constants";
+import { GROUP_CHAT_API_ERROR_CODE_MAP } from "@/lib/group-chat/group-chat-error-text";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
 
 async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {
   const jar = await cookies();
@@ -33,6 +35,13 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
 
   const boot = await loadGroupChatBootstrapForUser(userId, id);
   if (!boot.ok) {
+    /** 서버 문장 대신 코드 → 보는 사람 언어 */
+    const bootErrorText = resolveApiErrorText({
+      code: boot.error,
+      map: GROUP_CHAT_API_ERROR_CODE_MAP,
+      fallbackKey: "common_chat_room_load_failed",
+      t: (key, vars) => translate(lang, key, vars),
+    });
     if (boot.status === 404) {
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
@@ -46,7 +55,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
     if (boot.status === 403) {
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
-          <p>{boot.error}</p>
+          <p>{bootErrorText}</p>
           <Link href={GROUP_CHAT_LIST_HREF} className="font-medium text-signature underline">
             {translate(lang, "common_to_list")}
           </Link>
@@ -55,7 +64,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
     }
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center text-sm text-sam-muted">
-        <p>{boot.error}</p>
+        <p>{bootErrorText}</p>
       </div>
     );
   }

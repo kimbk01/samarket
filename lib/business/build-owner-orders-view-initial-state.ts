@@ -53,7 +53,8 @@ export function buildOwnerOrdersViewInitialState(
   return {
     kind: "ok",
     storeId: store.id,
-    storeName: String(store.store_name ?? "내 매장"),
+    /** 언어 재감사 2026-11-27: 매장명이 없으면 빈 값 — 채팅 패널 머리는 화면 언어 키로 대체 */
+    storeName: String(store.store_name ?? ""),
     orders: ordersPeek.orders,
   };
 }

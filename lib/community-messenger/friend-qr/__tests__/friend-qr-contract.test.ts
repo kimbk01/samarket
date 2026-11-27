@@ -84,7 +84,8 @@ describe("friend QR contract", () => {
     }
     const notify = read("lib/notifications/community-messenger-friend-inapp-notify.ts");
     const fn = notify.slice(notify.indexOf("export async function notifyCommunityMessengerFriendAddedViaQr"));
-    expect(fn).toContain('meta: { kind: "friend_accepted", via: "qr"');
+    /** 알림 문구 키 메타(notificationCopyMeta)가 같은 meta 에 붙어 여러 줄이 됨 — 종류·경로 값만 계약 */
+    expect(fn).toMatch(/meta:\s*\{\s*kind:\s*"friend_accepted",\s*via:\s*"qr"/);
   });
 });
 

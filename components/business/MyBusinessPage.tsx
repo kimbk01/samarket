@@ -277,7 +277,7 @@ export function MyBusinessPage({
   if (state.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="sam-text-body text-sam-danger">{t("business_phase7_083", { v1: state.message })}</p>
+        <p className="sam-text-body text-sam-danger">{t("store_owner_store_load_failed")}</p>
         <button
           type="button"
           onClick={() => void loadRemote()}

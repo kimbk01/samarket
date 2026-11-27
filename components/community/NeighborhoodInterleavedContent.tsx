@@ -8,6 +8,7 @@ import { PostTextWithVideos } from "@/components/community/post-detail/PostTextW
 import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 import { PostBodyImage } from "@/components/community/post-detail/PostBodyImage";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** 이미지 앞뒤에 붙은 `join("\n\n")`·HTML 문단 끈 공백이 이중으로 벌어지지 않게 정리 */
 function trimInterleavedTextForDisplay(
@@ -50,6 +51,7 @@ function isImportedVideoThumbnail(segs: { kind: "text" | "img"; value: string }[
 
 /** 회원·가져온 글 공통 — 사진 표시 기준은 `PostBodyImage` 하나 (D5) */
 export function NeighborhoodInterleavedContent({ content }: { content: string }) {
+  const { t } = useI18n();
   const segs = useMemo(() => {
     if (!content) return [];
     return parseInterleavedMarkdownToSegments(content);
@@ -88,7 +90,7 @@ export function NeighborhoodInterleavedContent({ content }: { content: string })
               <PostBodyImage
                 key={i}
                 src={u}
-                label={`이미지 ${at + 1} 크게 보기`}
+                label={t("community_image_open_n", { n: at + 1 })}
                 onOpen={() => openAt(imageUrls, at)}
                 priority={at === 0}
               />

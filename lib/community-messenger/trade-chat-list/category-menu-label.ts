@@ -1,4 +1,5 @@
-import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 /** UI 폴백 — `t("cm_ui_trade_headline_fallback")` 와 동일 의미 */
 export const DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL_KEY: MessageKey = "cm_ui_trade_headline_fallback";
@@ -63,19 +64,20 @@ function categoryLabelFromDb(category: TradeChatCategoryMetaLike | null | undefi
  * 우선순위:
  * - categories/trade_categories 의 label/name (관리자/DB 값)
  * - posts.category 텍스트
- * - fallback 매핑(레거시/힌트 기반)
- * - 최후: "거래"
+ * - fallback 매핑(레거시/힌트 기반) — `lang` 을 받았을 때만 그 언어로(받는 사람 언어를 모르면 저장하지 않음)
+ * - 최후: 빈 값 — 화면이 `defaultTradeChatCategoryMenuLabel(t)` 키로 그린다(한 언어 고정 「거래」 저장 금지)
  */
 export function resolveTradeChatCategoryLabelForList(
   post: Record<string, unknown> | null | undefined,
-  category: TradeChatCategoryMetaLike | null | undefined
+  category: TradeChatCategoryMetaLike | null | undefined,
+  lang?: AppLanguageCode
 ): string {
   const fromDb = categoryLabelFromDb(category);
   if (fromDb) return fromDb;
   const postCategoryText = typeof (post as any)?.category === "string" ? String((post as any).category).trim() : "";
   if (postCategoryText) return postCategoryText;
-  const fallback = resolveTradeChatCategoryMenuLabelFallback(post, category);
-  return fallback || DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL;
+  if (!lang) return "";
+  return resolveTradeChatCategoryMenuLabelFallback(post, category, lang);
 }
 
 export function defaultTradeChatCategoryMenuLabel(t: (key: MessageKey) => string): string {
@@ -88,8 +90,18 @@ export function defaultTradeChatCategoryMenuLabel(t: (key: MessageKey) => string
  */
 export function resolveTradeChatCategoryMenuLabelFallback(
   post: Record<string, unknown> | null | undefined,
-  category: TradeChatCategoryMetaLike | null | undefined
+  category: TradeChatCategoryMetaLike | null | undefined,
+  lang: AppLanguageCode
 ): string {
+  const key = resolveTradeChatCategoryMenuFallbackKey(post, category);
+  return key ? translate(lang, key) : "";
+}
+
+/** 레거시 힌트 → 카테고리 문구 키 (없으면 null) */
+export function resolveTradeChatCategoryMenuFallbackKey(
+  post: Record<string, unknown> | null | undefined,
+  category: TradeChatCategoryMetaLike | null | undefined
+): MessageKey | null {
   const row = post ?? {};
   const meta = metaRecord(row);
   const tokens = collectTokens(row, category);
@@ -100,7 +112,7 @@ export function resolveTradeChatCategoryMenuLabelFallback(
     meta.work_category != null ||
     meta.listing_kind === "job"
   ) {
-    return "일자리";
+    return "cat_trade_jobs_listing";
   }
 
   if (
@@ -109,7 +121,7 @@ export function resolveTradeChatCategoryMenuLabelFallback(
     meta.to_currency != null ||
     meta.exchange_rate != null
   ) {
-    return "환전거래";
+    return "cat_trade_exchange_listing";
   }
 
   if (
@@ -119,7 +131,7 @@ export function resolveTradeChatCategoryMenuLabelFallback(
     meta.deposit != null ||
     meta.monthly != null
   ) {
-    return "부동산";
+    return "cat_post_real_estate";
   }
 
   if (
@@ -129,8 +141,8 @@ export function resolveTradeChatCategoryMenuLabelFallback(
     meta.mileage != null ||
     meta.car_trade != null
   ) {
-    return "중고차";
+    return "cat_post_car";
   }
 
-  return "";
+  return null;
 }

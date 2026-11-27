@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           errorCode: "provider_link_token_invalid",
-          message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
+          error: "provider_link_token_invalid",
+          code: "provider_link_token_invalid",
         },
         400,
       );
@@ -39,7 +40,8 @@ export async function POST(req: NextRequest) {
       {
         ok: false,
         errorCode: "credential_required",
-        message: "계정 연결을 시작하려면 로그인 정보 또는 stashToken이 필요합니다.",
+        error: "credential_required",
+        code: "credential_required",
       },
       400,
     );

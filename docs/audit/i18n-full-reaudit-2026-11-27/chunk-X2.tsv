@@ -1,0 +1,199 @@
+en-sentence	app/api/auth/native/exchange/route.ts	87	This sign-in method is currently disabled.
+en-sentence	app/api/auth/naver/callback/route.ts	17	Naver login is no longer supported.
+en-sentence	app/api/auth/naver/start/route.ts	17	Naver login is no longer supported.
+en-sentence	app/api/auth/oauth/start/route.ts	55	This sign-in method is currently disabled.
+en-sentence	app/api/community-messenger/rooms/[roomId]/media/route.ts	22	Too many requests
+en-sentence	app/api/me/admin-notes/[threadId]/route.ts	49	Legacy note threads are read-only. Use Support Center for new messages.
+en-sentence	app/api/me/delivery-ads/[campaignId]/funding/route.ts	144	Delivery Ads payments use Cash at submit. Use Cash top-up or Coin conversion, then submit.
+en-sentence	app/api/me/points/promotion-orders/route.ts	424	Could not find the function
+en-sentence	app/api/me/points/promotion-orders/route.ts	552	Could not find the function
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	46	Coin conversion is paused right now.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	49	Enter Coin to convert.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	55	Today's conversion count limit is reached.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	57	This week's conversion count limit is reached.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	59	This month's conversion count limit is reached.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	61	Exceeds today's Coin conversion limit.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	63	Exceeds this month's Coin conversion limit.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	65	Wait for the minimum interval since the last conversion.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	76	The rate changed. Preview again with the new rate.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	79	Cannot read the conversion policy. Conversion is unavailable.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	82	Only the store owner can convert.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	84	Request conflict. Refresh and try again.
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	363	Convert Coin to Cash
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	66	Cannot read the Coin balance. Try again later.
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	68	Enter the GCash number and account name.
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	70	Enter bank name, account number and account name.
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	72	Choose a payout method.
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	75	Only the store owner can request a withdrawal.
+en-sentence	components/debug/CallQaDebugPanel.tsx	74	Copy all logs
+en-sentence	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	67	The start date is after the end date
+en-sentence	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	68	Choose both a start and an end date
+en-sentence	components/stores/commission/StoreCommissionLedgerTable.tsx	172	Commission history table
+en-sentence	components/stores/commission/StoreCommissionLedgerTable.tsx	172	Commission ledger table
+en-sentence	lib/addresses/address-book-line.ts	16	Republic of the Philippines
+en-sentence	lib/addresses/user-address-format.ts	51	Republic of the Philippines
+en-sentence	lib/admin-business/sample-store-delete-model.ts	278	Store not found
+en-sentence	lib/admin-business/sample-store-delete-model.ts	279	Not a sample store
+en-sentence	lib/admin-business/sample-store-delete-model.ts	280	Linked records must be kept
+en-sentence	lib/admin-business/sample-store-delete-model.ts	281	Ad campaign not ended
+en-sentence	lib/admin-business/sample-store-delete-model.ts	282	Paid ad history would be removed
+en-sentence	lib/admin-business/store-audit-action-labels.ts	26	Name edit permission changed
+en-sentence	lib/admin-business/store-audit-action-labels.ts	27	Admin memo saved
+en-sentence	lib/admin-business/store-audit-action-labels.ts	28	Store name changed
+en-sentence	lib/admin-business/store-audit-action-labels.ts	32	Business hours changed
+en-sentence	lib/admin-business/store-audit-action-labels.ts	34	Delivery radius changed
+en-sentence	lib/admin-business/store-audit-action-labels.ts	37	Notice sent to owner
+en-sentence	lib/admin-business/store-audit-action-labels.ts	39	Service area changed
+en-sentence	lib/admin-users/member-admin-screen-catalog.ts	40	Support compose bridge
+en-sentence	lib/ads/feed-ad-member-presentation.ts	313	Paused by the operator
+en-sentence	lib/ads/feed-ad-member-presentation.ts	313	Ended by the operator
+en-sentence	lib/ads/feed-ad-placement.ts	321	Trade home feed
+en-sentence	lib/ads/feed-ad-placement.ts	322	Trade category feed
+en-sentence	lib/ads/feed-ad-placement.ts	323	Community home feed
+en-sentence	lib/ads/feed-ad-placement.ts	324	Community topic feed
+en-sentence	lib/auth/finish-client-auth-login.client.ts	61	Client session was not established after login
+en-sentence	lib/auth/native/apple-native-session.server.ts	135	Apple account profile exists but auth user is missing
+en-sentence	lib/auth/native/apple-native-session.server.ts	151	Apple owner account has no sign-in email
+en-sentence	lib/auth/native/apple-native-session.server.ts	209	Apple sign-in account is reserved by another registration
+en-sentence	lib/auth/native/apple-native-session.server.ts	218	Failed to create Apple auth user
+en-sentence	lib/auth/native/apple-native-session.server.ts	332	Apple user identifier does not match verified token sub
+en-sentence	lib/auth/native/apple-native-session.server.ts	380	Apple native Supabase session creation failed
+en-sentence	lib/auth/native/apple-token-verify.server.ts	174	Apple identity token verification failed
+en-sentence	lib/auth/native/google-native-session.server.ts	114	Google account profile exists but auth user is missing
+en-sentence	lib/auth/native/google-native-session.server.ts	130	Google owner account has no sign-in email
+en-sentence	lib/auth/native/google-native-session.server.ts	213	Google sign-in account is reserved by another registration
+en-sentence	lib/auth/native/google-native-session.server.ts	222	Failed to create Google auth user
+en-sentence	lib/auth/native/google-native-session.server.ts	352	Google native Supabase session creation failed
+en-sentence	lib/auth/native/google-native-session.server.ts	370	Google session user does not match the linked account
+en-sentence	lib/auth/native/google-native-session.server.ts	378	Google session user does not match the linked account
+en-sentence	lib/auth/native/google-token-verify.server.ts	104	Google id token audience is not allowed
+en-sentence	lib/auth/native/kakao-native-session.server.ts	123	Kakao account profile exists but auth user is missing
+en-sentence	lib/auth/native/kakao-native-session.server.ts	139	Kakao owner account has no sign-in email
+en-sentence	lib/auth/native/kakao-native-session.server.ts	195	Kakao sign-in account is reserved by another registration
+en-sentence	lib/auth/native/kakao-native-session.server.ts	204	Failed to create Kakao auth user
+en-sentence	lib/auth/native/kakao-native-session.server.ts	318	Kakao native Supabase session creation failed
+en-sentence	lib/auth/native/kakao-native-session.server.ts	362	Failed to persist Kakao profile identity
+en-sentence	lib/auth/native/kakao-token-verify.server.ts	100	Kakao login is temporarily unavailable
+en-sentence	lib/auth/native/kakao-token-verify.server.ts	110	Kakao access token was not issued for this app
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	50	Apple identity token is required
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	51	Kakao access token or id token is required
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	52	Google id token is required
+en-sentence	lib/auth/native/native-exchange-errors.server.ts	39	Native exchange provider must be apple, kakao, or google.
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	152	Apple identity token verification failed
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	161	Apple verified identity payload is missing
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	230	Kakao token verification failed
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	239	Kakao verified identity payload is missing
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	307	Google id token verification failed
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	316	Google verified identity payload is missing
+en-sentence	lib/auth/native/post-native-exchange.client.ts	50	Google native exchange is not ready
+en-sentence	lib/auth/native/post-native-exchange.client.ts	50	Kakao native exchange is not ready
+en-sentence	lib/auth/native/post-native-exchange.client.ts	57	Email already registered with another sign-in method
+en-sentence	lib/auth/native/post-native-exchange.client.ts	66	Google account conflict
+en-sentence	lib/auth/native/post-native-exchange.client.ts	66	Kakao account conflict
+en-sentence	lib/auth/native/post-native-exchange.client.ts	79	Google login verification failed
+en-sentence	lib/auth/native/post-native-exchange.client.ts	79	Kakao login verification failed
+en-sentence	lib/auth/native/post-native-exchange.client.ts	92	Google login token is invalid
+en-sentence	lib/auth/native/post-native-exchange.client.ts	92	Kakao login token is invalid
+en-sentence	lib/auth/native/post-native-exchange.client.ts	101	This account was withdrawn. Please contact support or sign up again.
+en-sentence	lib/auth/native/post-native-exchange.client.ts	108	Profile sync failed after login
+en-sentence	lib/auth/native/post-native-exchange.client.ts	140	Invalid native exchange response
+en-sentence	lib/auth/native/post-native-exchange.client.ts	157	Native exchange succeeded without session
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	40	Apple native exchange is not ready
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	46	Apple account conflict
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	59	Apple login verification failed
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	70	Apple login token is invalid
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	103	Invalid native exchange response
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	129	Native exchange succeeded without session
+en-sentence	lib/auth/native/start-native-provider-login.client.ts	66	Unsupported native provider
+en-sentence	lib/auth/oauth/open-native-oauth-tab.ts	215	Capacitor native bridge is not ready.
+en-sentence	lib/auth/oauth/supabase-oauth-start.server.ts	119	Supabase OAuth is not configured.
+en-sentence	lib/auth/oauth/supabase-oauth-start.server.ts	147	Supabase did not return an authorize URL.
+en-sentence	lib/auth/phone-otp-client-errors.ts	44	Could not send
+en-sentence	lib/auth/semaphore-account.ts	82	Semaphore API authentication rejected
+en-sentence	lib/auth/semaphore-account.ts	93	Semaphore account rate limited
+en-sentence	lib/auth/semaphore-account.ts	116	Semaphore account response shape unexpected
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	90	Not a Runtime Auth failure state
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	95	Neither PASS nor FAIL
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	100	No failure evidence
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	105	Direct Runtime proof of first product-code discontinuity
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	13	Send a message to start chatting.
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	14	Start a group conversation.
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	32	Send a message to start chatting.
+en-sentence	lib/community-messenger/service.ts	14405	Check DB migrations. Critical tier does not silently enrich via fallback.
+en-sentence	lib/community-operator-import/publish-errors.ts	11	Could not find the function
+en-sentence	lib/delivery/delivery-list-oor-policy.ts	15	Outside delivery area
+en-sentence	lib/device/dibay-breakpoint-classification.ts	72	Named tablet-max from width.
+en-sentence	lib/device/dibay-breakpoint-classification.ts	79	Owner compact shell upper bound. Not main BottomNav Device identity.
+en-sentence	lib/device/dibay-breakpoint-classification.ts	86	Trade grid density only.
+en-sentence	lib/http/fetch-client-telemetry.ts	27	Failed to fetch
+en-sentence	lib/media/post-images-storage-ownership.ts	70	Data Reset community
+en-sentence	lib/messenger/contracts/domain-cutover-prep.ts	242	React state patch
+en-sentence	lib/notifications/badge-lifecycle-transition-matrix.ts	102	Leave removes room from active unread set
+en-sentence	lib/notifications/badge-lifecycle-transition-matrix.ts	134	Login rebuilds from RoomUnread facts via same Writer
+en-sentence	lib/notifications/badge-writer-authority.ts	132	Cap Badge via NativeBadgeSync
+en-sentence	lib/notifications/badge-writer-authority.ts	150	Domain Builder appIconTotal embedded in FCM data
+en-sentence	lib/notifications/badge-writer-authority.ts	162	Domain Builder appIconTotal embedded in APNS
+en-sentence	lib/notifications/bell-lifecycle-transition-matrix.ts	174	Login rebuilds Bell from events via same Writer
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	42	Trade report result
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	46	Post actions and sanctions
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	47	Community report result
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	50	Support case status
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	51	Admin inquiry reply
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	52	Message from admin
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	53	Chat report result
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	54	Chat report sanction
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	69	Platform inquiry reply
+en-sentence	lib/notifications/notification-sound-registry.ts	370	Direct message received
+en-sentence	lib/notifications/notification-sound-registry.ts	380	Group message received
+en-sentence	lib/notifications/notification-sound-registry.ts	390	Friend request received
+en-sentence	lib/notifications/notification-sound-registry.ts	400	Friend request accepted
+en-sentence	lib/notifications/notification-sound-registry.ts	410	Trade chat message
+en-sentence	lib/notifications/notification-sound-registry.ts	450	Order status changed
+en-sentence	lib/notifications/notification-sound-registry.ts	540	Order match chat
+en-sentence	lib/notifications/notification-sound-registry.ts	550	Voice call incoming
+en-sentence	lib/notifications/notification-sound-registry.ts	560	Video call incoming
+en-sentence	lib/notifications/notification-sound-registry.ts	570	Voice outgoing ringback
+en-sentence	lib/notifications/notification-sound-registry.ts	580	Video outgoing ringback
+en-sentence	lib/platform-events/publication.ts	62	This event has not started yet.
+en-sentence	lib/platform-events/publication.ts	64	This event has ended.
+en-sentence	lib/platform-events/publication.ts	68	This event is not available.
+en-sentence	lib/platform-events/publication.ts	71	We could not find this event.
+en-sentence	lib/platform-popup/admin-surface-target-mode.ts	39	One popup on those five areas. Not shown on Delivery Owner or Admin screens unless selecte
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	81	Go to store
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	82	Go to store menu section
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	83	Go to store promotions
+en-sentence	lib/platform-promotion-distribution/event-banner-upload.ts	28	This image does not match the banner size for this type. Check the ratio and minimum size.
+en-sentence	lib/products/regions-data.ts	27	San Andres Bukid
+en-sentence	lib/products/regions-data.ts	69	Krus na Ligas
+en-sentence	lib/products/regions-data.ts	87	Pasong Tamo QC
+en-sentence	lib/products/regions-data.ts	108	Cebu Business Park
+en-sentence	lib/products/regions-data.ts	161	Lourdes North West
+en-sentence	lib/products/regions-data.ts	162	Lourdes Sur East
+en-sentence	lib/products/regions-data.ts	165	Virgen delos Remedios
+en-sentence	lib/products/regions-data.ts	166	Agapito del Rosario
+en-sentence	lib/products/regions-data.ts	168	Claro M. Recto
+en-sentence	lib/promotion/apply-community-paid-exposure.ts	214	Could not find the function
+en-sentence	lib/push/dispatch/fcm-sender.ts	52	Cannot find module
+en-sentence	lib/startup/local-runtime-markup.ts	61	Noto Sans KR
+en-sentence	lib/startup/pre-hydration-guard-script.ts	56	Something went wrong while loading the app
+en-sentence	lib/startup/pre-hydration-guard-script.ts	56	Please try again in a moment.
+en-sentence	lib/stores/advertising/banner-search-top-exposure.ts	46	No paid keyword auction. Fail-closed when organic stores empty.
+en-sentence	lib/stores/advertising/delivery-ad-inventory.ts	94	Browse organic card anatomy
+en-sentence	lib/stores/apply-admin-store-order-operations.ts	217	Rejected by admin
+en-sentence	lib/stores/apply-admin-store-order-operations.ts	458	Refund request rejected by admin
+en-sentence	lib/stores/discovery/store-discovery-shadow-adversarial-harness.ts	763	City of Pasay
+en-sentence	lib/stores/payment-methods-config.ts	41	Cash on meet-up
+en-sentence	lib/stores/presentation/stores-home-presentation-map.ts	139	No A-VIS featured-grid pattern
+en-sentence	lib/stores/presentation/stores-home-presentation-map.ts	159	Vertical store list remainder
+en-sentence	lib/trade/location/trade-lgu-city-rollup.ts	120	San Juan City
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	25	Honda City RS
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	28	Toyota Rush G AT
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	29	Toyota Fortuner G
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	30	Mitsubishi Montero Sport
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	31	Honda Civic RS Turbo
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	33	Nissan Navara VE
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	70	Toyota Hiace GL Grandia
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	59	No LIVE trade room opens ChatDetailView for process CTA
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	69	Zero in-repo and known external clients
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	71	Docs no longer list as seller process primary API
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	80	Legacy create-or-get exit conditions met

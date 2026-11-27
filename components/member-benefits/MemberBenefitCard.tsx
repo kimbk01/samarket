@@ -2,7 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
-import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
+import { MEMBER_TYPE_LABEL_KEYS } from "@/lib/member-benefits/member-benefit-utils";
 
 interface MemberBenefitCardProps {
   policy: MemberBenefitPolicy;
@@ -27,7 +27,7 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
                 : "bg-sam-surface-muted text-sam-fg"
           }`}
         >
-          {MEMBER_TYPE_LABELS[policy.memberType]}
+          {t(MEMBER_TYPE_LABEL_KEYS[policy.memberType])}
         </span>
         {!policy.isActive && (
           <span className="rounded-full bg-sam-border-soft px-2 py-0.5 sam-text-xxs text-sam-muted">

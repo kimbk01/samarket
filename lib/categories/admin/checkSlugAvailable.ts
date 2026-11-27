@@ -13,21 +13,21 @@ export async function checkSlugAvailable(
   if (!supabase) return { available: true };
 
   const s = slug?.trim();
-  if (!s) return { available: false, error: "slug를 입력해 주세요." };
+  if (!s) return { available: false, error: "slug_required" };
 
   try {
     const q = (supabase as any).from("categories").select("id").eq("slug", s).limit(1);
     const { data, error } = await q.maybeSingle();
 
     if (error) {
-      const msg = error?.message || String(error);
-      return { available: false, error: msg.includes("does not exist") ? "categories 테이블이 없습니다. Supabase에서 마이그레이션을 실행해 주세요." : msg };
+      console.error("[checkSlugAvailable]", error?.message || String(error));
+      return { available: false, error: "slug_check_failed" };
     }
     if (!data) return { available: true };
     if (excludeCategoryId && data.id === excludeCategoryId) return { available: true };
-    return { available: false, error: "이미 사용 중인 slug입니다." };
+    return { available: false, error: "slug_taken" };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { available: false, error: msg || "확인에 실패했습니다." };
+    console.error("[checkSlugAvailable]", e instanceof Error ? e.message : String(e));
+    return { available: false, error: "slug_check_failed" };
   }
 }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PointRewardExecution } from "@/lib/types/point-execution";
+import { buildRewardExecutionLedgerDescription } from "@/lib/points/point-ledger-description";
 import { computePointRewardSimulation } from "@/lib/point-policies/point-reward-simulate-core";
 import {
   getActiveEventPolicyForBoardDb,
@@ -192,9 +193,12 @@ export async function executePointRewardServer(
 
   const rewardType =
     input.actionType === "write" ? policy.writeRewardType : policy.commentRewardType;
-  const description = `${input.actionType === "write" ? "글쓰기" : "댓글"} 보상 (${policy.boardName})${
-    input.reason?.trim() ? ` · 관리자 지급 사유: ${input.reason.trim()}` : ""
-  }`;
+  // 저장 글자는 예전과 같고, 회원 화면은 키로 다시 그린다 (`lib/points/point-ledger-description.ts` · 설계 §4-3)
+  const description = buildRewardExecutionLedgerDescription({
+    actionType: input.actionType,
+    boardName: policy.boardName,
+    reason: input.reason,
+  });
 
   // P0-4 — 실행 기록·원장·보상 로그·잔액 재투영을 운영 원자 RPC 한 번으로 (TS 지급 후 별도 기록 금지).
   // 같은 글/댓글이 이미 보상됐으면 원장 고유 인덱스로 RPC 전체가 롤백 → 지급도 「완료」 기록도 남지 않는다.

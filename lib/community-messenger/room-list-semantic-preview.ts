@@ -75,7 +75,8 @@ export function canonicalRoomListPreviewFromMessageFields(input: {
     return { lastMessage: tip || ROOM_LIST_PREVIEW_CALL_TOKEN, lastMessageType: "call_stub" };
   }
   if (messageType === "system") {
-    return { lastMessage: content || ROOM_LIST_PREVIEW_SYSTEM_TOKEN, lastMessageType: "system" };
+    /** 빈 내용은 빈 값 — 화면 문장(한 언어 고정)을 저장하지 않는다 */
+    return { lastMessage: content, lastMessageType: "system" };
   }
   if (messageType === "gift_certificate") {
     return { lastMessage: content || "상품권", lastMessageType: "gift_certificate" };
@@ -84,5 +85,5 @@ export function canonicalRoomListPreviewFromMessageFields(input: {
     return { lastMessage: content || "알림", lastMessageType: "community_post_share" };
   }
   /** TEXT (and unknown): keep raw content — including https://…jpg URLs. */
-  return { lastMessage: content || "새 메시지", lastMessageType: messageType };
+  return { lastMessage: content, lastMessageType: messageType };
 }

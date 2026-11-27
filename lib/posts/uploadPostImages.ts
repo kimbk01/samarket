@@ -2,6 +2,7 @@
 
 import { prepareImageFileForFunctionUpload } from "@/lib/media/client-image-upload-prepare";
 import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
+import { pickApiErrorCode } from "@/lib/i18n/api-error-text";
 
 const BUCKET = "post-images";
 
@@ -11,7 +12,8 @@ type UploadPostImageResponse =
 
 export type UploadPostImageResult =
   | { ok: true; url: string }
-  | { ok: false; reason: "file_too_large" | "server" | "network" | "registration_required"; message?: string };
+  /** `code` = 서버 오류 코드(재감사 2026-11-27) — 화면 문구는 `postImageUploadErrorText`. 가입 거절은 `message` = 「가입 이어하기」 창과 같은 문장(F2) */
+  | { ok: false; reason: "file_too_large" | "server" | "network" | "registration_required"; message?: string; code?: string };
 
 type PrepareForUpload = typeof prepareImageFileForFunctionUpload;
 
@@ -31,8 +33,8 @@ async function sendPreparedPostImage(file: File): Promise<UploadPostImageResult>
     if (json && !json.ok && json.code === "signup_incomplete") {
       return { ok: false, reason: "registration_required", message: registrationGuidanceMessage() };
     }
-    const message = json && !json.ok && typeof json.error === "string" ? json.error : undefined;
-    return { ok: false, reason: "server", ...(message ? { message } : {}) };
+    const code = pickApiErrorCode(json) ?? undefined;
+    return { ok: false, reason: "server", ...(code ? { code } : {}) };
   } catch {
     return { ok: false, reason: "network" };
   }

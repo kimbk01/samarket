@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return jsonError("서버 설정 필요", 500);
+    return jsonError("server_config", { status: 500, code: "server_config" });
   }
 
   const parsed = await parseJsonBody<{ title?: string }>(req, "invalid_json");
@@ -32,14 +32,16 @@ export async function POST(req: NextRequest) {
   const { data: room, error: roomErr } = await sb
     .from("group_rooms")
     .insert({
-      title: title || "그룹 채팅",
+      /** 이름 없는 방은 빈 값 저장 — 화면이 `ui_group_chat_title` 키로 그림 */
+      title,
       created_by: auth.userId,
     })
     .select("id, title, created_at, message_seq, member_count, last_message_at, last_message_preview")
     .single();
 
   if (roomErr || !room) {
-    return jsonError(roomErr?.message ?? "방을 만들지 못했습니다.", 500);
+    console.error("[group-chat] room create failed", roomErr?.message ?? "no_row");
+    return jsonError("group_chat_room_create_failed", { status: 500, code: "group_chat_room_create_failed" });
   }
 
   const rid = (room as { id: string }).id;
@@ -52,7 +54,8 @@ export async function POST(req: NextRequest) {
 
   if (memErr) {
     await sb.from("group_rooms").delete().eq("id", rid);
-    return jsonError(memErr.message, 500);
+    console.error("[group-chat] owner member insert failed", memErr.message);
+    return jsonError("group_chat_room_create_failed", { status: 500, code: "group_chat_room_create_failed" });
   }
 
   await sb.from("group_rooms").update({ member_count: 1, updated_at: new Date().toISOString() }).eq("id", rid);

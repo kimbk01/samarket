@@ -51,10 +51,16 @@ export function evaluateCommunityPostAcceptance(input: {
   return evaluateCommunityContentAcceptance(input.content, "post_body");
 }
 
-export function communityAcceptanceErrorMessage(
+/**
+ * 응답 오류 코드 — 문구는 화면이 `COMMUNITY_*_ERROR_KEYS`(`lib/community/community-api-error-text.ts`)로 고른다
+ * (재감사 2026-11-27 · `docs/i18n-ssot.md` §3-3).
+ */
+export type CommunityAcceptanceErrorCode = "content_empty" | "content_punctuation_only" | "content_repeated_only";
+
+export function communityAcceptanceErrorCode(
   code: "empty" | "punctuation_only" | "repeated_only"
-): string {
-  if (code === "empty") return "내용을 입력하세요.";
-  if (code === "punctuation_only") return "의미 있는 내용을 입력하세요.";
-  return "반복된 문자만으로는 등록할 수 없습니다.";
+): CommunityAcceptanceErrorCode {
+  if (code === "empty") return "content_empty";
+  if (code === "punctuation_only") return "content_punctuation_only";
+  return "content_repeated_only";
 }

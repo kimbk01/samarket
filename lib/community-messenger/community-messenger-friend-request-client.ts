@@ -1,4 +1,9 @@
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+
+/** 화면 문구 번역 — React 화면은 `useI18n().t`, 생략하면 현재 화면 언어(`translateCmUi`) */
+export type FriendRequestCopyTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 export type CommunityMessengerFriendRequestApiOk = {
   ok: true;
@@ -46,20 +51,23 @@ export function formatFriendRejectCooldownShort(remainingMs: number): string {
   return `${totalMin}분 후`;
 }
 
-export function formatFriendRejectCooldownMessage(retryAfterMs: number): string {
+export function formatFriendRejectCooldownMessage(
+  retryAfterMs: number,
+  t: FriendRequestCopyTranslate = translateCmUi
+): string {
   const m = Math.max(1, Math.ceil(retryAfterMs / 60_000));
   if (m >= 60 * 24) {
     const d = Math.ceil(m / (60 * 24));
-    return `거절된 친구 요청은 ${d}일 후에 다시 보낼 수 있습니다.`;
+    return t("cm_friend_err_cooldown_days", { days: d });
   }
   if (m >= 60) {
     const h = Math.floor(m / 60);
     const min = m % 60;
     return min > 0
-      ? `거절된 친구 요청은 약 ${h}시간 ${min}분 후에 다시 보낼 수 있습니다.`
-      : `거절된 친구 요청은 약 ${h}시간 후에 다시 보낼 수 있습니다.`;
+      ? t("cm_friend_err_cooldown_hours_minutes", { hours: h, minutes: min })
+      : t("cm_friend_err_cooldown_hours", { hours: h });
   }
-  return `거절된 친구 요청은 약 ${m}분 후에 다시 보낼 수 있습니다.`;
+  return t("cm_friend_err_cooldown_minutes", { minutes: m });
 }
 
 /** `busyId === …` 와 함께 쓰는 친구 요청 진행 토큰 */
@@ -227,34 +235,31 @@ export function postCommunityMessengerFriendRequestApi(
 /**
  * 스낵바 등에 쓸 사용자 메시지. 조용히 무시할 때는 `null`.
  */
+/** 친구 요청 실패 코드 → 문구 키 (서버는 코드만 보낸다) */
+export const FRIEND_REQUEST_FAILURE_MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
+  // 「상대방은 모름」 (연락처 동기화 정책 #7 A안) — 차단 여부를 드러내지 않는다
+  blocked_target: "cm_friend_err_cannot_send_soft",
+  /** §14-5: 상대가 거절 — 거절한 사람이 해제하기 전에는 다시 요청할 수 없다 */
+  request_rejected: "cm_friend_request_rejected_by_peer",
+  already_friend: "cm_ui_already_friend",
+  already_requested: "cm_friend_err_already_requested",
+  incoming_request_exists: "cm_friend_err_incoming_exists",
+  friend_request_retired: "cm_friend_err_retired",
+  bad_target: "cm_friend_err_bad_target",
+  network_error: "cm_friend_err_network",
+};
+
 export function communityMessengerFriendRequestFailureMessage(
-  result: CommunityMessengerFriendRequestApiResult
+  result: CommunityMessengerFriendRequestApiResult,
+  t: FriendRequestCopyTranslate = translateCmUi
 ): string | null {
   if (result.ok) return null;
   const err = result.error ?? "";
   if (err === "reject_cooldown_active" && typeof result.retryAfterMs === "number") {
-    return formatFriendRejectCooldownMessage(result.retryAfterMs);
+    return formatFriendRejectCooldownMessage(result.retryAfterMs, t);
   }
-  switch (err) {
-    case "blocked_target":
-      // 「상대방은 모름」 (연락처 동기화 정책 #7 A안) — 차단 여부를 드러내지 않는다
-      return "친구 요청을 보낼 수 없어요.";
-    case "request_rejected":
-      /** §14-5: 상대가 거절 — 거절한 사람이 해제하기 전에는 다시 요청할 수 없다 */
-      return "상대가 친구 요청을 거절해 다시 요청할 수 없습니다.";
-    case "already_friend":
-      return "이미 친구입니다.";
-    case "already_requested":
-      return "이미 친구 요청을 보냈습니다.";
-    case "incoming_request_exists":
-      return "상대가 보낸 친구 요청이 있습니다. 받은 요청에서 수락해 주세요.";
-    case "friend_request_retired":
-      return "친구 요청을 처리할 수 없습니다.";
-    case "bad_target":
-      return "친구 요청을 보낼 수 없습니다.";
-    case "network_error":
-      return "네트워크 오류로 친구 요청을 보내지 못했습니다.";
-    default:
-      return "친구 요청을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.";
-  }
+  const key = Object.prototype.hasOwnProperty.call(FRIEND_REQUEST_FAILURE_MESSAGE_KEYS, err)
+    ? FRIEND_REQUEST_FAILURE_MESSAGE_KEYS[err]!
+    : "cm_friend_err_generic";
+  return t(key);
 }

@@ -11,6 +11,13 @@
  * 두 컬럼이 없으므로 `isMissingStoreProductLockColumnError` 로 감지해 레거시 select/patch 로 폴백한다.
  */
 
+import {
+  resolveApiErrorText,
+  type ApiErrorCodeMap,
+  type ApiErrorTranslate,
+} from "@/lib/i18n/api-error-text";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
 export const STORE_PRODUCT_ADMIN_LOCKS = ["hidden", "sold_out", "blocked"] as const;
 export type StoreProductAdminLock = (typeof STORE_PRODUCT_ADMIN_LOCKS)[number];
 
@@ -54,21 +61,66 @@ export type OwnerProductStatusPrev = {
   admin_status_lock?: unknown;
 };
 
+export type OwnerProductStatusBlockCode =
+  | "admin_locked"
+  | "admin_blocked_product"
+  | "admin_review_rejected"
+  | "admin_review_pending";
+
+/**
+ * 오너 상태 변경 거부 — 서버는 코드(`error`)와 잠금 종류(`lock`)만 보내고, 화면이 키로 그린다
+ * (`ownerProductStatusBlockText` · 재감사 2026-11-27). `message` 문장은 더 이상 만들지 않는다.
+ */
 export type OwnerProductStatusBlock = {
   status: 403;
-  error: "admin_locked" | "admin_blocked_product" | "admin_review_rejected" | "admin_review_pending";
-  message: string;
+  error: OwnerProductStatusBlockCode;
+  /** admin_locked 일 때 잠금 종류 */
+  lock?: StoreProductAdminLock;
+  /** @deprecated 문장 없음 — 항상 undefined. 화면은 `ownerProductStatusBlockText` */
+  message?: undefined;
 };
 
-const ADMIN_LOCK_LABEL_KO: Record<StoreProductAdminLock, string> = {
-  hidden: "숨김",
-  sold_out: "품절",
-  blocked: "판매 차단",
+/** 관리자 잠금 종류 → 카탈로그 키 */
+export const ADMIN_LOCK_KIND_KEYS: Readonly<Record<StoreProductAdminLock, MessageKey>> = {
+  hidden: "owner_product_lock_kind_hidden",
+  sold_out: "owner_product_lock_kind_sold_out",
+  blocked: "owner_product_lock_kind_blocked",
 };
 
-/** 오너 허브·폼 표시용 — 관리자 잠금 사유 문구 */
+/** 오너 허브·폼 표시용 — 「관리자 {잠금} 조치」 */
+export function ownerAdminLockLabel(lock: StoreProductAdminLock, t: ApiErrorTranslate): string {
+  return t("store_admin_lock_action_label", { lock: t(ADMIN_LOCK_KIND_KEYS[lock]) });
+}
+
+/** @deprecated `ownerAdminLockLabel(lock, t)` — 옮기기 전 호출처용(ko 고정) */
 export function ownerAdminLockLabelKo(lock: StoreProductAdminLock): string {
-  return `관리자 ${ADMIN_LOCK_LABEL_KO[lock]} 조치`;
+  return ownerAdminLockLabel(lock, (key, vars) => translate("ko", key, vars));
+}
+
+/** 상태 변경 거부 코드 → 키 */
+export const OWNER_PRODUCT_STATUS_BLOCK_KEYS: ApiErrorCodeMap = {
+  admin_blocked_product: "owner_product_lock_blocked",
+  admin_review_rejected: "owner_product_lock_review_rejected",
+  admin_review_pending: "owner_product_lock_review_pending",
+};
+
+/** 상태 변경 거부 → 화면 문구 (`admin_locked` 는 잠금 종류를 넣어 그린다) */
+export function ownerProductStatusBlockText(
+  block: { code: string | null | undefined; lock?: unknown },
+  t: ApiErrorTranslate
+): string {
+  if (block.code === "admin_locked") {
+    const lock = parseStoreProductAdminLock(block.lock);
+    return lock
+      ? t("owner_product_lock_admin", { lock: t(ADMIN_LOCK_KIND_KEYS[lock]) })
+      : t("owner_copy_products_toast_admin_action_locked");
+  }
+  return resolveApiErrorText({
+    code: block.code,
+    map: OWNER_PRODUCT_STATUS_BLOCK_KEYS,
+    fallbackKey: "owner_copy_products_toast_admin_action_locked",
+    t,
+  });
 }
 
 /**
@@ -83,34 +135,18 @@ export function ownerProductStatusChangeBlock(
   if (next === cur) return null;
   const lock = parseStoreProductAdminLock(prev.admin_status_lock);
   if (lock) {
-    return {
-      status: 403,
-      error: "admin_locked",
-      message: `${ownerAdminLockLabelKo(lock)} 상품입니다. 관리자가 해제해야 판매 상태를 바꿀 수 있습니다.`,
-    };
+    return { status: 403, error: "admin_locked", lock };
   }
   if (cur === "blocked") {
-    return {
-      status: 403,
-      error: "admin_blocked_product",
-      message: "관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.",
-    };
+    return { status: 403, error: "admin_blocked_product" };
   }
   const review = String(prev.admin_review_status ?? "").trim();
   if (next === "active" || next === "sold_out") {
     if (review === "rejected") {
-      return {
-        status: 403,
-        error: "admin_review_rejected",
-        message: "관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.",
-      };
+      return { status: 403, error: "admin_review_rejected" };
     }
     if (review === "pending") {
-      return {
-        status: 403,
-        error: "admin_review_pending",
-        message: "재검수 대기 중인 상품입니다. 관리자 검수 승인 후 판매할 수 있습니다.",
-      };
+      return { status: 403, error: "admin_review_pending" };
     }
   }
   return null;

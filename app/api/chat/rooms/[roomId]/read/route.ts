@@ -39,9 +39,12 @@ async function ensureParticipantReadState(
     .eq("user_id", userId)
     .select("id");
 
-  if (upErr) return { ok: false, error: upErr.message };
+  if (upErr) {
+    console.error("[chat-rooms-read] participant update", upErr.message);
+    return { ok: false, error: "read_update_failed" };
+  }
   if (updated?.length) return { ok: true };
-  return { ok: false, error: "채팅 참가자가 아닙니다." };
+  return { ok: false, error: "not_participant" };
 }
 
 export async function POST(
@@ -56,7 +59,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   let body: { messageId?: string };
@@ -67,7 +70,7 @@ export async function POST(
   }
   const messageId = typeof body.messageId === "string" ? body.messageId.trim() : null;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const { data: crRow, error: crErr } = await sb
@@ -79,7 +82,7 @@ export async function POST(
     .maybeSingle();
   const sbAny = sb;
   if (crErr || !crRow) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_room_not_found", code: "chat_room_not_found" }, { status: 404 });
   }
   const cr = crRow as {
     last_message_id?: string | null;
@@ -87,7 +90,7 @@ export async function POST(
     related_group_id?: string | null;
   };
   if (cr.room_type !== "item_trade") {
-    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_type_removed", code: "chat_type_removed" }, { status: 404 });
   }
   let lastReadId = messageId;
   if (!lastReadId) {
@@ -97,7 +100,7 @@ export async function POST(
 
   const ensured = await ensureParticipantReadState(sbAny, roomId, userId, lastReadId, now, cr);
   if (!ensured.ok) {
-    return NextResponse.json({ ok: false, error: ensured.error }, { status: 403 });
+    return NextResponse.json({ ok: false, error: ensured.error, code: ensured.error }, { status: 403 });
   }
 
   /** 상대가 본 시점: 내가 보낸 메시지에 read_at (상대 화면 «읽음») — last_read 기준 시각까지 */

@@ -3,9 +3,11 @@
 import { useParams } from "next/navigation";
 import { CategoryListLayout } from "@/components/category/CategoryListLayout";
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function FeatureCategoryPage() {
   const params = useParams();
+  const { t } = useI18n();
   const slugOrId = typeof params?.slug === "string" ? params.slug : "";
 
   return (
@@ -14,8 +16,8 @@ export default function FeatureCategoryPage() {
         <>
           {/* TODO: feature 전용 페이지 - 혜택 등 소개 구조 */}
           <CategoryEmptyState
-            message="기능 페이지 준비 중이에요."
-            subMessage="곧 만나보실 수 있습니다."
+            message={t("feature_page_empty_message")}
+            subMessage={t("feature_page_empty_sub")}
           />
         </>
       )}

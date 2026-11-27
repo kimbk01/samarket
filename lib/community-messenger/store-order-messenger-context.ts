@@ -106,9 +106,14 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
 ): StoreOrderMessengerContextInput {
   const store = args.storeName.trim();
   const line = args.firstLineProductTitle?.trim();
+  /** 매장명이 비면(한국어 고정 대체 제거) headline 의 매장 부분을 뺀다 */
   const headline = line
-    ? `${store} · ${line}`
-    : translate(lang, "store_messenger_order_title", { store, orderNo: args.orderNo });
+    ? store
+      ? `${store} · ${line}`
+      : line
+    : store
+      ? translate(lang, "store_messenger_order_title", { store, orderNo: args.orderNo })
+      : translate(lang, "cm_ui_store_order_title_no_store", { orderNo: args.orderNo });
   const ft = (args.fulfillmentType ?? "").trim().toLowerCase();
   /** `shipping` 은 기존 주문 타입 명칭이고 메신저 컨텍스트에는 local_delivery 로 정규화한다. */
   const fulfillmentForMeta = ft === "shipping" ? "local_delivery" : args.fulfillmentType;

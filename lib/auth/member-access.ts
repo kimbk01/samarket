@@ -18,7 +18,9 @@ import {
   normalizeStoreAuthProvider,
 } from "@/lib/auth/store-member-policy"
 import { resolveRequiredConsentVersions } from "@/lib/legal/resolve-required-consent-versions";
-import { hasVerifiedPhone, resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { resolveOAuthSeedDisplayName } from "@/lib/auth/oauth-seed-display-name";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 import { escapeIlikePatternFragment } from "@/lib/community-messenger/profile-user-search-filter";
@@ -246,7 +248,11 @@ export async function ensurePendingAuthProfileRow(
   const rawSeed = seedInput ?? extractOAuthProfileSeed(user);
   const authLoginEmail = pickContactEmailForProfile(rawSeed.emailInternal, user.email);
   const nicknameCandidate = pickTrimmed(rawSeed.nicknameCandidate);
-  const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
+  /** 재감사 A1 — 이름이 없으면 가입 화면 언어의 임시 닉네임 (요청 밖이면 en) */
+  const seedDisplayName = resolveOAuthSeedDisplayName(
+    nicknameCandidate,
+    nicknameCandidate ? "en" : await resolveRequestAppLanguageOr("en")
+  );
   const dbProvider = normalizeProviderForDb(rawSeed.authProvider) ?? "email";
   const providerUserId =
     pickTrimmed(rawSeed.providerUserIdCandidate) &&

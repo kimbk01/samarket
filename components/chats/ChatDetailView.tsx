@@ -62,7 +62,12 @@ import {
   KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
   KASAMA_TRADE_CHAT_UNREAD_UPDATED,
 } from "@/lib/chats/chat-channel-events";
-import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend";
+import { ADMIN_CHAT_SUSPENDED_MESSAGE_KEY } from "@/lib/chat/chat-room-admin-suspend";
+import {
+  tradeChatSendErrorText,
+  tradeListingErrorText,
+  tradeListingWarningText,
+} from "@/lib/trade/trade-api-error-text";
 import {
   bustIntegratedChatMessagesCache,
   bustLegacyChatMessagesCache,
@@ -985,25 +990,16 @@ export function ChatDetailView({
         const data = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
+          code?: string;
           sellerListingState?: string;
           warning?: string;
           threadNotices?: TradeListingThreadNotice[];
         };
         if (!res.ok || !data.ok || !data.sellerListingState) {
-          const errMsg = String(data.error ?? t("common_save_failed"));
-          const schemaBlock =
-            /seller_listing_state|마이그레이션|schema cache|Could not find|posts\.seller_listing/i.test(
-              errMsg
-            );
-          if (schemaBlock) {
-            setListingError(t("chats_listing_save_schema_error"));
-            return;
-          }
-          setListingError(errMsg);
+          setListingError(tradeListingErrorText({ json: data, status: res.status }, t));
           return;
         }
-        const w = typeof data.warning === "string" ? data.warning.trim() : "";
-        setListingNotice(w || null);
+        setListingNotice(tradeListingWarningText(data.warning, t));
         setPinnedListing(data.sellerListingState as SellerListingState);
         setPinnedForProductId(postId);
         const threadNotices = Array.isArray(data.threadNotices) ? data.threadNotices : [];
@@ -1379,8 +1375,10 @@ export function ChatDetailView({
   }, [menuOpen]);
 
   const postChatText = useCallback(
-    async (message: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
-      if (!canWriteTradeMessage) return { ok: false, error: t("nav_trade_cannot_message_here") };
+    async (
+      message: string
+    ): Promise<{ ok: true } | { ok: false; errorText: string; blockedReason?: string }> => {
+      if (!canWriteTradeMessage) return { ok: false, errorText: t("nav_trade_cannot_message_here") };
       const optimistic = appendOptimisticMessage({
         roomId: room.id,
         senderId: currentUserId,
@@ -1401,6 +1399,7 @@ export function ChatDetailView({
             ok?: boolean;
             message?: { id?: string; createdAt?: string };
             error?: string;
+            code?: string;
           };
           if (data?.ok && data?.message?.id) {
             bustIntegratedChatMessagesCache(room.id);
@@ -1417,18 +1416,24 @@ export function ChatDetailView({
           }
           dropOptimisticMessage(optimistic.id);
           const apiErr = typeof data?.error === "string" ? data.error.trim() : "";
-          if (apiErr) return { ok: false, error: apiErr };
-          if (res.status === 401) return { ok: false, error: t("common_login_required") };
-          if (res.status === 403) {
-            return { ok: false, error: t("chats_send_forbidden") };
+          if (apiErr) {
+            return {
+              ok: false,
+              errorText: tradeChatSendErrorText({ json: data, status: res.status }, t),
+              blockedReason: apiErr,
+            };
           }
-          if (res.status >= 500) return { ok: false, error: t("chats_send_server_error") };
+          if (res.status === 401) return { ok: false, errorText: t("common_login_required") };
+          if (res.status === 403) {
+            return { ok: false, errorText: t("chats_send_forbidden") };
+          }
+          if (res.status >= 500) return { ok: false, errorText: t("chats_send_server_error") };
         } catch {
           dropOptimisticMessage(optimistic.id);
-          return { ok: false, error: t("nav_trade_network_error") };
+          return { ok: false, errorText: t("nav_trade_network_error") };
         }
         dropOptimisticMessage(optimistic.id);
-        return { ok: false, error: t("nav_trade_cannot_send_message") };
+        return { ok: false, errorText: t("nav_trade_cannot_send_message") };
       }
 
       try {
@@ -1446,10 +1451,17 @@ export function ChatDetailView({
           return { ok: true };
         }
         dropOptimisticMessage(optimistic.id);
-        return { ok: false, error: res.error };
+        return {
+          ok: false,
+          errorText: tradeChatSendErrorText(
+            { code: res.error, status: res.status, json: { params: res.params } },
+            t
+          ),
+          blockedReason: res.blockedReason,
+        };
       } catch {
         dropOptimisticMessage(optimistic.id);
-        return { ok: false, error: t("nav_trade_network_error") };
+        return { ok: false, errorText: t("nav_trade_network_error") };
       }
     },
     [
@@ -1470,16 +1482,16 @@ export function ChatDetailView({
   const postChatTextForSellerPanel = useCallback(
     async (text: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
       const r = await postChatText(text);
-      return r.ok ? { ok: true } : { ok: false, error: r.error ?? t("nav_trade_cannot_send_message") };
+      return r.ok ? { ok: true } : { ok: false, error: r.errorText };
     },
-    [postChatText, t]
+    [postChatText]
   );
 
   const sendBuyerOrderMatchAck = useCallback(async () => {
     const r = await postChatText(STORE_ORDER_MATCH_ACK_MESSAGE);
     if (!r.ok) {
-      if (redirectForBlockedAction(router, r.error, pathname ?? "")) return false;
-      setSendError(r.error ?? t("chats_send_ack_failed"));
+      if (redirectForBlockedAction(router, r.blockedReason ?? r.errorText, pathname ?? "")) return false;
+      setSendError(r.errorText || t("chats_send_ack_failed"));
     }
     return r.ok;
   }, [postChatText, router, pathname, t]);
@@ -1493,8 +1505,8 @@ export function ChatDetailView({
       }
       const r = await postChatText(message);
       if (!r.ok) {
-        if (redirectForBlockedAction(router, r.error, pathname ?? "")) return;
-        setSendError(r.error ?? t("nav_trade_cannot_send_message"));
+        if (redirectForBlockedAction(router, r.blockedReason ?? r.errorText, pathname ?? "")) return;
+        setSendError(r.errorText || t("nav_trade_cannot_send_message"));
       }
     },
     [canWriteTradeMessage, postChatText, router, pathname, t]
@@ -1570,10 +1582,9 @@ export function ChatDetailView({
             });
           } else {
             dropOptimisticMessage(optimistic.id);
-            const err =
-              typeof data?.error === "string" ? data.error : t("nav_trade_cannot_send_message");
-            if (redirectForBlockedAction(router, err, pathname ?? "")) return;
-            setSendError(err);
+            const blockedReason = typeof data?.error === "string" ? data.error : "";
+            if (blockedReason && redirectForBlockedAction(router, blockedReason, pathname ?? "")) return;
+            setSendError(tradeChatSendErrorText({ json: data, status: res.status }, t));
           }
           return;
         }
@@ -1595,8 +1606,13 @@ export function ChatDetailView({
           });
         } else {
           dropOptimisticMessage(optimistic.id);
-          if (redirectForBlockedAction(router, sendRes.error, pathname ?? "")) return;
-          setSendError(sendRes.error || t("nav_trade_cannot_send_message"));
+          if (redirectForBlockedAction(router, sendRes.blockedReason ?? sendRes.error, pathname ?? "")) return;
+          setSendError(
+            tradeChatSendErrorText(
+              { code: sendRes.error, status: sendRes.status, json: { params: sendRes.params } },
+              t
+            )
+          );
         }
       } catch {
         if (optimistic) dropOptimisticMessage(optimistic.id);
@@ -2165,7 +2181,7 @@ export function ChatDetailView({
               )}
               {!isGeneralPurposeChat && adminChatSuspended ? (
                 <div className="border-b border-amber-200 bg-amber-50 px-3 py-2.5 text-center sam-text-body-secondary font-medium text-amber-950">
-                  {ADMIN_CHAT_SUSPENDED_MESSAGE}
+                  {t(ADMIN_CHAT_SUSPENDED_MESSAGE_KEY)}
                 </div>
               ) : null}
               {room.product && !chatTradeKeyboardCompact ? (
@@ -2257,7 +2273,7 @@ export function ChatDetailView({
             <div className="rounded-t-lg border-x border-t border-sam-border-soft bg-sam-primary-soft/35 px-4 pb-2 pt-1.5 text-center">
               <p className="sam-text-body-secondary font-medium text-sam-fg">
                 {adminChatSuspended
-                  ? ADMIN_CHAT_SUSPENDED_MESSAGE
+                  ? t(ADMIN_CHAT_SUSPENDED_MESSAGE_KEY)
                   : soldToOther
                     ? t("nav_trade_sold_to_other")
                     : blockedByReservation

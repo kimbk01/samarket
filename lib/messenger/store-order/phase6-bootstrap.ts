@@ -18,6 +18,7 @@ import {
   type StoreOrderRoomInput,
 } from "@/lib/messenger/store-order/types";
 import type { StoreOrderHubViewModel } from "@/lib/messenger/store-order/ux-contract";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 export const storeOrderPhase6Cache = createDomainPersistentCachePort<StoreOrderListItem>(
   STORE_ORDER_DOMAIN,
@@ -64,6 +65,8 @@ export async function runStoreOrderBootstrap(input: {
   surfaceRole: StoreOrderSurfaceRole;
   source: StoreOrderBootstrapSource;
   tombstones?: ReadonlyArray<DomainTombstone>;
+  /** 허브 미리보기 언어 — 서버 호출처는 요청 언어(`resolveRequestAppLanguageOr`)를 넘긴다. 없으면 실행 환경 언어(재감사 2026-11-27) */
+  lang?: AppLanguageCode | null;
 }): Promise<DomainBootstrapApiResponse<StoreOrderListItem, StoreOrderBootstrapHub>> {
   const viewerUserId = input.viewerUserId.trim();
   if (!viewerUserId) throw new DomainBootstrapHttpError(401, "unauthorized", "viewer required");
@@ -107,7 +110,7 @@ export async function runStoreOrderBootstrap(input: {
     rooms: authorized,
   });
   if (!listed.ok) throw new DomainBootstrapHttpError(500, listed.error, listed.error);
-  const hubBase = buildStoreOrderHubViewModel(listed.snapshot.rows);
+  const hubBase = buildStoreOrderHubViewModel(listed.snapshot.rows, input.lang);
   const hub: StoreOrderBootstrapHub = {
     ...hubBase,
     unreadRoomCount: hubBase.unreadCount,

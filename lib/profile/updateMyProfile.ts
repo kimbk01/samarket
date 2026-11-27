@@ -13,13 +13,18 @@ import { invalidatePhilifeFeedCachesForMemberIdentityChange } from "@/lib/commun
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { mergeAppBootProfileFull, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import type { ProfilePatchExpected } from "./profile-patch-concurrency";
+import { pickApiErrorCode } from "@/lib/i18n/api-error-text";
 
 /** PATCH 응답의 저장 결과 (서버가 UPDATE ... RETURNING 한 값) */
 export type SavedProfileFields = Pick<ProfileRow, "id" | "nickname" | "display_name" | "bio" | "avatar_url" | "updated_at">;
 
+/**
+ * 재감사 2026-11-27 P1 — 문장 대신 오류 코드만 돌려준다. 화면은 `profileSaveErrorText(result, t)` 로 그린다.
+ * `warningCode` 는 `profileSaveWarningText` 로.
+ */
 export type UpdateMyProfileResult =
-  | { ok: true; warning?: string; saved?: SavedProfileFields }
-  | { ok: false; error: string; code?: string };
+  | { ok: true; warningCode?: string; saved?: SavedProfileFields }
+  | { ok: false; code: string; status: number };
 
 /**
  * 저장 성공 직후 앱 boot 스냅샷 갱신 — `/mypage` 는 boot 스냅샷을 읽으므로 이것을 갱신하지 않으면
@@ -37,14 +42,6 @@ function syncAppBootSnapshotAfterSave(saved: SavedProfileFields | undefined): vo
     avatar_url: saved.avatar_url,
     updated_at: saved.updated_at,
   });
-}
-
-/** 서버·게이트가 내부 코드(`account_state_unavailable` 등)만 줄 때 사용자에게 코드 노출 금지 */
-function toUserFacingSaveError(raw: string | undefined, status: number): string {
-  const msg = raw?.trim() ?? "";
-  if (msg && !/^[a-z0-9_.:-]+$/i.test(msg)) return msg;
-  if (status === 401) return "로그인이 필요합니다. 다시 로그인해 주세요.";
-  return "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.";
 }
 
 function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
@@ -83,7 +80,7 @@ export async function updateMyProfile(
   }
 ): Promise<UpdateMyProfileResult> {
   const userId = getCurrentUser()?.id;
-  if (!userId) return { ok: false, error: "로그인이 필요합니다." };
+  if (!userId) return { ok: false, code: "login_required", status: 401 };
 
   /** 브라우저에서 직접 profiles.update 는 아이디 로그인(무 JWT)일 때 RLS 로 항상 실패함 — API + 서비스롤(또는 동일 JWT)로만 저장 */
   const hasSupabaseProject = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
@@ -103,15 +100,11 @@ export async function updateMyProfile(
         syncAppBootSnapshotAfterSave(data.profile);
         syncCachesAfterProfileSave(payload);
         const w = typeof data.warning === "string" && data.warning.trim() ? data.warning.trim() : undefined;
-        return { ok: true, ...(w ? { warning: w } : {}), ...(data.profile ? { saved: data.profile } : {}) };
+        return { ok: true, ...(w ? { warningCode: w } : {}), ...(data.profile ? { saved: data.profile } : {}) };
       }
-      return {
-        ok: false,
-        error: toUserFacingSaveError(data?.error, res.status),
-        ...(data?.code ? { code: data.code } : {}),
-      };
-    } catch (e) {
-      return { ok: false, error: (e as Error).message ?? "저장에 실패했습니다." };
+      return { ok: false, code: pickApiErrorCode(data) ?? "profile_save_failed", status: res.status };
+    } catch {
+      return { ok: false, code: "network_error", status: 0 };
     }
   }
 
@@ -128,6 +121,6 @@ export async function updateMyProfile(
     syncCachesAfterProfileSave(payload);
     return { ok: true };
   } catch {
-    return { ok: false, error: "저장에 실패했습니다." };
+    return { ok: false, code: "profile_save_failed", status: 0 };
   }
 }

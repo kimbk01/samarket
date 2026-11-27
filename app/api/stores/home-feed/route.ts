@@ -656,8 +656,8 @@ export async function GET(req: Request) {
     const featuredNowMs = Date.now();
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
-      const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
+      const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json, uiLang);
+      const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json, uiLang);
       const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
         extras,
         {
@@ -668,7 +668,7 @@ export async function GET(req: Request) {
       const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
         deliveryAvailable: !!r.delivery_available,
       });
-      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json);
+      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json, uiLang);
 
       const minPhp = extras.minOrderPhp;
       const minOrderLabel =

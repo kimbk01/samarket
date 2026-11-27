@@ -21,7 +21,7 @@ import {
   messengerTradeDockLine1,
   MessengerTradeProductDockRow,
 } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
-import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
+import { normalizeSellerListingState, sellerListingStateMessageKey } from "@/lib/products/seller-listing-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isTradePostPubliclyVisible } from "@/lib/trade/listing-visibility/listing-visibility-shared";
 import { useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
@@ -113,9 +113,12 @@ export function ChatProductSummary({
     </>
   ) : null;
 
-  const listingPhaseLabel = SELLER_LISTING_LABEL[
-    normalizeSellerListingState(sellerListingStateOverride, productStatusOverride ?? product.status)
-  ];
+  /** 언어 재감사 2026-11-27: 저장 토큰(한국어) 대신 상태 코드 → 화면 언어 키 */
+  const listingPhaseLabel = t(
+    sellerListingStateMessageKey(
+      normalizeSellerListingState(sellerListingStateOverride, productStatusOverride ?? product.status)
+    )
+  );
 
   /**
    * D-4: 숨김·삭제된 거래 글(관리자·판매자) — 제목·가격·사진 대신 「볼 수 없는 글이에요」, 상세로 가지 않는다.

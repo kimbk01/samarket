@@ -44,13 +44,13 @@ export type RecordRequiredConsentResult =
 function mapRpcError(message: string): RecordRequiredConsentResult & { ok: false } {
   const msg = String(message ?? "");
   if (/age_under_minimum/i.test(msg)) {
-    return { ok: false, code: "age_under_minimum", message: "만 14세 이상만 가입할 수 있습니다.", httpStatus: 403 };
+    return { ok: false, code: "age_under_minimum", message: "age_under_minimum", httpStatus: 403 };
   }
   if (/dob_required/i.test(msg)) {
-    return { ok: false, code: "dob_required", message: "생년월일이 필요합니다.", httpStatus: 400 };
+    return { ok: false, code: "dob_required", message: "dob_required", httpStatus: 400 };
   }
   if (/dob_invalid/i.test(msg)) {
-    return { ok: false, code: "dob_invalid", message: "생년월일이 올바르지 않습니다.", httpStatus: 400 };
+    return { ok: false, code: "dob_invalid", message: "dob_invalid", httpStatus: 400 };
   }
   if (/profile_missing/i.test(msg)) {
     return { ok: false, code: "profile_missing", message: "profile_missing_for_consent", httpStatus: 404 };
@@ -59,7 +59,7 @@ function mapRpcError(message: string): RecordRequiredConsentResult & { ok: false
     return {
       ok: false,
       code: "consent_versions_required",
-      message: "약관 버전이 필요합니다.",
+      message: "consent_versions_required",
       httpStatus: 400,
     };
   }
@@ -70,7 +70,7 @@ function mapRpcError(message: string): RecordRequiredConsentResult & { ok: false
     return {
       ok: false,
       code: "rpc_unavailable",
-      message: "동의 기록 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+      message: "rpc_unavailable",
       httpStatus: 503,
     };
   }

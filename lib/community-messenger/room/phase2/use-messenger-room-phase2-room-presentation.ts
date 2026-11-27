@@ -315,25 +315,27 @@ export function useMessengerRoomPhase2RoomPresentation({
       : isGroupRoom
         ? "그룹 통화 시작 권한 없음"
         : "";
-  const privateGroupPermissionRows = useMemo(
-    () =>
-      snapshot
-        ? [
-            { label: "일반 멤버 초대", value: snapshot.room.allowMemberInvite ? "허용" : "제한" },
-            { label: "관리자 초대", value: snapshot.room.allowAdminInvite ? "허용" : "제한" },
-            { label: "관리자 내보내기", value: snapshot.room.allowAdminKick ? "허용" : "제한" },
-            { label: "관리자 공지 수정", value: snapshot.room.allowAdminEditNotice ? "허용" : "제한" },
-            { label: "일반 멤버 업로드", value: snapshot.room.allowMemberUpload ? "허용" : "제한" },
-            { label: "일반 멤버 통화 시작", value: snapshot.room.allowMemberCall ? "허용" : "제한" },
-          ]
-        : [],
-    [snapshot]
-  );
+  const privateGroupPermissionRows = useMemo(() => {
+    if (!snapshot) return [];
+    const row = (labelKey: MessageKey, allowed: boolean) => ({
+      label: t(labelKey),
+      value: t(allowed ? "cm_ui_group_perm_allowed" : "cm_ui_group_perm_restricted"),
+      allowed,
+    });
+    return [
+      row("cm_ui_group_perm_member_invite", Boolean(snapshot.room.allowMemberInvite)),
+      row("cm_ui_group_perm_admin_invite", Boolean(snapshot.room.allowAdminInvite)),
+      row("cm_ui_group_perm_admin_kick", Boolean(snapshot.room.allowAdminKick)),
+      row("cm_ui_group_perm_admin_edit_notice", Boolean(snapshot.room.allowAdminEditNotice)),
+      row("cm_ui_group_perm_member_upload", Boolean(snapshot.room.allowMemberUpload)),
+      row("cm_ui_group_perm_member_call", Boolean(snapshot.room.allowMemberCall)),
+    ];
+  }, [snapshot, t]);
   const allowedPrivateGroupPermissionCount = useMemo(
-    () => privateGroupPermissionRows.filter((row) => row.value === "허용").length,
+    () => privateGroupPermissionRows.filter((row) => row.allowed).length,
     [privateGroupPermissionRows]
   );
-  const privateGroupNoticeStatusLabel = privateGroupNotice ? "등록됨" : "없음";
+  const privateGroupNoticeStatusLabel = privateGroupNotice ? t("cm_ui_group_notice_registered") : t("common_none");
 
   /** 미니화 힌트(sessionStorage)에 의존하지 않음 — `active`(연결됨)일 때만 배너(벨 울리는 ringing 제외).
    *  채팅 call_stub 이 이미 종료로 갱신됐는데 세션 행이 잠깐 active 로 남는 경우 배너를 숨긴다. */
@@ -371,7 +373,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     const chromeSecondary = domainChromePresentation?.headerSecondaryText?.trim();
     if (chromeSecondary) return chromeSecondary;
     return (
-      [roomTypeLabel, roomSubtitle || "마지막 활동 없음"].filter(Boolean).join(" · ") || ""
+      [roomTypeLabel, roomSubtitle || t("cm_ui_no_recent_activity")].filter(Boolean).join(" · ") || ""
     );
   }, [domainChromePresentation?.headerSecondaryText, snapshot, roomTypeLabel, roomSubtitle, isGroupRoom, t]);
 

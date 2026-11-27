@@ -25,8 +25,8 @@ export type FallbackStickerItem = {
 };
 
 export const FALLBACK_STICKER_PACKS: FallbackStickerPack[] = [
-  { id: "fallback-basic", slug: "basic", name: "기본", iconUrl: "/stickers/packs/basic/1f600.webp", sortOrder: 0, creditKey: "cm_ui_sticker_credit_twemoji" },
-  { id: "fallback-reaction", slug: "reaction", name: "리액션", iconUrl: "/stickers/packs/reaction/1f44d.webp", sortOrder: 1, creditKey: "cm_ui_sticker_credit_twemoji" },
+  { id: "fallback-basic", slug: "basic", name: "기본", nameKey: "cm_ui_sticker_pack_basic", iconUrl: "/stickers/packs/basic/1f600.webp", sortOrder: 0, creditKey: "cm_ui_sticker_credit_twemoji" },
+  { id: "fallback-reaction", slug: "reaction", name: "리액션", nameKey: "cm_ui_sticker_pack_reaction", iconUrl: "/stickers/packs/reaction/1f44d.webp", sortOrder: 1, creditKey: "cm_ui_sticker_credit_twemoji" },
   ...OPENMOJI_STICKER_PACKS,
 ];
 

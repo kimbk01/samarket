@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
   // AD-09: 관리자 로그인 설정에서 아이디(password) 로그인을 끄면 서버도 식별자 해석을 거부한다 (UI 스위치만이 아님).
   if (!(await isPasswordLoginEnabledServer())) {
-    return jsonError("아이디 로그인이 비활성화되어 있습니다.", { status: 403, code: "password_login_disabled" });
+    return jsonError("password_login_disabled", { status: 403, code: "password_login_disabled" });
   }
   const resolved = await resolvePasswordLoginIdentifier(identifier);
   if (!resolved.ok) {

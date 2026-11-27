@@ -13,6 +13,7 @@ import {
 } from "@/lib/messenger/contracts/realtime-apply-port";
 import { DomainEventEnvelopeError } from "@/lib/messenger/contracts/domain-event-envelope";
 import { buildTradeHubViewModel } from "@/lib/messenger/trade/hub";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
 import { TRADE_DOMAIN, type TradeListItem } from "@/lib/messenger/trade/types";
 
@@ -61,6 +62,8 @@ export function createTradeRealtimeApplyPort(input: {
   viewerUserId: string;
   /** Authority path: inject Phase6 singleton. Default = isolated Map (harness only). */
   cache?: DomainPersistentCachePort<TradeListItem>;
+  /** 허브 미리보기 언어 — 보는 사람 언어. 없으면 실행 환경 언어(재감사 2026-11-27) */
+  lang?: AppLanguageCode | null;
 }): DomainRealtimeApplyPort<TradeListItem> {
   const cache =
     input.cache ?? createDomainPersistentCachePort<TradeListItem>(TRADE_DOMAIN, "chat.trade");
@@ -159,7 +162,7 @@ export function createTradeRealtimeApplyPort(input: {
       return { kind: "noop" };
     },
     recomputeHubBadge: ({ rows }) => {
-      const hub = buildTradeHubViewModel(rows);
+      const hub = buildTradeHubViewModel(rows, input.lang);
       return {
         hub: {
           ...hub,

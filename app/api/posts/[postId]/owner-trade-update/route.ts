@@ -19,6 +19,7 @@ import { assertTradeActivityAllowed } from "@/lib/trade/trade-activity-restricti
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { PHONE_VERIFICATION_REQUIRED_MESSAGE } from "@/lib/auth/member-access-constants";
 import {
   allowAnyPostUpdate,
   allowEditCoreFields,
@@ -56,6 +57,11 @@ type PatchBody = {
   tradeJob?: TradeJobColumnPayload | null;
 };
 
+/** 언어 재감사 2026-11-27: 서버 문장·DB 원문 대신 오류 코드만 보낸다 — 화면은 `resolveOwnerPostApiErrorText` */
+function ownerTradeUpdateFail(code: string, status: number) {
+  return NextResponse.json({ ok: false, error: code, code }, { status });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
@@ -68,7 +74,7 @@ export async function PATCH(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return ownerTradeUpdateFail("server_unconfigured", 500);
   }
 
   // 거래 활동 제한(글 수정) — 설계 v2 §C-5
@@ -78,19 +84,22 @@ export async function PATCH(
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return ownerTradeUpdateFail("post_id_required", 400);
   }
 
   const access = await assertVerifiedMemberForAction(sb as any, userId);
   if (!access.ok) {
-    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+    return ownerTradeUpdateFail(
+      access.error === PHONE_VERIFICATION_REQUIRED_MESSAGE ? "phone_verification_required" : "member_action_restricted",
+      access.status
+    );
   }
 
   let body: PatchBody;
   try {
     body = (await req.json()) as PatchBody;
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 본문이 필요합니다." }, { status: 400 });
+    return ownerTradeUpdateFail("invalid_json", 400);
   }
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient;
@@ -115,15 +124,16 @@ export async function PATCH(
   }
 
   if (fetchErr) {
-    return NextResponse.json({ ok: false, error: fetchErr.message }, { status: 500 });
+    console.error("[owner-trade-update] post lookup", fetchErr.message);
+    return ownerTradeUpdateFail("post_lookup_failed", 500);
   }
   if (!row) {
-    return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    return ownerTradeUpdateFail("post_not_found", 404);
   }
 
   const owner = String((row as { user_id?: string }).user_id ?? "");
   if (!owner || owner !== userId) {
-    return NextResponse.json({ ok: false, error: "본인 글만 수정할 수 있습니다." }, { status: 403 });
+    return ownerTradeUpdateFail("not_owner", 403);
   }
 
   const lifecycle = deriveTradeLifecycleStatus({
@@ -133,10 +143,7 @@ export async function PATCH(
   });
 
   if (!allowAnyPostUpdate(lifecycle)) {
-    return NextResponse.json(
-      { ok: false, error: "이 상태에서는 수정할 수 없습니다.", code: "trade_lifecycle_locked" },
-      { status: 403 }
-    );
+    return ownerTradeUpdateFail("trade_lifecycle_locked", 403);
   }
 
   const catId = String((row as { trade_category_id?: string }).trade_category_id ?? "").trim();
@@ -222,19 +229,17 @@ export async function PATCH(
         : { ...proposed, region: before.region, city: before.city, trade_lgu_id: before.trade_lgu_id };
       const lguGate = assertActiveTradeNationalLgu(proposed.trade_lgu_id ?? "");
       if (!lguGate.ok) {
-        return NextResponse.json(
-          { ok: false, error: lguGate.error, code: "trade_lgu_id_invalid" },
-          { status: 400 }
-        );
+        return ownerTradeUpdateFail("trade_lgu_id_invalid", 400);
       }
     }
   } else if (allowsRestrictedPartialEdit(lifecycle) || allowsCancelledPartialEdit(lifecycle)) {
     const v = validateRestrictedMetaPatch(tradeKind, before, proposed);
     if (!v.ok) {
-      return NextResponse.json({ ok: false, error: v.error, code: "trade_edit_restricted" }, { status: 403 });
+      /** 재감사 2026-11-27: 핵심 조건 잠금(`trade_core_locked`)과 본문 추가만 허용(`trade_content_append_only`)을 구분해 보낸다 */
+      return ownerTradeUpdateFail(v.error, 403);
     }
   } else {
-    return NextResponse.json({ ok: false, error: "이 상태에서는 수정할 수 없습니다." }, { status: 403 });
+    return ownerTradeUpdateFail("trade_lifecycle_locked", 403);
   }
 
   /** 거래 I W-2: 사진을 보낸 수정에서 사진 필수 주제인데 0장이면 저장하지 않는다(화면과 같은 기준) */
@@ -248,10 +253,7 @@ export async function PATCH(
         (proposed.meta as Record<string, unknown> | null) ?? null
       ))
     ) {
-      return NextResponse.json(
-        { ok: false, error: "사진을 1장 이상 올려 주세요.", code: "trade_photo_required" },
-        { status: 400 }
-      );
+      return ownerTradeUpdateFail("trade_photo_required", 400);
     }
   }
 
@@ -265,7 +267,7 @@ export async function PATCH(
     acceptLanguage: req.headers.get("accept-language"),
   });
   if (!filtered.ok) {
-    return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+    return ownerTradeUpdateFail(filtered.code, filtered.status);
   }
 
   /**
@@ -274,7 +276,7 @@ export async function PATCH(
    */
   const priceCheck = normalizeTradePriceForSave(proposed.price, false);
   if (!priceCheck.ok) {
-    return NextResponse.json({ ok: false, error: priceCheck.code, code: priceCheck.code }, { status: 400 });
+    return ownerTradeUpdateFail(priceCheck.code, 400);
   }
 
   const now = new Date().toISOString();
@@ -317,7 +319,8 @@ export async function PATCH(
   const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patchDb).eq("id", id).eq("user_id", userId);
 
   if (updErr) {
-    return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
+    console.error("[owner-trade-update] update", updErr.message);
+    return ownerTradeUpdateFail("save_failed", 500);
   }
 
   return NextResponse.json({

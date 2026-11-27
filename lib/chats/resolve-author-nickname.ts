@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import {
   MEMBER_IDENTITY_PROFILE_SELECT,
   memberCompactLabelFromRow,
@@ -71,11 +72,16 @@ export type AuthorPublicProfile = {
   nickname?: string | null;
 };
 
-function profileRowToPublicProfile(row: Record<string, unknown> | null | undefined): AuthorPublicProfile | null {
+function profileRowToPublicProfile(
+  row: Record<string, unknown> | null | undefined,
+  /** 이름 없는 회원 대체 이름 언어(보는 사람) */
+  lang?: AppLanguageCode
+): AuthorPublicProfile | null {
   if (!row) return null;
   const id = nonEmptyString(row.id);
   const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, {
     userId: id ?? undefined,
+    lang,
   });
   if (!identity) return null;
   return {
@@ -98,7 +104,9 @@ function testUserToPublicProfile(row: Record<string, unknown> | null | undefined
 
 export async function fetchAuthorPublicProfilesForUserIds(
   sbAny: SupabaseClient<any>,
-  userIds: string[]
+  userIds: string[],
+  /** 이름 없는 회원 대체 이름 언어(보는 사람) — 서버 호출처는 요청 언어를 넘긴다 */
+  lang?: AppLanguageCode
 ): Promise<Map<string, AuthorPublicProfile>> {
   const map = new Map<string, AuthorPublicProfile>();
   const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
@@ -111,7 +119,7 @@ export async function fetchAuthorPublicProfilesForUserIds(
       .select(MEMBER_IDENTITY_PROFILE_SELECT)
       .eq("id", onlyId)
       .maybeSingle();
-    const parsed = profileRowToPublicProfile(profile as Record<string, unknown> | null);
+    const parsed = profileRowToPublicProfile(profile as Record<string, unknown> | null, lang);
     if (parsed) {
       map.set(onlyId, parsed);
       return map;
@@ -132,7 +140,7 @@ export async function fetchAuthorPublicProfilesForUserIds(
     .in("id", ids);
   (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
     const id = p.id as string;
-    const parsed = profileRowToPublicProfile(p);
+    const parsed = profileRowToPublicProfile(p, lang);
     if (id && parsed) map.set(id, parsed);
   });
 

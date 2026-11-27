@@ -28,7 +28,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   let body: { reason?: string };
@@ -39,7 +39,7 @@ export async function POST(
   }
   const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "room_id_required", code: "room_id_required" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -50,18 +50,20 @@ export async function POST(
     .maybeSingle();
 
   if (!room) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "room_not_found", code: "room_not_found" }, { status: 404 });
   }
   const r = room as { seller_id: string | null; buyer_id: string | null; initiator_id: string; peer_id: string | null };
   const ids = [r.seller_id, r.buyer_id, r.initiator_id, r.peer_id].filter(Boolean) as string[];
   const blockedUserId = ids.find((id) => id !== userId);
   if (!blockedUserId) {
-    return NextResponse.json({ ok: false, error: "상대를 찾을 수 없습니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "peer_not_found", code: "peer_not_found" }, { status: 400 });
   }
 
   const blockResult = await blockUserSocial(userId, blockedUserId);
   if (!blockResult.ok) {
-    return NextResponse.json({ ok: false, error: blockResult.error ?? "block_failed" }, { status: 500 });
+    /** 코드만 — DB 원문은 로그로 (재감사 2026-11-27 · 화면 `USER_BLOCK_ERROR_KEYS`) */
+    console.error("[chat/rooms/block] block failed", blockResult.error ?? "");
+    return NextResponse.json({ ok: false, error: "block_failed", code: "block_failed" }, { status: 500 });
   }
 
   const now = new Date().toISOString();

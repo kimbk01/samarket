@@ -3,6 +3,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
@@ -105,6 +106,16 @@ export async function notifyCommunityPostCommentReceived(
         comment_id: commentId,
         commenter_id: commenterId,
         commenter_label: commenterLabel,
+        ...notificationCopyMeta({
+          titleKey: isReply ? "notify_community_reply_title" : "notify_community_comment_title",
+          /** 본문이 댓글 미리보기(사람이 쓴 글)면 키를 두지 않는다 */
+          messageKey: preview ? null : "notify_community_comment_body",
+          vars: commenterNick && !commenterNick.startsWith("@") ? { name: commenterNick } : undefined,
+          varKeys:
+            commenterNick && !commenterNick.startsWith("@")
+              ? undefined
+              : { name: commenterNick ? "notify_member_fallback_name" : "notify_peer_fallback" },
+        }),
       },
     });
   }
@@ -150,6 +161,12 @@ export async function notifyCommunityPostLikeReceived(
       like_id: likeId,
       liker_id: likerId,
       liker_label: likerLabel,
+      ...notificationCopyMeta({
+        titleKey: "notify_community_like_title",
+        messageKey: "notify_community_like_body",
+        vars: nickMap.get(likerId)?.trim() ? { name: likerLabel } : undefined,
+        varKeys: nickMap.get(likerId)?.trim() ? undefined : { name: "notify_peer_fallback" },
+      }),
     },
   });
 }

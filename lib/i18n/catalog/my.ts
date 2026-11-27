@@ -97,7 +97,7 @@ export const myMessages = {
     account_member_status_verified_member: "인증 회원",
     account_member_status_admin_manual: "관리자",
     account_member_status_admin: "관리자",
-    profile_guest_name: "DIBAY Guest",
+    profile_guest_name: "DIBAY 게스트",
     profile_guest_desc: "로그인하면 채팅, 주문, 거래를 사용할 수 있습니다.",
     profile_guest_login_cta: "로그인 / 회원가입",
     profile_complete_desc: "프로필을 완성해 주세요.",

@@ -1,4 +1,5 @@
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { messageRoomKindForActions, type MessageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
 import {
@@ -16,6 +17,8 @@ export type MessageLongPressActionDef = {
   action: MessageLongPressMenuAction;
   enabled: boolean;
   reason?: string;
+  /** 비활성 이유 문구 키 — 화면이 `t()` 로 그린다 */
+  reasonKey?: MessageKey;
 };
 
 export function getMessageLongPressActions(input: {
@@ -39,7 +42,7 @@ export function getMessageLongPressActions(input: {
     {
       action: "copy",
       enabled: copyEnabled,
-      reason: copyEnabled ? undefined : "복사할 수 없는 메시지입니다",
+      reasonKey: copyEnabled ? undefined : "cm_ui_cannot_copy_message",
     },
     {
       action: "reply",

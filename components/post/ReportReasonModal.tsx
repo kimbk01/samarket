@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { POST_REPORT_REASONS } from "@/lib/reports/report-utils";
 import { createReport } from "@/lib/reports/createReport";
+import { reportErrorText } from "@/lib/reports/report-block-error-text";
 import { markPostReportedByMe } from "@/lib/reports/reported-posts-store";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { DibayFullSheet } from "@/components/ui/dibay-overlay";
@@ -65,7 +66,7 @@ export function ReportReasonModal({
       markPostReportedByMe(postId);
       setDone(res.already ? "already" : "new");
     } else {
-      setError(res.error ?? t("ui_post_report_failed"));
+      setError(reportErrorText(res, t, "ui_post_report_failed"));
     }
   };
 

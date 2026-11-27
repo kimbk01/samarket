@@ -6,6 +6,7 @@ import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-tra
 import { ensureMessengerRoomIdForProductChat } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 
+/** 실패 `error` = 오류 코드(화면 문구는 `tradeChatEntryErrorText`) — 회원 검증 실패는 그 모듈 값을 그대로 */
 export type ResolveLegacyProductChatResult =
   | { ok: true; roomId: string; messengerRoomId?: string }
   | { ok: false; error: string; status: number };
@@ -18,19 +19,15 @@ export async function resolveLegacyProductChatCreateOrGet(input: {
   const productId = input.productId.trim();
 
   if (!userId) {
-    return { ok: false, error: "로그인이 필요합니다.", status: 401 };
+    return { ok: false, error: "login_required", status: 401 };
   }
   if (!productId) {
-    return { ok: false, error: "productId 필요", status: 400 };
+    return { ok: false, error: "invalid_request", status: 400 };
   }
 
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) {
-    return {
-      ok: false,
-      error: "서버 설정이 필요합니다. .env.local에 SUPABASE_SERVICE_ROLE_KEY를 넣어 주세요.",
-      status: 500,
-    };
+    return { ok: false, error: "service_unavailable", status: 500 };
   }
   const sbAny: SupabaseClient<any> = svc as SupabaseClient<any>;
   const access = await assertVerifiedMemberForAction(sbAny, userId);
@@ -41,29 +38,29 @@ export async function resolveLegacyProductChatCreateOrGet(input: {
   // 1) 상품 및 판매자 — 상세 API와 동일 로더
   const postRaw = await fetchPostRowForTradeChatById(sbAny, productId);
   if (!postRaw) {
-    return { ok: false, error: "상품을 찾을 수 없습니다.", status: 404 };
+    return { ok: false, error: "product_not_found", status: 404 };
   }
   const row = postRaw as Record<string, unknown>;
   const sellerId = postAuthorUserId(row) ?? "";
   if (!sellerId) {
-    return { ok: false, error: "상품을 찾을 수 없습니다.", status: 404 };
+    return { ok: false, error: "product_not_found", status: 404 };
   }
   if (sellerId === userId) {
-    return { ok: false, error: "내 상품에는 채팅할 수 없습니다.", status: 400 };
+    return { ok: false, error: "own_product_chat", status: 400 };
   }
   if (row.is_deleted === true) {
-    return { ok: false, error: "삭제된 상품입니다.", status: 400 };
+    return { ok: false, error: "product_deleted", status: 400 };
   }
   if (row.status === "hidden" || row.visibility === "hidden") {
-    return { ok: false, error: "비공개 상품입니다.", status: 400 };
+    return { ok: false, error: "product_hidden", status: 400 };
   }
   if (row.status === "sold") {
-    return { ok: false, error: "거래완료된 상품입니다.", status: 400 };
+    return { ok: false, error: "product_sold", status: 400 };
   }
 
   // 2) 차단
   if (await isBlockedEitherWay(userId, sellerId)) {
-    return { ok: false, error: "차단 관계에서는 채팅할 수 없습니다.", status: 403 };
+    return { ok: false, error: "blocked_relation", status: 403 };
   }
 
   // 3) 기존 방
@@ -92,17 +89,14 @@ export async function resolveLegacyProductChatCreateOrGet(input: {
     .single();
 
   if (insertErr) {
-    return {
-      ok: false,
-      error: insertErr.message ?? "채팅방 생성에 실패했습니다.",
-      status: 500,
-    };
+    console.error("[legacy-product-chat] insert failed", insertErr);
+    return { ok: false, error: "chat_room_create_failed", status: 500 };
   }
   const ins = inserted as { id?: string } | null | undefined;
   const roomId = ins?.id ?? "";
   const messengerRoomId = roomId ? await ensureMessengerRoomIdForProductChat(userId, roomId) : undefined;
   if (!roomId) {
-    return { ok: false, error: "채팅방 생성에 실패했습니다.", status: 500 };
+    return { ok: false, error: "chat_room_create_failed", status: 500 };
   }
   return { ok: true, roomId, messengerRoomId };
 }

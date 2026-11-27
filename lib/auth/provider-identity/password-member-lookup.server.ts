@@ -119,21 +119,21 @@ export function classifyPasswordMemberGate(
     return {
       kind: "lifecycle_deny",
       errorCode: "account_withdrawn",
-      message: "탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.",
+      message: "account_withdrawn",
     };
   }
   if (isBlockedMemberAccount(profile)) {
     return {
       kind: "lifecycle_deny",
       errorCode: "account_blocked",
-      message: "이용이 차단된 계정입니다. 관리자 차단 해제 후 다시 로그인해 주세요.",
+      message: "account_blocked",
     };
   }
   if (isSuspendedMemberAccount(profile)) {
     return {
       kind: "lifecycle_deny",
       errorCode: "account_suspended",
-      message: "이 회원은 현재 활동이 제한되어 있습니다.",
+      message: "account_suspended",
     };
   }
 

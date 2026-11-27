@@ -20,20 +20,34 @@ export {
   type TradeActivityKind,
 } from "@/lib/trade/trade-activity-restriction-core";
 
-function formatUntilKo(endAt: string | null): string {
-  if (!endAt) return "별도 안내 시까지";
+/** 제한 끝 시각 — 언어와 무관한 표기(PHT `YYYY-MM-DD HH:mm`). 화면 문구는 키 `reaudit_trade_restricted_until` */
+function formatRestrictionUntil(endAt: string | null): string | null {
+  if (!endAt) return null;
   const d = new Date(endAt);
-  if (Number.isNaN(d.getTime())) return "별도 안내 시까지";
-  return `${d.toLocaleString("ko-KR", { timeZone: "Asia/Manila" })}까지`;
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
 export function tradeRestrictedResponse(r: ActiveTradeRestriction): NextResponse {
+  const until = formatRestrictionUntil(r.end_at);
+  /** 화면은 코드로 문구를 고른다(`lib/trade/trade-api-error-text.ts`) — 서버 문장 없음 */
+  const code = until ? "trade_restricted_until" : "trade_restricted";
   return NextResponse.json(
     {
       ok: false,
-      /** 거래 화면은 `error` 를 그대로 안내 문구로 보여 준다 — 기계 코드는 `code` */
-      error: `거래 활동이 제한되어 있습니다 (${formatUntilKo(r.end_at)}). 이의신청은 고객센터에서 할 수 있습니다.`,
-      code: "trade_restricted",
+      error: code,
+      code,
+      ...(until ? { params: { until } } : {}),
       restriction: r.restriction,
       end_at: r.end_at,
     },

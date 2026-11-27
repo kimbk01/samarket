@@ -1,4 +1,7 @@
 import type { ModifierInputType, ParsedModifierItem, ParsedOptionGroup } from "@/lib/stores/modifiers/types";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 function clampInt(n: unknown, lo: number, hi: number, fallback: number): number {
   const x = Math.floor(Number(n));
@@ -26,7 +29,11 @@ function stableItemKey(groupIndex: number, optIndex: number, explicit?: unknown)
 }
 
 /** options_json 배열 → 파싱(정렬·타입 추론 포함) */
-export function parseProductOptionsJson(raw: unknown): ParsedOptionGroup[] {
+export function parseProductOptionsJson(
+  raw: unknown,
+  /** 이름 없는 옵션 그룹 대체 라벨 언어 — 없으면 화면 언어 */
+  language: AppLanguageCode = getRuntimeAppLanguage()
+): ParsedOptionGroup[] {
   if (!Array.isArray(raw)) return [];
   const out: ParsedOptionGroup[] = [];
   for (let gi = 0; gi < raw.length; gi++) {
@@ -34,7 +41,7 @@ export function parseProductOptionsJson(raw: unknown): ParsedOptionGroup[] {
     if (!g || typeof g !== "object") continue;
     const rec = g as Record<string, unknown>;
     const labelRaw = String(rec.nameKo ?? rec.name ?? "").trim();
-    const label = labelRaw || `옵션 ${gi + 1}`;
+    const label = labelRaw || translate(language, "store_option_group_fallback", { n: gi + 1 });
     const description = String(rec.description ?? "").trim();
     const sortOrder = clampInt(rec.sortOrder, -9999, 9999, gi);
     const minSelect = clampInt(rec.minSelect, 0, 99, 0);

@@ -7,6 +7,8 @@ import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { findCommentById, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { fetchPhilifePostCommentTree } from "@/lib/neighborhood/philife-post-comments.client";
 import { handleProfileIncompleteApiResponse } from "@/lib/profile/handle-profile-incomplete-api-response";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { COMMUNITY_COMMENT_ERROR_KEYS } from "@/lib/community/community-api-error-text";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import {
   philifePostCommentLikeUrl,
@@ -104,8 +106,14 @@ export function usePhilifePostComments(postId: string) {
       if (data.code === "community_comment_blocked_relation" || res.status === 403) {
         return t("community_comment_blocked_relation");
       }
-      const msg = typeof data.error === "string" ? data.error.trim() : "";
-      return msg || t("community_comment_locked");
+      /** 재감사 2026-11-27: 서버 문장 대신 오류 코드 → 화면 언어 문구 */
+      return resolveApiErrorText({
+        json: data,
+        status: res.status,
+        map: COMMUNITY_COMMENT_ERROR_KEYS,
+        fallbackKey: "community_comment_action_failed",
+        t,
+      });
     },
     [t]
   );
@@ -142,7 +150,7 @@ export function usePhilifePostComments(postId: string) {
         if (!data.ok) {
           const profileHandled = handleProfileIncompleteApiResponse(data);
           setSubmitError(
-            profileHandled.handled ? profileHandled.error : resolveSubmitError(res, data)
+            profileHandled.handled ? t("community_comment_err_profile_incomplete") : resolveSubmitError(res, data)
           );
           return false;
         }
@@ -280,7 +288,13 @@ export function usePhilifePostComments(postId: string) {
           );
           return null;
         }
-        return (typeof data.error === "string" && data.error.trim()) || t("community_comment_action_failed");
+        return resolveApiErrorText({
+          json: data,
+          status: res.status,
+          map: COMMUNITY_COMMENT_ERROR_KEYS,
+          fallbackKey: "community_comment_action_failed",
+          t,
+        });
       } catch {
         return t("community_comment_action_failed");
       } finally {
@@ -327,7 +341,13 @@ export function usePhilifePostComments(postId: string) {
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!(res.ok && data.ok)) {
           await dibayAlert({
-            title: (typeof data.error === "string" && data.error.trim()) || t("community_comment_action_failed"),
+            title: resolveApiErrorText({
+              json: data,
+              status: res.status,
+              map: COMMUNITY_COMMENT_ERROR_KEYS,
+              fallbackKey: "community_comment_action_failed",
+              t,
+            }),
           });
           await reloadComments();
           return;

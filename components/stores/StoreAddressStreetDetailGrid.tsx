@@ -2,12 +2,12 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import {
-  STORE_ADDRESS_DETAIL_LABEL,
+  STORE_ADDRESS_DETAIL_LABEL_KEY,
   STORE_ADDRESS_DETAIL_MAX,
-  STORE_ADDRESS_STREET_HINT,
-  STORE_ADDRESS_STREET_LABEL,
+  STORE_ADDRESS_STREET_HINT_KEY,
+  STORE_ADDRESS_STREET_LABEL_KEY,
   STORE_ADDRESS_STREET_MAX,
-  STORE_ADDRESS_STREET_PLACEHOLDER,
+  STORE_ADDRESS_STREET_PLACEHOLDER_KEY,
 } from "@/lib/stores/store-address-form-ui";
 import {
   OWNER_STORE_CONTROL_CLASS,
@@ -41,12 +41,12 @@ export function StoreAddressStreetDetailGrid({
   return (
     <div className="space-y-2">
       {showStreetHint ? (
-        <p className={OWNER_STORE_FORM_HINT_CLASS}>{STORE_ADDRESS_STREET_HINT}</p>
+        <p className={OWNER_STORE_FORM_HINT_CLASS}>{t(STORE_ADDRESS_STREET_HINT_KEY)}</p>
       ) : null}
       <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
         <div className="min-w-0">
           <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-            {STORE_ADDRESS_STREET_LABEL}
+            {t(STORE_ADDRESS_STREET_LABEL_KEY)}
           </label>
           <input
             type="text"
@@ -55,12 +55,12 @@ export function StoreAddressStreetDetailGrid({
             value={addressStreetLine}
             onChange={(e) => onAddressStreetLineChange(e.target.value)}
             className={inputClassName}
-            placeholder={STORE_ADDRESS_STREET_PLACEHOLDER}
+            placeholder={t(STORE_ADDRESS_STREET_PLACEHOLDER_KEY)}
           />
         </div>
         <div className="min-w-0">
           <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-            {STORE_ADDRESS_DETAIL_LABEL}
+            {t(STORE_ADDRESS_DETAIL_LABEL_KEY)}
           </label>
           <input
             type="text"

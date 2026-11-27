@@ -30,7 +30,6 @@ export async function GET(
     key: `legacy-product-chat:message-page:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "legacy_product_chat_message_page_rate_limited",
   });
   if (!pageRateLimit.ok) return pageRateLimit.response;
@@ -38,7 +37,7 @@ export async function GET(
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+    return NextResponse.json({ error: "invalid_room_id", code: "invalid_room_id" }, { status: 400 });
   }
 
   const rawLimit = Number(req.nextUrl.searchParams.get("limit"));

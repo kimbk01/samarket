@@ -3,6 +3,8 @@
  * GET /api/chat/room/[roomId] 에서 사용자별 `profiles` 단건 조회(N회) 대신 `.in("id", …)` 일괄 조회.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 import {
@@ -23,7 +25,9 @@ export type PartnerDisplayFields = {
 
 export async function fetchPartnerDisplayFieldsMap(
   sbAny: SupabaseClient<any>,
-  userIds: string[]
+  userIds: string[],
+  /** 이름 없는 회원 대체 이름 언어 — 없으면 요청(보는 사람) 언어 */
+  langInput?: AppLanguageCode
 ): Promise<Map<string, PartnerDisplayFields>> {
   const map = new Map<string, PartnerDisplayFields>();
   const ids = [...new Set(userIds.map((x) => String(x).trim()).filter(Boolean))];
@@ -37,6 +41,7 @@ export async function fetchPartnerDisplayFieldsMap(
     });
   }
   if (ids.length === 0) return map;
+  const lang = langInput ?? (await resolveRequestAppLanguageOr("en"));
 
   const { data: profiles } = await sbAny
     .from("profiles")
@@ -50,7 +55,7 @@ export async function fetchPartnerDisplayFieldsMap(
     if (!id) continue;
     foundProfile.add(id);
     const fb = id.slice(0, 8) || "?";
-    const identity = resolvePublicMemberIdentity(p as MemberIdentityProfileFields, { userId: id });
+    const identity = resolvePublicMemberIdentity(p as MemberIdentityProfileFields, { userId: id, lang });
     const label = identity?.displayLabel?.trim() || fb;
     const av = p.avatar_url;
     const avatar = typeof av === "string" && av.trim() ? av.trim() : "";

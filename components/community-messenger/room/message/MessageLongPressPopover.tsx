@@ -369,7 +369,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           showCopy={!isCallStub}
           copyLabel={copyLabel}
           copyDisabled={!copyAction?.enabled}
-          copyTitle={copyAction?.reason}
+          copyTitle={copyAction?.reasonKey ? t(copyAction.reasonKey) : copyAction?.reason}
           onCopy={props.onCopy}
           edit={editRow}
           replyDisabled={!replyAction?.enabled}

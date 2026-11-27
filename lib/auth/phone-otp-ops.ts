@@ -219,7 +219,7 @@ export async function setAuthPhoneOtpEnabled(input: {
       ok: false,
       status: 400,
       code: "invalid_reason",
-      message: "변경 사유를 입력해 주세요.",
+      message: "invalid_reason",
     };
   }
 
@@ -230,7 +230,7 @@ export async function setAuthPhoneOtpEnabled(input: {
         ok: false,
         status: 409,
         code: "forbidden_security",
-        message: "필수 보안·공급자 설정이 충족되지 않아 활성화할 수 없습니다.",
+        message: "forbidden_security",
         blockers: security.missing,
       };
     }
@@ -246,12 +246,12 @@ export async function setAuthPhoneOtpEnabled(input: {
   });
 
   if (rpcError) {
+    console.error("[phone-otp-ops] admin_set_auth_phone_otp_enabled rpc failed", { message: rpcError.message });
     return {
       ok: false,
       status: 503,
       code: "rpc_unavailable",
-      message:
-        "전화 인증 ON/OFF RPC를 사용할 수 없습니다. 마이그레이션 적용 전에는 설정을 변경하지 않습니다.",
+      message: "rpc_unavailable",
     };
   }
 
@@ -260,7 +260,7 @@ export async function setAuthPhoneOtpEnabled(input: {
       ok: false,
       status: 500,
       code: "server_error",
-      message: "전화 인증 설정 변경에 실패했습니다.",
+      message: "server_error",
     };
   }
 
@@ -270,7 +270,7 @@ export async function setAuthPhoneOtpEnabled(input: {
       ok: false,
       status: 409,
       code: "version_conflict",
-      message: "다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해 주세요.",
+      message: "version_conflict",
       currentVersion: Number(row.current_version) || undefined,
     };
   }
@@ -279,7 +279,7 @@ export async function setAuthPhoneOtpEnabled(input: {
       ok: false,
       status: 500,
       code: "settings_missing",
-      message: "전화 인증 설정을 찾을 수 없습니다.",
+      message: "settings_missing",
     };
   }
   if (row.ok !== true) {
@@ -287,7 +287,7 @@ export async function setAuthPhoneOtpEnabled(input: {
       ok: false,
       status: 500,
       code: "server_error",
-      message: "전화 인증 설정 변경에 실패했습니다.",
+      message: "server_error",
     };
   }
 

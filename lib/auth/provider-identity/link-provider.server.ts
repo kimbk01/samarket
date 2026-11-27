@@ -22,7 +22,7 @@ export async function completeProviderLink(
     return {
       ok: false,
       errorCode: "provider_link_token_invalid",
-      message: "계정 연결 요청이 만료되었거나 유효하지 않습니다.",
+      message: "provider_link_token_invalid",
     };
   }
 
@@ -35,7 +35,7 @@ export async function completeProviderLink(
     return {
       ok: false,
       errorCode: "provider_already_linked",
-      message: "이미 연결된 로그인 방식입니다.",
+      message: "provider_already_linked",
     };
   }
 
@@ -44,7 +44,7 @@ export async function completeProviderLink(
     return {
       ok: false,
       errorCode: "provider_user_id_taken",
-      message: "이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.",
+      message: "provider_user_id_taken",
     };
   }
 
@@ -56,7 +56,7 @@ export async function completeProviderLink(
       return {
         ok: false,
         errorCode: "provider_user_id_taken",
-        message: "이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.",
+        message: "provider_user_id_taken",
       };
     }
     throw err;
@@ -105,7 +105,7 @@ export async function unlinkProvider(
     return {
       ok: false,
       errorCode: "last_provider_unlink_blocked",
-      message: "최소 1개의 로그인 방법은 유지해야 합니다.",
+      message: "last_provider_unlink_blocked",
     };
   }
 
@@ -114,7 +114,7 @@ export async function unlinkProvider(
     return {
       ok: false,
       errorCode: "provider_not_linked",
-      message: "연결된 로그인 방식이 아닙니다.",
+      message: "provider_not_linked",
     };
   }
 
@@ -123,7 +123,7 @@ export async function unlinkProvider(
     return {
       ok: false,
       errorCode: "provider_not_linked",
-      message: "연결된 로그인 방식이 아닙니다.",
+      message: "provider_not_linked",
     };
   }
 

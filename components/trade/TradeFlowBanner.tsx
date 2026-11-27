@@ -1,5 +1,6 @@
 "use client";
 
+import { tradeListingErrorText } from "@/lib/trade/trade-api-error-text";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useEffect, useMemo, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
@@ -109,9 +110,9 @@ export function TradeFlowBanner({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
       if (!res.ok || !data.ok) {
-        setMsg(data.error ?? t("trade_detail_action_failed"));
+        setMsg(tradeListingErrorText({ json: data, status: res.status }, t, "trade_detail_action_failed"));
         return;
       }
       if (path.includes("/seller-complete")) {

@@ -203,4 +203,9 @@ export interface ChatMessage {
   replyTo?: ChatMessageReplyTo | null;
   /** 리액션 목록 (metadata 등에서 확장 시 사용) */
   reactions?: ChatMessageReaction[];
+  /**
+   * 통합 채팅 시스템 줄 metadata — 화면이 저장 문장 대신 종류 코드로 보는 사람 언어 문장을 그린다
+   * (예: 상품 상태 변경 `resolveTradeListingChangeSystemState`, 언어 재감사 2026-11-27). 시스템 줄만 채운다.
+   */
+  metadata?: Record<string, unknown> | null;
 }

@@ -13,6 +13,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { buildSupportEnterHref } from "@/lib/support/support-enter-href";
 
 function clip(v: unknown, max = 200): string {
@@ -62,7 +63,17 @@ export async function notifyTradePostModerated(
       args.kind === "restored" || args.kind === "edited"
         ? `/post/${args.postId}`
         : buildSupportEnterHref({ category: "TRADE", referenceType: "TRADE_POST", referenceId: args.postId }),
-    meta: { kind: "trade_moderation", action: args.kind, post_id: args.postId, ...(reason ? { reason } : {}) },
+    meta: {
+      kind: "trade_moderation",
+      action: args.kind,
+      post_id: args.postId,
+      ...(reason ? { reason } : {}),
+      ...notificationCopyMeta({
+        titleKey: POST_TITLE_KEY[args.kind],
+        messageKey: reason ? "notify_community_mod_reason_body" : "notify_community_mod_default_body",
+        vars: reason ? { reason } : undefined,
+      }),
+    },
   });
 }
 
@@ -103,6 +114,15 @@ export async function notifyTradeSanction(
       sanction_id: args.sanctionId,
       ...(args.restriction ? { restriction: args.restriction } : {}),
       ...(args.endAt ? { end_at: args.endAt } : {}),
+      ...notificationCopyMeta({
+        titleKey: SANCTION_KEYS[args.kind].title,
+        messageKey: SANCTION_KEYS[args.kind].body,
+        vars: { until, reason: reason || "-" },
+        varKeys: {
+          scope: RESTRICTION_SCOPE_KEY[args.restriction ?? "all"],
+          ...(args.endAt ? {} : { until: "notify_community_restriction_permanent" as const }),
+        },
+      }),
     },
   });
 }
@@ -124,7 +144,14 @@ export async function notifyTradeReportProcessed(
     body: notifySafeT(lang, "notify_trade_report_processed_body"),
     // 알림 최종 설계 §5-5 — 목적지 = 내 신고 건 상세 (이전: 거래 홈)
     link_url: buildMyReportDetailPath("trade", args.reportId),
-    meta: { kind: "trade_report_processed", report_id: args.reportId },
+    meta: {
+      kind: "trade_report_processed",
+      report_id: args.reportId,
+      ...notificationCopyMeta({
+        titleKey: "notify_trade_report_processed_title",
+        messageKey: "notify_trade_report_processed_body",
+      }),
+    },
   });
 }
 
@@ -153,6 +180,15 @@ export async function notifyTradePromotionDecision(
       : args.kind === "rejected"
         ? "notify_trade_promotion_rejected_title"
         : "notify_trade_promotion_ended_title";
+  const bodyKey = approvedWaiting
+    ? "notify_trade_promotion_approved_waiting_body"
+    : args.kind === "approved"
+      ? "notify_trade_promotion_approved_body"
+      : args.kind === "rejected"
+        ? "notify_trade_promotion_rejected_body"
+        : points > 0
+          ? "notify_trade_promotion_ended_refund_body"
+          : "notify_trade_promotion_ended_body";
   const body = approvedWaiting
     ? notifySafeT(lang, "notify_trade_promotion_approved_waiting_body")
     : args.kind === "approved"
@@ -171,6 +207,16 @@ export async function notifyTradePromotionDecision(
     title: notifySafeT(lang, title),
     body,
     link_url: "/mypage/points",
-    meta: { kind: "trade_promotion_decision", action: args.kind, order_id: args.orderId, points },
+    meta: {
+      kind: "trade_promotion_decision",
+      action: args.kind,
+      order_id: args.orderId,
+      points,
+      ...notificationCopyMeta({
+        titleKey: title,
+        messageKey: bodyKey,
+        vars: { points: points.toLocaleString(), reason },
+      }),
+    },
   });
 }

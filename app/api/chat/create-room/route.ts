@@ -49,11 +49,11 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
   const productId = typeof body.productId === "string" ? body.productId.trim() : "";
   if (!productId) {
-    return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const resolved = await resolveTradeChatEntry(userId, productId);

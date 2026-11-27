@@ -12,7 +12,7 @@ export type GetPostCountByCategoryResult =
 export async function getPostCountByCategory(categoryId: string): Promise<GetPostCountByCategoryResult> {
   const id = categoryId?.trim();
   if (!id) {
-    return { ok: false, error: "categoryId 필요" };
+    return { ok: false, error: "invalid_request" };
   }
 
   try {
@@ -24,11 +24,11 @@ export async function getPostCountByCategory(categoryId: string): Promise<GetPos
     if (!res.ok || !data.ok) {
       return {
         ok: false,
-        error: typeof data.error === "string" ? data.error : "게시물 수를 확인할 수 없습니다.",
+        error: typeof data.error === "string" ? data.error : "post_count_failed",
       };
     }
     return { ok: true, count: typeof data.count === "number" ? data.count : 0 };
   } catch {
-    return { ok: false, error: "게시물 수를 확인할 수 없습니다." };
+    return { ok: false, error: "post_count_failed" };
   }
 }

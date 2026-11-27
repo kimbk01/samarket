@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { assertCommunityWriteAllowed } from "@/lib/community/community-write-restriction";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session-require";
@@ -30,7 +30,7 @@ import { logServerPerf } from "@/lib/performance/samarket-perf";
 import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
 import { notifyCommunityPostCommentReceived } from "@/lib/notifications/community-social-inapp-notify";
 import {
-  communityAcceptanceErrorMessage,
+  communityAcceptanceErrorCode,
   evaluateCommunityContentAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
@@ -45,11 +45,19 @@ import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * 오류는 코드만(`error`=`code`) + 값은 `params` — 문구는 화면이 `COMMUNITY_COMMENT_ERROR_KEYS` 로 고른다
+ * (재감사 2026-11-27 · `docs/i18n-ssot.md` §3-3). DB 원문은 로그로만.
+ */
+function commentError(code: string, status: number, params?: Record<string, number | string>) {
+  return jsonError(code, { status, code }, params ? { params } : {});
+}
+
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const startedAt = Date.now();
   const { postId } = await ctx.params;
   const raw = postId?.trim();
-  if (!raw) return jsonError("postId가 필요합니다.", 400);
+  if (!raw) return jsonError("post_id_required", { status: 400, code: "post_id_required" });
   const id = await resolveCanonicalCommunityPostId(raw);
   if (!id) return jsonError("not_found", 404);
   const viewerUserId = await getOptionalAuthenticatedUserId();
@@ -139,31 +147,28 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     key: `community-comment:create:${getRateLimitKey(req, auth.userId)}`,
     limit: 12,
     windowMs: 60_000,
-    message: "댓글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    message: "community_comment_rate_limited",
     code: "community_comment_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
 
   const { postId } = await ctx.params;
   const raw = postId?.trim();
-  if (!raw) return jsonError("postId가 필요합니다.", 400);
+  if (!raw) return commentError("post_id_required", 400);
 
-  const parsed = await parseJsonBody<{ content?: string; parentId?: string | null }>(req, "JSON 필요");
+  const parsed = await parseJsonBody<{ content?: string; parentId?: string | null }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
   const content = body.content?.trim();
-  if (!content) return jsonError("내용을 입력하세요.", 400);
+  if (!content) return commentError("content_required", 400);
   const accepted = evaluateCommunityContentAcceptance(content, "comment");
   if (!accepted.ok) {
-    return jsonError(communityAcceptanceErrorMessage(accepted.code), 400);
+    return commentError(communityAcceptanceErrorCode(accepted.code), 400);
   }
 
   const ops = await getCommunityFeedOps();
   if (content.length > ops.max_comment_length) {
-    return NextResponse.json(
-      { ok: false, error: `댓글은 ${ops.max_comment_length}자 이하로 입력하세요.` },
-      { status: 400 }
-    );
+    return commentError("comment_too_long", 400, { max: ops.max_comment_length });
   }
   const filtered = await guardBannedWords({
     userId: auth.userId,
@@ -172,11 +177,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     operatorWords: ops.banned_words,
     acceptLanguage: req.headers.get("accept-language"),
   });
-  if (!filtered.ok) return jsonError(filtered.error, filtered.status, { code: filtered.code });
+  if (!filtered.ok) return commentError(filtered.code, filtered.status);
 
   try {
     const id = await resolveCanonicalCommunityPostId(raw);
-    if (!id) return jsonError("글을 찾을 수 없습니다.", 404);
+    if (!id) return commentError("post_not_found", 404);
     if (process.env.NODE_ENV !== "production") {
       const post = getNeighborhoodDevSamplePost(id);
       if (post) {
@@ -187,7 +192,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
           content,
           parentId: body.parentId ?? null,
         });
-        if (!inserted) return jsonError("실패", 500);
+        if (!inserted) return commentError("community_comment_insert_failed", 500);
         return jsonOk({ id: inserted.id, fallback: "dev_samples" });
       }
     }
@@ -198,10 +203,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       if (lastAt) {
         const diffSec = (Date.now() - new Date(lastAt).getTime()) / 1000;
         if (diffSec < ops.min_comment_interval_sec) {
-          return NextResponse.json(
-            { ok: false, error: `댓글은 ${ops.min_comment_interval_sec}초 간격으로만 작성할 수 있습니다.` },
-            { status: 429 }
-          );
+          return commentError("comment_interval", 429, { sec: ops.min_comment_interval_sec });
         }
       }
     }
@@ -211,7 +213,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       .eq("id", id)
       .maybeSingle();
     if (postErr) {
-      return jsonError(safeErrorMessage(postErr, "글을 찾을 수 없습니다."), 500);
+      console.error("[community-comments POST] post read failed", postErr.message);
+      return commentError("post_not_found", 500);
     }
     const prow = post as {
       id?: string;
@@ -223,13 +226,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     // Same existence contract as like (`assertPostEngagementAllowed`): public visibility only.
     // Missing location_id must not fake not_found for a real community_posts.id (incl. imported).
     if (!prow?.id || !isCommunityPostPubliclyVisible(prow)) {
-      return jsonError("글을 찾을 수 없습니다.", 404);
+      return commentError("post_not_found", 404);
     }
     const blocked = await fetchBlockedAuthorIdsForViewer(sb, auth.userId);
     if (blocked.has(String(prow.user_id ?? ""))) {
-      return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403, {
-        code: "community_comment_blocked_relation",
-      });
+      return commentError("community_comment_blocked_relation", 403);
     }
 
     const parentId = body.parentId?.trim() || null;
@@ -249,19 +250,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         isCommunityCommentPubliclyVisible(parentRow as never) &&
         (parentRow as { is_deleted?: boolean }).is_deleted !== true;
       if (!parentCommentAuthorId || parentPostId !== id || !parentVisible) {
-        return jsonError("답글 대상 댓글을 찾을 수 없습니다.", 404, {
-          code: "community_comment_parent_not_found",
-        });
+        return commentError("community_comment_parent_not_found", 404);
       }
       if (blocked.has(parentCommentAuthorId)) {
-        return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403, {
-          code: "community_comment_blocked_relation",
-        });
+        return commentError("community_comment_blocked_relation", 403);
       }
       const d = Number((parentRow as { depth?: number } | null)?.depth ?? 0);
       /** 답글 깊이 상한 = DB depth 3 — 화면과 데이터가 어긋나지 않게 초과는 거부 (CM-R-10) */
       if (d >= COMMUNITY_COMMENT_MAX_DEPTH) {
-        return jsonError("더 이상 답글을 달 수 없습니다.", 400, { code: "community_comment_depth_limit" });
+        return commentError("community_comment_depth_limit", 400);
       }
       depth = d + 1;
     }
@@ -278,9 +275,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       .select("id")
       .single();
     if (error || !ins) {
-      return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
-        code: "community_comment_insert_failed",
-      });
+      console.error("[community-comments POST] insert failed", error?.message ?? "no_row");
+      return commentError("community_comment_insert_failed", 500);
     }
     const postAuthorId = String(prow.user_id ?? "").trim();
     const principalId = await loadCommunityImportPrincipalUserId(sb);
@@ -313,8 +309,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     });
     return jsonOk({ id: commentId });
   } catch (error) {
-    return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
-      code: "community_comment_unexpected_error",
-    });
+    console.error("[community-comments POST] unexpected", safeErrorMessage(error, "unexpected"));
+    return commentError("community_comment_unexpected_error", 500);
   }
 }

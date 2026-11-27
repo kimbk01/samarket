@@ -15,6 +15,11 @@ import { useMessengerPillarHeaderChrome } from "@/components/community-messenger
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { domainTradeListRowToUnifiedItem } from "@/components/community-messenger/domain-shell-canary/domain-trade-list-row-to-unified-item";
+import {
+  getMessengerRoomActionErrorMessage,
+  pickMessengerApiErrorField,
+} from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchDomainListCanaryWithRetry,
@@ -353,9 +358,10 @@ export function DomainTradeListCanaryGate({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "participant_settings", ...patch }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
         if (!res.ok || !json.ok) {
-          setActionError(json.error ?? "room_settings_update_failed");
+          /** 서버 문장·코드 원문 대신 코드 → 화면 언어 문구 */
+          setActionError(getMessengerRoomActionErrorMessage(pickMessengerApiErrorField(json), translateCmUi));
         }
       } finally {
         setBusyId(null);
@@ -425,9 +431,9 @@ export function DomainTradeListCanaryGate({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "archive", archived: true }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
         if (!res.ok || !json.ok) {
-          setActionError(json.error ?? "room_archive_update_failed");
+          setActionError(getMessengerRoomActionErrorMessage(pickMessengerApiErrorField(json), translateCmUi));
           return;
         }
         if (viewerUserId) {
@@ -483,7 +489,7 @@ export function DomainTradeListCanaryGate({
         }
         setRoomActionSheet(null);
       } else {
-        setActionError(result.error ?? "leave_failed");
+        setActionError(getMessengerRoomActionErrorMessage(result.error, translateCmUi));
       }
     } finally {
       setBusyId(null);

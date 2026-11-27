@@ -27,11 +27,11 @@ export async function GET(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   if (!roomId) {
-    return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -41,18 +41,19 @@ export async function GET(
   ]);
 
   if (roomErr || !room) {
-    return NextResponse.json({ error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ error: "chat_room_not_found", code: "chat_room_not_found" }, { status: 404 });
   }
   if ((room as { room_type?: string | null }).room_type !== "item_trade") {
-    return NextResponse.json({ error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    return NextResponse.json({ error: "chat_type_removed", code: "chat_type_removed" }, { status: 404 });
   }
   if (partListErr) {
-    return NextResponse.json({ error: partListErr.message }, { status: 500 });
+    console.error("[chat-rooms-detail] participants", partListErr.message);
+    return NextResponse.json({ error: "participants_load_failed", code: "participants_load_failed" }, { status: 500 });
   }
   const rows = (allParticipants ?? []) as { user_id?: string }[];
   const me = rows.find((p) => p.user_id === userId);
   if (!me) {
-    return NextResponse.json({ error: "참여자만 조회할 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ error: "not_participant", code: "not_participant" }, { status: 403 });
   }
 
   let item: Record<string, unknown> | null = null;

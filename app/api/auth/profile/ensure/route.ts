@@ -22,14 +22,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) {
-    return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
+    return jsonError("supabase_unconfigured", 503, { code: "supabase_unconfigured" });
   }
   const {
     data: { user },
     error,
   } = await routeSb.auth.getUser();
   if (error || !user) {
-    return jsonError("로그인이 필요합니다.", 401, { code: "unauthorized" });
+    return jsonError("unauthorized", 401, { code: "unauthorized" });
   }
 
   const ensureRl = await enforceProfileEnsureQuota(user.id);
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       serviceSb,
     });
     if (!row) {
-      return jsonError("프로필 동기화에 실패했습니다.", 500, { code: "profile_ensure_failed" });
+      return jsonError("profile_ensure_failed", 500, { code: "profile_ensure_failed" });
     }
 
     const response = jsonOk({ profile: profileRowToEnsureApiPayload(row) });
@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
     }
     return response;
   } catch (error) {
-    return jsonError(safeErrorMessage(error, "프로필 동기화에 실패했습니다."), 500, {
+    console.error("[profile-ensure] failed", { message: safeErrorMessage(error, "profile_ensure_failed") });
+    return jsonError("profile_ensure_failed", 500, {
       code: "profile_ensure_failed",
     });
   }

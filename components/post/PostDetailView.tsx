@@ -1,6 +1,7 @@
 "use client";
 
 import { resolveTradePostCurrency } from "@/lib/trade/trade-price-currency";
+import { localizeTradeAppendNoteMarker } from "@/lib/trade/trade-lifecycle-policy";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -72,6 +73,7 @@ import {
 } from "@/lib/trade/category-form/detail-spec-route";
 import { resolveTradeDetailCtaPolicy } from "@/lib/trade/category-form/cta-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerPostApiErrorText } from "@/lib/posts/owner-post-api-error-text";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
@@ -110,6 +112,7 @@ import {
   type TradeChatRoomResolvedDetail,
 } from "@/lib/chats/trade-chat-room-resolved-event";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import { jobApplyErrorText } from "@/lib/trade/trade-api-error-text";
 import {
   recordRouteEntryFetchNetworkFromResources,
   recordRouteEntryFirstContentRender,
@@ -978,7 +981,17 @@ export function PostDetailView({
         const lockKey = ownerLockKeyFromResponse(data.lockKey);
         await dibayAlert(
           lockKey || data.error
-            ? { title: t("popup_error_title"), description: lockKey ? t(lockKey) : data.error }
+            ? {
+                title: t("popup_error_title"),
+                description: lockKey
+                  ? t(lockKey)
+                  : resolveOwnerPostApiErrorText({
+                      json: data,
+                      status: res.status,
+                      fallbackKey: "trade_detail_delete_failed",
+                      t,
+                    }),
+              }
             : { title: t("trade_detail_delete_failed") }
         );
         return;
@@ -1174,7 +1187,7 @@ export function PostDetailView({
         void handleChat();
         return;
       }
-      setChatError(typeof data.error === "string" ? data.error : t("trade_detail_job_apply_failed"));
+      setChatError(jobApplyErrorText({ json: data, status: res.status }, t));
     } finally {
       setJobApplyBusy(false);
     }
@@ -1440,7 +1453,8 @@ export function PostDetailView({
   const jobsDescriptionHeading =
     jobDetailDirection === "hiring" ? t("ui_jobs_detail_description_heading") : t("ui_jobs_detail_intro_heading");
   const descriptionHeading = isJobsSpec ? jobsDescriptionHeading : t("ui_post_product_description_heading");
-  const descriptionBody = (post.content ?? "").trim();
+  /** 언어 재감사 2026-11-27: 덧붙이기 저장 머리글 「[추가 안내]」 → 화면 언어 */
+  const descriptionBody = localizeTradeAppendNoteMarker((post.content ?? "").trim(), t);
   const ui5ActionBtnClass =
     "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft text-[13px] font-semibold text-sam-fg last:border-r-0";
 

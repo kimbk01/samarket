@@ -218,6 +218,12 @@ export function GlobalSearchView() {
   const entryDomain = useMemo(() => readGlobalSearchEntryDomain(), []);
   const domainOrder = useMemo(() => orderGlobalSearchDomains(entryDomain), [entryDomain]);
   const coordinatorRef = useRef(createGlobalSearchCoordinator());
+  /** 채팅 검색 결과 문구 언어 — 검색 콜백 의존성을 늘리지 않으려고 ref 로 넘긴다(언어 재감사 2026-11-27) */
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+  const chatSearchT = useCallback((key: Parameters<typeof t>[0]) => tRef.current(key), []);
   const lastImmediateQueryRef = useRef<string | null>(null);
   const [keyword, setKeyword] = useState(queryFromUrl);
   const [recents, setRecents] = useState<GlobalRecentSearch[]>([]);
@@ -344,7 +350,7 @@ export function GlobalSearchView() {
           setDeliveryMenus([]);
         });
 
-      void searchChatForGlobal(q, signal)
+      void searchChatForGlobal(q, signal, chatSearchT)
         .then((res) => {
           if (!settle(seq)) return;
           if (!res.ok) {
@@ -362,7 +368,7 @@ export function GlobalSearchView() {
           setChatHits([]);
         });
     },
-    [locGate]
+    [locGate, chatSearchT]
   );
 
   const submitSearch = useCallback(
@@ -554,7 +560,7 @@ export function GlobalSearchView() {
         return;
       }
       setChatStatus("loading");
-      void searchChatForGlobal(q, new AbortController().signal)
+      void searchChatForGlobal(q, new AbortController().signal, chatSearchT)
         .then((res) => {
           if (!res.ok) {
             setChatStatus("error");
@@ -565,7 +571,7 @@ export function GlobalSearchView() {
         })
         .catch(() => setChatStatus("error"));
     },
-    [activeQuery, locGate]
+    [activeQuery, locGate, chatSearchT]
   );
 
   const chatByKind = useMemo(() => {

@@ -11,11 +11,16 @@ import {
   allowEditTradeLocationSnapshot,
   allowSoftDelete,
   deriveTradeLifecycleStatus,
-  tradeLifecycleHint,
+  tradeLifecycleHintKey,
 } from "@/lib/trade/trade-lifecycle-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 언어 재감사 2026-11-27: 서버 문장 대신 오류 코드만 보낸다 — 화면은 `resolveOwnerPostApiErrorText` */
+function ownerEditFail(code: string, status: number, extra?: Record<string, unknown>) {
+  return NextResponse.json({ ok: false, ...extra, error: code, code }, { status });
+}
 
 export async function GET(
   _req: NextRequest,
@@ -29,27 +34,27 @@ export async function GET(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return ownerEditFail("server_unconfigured", 500);
   }
 
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return ownerEditFail("post_id_required", 400);
   }
 
-  const { row: postRow, errorMessage } = await fetchPostRowForOwnerEdit(sb, id);
+  const { row: postRow, errorCode } = await fetchPostRowForOwnerEdit(sb, id);
 
-  if (errorMessage) {
-    return NextResponse.json({ ok: false, error: errorMessage }, { status: 500 });
+  if (errorCode) {
+    return ownerEditFail(errorCode, 500);
   }
   if (!postRow) {
-    return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+    return ownerEditFail("post_not_found", 404);
   }
 
   const owner = typeof postRow.user_id === "string" ? postRow.user_id : "";
   if (owner !== userId) {
-    return NextResponse.json({ ok: false, error: "본인 글만 수정할 수 있습니다." }, { status: 403 });
+    return ownerEditFail("not_owner", 403);
   }
 
   const lifecycle = deriveTradeLifecycleStatus({
@@ -58,17 +63,17 @@ export async function GET(
     meta: postRow.meta as Record<string, unknown> | null | undefined,
   });
   if (!allowAnyPostUpdate(lifecycle)) {
-    const hint = tradeLifecycleHint(lifecycle) ?? "이 글은 지금 수정할 수 없습니다.";
-    return NextResponse.json({ ok: false, error: hint, locked: true }, { status: 403 });
+    return ownerEditFail("trade_lifecycle_locked", 403, { locked: true, lifecycleStatus: lifecycle });
   }
 
   const tid =
     typeof postRow.trade_category_id === "string" ? postRow.trade_category_id.trim() : "";
   if (!tid) {
-    return NextResponse.json({ ok: false, error: "카테고리 정보가 없습니다." }, { status: 422 });
+    return ownerEditFail("category_missing", 422);
   }
 
-  const hint = tradeLifecycleHint(lifecycle);
+  /** 재감사 2026-11-27: 안내 문장 대신 단계 코드 — 화면은 `tradeLifecycleHintKey(lifecycleStatus)` 로 그린다 */
+  const hint = tradeLifecycleHintKey(lifecycle) ? `trade_lifecycle_${lifecycle}` : null;
   return NextResponse.json({
     ok: true,
     post: {

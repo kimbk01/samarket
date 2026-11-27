@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { MESSENGER_CONTACTS_SCREEN_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import type { ContactsAdminSettings } from "@/lib/community-messenger/contacts/contacts-service.server";
 
@@ -54,7 +55,16 @@ export async function sendContactJoinNotices(
       ref_id: joinedUserId,
       sender_id: joinedUserId,
       dedupe_key: `cm_contact_joined:${ownerId}:${joinedUserId}`,
-      meta: { kind: "contact_joined", actor_id: joinedUserId },
+      meta: {
+        kind: "contact_joined",
+        actor_id: joinedUserId,
+        ...notificationCopyMeta({
+          titleKey: "notify_contact_joined_title",
+          messageKey: "notify_contact_joined_body",
+          vars: rawName ? { name: rawName } : undefined,
+          varKeys: rawName ? undefined : { name: "notify_member_fallback_name" },
+        }),
+      },
     };
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const ok = await appendUserNotification(sb, payload).catch((e: unknown) => {

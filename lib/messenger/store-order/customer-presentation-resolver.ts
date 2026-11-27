@@ -6,7 +6,6 @@ import type { DomainDisplayIdentity, MessengerPresentationPort } from "@/lib/mes
 import { assertStoreOrderOwnedRoom } from "@/lib/messenger/store-order/identity";
 import { STORE_ORDER_DOMAIN } from "@/lib/messenger/store-order/design-lock";
 import {
-  STORE_ORDER_STORE_NAME_PLACEHOLDER,
   type StoreOrderListItem,
 } from "@/lib/messenger/store-order/types";
 import type { StoreOrderCustomerSurface } from "@/lib/messenger/store-order/customer-surface";
@@ -63,7 +62,8 @@ export function resolveStoreOrderCustomerPresentation(
   });
   rejectCustomerMemberIdentity(input);
   rejectPeerAvatarWhenStoreImageMissing(input);
-  const storeName = input.storeName?.trim() || STORE_ORDER_STORE_NAME_PLACEHOLDER;
+  /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+  const storeName = input.storeName?.trim() || "";
   const storeImageUrl = input.storeImageUrl?.trim() || null;
   const surface: StoreOrderCustomerSurface = {
     kind: "buyer_store",

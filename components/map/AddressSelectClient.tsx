@@ -205,8 +205,9 @@ export function AddressSelectClient(props?: {
       try {
         await loadGoogleMaps();
         setMapsError(null);
-      } catch (e) {
-        setMapsError(e instanceof Error ? e.message : t("addr_ui_maps_load_failed"));
+      } catch {
+        /** 로더 예외 원문(키 없음·Google 영문)은 화면에 내보내지 않는다 — 키만 */
+        setMapsError(t("addr_ui_maps_load_failed"));
       }
     })();
   }, []);
@@ -469,7 +470,7 @@ export function AddressSelectClient(props?: {
                 manualAnchorRef.current = null;
                 setDetailLine("");
               }}
-              ariaLabel="뒤로"
+              ariaLabel={t("nav_back")}
               className="text-sam-fg hover:bg-sam-primary-soft/50"
             />
           }

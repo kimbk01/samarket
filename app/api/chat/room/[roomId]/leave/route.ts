@@ -24,12 +24,12 @@ export async function POST(
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_room_id", code: "invalid_room_id" }, { status: 400 });
   }
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const access = await assertVerifiedMemberForAction(sbAny, userId);
@@ -43,7 +43,7 @@ export async function POST(
     .eq("id", roomId)
     .maybeSingle();
   if (fetchErr || !row) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "chat_room_not_found", code: "chat_room_not_found" }, { status: 404 });
   }
 
   const r = row as {
@@ -62,7 +62,7 @@ export async function POST(
   const sid = String(r.seller_id ?? "").trim();
   const bid = String(r.buyer_id ?? "").trim();
   if (sid !== userId && bid !== userId) {
-    return NextResponse.json({ ok: false, error: "참여자만 나갈 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "not_participant", code: "not_participant" }, { status: 403 });
   }
 
   const now = new Date().toISOString();
@@ -84,7 +84,7 @@ export async function POST(
   const { error: upErr } = await sbAny.from("product_chats").update(patch).eq("id", roomId);
   if (upErr) {
     return NextResponse.json(
-      { ok: false, error: "나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요." },
+      { ok: false, error: "leave_failed", code: "leave_failed" },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@ import { groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -41,6 +42,11 @@ export async function notifyCommunityMessengerGroupInviteReceived(
       room_title: roomTitle,
       inviter_user_id: trimText(args.inviterUserId),
       inviter_label: inviterLabel,
+      ...notificationCopyMeta({
+        titleKey: "notify_group_invite_received_title",
+        messageKey: "notify_group_invite_received_body",
+        vars: { name: inviterLabel, room: roomTitle },
+      }),
     },
     // Classified as group_message → DB requires the group domain identity (same as group message rows).
     room_identity: (() => {

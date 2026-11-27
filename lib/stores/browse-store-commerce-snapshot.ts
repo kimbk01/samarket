@@ -1,3 +1,4 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { looksLikeMessageKey } from "@/lib/i18n/safe-ui-label";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
@@ -27,8 +28,12 @@ function sanitizeCourierLabel(label: string | null): string | null {
   return s;
 }
 
-export function buildBrowseStoreCommerceSnapshot(businessHoursJson: unknown): BrowseStoreCommerceSnapshot {
-  const extras = parseCommerceExtrasFromHoursJson(businessHoursJson);
+export function buildBrowseStoreCommerceSnapshot(
+  businessHoursJson: unknown,
+  /** 서버 호출처는 요청 언어를 넘긴다 — 없으면 화면(런타임) 언어 */
+  language?: AppLanguageCode
+): BrowseStoreCommerceSnapshot {
+  const extras = parseCommerceExtrasFromHoursJson(businessHoursJson, language);
   const o = coerceBusinessHoursRecord(businessHoursJson);
   const cfgRaw = o.payment_methods_config ?? o.paymentMethodsConfig;
   const paymentMethodsConfig =

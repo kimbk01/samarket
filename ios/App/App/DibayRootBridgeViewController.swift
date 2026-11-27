@@ -843,7 +843,13 @@ class DibayRootBridgeViewController: CAPBridgeViewController, WKScriptMessageHan
     DibayNativeIntro.shared.onStartupFault()
     hideStartupErrorView()
     guard let host = view else { return }
-    let en = (Locale.preferredLanguages.first ?? "ko").lowercased().hasPrefix("en")
+    // 언어 재감사 2026-11-27 R6 — DibayNativeIntroPlugin.localized 와 같은 판정: 앱 저장 언어 → 기기 첫 언어 ko 면 ko, 그 외 en
+    let en: Bool
+    if let stored = DibayAppLanguagePlugin.storedLanguage() {
+      en = stored != "ko"
+    } else {
+      en = !(Locale.preferredLanguages.first ?? "en").lowercased().hasPrefix("ko")
+    }
     let title: String
     let body: String
     switch kind {

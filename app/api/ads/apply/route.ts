@@ -7,6 +7,7 @@ import { spendUserPoints, sumUserPointLedger } from "@/lib/points/user-point-led
 import { refundPointsAfterFailedPurchase } from "@/lib/points/refund-points-after-failed-purchase";
 import { applyPostAdInDb } from "@/lib/ads/post-ads-supabase";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
+import { buildPointLedgerDescription } from "@/lib/points/point-ledger-description";
 import { isPostAdsAdTypeOpenForNewApply, postAdsClosedApplyHint } from "@/lib/ads/post-ads-authority";
 
 export const runtime = "nodejs";
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
       entryType: "ad_purchase",
       relatedType: "ad_application",
       relatedId: adId,
-      description: `${product.name} 광고 구매`,
+      description: buildPointLedgerDescription("point_desc_ad_purchase", { name: product.name }),
       actorType: "user",
     });
     if (!spend.ok) {
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest): Promise<NextResponse<AdApplyRespon
         amount: product.pointCost,
         relatedType: "ad_application",
         refundRelatedId: adId,
-        description: `${product.name} 신청 실패 환불`,
+        description: buildPointLedgerDescription("point_desc_ad_apply_refund", { name: product.name }),
       });
       if (!refund.ok) {
         return NextResponse.json(

@@ -1,0 +1,858 @@
+hangul	app/(main)/features/[slug]/page.tsx	17	기능 페이지 준비 중이에요.	EXPOSED	고객 /features/[slug] → CategoryEmptyState.tsx:19-20 그대로 표시	message prop 제거(기본 키 ui_category_empty_*) 또는 새 키로 t()
+hangul	app/(main)/features/[slug]/page.tsx	18	곧 만나보실 수 있습니다.	EXPOSED	고객 /features/[slug] → CategoryEmptyState.tsx:19-20 그대로 표시	message prop 제거(기본 키 ui_category_empty_*) 또는 새 키로 t()
+hangul	app/(main)/services/[slug]/page.tsx	17	아직 서비스 글이 없어요.	EXPOSED	고객 /services/[slug] → CategoryEmptyState.tsx:19-20 그대로 표시	새 키로 t()
+hangul	app/(main)/services/[slug]/page.tsx	18	이 카테고리의 서비스가 여기에 표시됩니다.	EXPOSED	고객 /services/[slug] → CategoryEmptyState.tsx:19-20 그대로 표시	새 키로 t()
+hangul	app/api/group-chat/rooms/[roomId]/join/route.ts	21	roomId 필요	SERVER_TEXT	표시 경로 미확인: /join 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/join/route.ts	28	서버 설정 필요	SERVER_TEXT	표시 경로 미확인: /join 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/join/route.ts	33	방을 찾을 수 없습니다.	SERVER_TEXT	표시 경로 미확인: /join 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/join/route.ts	45	이미 참여 중입니다.	SERVER_TEXT	표시 경로 미확인: /join 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	36	메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: GET messages 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	43	roomId 필요	SERVER_TEXT	표시 경로 미확인: GET messages 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	86	메시지 전송이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	93	roomId 필요	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	100	서버 설정 필요	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	103	body 필요	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	111	메시지를 입력하세요	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	125	(이미지)	STORED	group_messages.body 에 「(이미지)」 저장 → 메시지 목록 표시 (현재 클라이언트는 text 만 전송)	body 빈값 + message_type, 화면에서 키
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	132	전송에 실패했습니다.	HARMLESS_CODE_USED	POST 실패 시 GroupChatRoomClient.tsx:157 응답 무시(화면 표시 없음)	
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	142	사진	STORED	알림 preview → notify-message-pipeline.ts:234,340 → load-message-notification-display-context.ts:258 textContent 폴백(푸시 본문)	preview 에 종류 코드, 알림 표시에서 키
+hangul	app/api/group-chat/rooms/[roomId]/messages/route.ts	143	(메시지)	STORED	알림 preview 폴백(푸시 본문) 동일 경로	preview 에 종류 코드, 알림 표시에서 키
+hangul	app/api/group-chat/rooms/[roomId]/read/route.ts	21	roomId 필요	HARMLESS_CODE_USED	GroupChatRoomClient.tsx:111 응답 본문 무시	
+hangul	app/api/group-chat/rooms/[roomId]/read/route.ts	28	서버 설정 필요	HARMLESS_CODE_USED	GroupChatRoomClient.tsx:111 응답 본문 무시	
+hangul	app/api/group-chat/rooms/[roomId]/read/route.ts	38	방을 찾을 수 없습니다.	HARMLESS_CODE_USED	GroupChatRoomClient.tsx:111 응답 본문 무시	
+hangul	app/api/group-chat/rooms/[roomId]/read/route.ts	52	멤버만 읽음 처리할 수 있습니다.	HARMLESS_CODE_USED	GroupChatRoomClient.tsx:111 응답 본문 무시	
+hangul	app/api/group-chat/rooms/route.ts	25	서버 설정 필요	SERVER_TEXT	표시 경로 미확인: POST /rooms 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/group-chat/rooms/route.ts	35	그룹 채팅	STORED	group_rooms.title 기본값 저장 → 방 헤더(GroupChatRoomClient:197)·목록 표시 (현재 POST 호출처 없음)	title 빈값 저장, 화면에서 키 ui_group_chat_default_title
+hangul	app/api/group-chat/rooms/route.ts	42	방을 만들지 못했습니다.	SERVER_TEXT	표시 경로 미확인: POST /rooms 앱 안 호출처 없음(grep)	error code 만
+hangul	app/api/test-login/route.ts	9	임시 테스트 로그인은 제거되었습니다. Google, Kakao, Naver 또는 이메일 로그인을 사용해 주세요.	SERVER_TEXT	표시 경로 미확인: 앱 안 호출처 없음(grep), 410 레거시	error code(test_login_removed)만
+hangul	components/common/media/PostVideoEmbed.tsx	50	${providerName} 영상 재생	EXPOSED	게시글 영상 카드 aria-label·링크 문구(PostVideoEmbed.tsx:50,71)	키 post_video_play/{provider}·post_video_open_on 로 t()
+hangul	components/common/media/PostVideoEmbed.tsx	71	${providerName}에서 보기	EXPOSED	게시글 영상 카드 aria-label·링크 문구(PostVideoEmbed.tsx:50,71)	키 post_video_play/{provider}·post_video_open_on 로 t()
+hangul	components/common/media/PostVideoEmbed.tsx	71	원본 보기	EXPOSED	게시글 영상 카드 aria-label·링크 문구(PostVideoEmbed.tsx:50,71)	키 post_video_play/{provider}·post_video_open_on 로 t()
+hangul	components/dev/PromotionEventOperationProofClient.tsx	142	CUT 4 운영 증명 이벤트	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	147	이벤트 본문 미리보기 — PlatformEventDetailContent	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	148	2,000원 할인	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	148	최소주문 15,000원	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	150	일부 지역에서는 이용이 제한될 수 있습니다.	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	155	자세히 보기	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	239	CUT 4 팝업 미리보기	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	242	2,000원 할인	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	242	최소주문 15,000원	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	347	<p className="text-xs font-medium text-sam-muted">가로에서도 노출 (Popup landscape deny 미적용)</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	374	<h3 className="text-base font-semibold">이벤트</h3>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	403	<AdminActionButton variant="secondary">수정</AdminActionButton>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	430	<p className="font-semibold">기본 정보</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	431	<p className="mt-1 text-sam-muted">이벤트 제목 · 부제 · 히어로 이미지</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	440	<AdminActionButton variant="secondary">이미지 교체</AdminActionButton>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	441	<AdminActionButton variant="quiet">이미지 삭제</AdminActionButton>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	454	<p className="font-semibold">혜택 정보</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	455	<p className="text-sm text-sam-muted">2,000원 할인 · 최소주문 15,000원</p>	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	488	팝업	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	488	꺼짐	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	489	배너	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	489	설정됨 (비활성)	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	490	꺼짐	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	491	앱 알림	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	491	꺼짐	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	524	아트워크	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	547	카드	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	570	하단 시트	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	593	혜택	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	594	2,000원 할인	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	594	최소주문 15,000원	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	654	CUT 4 Push 제목	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	662	저장 ≠ 발송. Push 보내기만 dispatch.	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	675	<p className="mt-1 text-sm font-semibold">CUT 4 Push 제목</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	676	<p className="text-xs text-sam-muted">저장 ≠ 발송. Push 보내기만 dispatch.</p>	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	686	CUT 4 Bell 제목	DEV_ONLY	components/dev proof 화면	
+hangul	components/dev/PromotionEventOperationProofClient.tsx	694	앱 알림 · Push와 독립	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	707	<p className="mt-1 text-sm font-semibold">CUT 4 Bell 제목</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	708	<p className="text-xs text-sam-muted">앱 알림 · Push와 독립</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	748	<p className="text-xs text-sam-muted">노출: 팝업 / 히어로 배너</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	749	<p className="text-xs text-sam-muted">위치: 거래 홈</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	750	<p className="text-xs text-sam-muted">이동: 앱 내부 페이지 · /market</p>	DEV_ONLY	components/dev proof 화면	
+jsx-ko	components/dev/PromotionEventOperationProofClient.tsx	751	<p className="text-xs text-sam-muted">Push: 미발송</p>	DEV_ONLY	components/dev proof 화면	
+hangul	components/group-chat/GroupChatRoomClient.tsx	79	불러오지 못했습니다.	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/group-chat/GroupChatRoomClient.tsx	84	방 정보가 없습니다.	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/group-chat/GroupChatRoomClient.tsx	96	네트워크 오류입니다.	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/group-chat/GroupChatRoomClient.tsx	197	그룹 채팅	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/group-chat/GroupChatRoomClient.tsx	235	메시지를 입력하세요	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/group-chat/GroupChatRoomClient.tsx	235	로그인 후 메시지를 보낼 수 있어요	EXPOSED	그룹 채팅 방 화면 오류·제목·입력 placeholder 직접 표시(:213,197,235)	키로 t(), 서버 오류는 resolveApiErrorText
+hangul	components/map/AddressSelectClient.tsx	472	뒤로	EXPOSED	주소 선택 화면 뒤로 버튼 ariaLabel(:472)	t("common_back")
+raw-error	components/platform/AndroidPlayUpdateScreen.tsx	67	const error = errorText(screen?.error ?? null);	FALSE_POSITIVE	errorText()가 코드→safeT 키로 변환(:50-64)	
+hangul	hooks/use-store-business-hub-entry-modal.ts	25	확인	FALSE_POSITIVE	기본값만 한국어, 호출처 3곳 모두 t("common_confirm") 전달	
+raw-error	hooks/useAdminPointExecutionData.ts	41	setError({ code: json.error ?? "load_failed", httpStatus: res.status });	HARMLESS_ADMIN	어드민 포인트 화면 전용 hook, code로 저장	
+raw-error	hooks/useAdminPointExpireData.ts	38	setError({ code: json.error ?? "load_failed", httpStatus: res.status });	HARMLESS_ADMIN	어드민 포인트 화면 전용 hook, code로 저장	
+raw-error	hooks/useAdminPointPolicyData.ts	35	setProbabilityError({ code: json.error || "load_failed", httpStatus: res.status });	HARMLESS_ADMIN	어드민 포인트 화면 전용 hook, code로 저장	
+hangul	hooks/usePromotionOrderTargets.ts	92	(매장)	HARMLESS_CODE_USED	shopOptions 는 두 호출 화면(MyAdsApplyPageClient·points/promotions)에서 꺼내 쓰지 않음	
+hangul	lib/automation/automation-db.ts	66	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/automation/automation-state.ts	16	API 5xx 급증 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/automation/automation-state.ts	24	평균 지연 2초 초과 시 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/automation/automation-state.ts	32	DB 사용량 90% 초과 시 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/automation/automation-state.ts	47	Slack 알림 발송 (mock)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/automation/automation-state.ts	53	Email 알림 발송 (mock)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/backup/backup-db.ts	76	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/categories/validateSlug.ts	9	slug를 입력해 주세요.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/categories/validateSlug.ts	10	slug는 100자 이하여야 합니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/categories/validateSlug.ts	14	영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다. 예: jobs, real-estate	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-db.ts	73	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	31	피드 깜빡임·채팅 알림 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	36	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	44	신고 알림·포인트 필터	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	49	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	57	다음 스프린트 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	78	피드 무한스크롤 깜빡임 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	79	스크롤 시 리스트 깜빡임 제거	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	83	개발 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	97	채팅 알림 수신 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	98	알림 설정 반영 및 FCM 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	102	개발 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	108	FCM 토큰 갱신 이슈 확인 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	116	상품 사진 업로드 성능 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	117	이미지 업로드 대기 시간 단축	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	121	개발 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	135	신고 처리 결과 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	136	신고 접수/처리 결과 푸시 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	140	개발 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	161	v1.2.0 - 신고 알림·안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	162	신고 처리 결과 알림 추가, 피드·채팅 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	169	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	175	v1.3.0 - 피드·채팅 개선 (예정)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	176	피드 깜빡임 개선, 채팅 알림 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	183	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	196	신고 처리 결과 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	197	신고 접수·처리 시 푸시 알림 발송	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	209	앱 안정성 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	210	일부 크래시 수정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	222	피드 무한스크롤 깜빡임 수정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	223	스크롤 시 리스트 깜빡임 제거	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	235	채팅 알림 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	236	FCM·권한 반영 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	255	스테이징 스모크 테스트	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	256	주요 플로우 동작 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	262	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	272	프로덕션 헬스체크	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	273	API·추천 서비스 응답 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	279	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	289	에러율·지표 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	290	24시간 에러율·지연률 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	306	72시간 회귀 이슈 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	307	신규 이슈·회귀 버그 없음 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	323	1.3.0 RC 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	324	release candidate 스모크 테스트	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dev-sprints/dev-sprints-state.ts	333	hotfix placeholder 분기 구조 확장 가능	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-db.ts	78	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	12	DB 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	13	API 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	14	인증 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	15	스토리지 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	16	채팅 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	17	결제 장애	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	21	낮음	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	22	중간	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	23	높음	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	24	긴급	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	28	예정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	29	진행중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	30	완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/dr/dr-utils.ts	31	실패	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/env/runtime.ts	46	필수 환경변수 누락: ${missing.join(", ")}	SERVER_TEXT	표시 경로 미확인: 환경변수 누락 진단 문장을 error 로 반환(requireSupabaseEnv)	error code(env_missing)만, 문장은 로그
+hangul	lib/env/semaphore-sms.ts	31	인증번호 발송에 실패했습니다.	SERVER_TEXT	표시 경로 미확인: semaphore-sms.ts:39 error 로 전달, 휴대폰 인증 화면은 phone-otp-client-errors 코드 매핑 사용	error code(sms_send_failed)만
+hangul	lib/exposure/exposure-policy-utils.ts	11	홈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-policy-utils.ts	12	검색	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-policy-utils.ts	13	상점 featured	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	9	홈 상단 정책	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	23	홈 피드 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	29	검색 결과 정책	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	43	검색 상단 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	49	상점 featured 정책	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-policy-defaults.ts	63	상점 추천 영역	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	83	특별회원	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	86	상점상품	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	89	광고노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	92	포인트노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	95	끌올	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	98	지역일치	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	147	홈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	148	검색	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/exposure/exposure-score-utils.ts	149	상점 featured	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-db.ts	80	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-state.ts	18	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	28	해제	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	30	차단	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	32	전환	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	33	비활성화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	36	피드 킬스위치	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	38	피드 Fallback	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	39	피드 섹션 강제 비활성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	41	정상 피드로 돌아갑니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	43	추천 피드가 즉시 차단됩니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	45	Fallback 피드로 즉시 전환됩니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	46	이 섹션이 즉시 숨겨집니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	49	대상: 「${target}」 · ${subject} → ${word}. 저장 즉시 실제 앱에 반영되어 ${effect}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-switch-confirm.ts	51	취소	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-utils.ts	19	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-utils.ts	61	일시적인 점검 중입니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-utils.ts	82	수동 킬스위치 활성화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-utils.ts	104	수동 킬스위치 해제	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/feed-emergency/feed-emergency-utils.ts	150	수동 fallback 해제	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/geo/haversine-distance.ts	33	거리 정보 없음	HARMLESS_CODE_USED	formatApproxStraightDistanceListLabel 호출처 없음(grep), 미사용	
+hangul	lib/geo/haversine-distance.ts	34	약 ${inner}	HARMLESS_CODE_USED	formatApproxStraightDistanceListLabel 호출처 없음(grep), 미사용	
+hangul	lib/group-chat/load-group-chat-bootstrap-server.ts	23	roomId 필요	EXPOSED	components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키(ui_group_chat_*)
+hangul	lib/group-chat/load-group-chat-bootstrap-server.ts	30	서버 설정 필요	EXPOSED	components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키(ui_group_chat_*)
+hangul	lib/group-chat/load-group-chat-bootstrap-server.ts	40	방을 찾을 수 없습니다.	EXPOSED	components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키(ui_group_chat_*)
+hangul	lib/group-chat/load-group-chat-bootstrap-server.ts	55	멤버만 볼 수 있습니다.	EXPOSED	components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키(ui_group_chat_*)
+hangul	lib/group-chat/server/assert-group-member.ts	27	멤버만 접근할 수 있습니다.	HARMLESS_CODE_USED	messages POST 에서만 반환, GroupChatRoomClient.tsx:157 실패 시 응답 무시	
+hangul	lib/group-chat/server/load-group-room-messages.ts	31	서버 설정 필요	EXPOSED	bootstrap 경유 → components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키
+hangul	lib/group-chat/server/load-group-room-messages.ts	35	roomId 필요	EXPOSED	bootstrap 경유 → components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키
+hangul	lib/group-chat/server/load-group-room-messages.ts	51	멤버만 조회할 수 있습니다.	EXPOSED	bootstrap 경유 → components/group-chat/GroupChatRoomClient.tsx:79→213 / app/(main)/group-chat/[roomId]/page.tsx:47,57 에 error 그대로	code 반환, 화면 키
+hangul	lib/group-chat/server/load-group-room-messages.ts	82	기준 메시지를 찾을 수 없습니다.	SERVER_TEXT	표시 경로 미확인: before 커서는 GET messages 만(앱 호출처 없음)	error code 만
+hangul	lib/home-feed/home-feed-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	31	노출 점수 기반 추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	37	동네 최신순	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	39	끌올 기준	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	46	광고·포인트 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	51	프리미엄·상점 featured	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-defaults.ts	53	최근 본 상품 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	4	추천 상품	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	5	우리동네 최신	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	6	끌올 상품	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	7	광고/프로모션	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	8	특별회원/상점 추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	9	최근 본 상품 기반 추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	13	추천순	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	14	최신순	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	15	가까운순	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	16	인기순	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	17	혼합	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	21	바랑가이	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	22	시/도시	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-labels.ts	23	지역	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-utils.ts	184	추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-utils.ts	186	광고	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-utils.ts	188	특별회원/상점	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-utils.ts	190	끌올	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/home-feed/home-feed-utils.ts	212	홈 피드 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/http/api-route.ts	91	오류가 발생했습니다.	SERVER_TEXT	표시 경로 미확인: 공통 jsonError/rate-limit/safeError 기본 문장 — 수백 API 응답 error 에 실림	error 에 code 만, 화면은 resolveApiErrorText
+hangul	lib/http/api-route.ts	92	일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 공통 jsonError/rate-limit/safeError 기본 문장 — 수백 API 응답 error 에 실림	error 에 code 만, 화면은 resolveApiErrorText
+hangul	lib/http/api-route.ts	190	요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 공통 jsonError/rate-limit/safeError 기본 문장 — 수백 API 응답 error 에 실림	error 에 code 만, 화면은 resolveApiErrorText
+hangul	lib/http/api-route.ts	232	요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 공통 jsonError/rate-limit/safeError 기본 문장 — 수백 API 응답 error 에 실림	error 에 code 만, 화면은 resolveApiErrorText
+hangul	lib/http/api-route.ts	256	일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 공통 jsonError/rate-limit/safeError 기본 문장 — 수백 API 응답 error 에 실림	error 에 code 만, 화면은 resolveApiErrorText
+hangul	lib/launch-readiness/launch-readiness-db.ts	72	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	38	회원가입/로그인 E2E 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	39	소셜·이메일 로그인 및 회원가입 플로우 검증 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	50	상품 등록/수정/삭제 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	51	상품 CRUD 및 이미지 업로드 동작 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	62	관리자 로그인 및 권한 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	63	역할별 메뉴·기능 접근 제어 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	74	홈 피드·추천 API 정상 응답	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	75	피드 엔진·fallback 동작 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	86	신고 접수·제재 플로우 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	87	신고 처리 및 제재 적용 플로우	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	98	포인트 충전·사용 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	99	충전·차감·만료 플로우 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	110	광고 신청·노출 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	111	광고 결제 및 유료 노출 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	122	운영 SOP·플레이북 최신화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	123	주요 장애 대응 문서 검토 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	134	모니터링·알림 연동 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	135	헬스체크·알림 채널 동작 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	146	보안 점검 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	147	인증·권한·노출 데이터 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	158	배포/릴리즈 절차 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	159	배포 파이프라인·롤백 절차 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	170	채팅·알림 동작 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	171	실시간 채팅 및 푸시 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	190	회원가입/로그인 E2E 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	195	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	209	상품 등록/수정/삭제 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	214	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	228	관리자 로그인 및 권한 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	233	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	236	역할 2종 추가 검증 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	247	홈 피드·추천 API 정상 응답	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	266	신고 접수·제재 플로우 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	285	포인트 충전·사용 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	290	운영B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	292	결제 PG 샌드박스 이슈 대기 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	304	운영 SOP·플레이북 최신화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	309	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	323	모니터링·알림 연동 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	342	보안 점검 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	350	점검 예정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	361	배포/릴리즈 절차 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	366	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	380	광고 신청·노출 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	399	채팅·알림 동작 검증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	407	런칭 당일 체크	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	424	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	426	must_have 전부 완료 후 최종 승인 예정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	436	승인자 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	456	런칭 당일 체크리스트 완료 후 승인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	470	운영B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	471	결제 PG 샌드박스 이슈 대기 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	480	운영B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-readiness/launch-readiness-state.ts	481	PG사 응답 대기로 사유 보강	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-db.ts	72	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	26	회원가입 오류 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	27	Must watch: 가입 실패율·에러 로그	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	31	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	41	상품등록 실패 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	42	Must watch: 등록 실패 건수	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	56	이미지 업로드 실패 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	57	Must watch: 스토리지·업로드 에러	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	63	일부 500 확인 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	71	채팅 생성 실패 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	72	Must watch: 채팅방 생성·메시지 전송	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	77	채팅 API 지연 이슈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	86	추천 피드 비정상 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	87	Must watch: 빈 피드·fallback 발생	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	101	신고 급증 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	102	Must watch: 신고 건수·처리 지연	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	116	포인트/광고 신청 누락 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	117	Must watch: 결제·신청 실패	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	132	일일 점검·인수인계 메모	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	150	오픈 Day1. 가입·상품 등록 양호. 이미지 업로드 일부 500 확인됨.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	151	이미지 업로드 500, 관리자 메뉴 권한 표시	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	152	가입/등록 플로우 안정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	154	Day2 팀에 이미지 이슈 인수인계. Daily check / shift handoff placeholder.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	157	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	162	Day2. 채팅 API 지연 발생. 피드 fallback 1회 후 복구.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	163	채팅 지연, fallback 발생	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	164	자동 복구 정상 동작	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	165	채팅 담당자와 협의 예정.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	168	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	178	이미지 업로드 500 에러	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	188	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	189	스토리지 정책 점검 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	193	채팅 API 지연	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	208	피드 fallback 1회 발생	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	219	자동 복구됨	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/launch-week/launch-week-state.ts	223	관리자 메뉴 권한 표시 오류	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/layout/resolve-main-tier1.ts	66	공지사항	FALSE_POSITIVE	RegionBar → resolveTier1BarLabel tt() 역번역, 4개 문장 모두 회원 카탈로그에 존재(copy-lib·mypage-components)	(권장) 키 직접 사용
+hangul	lib/layout/resolve-main-tier1.ts	66	시스템 안내	FALSE_POSITIVE	RegionBar → resolveTier1BarLabel tt() 역번역, 4개 문장 모두 회원 카탈로그에 존재(copy-lib·mypage-components)	(권장) 키 직접 사용
+hangul	lib/layout/resolve-main-tier1.ts	66	혜택·이벤트	FALSE_POSITIVE	RegionBar → resolveTier1BarLabel tt() 역번역, 4개 문장 모두 회원 카탈로그에 존재(copy-lib·mypage-components)	(권장) 키 직접 사용
+hangul	lib/layout/resolve-main-tier1.ts	66	업데이트 내역	FALSE_POSITIVE	RegionBar → resolveTier1BarLabel tt() 역번역, 4개 문장 모두 회원 카탈로그에 존재(copy-lib·mypage-components)	(권장) 키 직접 사용
+hangul	lib/main-menu/resolve-main-bottom-nav-fab.ts	130	새 메뉴	FALSE_POSITIVE	기본 인자만, 유일 호출처 MainBottomNavFabInlineSection.tsx:64 가 t() 전달(어드민)	
+hangul	lib/main-menu/resolve-main-bottom-nav.ts	106	메뉴	FALSE_POSITIVE	BottomNav.tsx:297 tt(label) 역번역, 「메뉴」 회원 카탈로그 존재	
+hangul	lib/main-menu/resolve-main-bottom-nav.ts	187	새 메뉴	EXPOSED	관리자 커스텀 탭 label 빈값 폴백 → BottomNav.tsx:297 tt(「새 메뉴」) 카탈로그 없음 → 영어 화면 한국어	labelKey 폴백(nav_new_menu) 사용
+hangul	lib/main-menu/resolve-main-bottom-nav.ts	364	메뉴	FALSE_POSITIVE	저장 정규화 기본값, BottomNav.tsx:297 tt() 로 「메뉴」 번역됨	
+hangul	lib/map/geolocation.ts	12	위치 권한이 거부되었습니다. 주소창 왼쪽 자물쇠·사이트 정보에서 「위치」를 허용하거나, 브라우저 설정에서 이 사이트의 위치 접근을 켜 주세요.	EXPOSED	TradeBrowseLocationSheet.tsx:112 setGeoError(pos.message) 표시(주소 화면들은 reason→키)	code 만 반환, 화면에서 code→키(trade_location_geo_*)
+hangul	lib/map/geolocation.ts	14	위치 정보를 가져올 수 없습니다. 잠시 후 다시 시도해 주세요.	EXPOSED	TradeBrowseLocationSheet.tsx:112 setGeoError(pos.message) 표시(주소 화면들은 reason→키)	code 만 반환, 화면에서 code→키(trade_location_geo_*)
+hangul	lib/map/geolocation.ts	16	위치 확인 시간이 초과되었습니다. 네트워크 상태를 확인한 뒤 다시 눌러 주세요.	EXPOSED	TradeBrowseLocationSheet.tsx:112 setGeoError(pos.message) 표시(주소 화면들은 reason→키)	code 만 반환, 화면에서 code→키(trade_location_geo_*)
+hangul	lib/map/geolocation.ts	18	현재 위치를 확인할 수 없습니다.	EXPOSED	TradeBrowseLocationSheet.tsx:112 setGeoError(pos.message) 표시(주소 화면들은 reason→키)	code 만 반환, 화면에서 code→키(trade_location_geo_*)
+hangul	lib/map/geolocation.ts	39	이 브라우저 또는 보안 설정에서 이 사이트의 위치 사용이 막혀 있습니다. HTTPS로 접속했는지, 주소창의 사이트 설정에서 위치가 허용됐는지 확인해 주세요.	EXPOSED	TradeBrowseLocationSheet.tsx:112 setGeoError(pos.message) 표시(주소 화면들은 reason→키)	code 만 반환, 화면에서 code→키(trade_location_geo_*)
+hangul	lib/map/load-google-maps.ts	13	NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 가 없습니다.	EXPOSED	AddressSelectClient.tsx:209 e.message 표시(키 없음 설정 오류 시)	Error code 던지고 화면은 t("addr_ui_maps_load_failed")
+hangul	lib/map/places-new-api.ts	48	google.maps.places.PlacesService 를 찾을 수 없습니다. Places 라이브러리가 로드되었는지 확인하세요.	HARMLESS_LOG	개발자 진단 throw, 호출 화면에서 message 표시 없음(TradeMeetSpotPickClient grep)	
+hangul	lib/member-benefits/member-benefit-utils.ts	9	일반회원	EXPOSED	MEMBER_TYPE_LABELS → MemberBenefitCard.tsx:30 → 고객 /mypage/benefits	memberType → 키(member_type_normal 등)
+hangul	lib/member-benefits/member-benefit-utils.ts	10	특별회원	EXPOSED	MEMBER_TYPE_LABELS → MemberBenefitCard.tsx:30 → 고객 /mypage/benefits	memberType → 키
+hangul	lib/member-benefits/member-benefit-utils.ts	11	관리자	EXPOSED	MEMBER_TYPE_LABELS → MemberBenefitCard.tsx:30 → 고객 /mypage/benefits	memberType → 키
+hangul	lib/member-benefits/member-benefit-utils.ts	18	부여	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	19	변경	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	20	회수	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	21	우선노출적용	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	22	보너스적용	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	26	일반회원	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	27	특별회원	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/member-benefits/member-benefit-utils.ts	28	관리자	HARMLESS_ADMIN	로그 액션·옵션 라벨은 어드민 화면만 import	
+hangul	lib/ops-benchmarks/ops-benchmarks-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	95	추천 품질 목표 80점 달성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	96	CTR/전환율 기반 추천 품질 벤치마크 상향	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	103	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	105	Q1 추천 품질	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	116	장애 대응 평균 해결시간 30분 이하	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	117	incident 평균 해결시간 단축	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	124	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	126	Q1 대응 강화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	137	문서 최신화율 90% 이상	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	138	SOP/플레이북 최신화 주기 정립	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	147	Q1 문서화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	158	자동화 수준 70점 이상	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	159	fallback/rollback 자동화율 상향	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	168	Q2 자동화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	179	학습/회고 반영률 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	180	회고 액션아이템 반영률 80% 목표	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	187	운영B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	189	Q1 학습	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	194	기한 임박	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	200	모니터링 대시보드 정비	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	201	헬스체크/알림 연동 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	208	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	210	전년 Q4	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	226	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	235	전반적으로 우수. 문서 기여도 보강 권장.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	243	운영B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	252	액션아이템 완료율 개선 필요.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-benchmarks/ops-benchmarks-state.ts	260	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-db.ts	72	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	26	추천 헬스 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	38	피드 Fallback/Kill Switch 상태 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	50	미해결 이슈·알림 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	62	일간 보고서 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	84	빈피드 임계치 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	85	검색 surface 빈피드율 알림 임계치 조정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	92	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	101	일간 점검 체크리스트 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	102	당일 체크리스트 전 항목 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	109	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	125	주간 운영 회고	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	126	추천 피드 안정 운영, 일부 이슈 대응 완료.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	127	홈 CTR 유지, Fallback 미발생	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	128	검색 빈피드율 일시 상승	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	129	모니터링 알림 임계치 조정 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	130	빈피드 임계치 검토; 액션아이템 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-state.ts	135	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-board/ops-board-utils.ts	12	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	18	추천 피드 Fallback 대응 플레이북	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	22	추천 피드 Fallback 발생 시 점검 및 복구 절차	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	24	1. 모니터링 대시보드에서 Fallback 발생 확인\n2. 추천 모니터링 이슈 목록 확인\n3. 필요 시 롤백 또는 버전 전환 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	31	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	33	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	39	일간 추천 점검 SOP	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	43	매일 추천 시스템 헬스체크 및 일간 보고서 검토 절차	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	45	매일 오전 10시 전:\n- 추천 모니터링 대시보드 헬스 확인\n- 일간 보고서 KPI 검토\n- 이상 시 플레이북 참조	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	52	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	54	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	60	추천 버전 롤백 시나리오	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	64	배포된 추천 버전 문제 시 롤백 실행 시나리오	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	66	문제 감지 → 배포 관리 화면에서 이전 안정 버전 선택 → 롤백 실행 → 모니터링으로 지표 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	73	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	81	광고 노출 오류 대응	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	85	광고 영역 노출 오류 시 점검 절차 (초안)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	86	배너/광고 관리에서 해당 캠페인 상태 확인 후 일시 중단 또는 수정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	93	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	96	검토 후 활성화 예정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	107	모니터링 대시보드 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	108	추천 모니터링에서 Fallback 발생 여부 및 원인 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	118	관련 이슈/인시던트 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	119	해당 surface의 이슈 목록에서 관련 incident 링크 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	129	필요 시 롤백 또는 버전 전환	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	130	배포 관리에서 이전 안정 버전으로 롤백 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	140	헬스체크 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	141	추천 모니터링 헬스 상태 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	151	일간 보고서 KPI 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	152	추천 보고서에서 당일 KPI 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	162	문제 버전 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	163	배포 관리에서 현재 live 버전 및 이슈 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	173	롤백 실행	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	174	이전 안정 버전 선택 후 롤백 실행	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	191	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	201	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	202	1.0 승인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	211	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	212	단계 3 링크 추가	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	221	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	231	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	241	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-state.ts	242	초안	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-utils.ts	46	복제 from ${documentId}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-docs/ops-docs-utils.ts	88	상태 → ${status}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-recommendations.ts	30	연결 유형: ${sourceType}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-recommendations.ts	31	카테고리: 인시던트 대응	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-recommendations.ts	32	카테고리: 롤백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-recommendations.ts	33	카테고리: 배포	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-recommendations.ts	34	관련 문서	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	20	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	30	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	31	롤백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	72	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	80	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-state.ts	88	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge/ops-knowledge-utils.ts	23	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-db.ts	73	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	106	추천 Fallback 이슈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	107	추천 배포 버전	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	108	일간 추천 보고서	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	109	빈피드 임계치 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	227	Fallback 대응 플레이북 적용	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	312	동일 카테고리	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	314	태그: ${commonTags.join(", ")}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-knowledge-graph/ops-knowledge-graph-state.ts	321	관련 문서	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-db.ts	73	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	27	빈 피드 이슈에 플레이북 참조로 대응, 해결 시간 단축	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	30	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	42	Fallback 대응 플레이북 실행, 결과 양호. 후속 모니터링 필요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	45	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	57	롤백 시나리오 적용 완료, 지표 정상화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	60	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	73	시스템	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	74	반복 패턴 탐지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	83	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	84	od-1 플레이북 연결	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	93	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	94	롤백 시나리오 적용으로 완화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	104	홈 빈 피드 반복 이슈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	105	empty_feed_spike가 home surface에서 반복 발생	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	114	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	119	롤백 시나리오 문서 활용 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	120	runbook 결과와 incident outcome 비교 후 문서 적합도 개선 제안	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	129	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	130	액션아이템 oai-1 연결	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	134	Fallback 대응 문서 갭	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	135	documentFitScore 낮음으로 문서 보강 제안	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	155	홈 빈 피드 일시 증가 반복	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	174	추천 버전 롤백 관련 패턴	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	193	홈 Fallback 발생 패턴	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	218	빈 피드 플레이북에 임계치 체크 단계 추가	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	219	empty_feed_spike 발생 전 알림 임계치 검토 단계를 문서에 추가 제안	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	229	홈 빈 피드 알림 임계치 조정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	230	현재 임계치로는 반복 발생 시점에 알림이 늦음. 상향 조정 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	240	Fallback 자동 복구 런북 신규 작성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-learning/ops-learning-state.ts	241	Fallback 발생 시 자동 복구 시나리오 문서화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	156	빈 피드 알림 임계치 조정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	157	반복 이슈 패턴 oip-1 기반. 알림 임계치 상향으로 조기 대응	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	164	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	167	Q1 모니터링 강화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	175	Fallback 자동 복구 런북 문서화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	176	document_gap 학습 기반. 신규 런북 작성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	186	Q1 문서화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	194	롤백 시나리오 실행률 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	195	액션아이템 oai-1 연동. 롤백 성공률 95% 목표	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	202	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	205	Q1 대응 속도	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	213	일간 체크리스트 자동 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	214	매일 오전 9시 템플릿 기반 체크리스트 자동 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	221	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	224	Q1 자동화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-maturity/ops-maturity-state.ts	228	적용 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	23	추천 모니터링 헬스체크	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	36	신고/제재 처리 현황 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	49	일간 운영 보고서 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	62	월간 추천 성과 리포트 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	75	포인트/충전 정책 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	88	운영 문서/SOP 최신화 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	101	성숙도/벤치마크 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	114	분기 운영 회의 아젠다 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	127	자동화 규칙·알림 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	140	보안/권한 점검 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	171	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	228	문서 업데이트 지연	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	243	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	283	월간 운영 회의 아젠다 placeholder. handoff / owner rotation placeholder.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	299	첫 달 운영 정착. 추천·모니터링 안정화. 문서 업데이트 일부 지연.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	300	문서 최신화 지연, carry-over 1건	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	301	주간 루틴 이행률 90%	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	302	다음 달 carry-over task 정리, SOP 갱신	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	305	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	310	월간 운영 루틴 진행 중. 성숙도/벤치마크 점검 완료.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	311	SOP 문서 overdue	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	312	월간 리포트 검토 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	313	문서 갱신, 다음 달 carry-over 최소화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-routines/ops-routines-state.ts	316	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbook-utils.ts	72	${linkedType} ${linkedId} 연동	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbook-utils.ts	207	런북 후속 조치: ${summary.slice(0, 50)}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-db.ts	72	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	19	추천 피드 Fallback 대응 플레이북	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	27	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	28	Fallback 발생 대응 진행 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	36	추천 버전 롤백 시나리오	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	44	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	45	롤백 완료, 지표 정상화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	46	이전 버전으로 롤백 후 CTR 복구 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	60	모니터링 대시보드 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	61	추천 모니터링에서 Fallback 발생 여부 및 원인 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	64	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	67	Fallback 확인됨	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	76	관련 이슈/인시던트 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	77	해당 surface의 이슈 목록에서 관련 incident 링크 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	80	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	92	필요 시 롤백 또는 버전 전환	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	93	배포 관리에서 이전 안정 버전으로 롤백 검토	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	108	문제 버전 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	109	배포 관리에서 현재 live 버전 및 이슈 확인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	112	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	124	롤백 실행	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	125	이전 안정 버전 선택 후 롤백 실행	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	128	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	131	롤백 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	146	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	148	incident inc-1 연동	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	157	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	168	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	170	Fallback 확인됨	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	179	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	190	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	201	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	203	롤백 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	212	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	227	이전 안정 버전으로 롤백 후 지표 정상화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	228	신규 버전에서 특정 트래픽 구간에서 스코어 계산 이슈 추정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/ops-runbooks/ops-runbooks-state.ts	232	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/performance/performance-ops-db.ts	64	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/permissions/device-permission-manager.ts	311	이 환경에서는 위치를 사용할 수 없습니다.	HARMLESS_CODE_USED	호출 화면(AddressSelectClient:266 등)은 res.reason 으로 키 선택, message 미사용	
+hangul	lib/permissions/device-permission-manager.ts	317	브라우저·기기 설정에서 위치 권한을 허용해 주세요.	HARMLESS_CODE_USED	호출 화면(AddressSelectClient:266 등)은 res.reason 으로 키 선택, message 미사용	
+hangul	lib/personalized-feed/personalized-feed-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-feed-defaults.ts	30	선호 카테고리 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-feed-defaults.ts	31	찜 카테고리 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-feed-defaults.ts	32	최근 본 상품	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-feed-defaults.ts	33	최근 찜	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-feed-defaults.ts	34	최근 채팅	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-section-labels.ts	4	카테고리별 추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-section-labels.ts	5	관심 카테고리 추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-section-labels.ts	6	최근 본 상품과 비슷해요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-section-labels.ts	7	찜한 상품과 비슷해요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/personalized-feed/personalized-section-labels.ts	8	최근 대화한 상품과 비슷해요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/platform-events/publication.ts	76	곧 시작	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	76	이 이벤트는 아직 시작되지 않았습니다.	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	78	종료된 이벤트	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	78	이 이벤트는 종료되었습니다.	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	82	볼 수 없는 콘텐츠	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	82	이 이벤트는 현재 볼 수 없습니다.	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	85	찾을 수 없음	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-events/publication.ts	85	이벤트를 찾을 수 없습니다.	FALSE_POSITIVE	language 인자로 ko/en 분기(:55-72), API route 가 lang 전달	(권장) 키로 이전
+hangul	lib/platform-promotion-distribution/banner-presentation.ts	180	${ratio} · 권장 ${size} · cover (가장자리 크롭 가능)	FALSE_POSITIVE	lang 인자로 ko/en 분기(:177-180), 어드민·dev 전용	
+hangul	lib/platform-promotion-distribution/repository.ts	63	팝업	FALSE_POSITIVE	lang 인자로 ko/en 분기(:61-63), 어드민 전용	
+hangul	lib/platform-promotion-distribution/repository.ts	63	배너	FALSE_POSITIVE	lang 인자로 ko/en 분기(:61-63), 어드민 전용	
+hangul	lib/platform-promotion-distribution/repository.ts	63	앱 알림	FALSE_POSITIVE	lang 인자로 ko/en 분기(:61-63), 어드민 전용	
+hangul	lib/pwa/dibay-web-app-manifest.ts	26	필리핀 거주 한국인을 위한 ${DIBAY_SERVICE_BRAND.MARKET}·${DIBAY_SERVICE_BRAND.LOUNGE}·${DIBAY_SERVICE	NEED_OWNER	PWA manifest description(app/manifest.ts) 단일 언어 — 설치 화면 문구, 언어별 분기 불가	
+hangul	lib/qa-board/qa-board-db.ts	72	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	29	회원가입/로그인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	30	소셜·이메일 로그인, 회원가입 플로우	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	39	상품 등록/수정/삭제	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	40	상품 CRUD 및 이미지 업로드	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	49	홈/검색/추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	50	피드 노출, 검색, 추천 슬롯	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	59	채팅/거래상태	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	60	채팅 송수신, 거래 상태 변경	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	69	신고/제재	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	70	신고 접수, 제재 적용	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	79	포인트/결제	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	80	포인트 충전·사용·만료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	89	광고/상점	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	90	광고 신청, 상점 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	99	관리자 콘솔	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	100	관리자 로그인, 권한, 주요 메뉴	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	109	운영 도구	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	110	모니터링, 런북, 문서	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	119	보안/RLS placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	120	인증·RLS 검증 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	135	이메일 로그인 성공	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	136	유효한 이메일/비밀번호로 로그인	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	142	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	154	회원가입 후 프로필 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	155	가입 시 profiles 레코드 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	173	상품 등록 E2E	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	174	이미지 업로드 포함 상품 등록	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	180	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	185	이미지 업로드 500 에러	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	192	홈 피드 로드	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	193	비로그인/로그인 피드 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	211	채팅 메시지 송수신	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	212	실시간 채팅 동작	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	224	채팅 API 미연동	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	230	신고 접수 플로우	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	231	신고 제출 후 관리자 노출	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	249	포인트 충전·차감	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	250	충전 후 상품 구매 시 차감	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	268	관리자 로그인·메뉴	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	269	역할별 메뉴 접근	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	275	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	287	RLS 정책 검증 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	288	주요 테이블 RLS 동작	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	311	파일럿 사용자 온보딩 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	315	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	321	홈/검색 체험 피드백 수집	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	326	파일럿 5명 대상	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	331	상품 등록 체험 피드백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	341	채팅 체험 피드백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	346	채팅 연동 후 진행	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	351	신고 플로우 피드백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	361	포인트 사용 피드백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	371	관리자 응답 만족도 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	376	파일럿 피드백 목록 placeholder	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	387	상품 이미지 업로드 500 에러	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	397	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	398	스토리지 bucket 정책 확인 필요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	402	채팅 메시지 지연	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	417	관리자 메뉴 권한 표시 오류	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/qa-board/qa-board-state.ts	428	검증 대기	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation/recommendation-behavior-state.ts	19	디지털/가전	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation/recommendation-behavior-state.ts	20	마닐라	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation/recommendation-behavior-state.ts	63	아이폰	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-db.ts	70	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	412	서울	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	412	강남구	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	413	서울	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	413	서초구	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	414	경기	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	414	성남시	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	415	인천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	415	남동구	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	448	추천	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	449	광고	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	450	끌올	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	451	우리동네 최신	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	452	특별회원/상점	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	453	최근 본 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	454	카테고리 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	455	관심 기반	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	488	디지털기기	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	488	가구	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	488	의류	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	488	생활용품	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	488	기타	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	527	홈 추천 섹션 CTR 전일 대비 +2%p	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	527	전환율 0.78% 유지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	528	검색 surface 빈피드율 3% 주의	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	531	홈 fv-control-home 운영 중. 최근 배포 1건 성공.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	532	최근 롤백 없음.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-analytics/recommendation-analytics-state.ts	533	오늘 자동 Fallback 0건, 킬스위치 0건, 롤백 0건.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	18	자동화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	43	정책 비활성 또는 헬스 없음	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	54	복귀 조건: healthy 유지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	65	emptyFeedRate ${health.emptyFeedRate.toFixed(2)} > ${policy.emptyFeedRateThreshold} 또는 suc	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	77	배포 실패 이슈 ${deploymentFailures}건 >= ${policy.deploymentFailureThreshold}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	84	critical 미해결 이슈 ${criticalOpen}건	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	88	조건 미충족	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-automation-utils.ts	183	정책 비활성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-automation/recommendation-recovery-state.ts	28	fallback 해제 후보 (healthy 유지 시 자동 복귀)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-deployments/recommendation-deployment-utils.ts	15	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-deployments/recommendation-deployment-utils.ts	63	${deploymentName} 배포 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-deployments/recommendation-deployment-utils.ts	83	롤백: ${surface}	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-deployments/recommendation-deployment-utils.ts	92	수동 롤백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-deployments/recommendation-deployment-utils.ts	101	이전 버전으로 롤백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	8	홈	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	9	검색	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	10	상점	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	17	대조군	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	18	실험군 A	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiment-utils.ts	19	실험군 B	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-db.ts	64	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	29	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	41	홈 대조군 v1	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	54	기본 홈 피드	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	61	홈 실험군 A (추천 강화)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	78	추천 섹션 확대, recent_based off	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	85	홈 실험군 B (광고 비중 축소)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	101	sponsored 축소, local_latest 확대	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	113	홈 추천 섹션 비중 실험	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	114	추천 상품 섹션 확대 vs 대조군	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	128	홈 피드 A/B 테스트	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	132	검색 추천 가중치 실험 (초안)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	133	검색 결과 추천 점수 가중치 차등	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	160	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	161	실험 생성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	170	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	171	실험 시작	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	186	마닐라	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	196	마닐라	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	222	홈 기본 버전 배포	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	231	초기 배포	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	248	홈 기본 버전 배포	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	445	초안	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	446	진행중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	447	일시중지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	448	종료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	455	비율	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	456	지역 기준	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-experiments/recommendation-experiments-state.ts	457	회원유형 기준	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/recommendation-ops/recommendation-ops-db.ts	75	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-db.ts	76	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	27	v1.2.0 - 신고 알림·안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	30	신고 처리 결과 알림 추가, 피드·채팅 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	42	v1.3.0 - 피드·채팅 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	45	피드 깜빡임 개선, 채팅 알림 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	57	v1.1.0 (롤백됨)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	60	일부 기능 롤백으로 1.2.0으로 대체	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	66	회귀 다수로 롤백	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	78	신고 처리 결과 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	79	신고 접수·처리 시 푸시 알림	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	92	앱 안정성 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	93	일부 크래시 수정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	106	피드 무한스크롤 깜빡임 수정	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	107	스크롤 시 리스트 깜빡임 제거	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	120	채팅 알림 안정화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	121	FCM·권한 반영 개선	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	139	채팅 알림 미수신 회귀	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	140	1.3.0 배포 후 일부 기기에서 채팅 알림 미수신	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	147	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	157	피드 로딩 지연	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	158	1.2.0 배포 직후 피드 첫 로딩 2초 이상	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	175	로그인 실패 회귀 (반복 패턴)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	176	1.1.0에서 인증 플로우 회귀 다수 보고	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	188	롤백으로 해결	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	199	신고 알림 기능 스테이징 검증 완료, 단계적 롤아웃으로 위험 완화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	200	배포 직후 피드 첫 로딩 지연 보고됨	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	201	피드 로딩 1건 감지, 원인 파악 후 패치	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	202	캐시 워밍 조정으로 24h 내 완화	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	203	피드 성능 스모크 추가, 로딩 임계치 모니터링	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	206	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	211	피드 깜빡임 수정 검증 완료	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	212	채팅 알림 일부 기기 미수신 이슈 감지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	213	FCM/권한 관련 추정, 조사 중	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	214	사용자 안내 및 재설치 권장	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	215	채팅 알림 회귀 테스트 강화, 기기 매트릭스 확대	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/release-archive/release-archive-state.ts	218	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/rate-limit-presets.ts	4	요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	18	신고 접수 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	52	연락처 인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	73	인증번호 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	83	인증번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	93	로그인 식별자 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	113	업로드 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	SERVER_TEXT	표시 경로 미확인: 다수 API(429) error 에 문장+code 동시 전송, 화면별 표시 미추적	error 를 code 로만, 화면은 resolveApiErrorText(code)
+hangul	lib/security/rate-limit-presets.ts	209	테스트 발송이 너무 잦습니다. 1분 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	관리자 캠페인 테스트 발송 한도	
+hangul	lib/security/security-db.ts	66	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	25	products 테이블 RLS 정책 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	33	users 일부 컬럼 노출 검토 필요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	41	관리자 API 인증·권한 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	49	세션 만료 정책·리프레시 토큰 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	57	관리자 권한 매트릭스 점검	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	68	users.email 노출 가능성	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	71	일부 API에서 마스킹 필요	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	76	리프레시 토큰 TTL 과다	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	79	90일 → 30일 권장	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	84	RLS 정책 누락 (이전)	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-state.ts	87	배포로 해결	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	15	관리자	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	16	인증	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	17	스토리지	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	21	안전	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	22	주의	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	23	위험	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	27	낮음	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	28	중간	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	29	높음	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	30	긴급	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	34	미해결	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/security-utils.ts	35	해결됨	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/security/webhook-ip-rate-limit.ts	21	웹훅 요청 한도를 초과했습니다.	HARMLESS_LOG	외부 웹훅(배달·결제) 서버간 응답, 화면 없음	
+hangul	lib/startup/pre-hydration-guard-script.ts	56	앱을 불러오는 중 문제가 발생했어요	FALSE_POSITIVE	document lang==='en' 분기로 영어 문장 동시 보유(:56)	
+hangul	lib/startup/pre-hydration-guard-script.ts	56	잠시 후 다시 시도해 주세요.	FALSE_POSITIVE	document lang==='en' 분기로 영어 문장 동시 보유(:56)	
+hangul	lib/startup/pre-hydration-guard-script.ts	56	다시 시도	FALSE_POSITIVE	document lang==='en' 분기로 영어 문장 동시 보유(:56)	
+hangul	lib/startup/startup-config-db.ts	63	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/stickers/fallback-sticker-catalog.ts	28	기본	EXPOSED	basic·reaction 팩 nameKey 없음 → MessengerStickerSheet.tsx:179-180 p.name 표시(aria/title)	nameKey cm_ui_sticker_pack_basic/reaction 추가
+hangul	lib/stickers/fallback-sticker-catalog.ts	29	리액션	EXPOSED	basic·reaction 팩 nameKey 없음 → MessengerStickerSheet.tsx:179-180 p.name 표시(aria/title)	nameKey cm_ui_sticker_pack_basic/reaction 추가
+hangul	lib/supabase/describe-supabase-fetch-failure.ts	40	Supabase 주소를 DNS에서 찾을 수 없습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL이 Supabase 대시보드(Settings	HARMLESS_CODE_USED	로그인 화면은 code→mapSupabaseFetchFailureToMessage 키(login-error-i18n.ts:103), userMessage 는 logLine 만	
+hangul	lib/supabase/describe-supabase-fetch-failure.ts	48	Supabase 연결 시간이 초과되었습니다. 네트워크·VPN·방화벽을 확인하고 다시 시도해 주세요.	HARMLESS_CODE_USED	로그인 화면은 code→mapSupabaseFetchFailureToMessage 키(login-error-i18n.ts:103), userMessage 는 logLine 만	
+hangul	lib/supabase/describe-supabase-fetch-failure.ts	56	Supabase 서버에 연결하지 못했습니다. 인터넷·VPN·방화벽을 확인하고, Project URL·anon 키가 대시보드와 일치하는지 확인해 주세요.	HARMLESS_CODE_USED	로그인 화면은 code→mapSupabaseFetchFailureToMessage 키(login-error-i18n.ts:103), userMessage 는 logLine 만	
+hangul	lib/supabase/describe-supabase-fetch-failure.ts	63	인증 서버와 통신하지 못했습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL·NEXT_PUBLIC_SUPABASE_ANON_KEY를 확인한	HARMLESS_CODE_USED	로그인 화면은 code→mapSupabaseFetchFailureToMessage 키(login-error-i18n.ts:103), userMessage 는 logLine 만	
+hangul	lib/system/system-ops-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/test-utils/ssot-source-contract-registry.ts	64	SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지	DEV_ONLY	테스트 계약 marker 문자열	
+hangul	lib/trust/trust-score-core.ts	90	0 ~ 19 (위험)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/trust/trust-score-core.ts	91	20 ~ 39 (주의)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/trust/trust-score-core.ts	92	40 ~ 59 (기본)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/trust/trust-score-core.ts	93	60 ~ 74 (양호)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/trust/trust-score-core.ts	94	75 ~ 89 (우수)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/trust/trust-score-core.ts	95	90 ~ 100 (최고)	HARMLESS_CODE_USED	TRUST_TIER_RANGE_LABELS_KO 호출처 없음(grep), 미사용	
+hangul	lib/ui/design-system-hard-lock.ts	19	당근 주황	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/usage/usage-ops-db.ts	64	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 화면만 import(app/admin·components/admin·app/api/admin), 고객 경로 없음	
+hangul	lib/users/public-member-identity.ts	44	회원	EXPOSED	lang 미전달 호출처(chat-rooms-list-core.ts:379·fetch-partner-display.ts:53·notification display:26) → 닉네임·ID 없을 때 「회원」	서버는 null/flag, 화면에서 t(member 키) — 또는 모든 호출처 lang 전달
+hangul	lib/utils/format.ts	18	원	EXPOSED	getCurrencyUnitLabel → 글쓰기 가격 단위 WriteSheetFlowInner.tsx:557·TradeWriteForm.tsx:617·OwnerProductsHubClient.tsx:130 (KRW 통화일 때)	통화 코드 → 키(currency_unit_krw/usd)
+hangul	lib/utils/format.ts	19	달러	EXPOSED	getCurrencyUnitLabel → 같은 화면(USD 통화일 때)	통화 코드 → 키
+hangul	lib/utils/format.ts	100	방금 전	HARMLESS_CODE_USED	formatChatTime 호출처 없음(grep), 미사용	
+hangul	lib/utils/format.ts	101	${diffMin}분 전	HARMLESS_CODE_USED	formatChatTime 호출처 없음(grep), 미사용	
+hangul	lib/utils/format.ts	105	어제 ${date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}	HARMLESS_CODE_USED	formatChatTime 호출처 없음(grep), 미사용	
+hangul	lib/utils/ph-mobile.ts	17	휴대전화는 09로 시작하는 11자리만 입력할 수 있습니다. 형식: 09## ### #### (+63으로 붙여넣기 가능).	EXPOSED	store-profile-core.server.ts:242 error 로 전송 → OwnerStoreProfileForm.tsx:697 매핑 없으면 code 그대로 표시(사장님 매장 정보 저장)	서버 code phone_rule + PATCH_ERR_KEYS 에 추가
+hangul	contexts/LatestMenuNavigationContext.tsx	265	브라우저 콘솔 전용 — 서버 터미널 미출력. window.__navPerfDump()	HARMLESS_LOG	콘솔 성능 덤프 note	
+en-literal	components/app/AppBootProvider.tsx	103	ReturnType	FALSE_POSITIVE	TS 타입 ReturnType	
+en-literal	components/platform-events/PlatformEventDetailContent.tsx	111	Terms	EXPOSED	이벤트 상세 「Terms」 제목 고정(:111) — 한국어 화면에 영어	키 platform_event_terms_title 로 t()
+en-literal	components/push/PushRouteListener.tsx	141	now - at	FALSE_POSITIVE	코드 식(now - at)	
+en-literal	components/share/DibayShareSheet.tsx	85	Promise	FALSE_POSITIVE	TS 타입 Promise	
+en-literal	components/ui/dibay-overlay/DibayAppDialogProvider.tsx	52	Promise	FALSE_POSITIVE	TS 타입 Promise	
+en-literal	components/ui/dibay-overlay/DibayAppDialogProvider.tsx	53	Promise	FALSE_POSITIVE	TS 타입 Promise	
+en-literal	components/ui/dibay-overlay/DibayAppDialogProvider.tsx	54	Promise	FALSE_POSITIVE	TS 타입 Promise	
+en-literal	components/ui/dibay-overlay/DibayFullSheet.tsx	116	Close	EXPOSED	전체 시트 닫기 aria-label 'Close'(:116) — 한국어 화면 낭독기 영어	t("common_close")
+en-literal	components/ui/dibay-overlay/DibayOverlayRoot.tsx	171	Close	EXPOSED	오버레이 배경 aria-label 'Close'(:171)	t("common_close")

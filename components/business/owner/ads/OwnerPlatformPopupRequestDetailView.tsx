@@ -20,10 +20,14 @@ import {
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
 import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
+import { ownerPopupErrorKey } from "@/lib/platform-popup/owner-popup-error-copy";
 import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 export function OwnerPlatformPopupRequestDetailView() {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
+  /** 언어 재감사 2026-11-27: `error` 는 코드만 — 화면은 코드 → 키(서버 글·코드 원문 노출 0) */
+  const errorText = (code: string | null) => resolveOwnerApiErrorText(code, t, ownerPopupErrorKey(code));
   const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const params = useParams();
@@ -87,9 +91,9 @@ export function OwnerPlatformPopupRequestDetailView() {
   if (!item) {
     return (
       <div className="space-y-3 p-4">
-        <p className="text-sm text-sam-danger">{error || "not_found"}</p>
+        <p className="text-sm text-sam-danger">{errorText(error || "not_found")}</p>
         <Link href={DELIVERY_AD_OWNER_ROUTES.hub} className="text-sm underline">
-          Hub
+          {safeT("owner_ads_back_hub")}
         </Link>
       </div>
     );
@@ -110,13 +114,13 @@ export function OwnerPlatformPopupRequestDetailView() {
           </p>
         </div>
         <Link href={DELIVERY_AD_OWNER_ROUTES.hub} className="text-sm underline">
-          Hub
+          {safeT("owner_ads_back_hub")}
         </Link>
       </div>
 
       {error ? (
         <p className="text-sm text-sam-danger" role="alert">
-          {error}
+          {errorText(error)}
         </p>
       ) : null}
 
@@ -153,7 +157,7 @@ export function OwnerPlatformPopupRequestDetailView() {
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">CTA</dt>
+            <dt className="text-sam-muted">{t("owner_platform_popup_section_cta")}</dt>
             <dd>
               {
                 describePlatformPopupCtaDestination({

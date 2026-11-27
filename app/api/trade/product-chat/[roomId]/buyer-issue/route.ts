@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
@@ -18,7 +19,7 @@ export async function POST(
 ) {
   const sb = getTradeServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
 
   const { roomId } = await params;
@@ -33,7 +34,7 @@ export async function POST(
   }
   const detail = typeof body.detail === "string" ? body.detail.trim().slice(0, 500) : "";
   if (!roomId?.trim()) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
   const access = await assertVerifiedMemberForAction(sb as any, userId);
   if (!access.ok) {
@@ -42,12 +43,12 @@ export async function POST(
 
   const resolved = await resolveProductChat(sb, roomId.trim());
   if (!resolved) {
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return tradeApiError("chat_room_not_found", 404);
   }
 
   const pc = resolved.productChat;
   if (pc.buyer_id !== userId) {
-    return NextResponse.json({ ok: false, error: "구매자만 접수할 수 있습니다." }, { status: 403 });
+    return tradeApiError("buyer_only", 403);
   }
 
   const sbAny = sb;

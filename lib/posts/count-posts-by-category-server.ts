@@ -10,7 +10,7 @@ export async function countPostsByCategoryServer(
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   const idTrim = categoryId?.trim();
   if (!idTrim) {
-    return { ok: false, error: "categoryId 필요" };
+    return { ok: false, error: "invalid_request" };
   }
 
   const res = await sb
@@ -19,7 +19,8 @@ export async function countPostsByCategoryServer(
     .eq("trade_category_id", idTrim);
 
   if (res.error) {
-    return { ok: false, error: res.error.message ?? "게시물 수 조회에 실패했습니다." };
+    console.error("[count-posts-by-category]", res.error.message);
+    return { ok: false, error: "post_count_failed" };
   }
 
   return { ok: true, count: typeof res.count === "number" ? res.count : 0 };

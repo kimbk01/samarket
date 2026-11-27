@@ -28,11 +28,11 @@ export async function loadGroupRoomMessageRowsForUser(input: {
   try {
     sb = getSupabaseServer();
   } catch {
-    return fail(500, "서버 설정 필요");
+    return fail(500, "server_config");
   }
 
   const roomId = input.roomId.trim();
-  if (!roomId) return fail(400, "roomId 필요");
+  if (!roomId) return fail(400, "room_id_required");
 
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const before = input.before?.trim();
@@ -46,9 +46,12 @@ export async function loadGroupRoomMessageRowsForUser(input: {
     .is("left_at", null)
     .maybeSingle();
 
-  if (memErr) return fail(500, memErr.message);
+  if (memErr) {
+    console.error("[group-chat] message member lookup failed", memErr.message);
+    return fail(500, "group_chat_load_failed");
+  }
   if (!(member as { id?: string } | null)?.id) {
-    return fail(403, "멤버만 조회할 수 있습니다.");
+    return fail(403, "group_chat_members_only");
   }
 
   let q = sb
@@ -79,7 +82,7 @@ export async function loadGroupRoomMessageRowsForUser(input: {
         .maybeSingle();
       const br = beforeRow as { id?: string; created_at?: string } | null;
       if (!br || typeof br.created_at !== "string") {
-        return fail(404, "기준 메시지를 찾을 수 없습니다.");
+        return fail(404, "before_message_not_found");
       }
       cursorCreatedAt = br.created_at;
       cursorId = typeof br.id === "string" ? br.id : before;
@@ -91,7 +94,10 @@ export async function loadGroupRoomMessageRowsForUser(input: {
   }
 
   const { data: messages, error } = await q;
-  if (error) return fail(500, error.message);
+  if (error) {
+    console.error("[group-chat] message page failed", error.message);
+    return fail(500, "group_chat_load_failed");
+  }
   const rows = ((messages ?? []) as GroupMessageRow[]).reverse();
   return ok(rows);
 }

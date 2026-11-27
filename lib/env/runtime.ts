@@ -42,8 +42,13 @@ function readEnv(name: string): string | null {
   return value ? value : null;
 }
 
+/**
+ * 응답 `error` 값 — 문장 대신 코드만(언어 재감사 2026-11-27). 빠진 이름은 결과의 `missing` 으로 로그에 남긴다.
+ * `missing` 인자는 호출처 호환용으로 받기만 한다.
+ */
 export function formatMissingEnvError(missing: string[]): string {
-  return `필수 환경변수 누락: ${missing.join(", ")}`;
+  void missing;
+  return "env_missing";
 }
 
 export function requireSupabaseEnv(

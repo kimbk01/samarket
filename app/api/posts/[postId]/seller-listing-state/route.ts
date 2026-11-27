@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * POST /api/posts/[postId]/seller-listing-state
  * Body: { sellerListingState, reservedBuyerId? } — 예약 시 reservedBuyerId 필수(이 글·판매자·해당 구매자 채팅 존재 검증)
  */
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -133,7 +134,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return tradeApiError("service_unavailable", 500);
   }
 
   const { postId } = await params;
@@ -149,7 +150,7 @@ export async function POST(
       ? ""
       : String(body.reservedBuyerId).trim();
   if (!postId?.trim() || !ALLOWED.includes(nextState as SellerListingState)) {
-    return NextResponse.json({ ok: false, error: "postId, sellerListingState 필요" }, { status: 400 });
+    return tradeApiError("invalid_request", 400);
   }
 
   const sbAny = sb;
@@ -166,24 +167,16 @@ export async function POST(
     .maybeSingle();
 
   if (postErr) {
-    return NextResponse.json(
-      { ok: false, error: `글 조회 오류: ${postErr.message}` },
-      { status: 500 }
-    );
+    console.error("[seller-listing-state] post lookup failed", postErr);
+    return tradeApiError("post_lookup_failed", 500);
   }
   if (!post) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: `상품을 찾을 수 없습니다. (id: ${postId.trim().slice(0, 8)}…) Supabase posts에 해당 UUID가 있는지 확인하세요.`,
-      },
-      { status: 404 }
-    );
+    return tradeApiError("product_not_found", 404);
   }
   const row = post as { user_id?: string; status?: string };
   const ownerId = row.user_id ?? "";
   if (!ownerId || ownerId !== userId) {
-    return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
+    return tradeApiError("seller_only", 403);
   }
 
   const prevListing = normalizeSellerListingState(
@@ -193,42 +186,23 @@ export async function POST(
   const nextListing = nextState as SellerListingState;
   /** 거래 B (Owner 2026-10-28): 예약·구매자 지정 없음 — 예약 쓰기 거절 */
   if (nextListing === "reserved") {
-    return NextResponse.json(
-      { ok: false, error: "예약 기능은 제공하지 않습니다. 판매완료만 할 수 있습니다.", code: "reserved_not_supported" },
-      { status: 400 }
-    );
+    return tradeApiError("reserved_not_supported", 400);
   }
   /** 거래완료는 구매자를 지정하는 seller-complete 로만 (구매자 없는 sold 방지 — TM-17, owner-status 와 같은 규칙) */
   if (nextListing === "completed") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.",
-        code: "completed_requires_seller_complete",
-      },
-      { status: 400 }
-    );
+    return tradeApiError("completed_requires_seller_complete", 400);
   }
   if (!canSellerListingTransition(prevListing, nextListing)) {
-    return NextResponse.json(
-      { ok: false, error: "이전 단계에서 허용되지 않는 변경이에요." },
-      { status: 400 }
-    );
+    return tradeApiError("listing_transition_not_allowed", 400);
   }
 
   if (nextState === "reserved") {
     if (!reservedBuyerRaw) {
-      return NextResponse.json(
-        { ok: false, error: "예약할 구매자를 선택해 주세요. (채팅 문의가 있는 구매자만 가능합니다.)" },
-        { status: 400 }
-      );
+      return tradeApiError("reserved_buyer_required", 400);
     }
     const okThread = await hasSellerBuyerThread(sbAny, postId.trim(), userId, reservedBuyerRaw);
     if (!okThread) {
-      return NextResponse.json(
-        { ok: false, error: "이 구매자와의 채팅이 없어 예약할 수 없습니다." },
-        { status: 400 }
-      );
+      return tradeApiError("reserved_buyer_no_chat", 400);
     }
   }
 
@@ -285,7 +259,7 @@ export async function POST(
   const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patch).eq("id", postId.trim());
 
   if (updErr) {
-    let msg = updErr.message ?? "저장 실패";
+    let msg = updErr.message ?? "";
 
     const missingReserved = isMissingDbColumnMessage(msg, "reserved_buyer_id");
     if (missingReserved) {
@@ -331,8 +305,8 @@ export async function POST(
           status: postStatus,
           reservedBuyerId: nextState === "reserved" ? reservedBuyerRaw : null,
           threadNotices,
-          warning:
-            "예약 구매자 ID 컬럼(reserved_buyer_id)이 없어 예약자만 DB에 고정되지 않을 수 있습니다. 마이그레이션 적용을 권장합니다.",
+          /** 경고 코드 — 화면 문구는 `tradeListingWarningText` */
+          warning: "reserved_buyer_column_missing",
         });
       }
       msg = e2.message ?? msg;
@@ -387,22 +361,17 @@ export async function POST(
           status: postStatus,
           reservedBuyerId: nextState === "reserved" ? reservedBuyerRaw : null,
           threadNotices: threadNoticesFb,
-          warning:
-            "판매 단계 전용 컬럼(seller_listing_state)이 없어 글 상태(status)와 채팅방 거래단계만 반영했습니다. 목록·새로고침 후 «판매중/문의중» 표시가 어긋날 수 있어요. Supabase에 마이그레이션(예: web/supabase/migrations/*seller_listing_state*)을 적용하면 해결됩니다.",
+          /** 경고 코드 — 화면 문구는 `tradeListingWarningText` */
+          warning: "seller_listing_column_missing",
         });
       }
       msg = fbErr;
     }
 
-    return NextResponse.json(
-      {
-        ok: false,
-        error: missingListing
-          ? "판매 단계를 저장하지 못했습니다. Supabase SQL 또는 프로젝트 마이그레이션으로 posts.seller_listing_state를 추가한 뒤 다시 시도해 주세요."
-          : msg,
-      },
-      { status: missingListing ? 503 : 500 }
-    );
+    console.error("[seller-listing-state] update failed", msg);
+    return missingListing
+      ? tradeApiError("seller_listing_schema_missing", 503)
+      : tradeApiError("seller_listing_save_failed", 500);
   }
 
   await insertPostTradeStatusLog(sbAny, {

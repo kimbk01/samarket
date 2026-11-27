@@ -15,15 +15,20 @@ export const NEIGHBORHOOD_CATEGORY_SLUGS = [
 
 export type NeighborhoodCategorySlug = (typeof NEIGHBORHOOD_CATEGORY_SLUGS)[number];
 
+/**
+ * 서버 응답 `category_label` 의 옛 slug 폴백 — **빈 값**(재감사 2026-11-27 · 설계 §4-5 R5).
+ * 서버는 화면 언어를 모르므로 한국어 이름을 넣지 않는다. 화면은 `resolveCommunityTopicUILabel(language, …, slug)` 가
+ * `NEIGHBORHOOD_CATEGORY_LABEL_KEYS` 로 화면 언어 이름을 고른다.
+ */
 export const NEIGHBORHOOD_CATEGORY_LABELS: Record<NeighborhoodCategorySlug, string> = {
-  question: "질문",
-  info: "정보",
-  daily: "일상",
-  job: "구인구직",
-  food: "맛집",
-  promo: "홍보",
-  notice: "공지",
-  etc: "기타",
+  question: "",
+  info: "",
+  daily: "",
+  job: "",
+  food: "",
+  promo: "",
+  notice: "",
+  etc: "",
 };
 
 export const NEIGHBORHOOD_CATEGORY_LABEL_KEYS: Record<NeighborhoodCategorySlug, MessageKey> = {

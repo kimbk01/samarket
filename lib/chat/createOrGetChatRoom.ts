@@ -6,6 +6,13 @@ import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import { pickApiErrorCode } from "@/lib/i18n/api-error-text";
+import {
+  isLoginRequiredError,
+  isPhoneVerificationRequiredError,
+  isSignupIncompleteError,
+} from "@/lib/auth/client-access-flow";
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   recordTradeChatDuplicateRoomGuardMs,
@@ -60,6 +67,16 @@ export function prepareTradeChatRoom(productId: string): void {
  */
 function tClient(key: Parameters<typeof safeTranslate>[1]): string {
   return safeTranslate(getRuntimeAppLanguage(), key);
+}
+
+/** `redirectForBlockedAction` 이 처리하는 거절(로그인·동의·전화·가입 안내) — 화면에 글자로 나가지 않는다 */
+function isBlockedActionSignal(raw: string): boolean {
+  return (
+    raw === registrationGuidanceMessage() ||
+    isLoginRequiredError(raw) ||
+    isSignupIncompleteError(raw) ||
+    isPhoneVerificationRequiredError(raw)
+  );
 }
 
 export async function createOrGetChatRoom(
@@ -165,11 +182,17 @@ async function executeTradeChatStart(
         ...(messengerId ? { messengerRoomId: messengerId } : {}),
       };
     }
-    const fallback = tClient("chats_compose_create_failed");
-    return { ok: false, error: data.error?.trim() || fallback };
-  } catch (e) {
-    const msg = (e as Error)?.message?.trim();
-    return { ok: false, error: msg || tClient("chats_compose_create_failed") };
+    /**
+     * 재감사 2026-11-27: 서버 문장은 화면에 넘기지 않는다 — 오류 코드는 그대로(화면 `tradeChatEntryErrorText`),
+     * 로그인·동의·전화·가입 안내 거절 문구는 `redirectForBlockedAction` 판정용으로만 넘긴다(화면은 이동·창으로 처리).
+     */
+    const code = pickApiErrorCode(data);
+    if (code) return { ok: false, error: code };
+    const raw = typeof data.error === "string" ? data.error.trim() : "";
+    if (raw && isBlockedActionSignal(raw)) return { ok: false, error: raw };
+    return { ok: false, error: tClient("chats_compose_create_failed") };
+  } catch {
+    return { ok: false, error: tClient("chats_compose_create_failed") };
   }
 }
 

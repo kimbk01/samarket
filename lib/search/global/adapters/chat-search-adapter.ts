@@ -19,6 +19,10 @@ import {
   type GlobalSearchChatField,
 } from "@/lib/search/global/semantics/domain-fields";
 import { buildMatchedSnippet } from "@/lib/search/global/semantics/match";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/** 화면 언어 번역 함수 (`useI18n().t`) */
+export type ChatSearchTranslate = (key: MessageKey) => string;
 
 export type GlobalSearchChatKind = "direct" | "group" | "trade" | "order";
 
@@ -69,7 +73,11 @@ function chatLastMessageDisplayText(room: CommunityMessengerRoomSummary): string
  * Chat Global Search haystack = messenger-visible text only.
  * `rooms.summary` context-meta JSON is parsed; envelope keys are never searchable.
  */
-export function chatGlobalSearchDisplayFields(room: CommunityMessengerRoomSummary): {
+export function chatGlobalSearchDisplayFields(
+  room: CommunityMessengerRoomSummary,
+  /** 보는 사람 언어 번역(화면 `t`) — 없으면 화면 런타임 언어 (재감사 2026-11-27) */
+  t?: ChatSearchTranslate
+): {
   title: string;
   subtitle: string;
   summary: string;
@@ -79,7 +87,7 @@ export function chatGlobalSearchDisplayFields(room: CommunityMessengerRoomSummar
   return {
     title: (room.title ?? "").trim(),
     subtitle: displayTextOrEmpty(room.subtitle),
-    summary: presentCommunityMessengerRoomContextListText(meta),
+    summary: presentCommunityMessengerRoomContextListText(meta, t),
     lastMessage: chatLastMessageDisplayText(room),
   };
 }
@@ -103,7 +111,8 @@ function roomPreviewForMatch(
 
 export function filterMembershipRoomsForGlobalSearch(
   rooms: CommunityMessengerRoomSummary[],
-  q: string
+  q: string,
+  t?: ChatSearchTranslate
 ): GlobalSearchChatHit[] {
   if (!isSearchableGlobalQuery(q)) return [];
   const out: GlobalSearchChatHit[] = [];
@@ -114,7 +123,7 @@ export function filterMembershipRoomsForGlobalSearch(
     seenRoomIds.add(roomId);
     const kind = classifyGlobalSearchChatRoom(room);
     if (!kind) continue;
-    const fields = chatGlobalSearchDisplayFields(room);
+    const fields = chatGlobalSearchDisplayFields(room, t);
     const match = matchChatGlobalSearch(fields, q);
     if (!match.matched || match.matchedField === "NONE") continue;
     out.push({
@@ -131,7 +140,8 @@ export function filterMembershipRoomsForGlobalSearch(
 
 export async function searchChatForGlobal(
   q: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  t?: ChatSearchTranslate
 ): Promise<ChatSearchAdapterResult> {
   const keyword = q.trim();
   if (!keyword || !isSearchableGlobalQuery(keyword)) return { ok: true, hits: [], unauthorized: false };
@@ -154,7 +164,7 @@ export async function searchChatForGlobal(
       ...(Array.isArray(json.chats) ? json.chats : []),
       ...(Array.isArray(json.groups) ? json.groups : []),
     ];
-    return { ok: true, hits: filterMembershipRoomsForGlobalSearch(rooms, keyword), unauthorized: false };
+    return { ok: true, hits: filterMembershipRoomsForGlobalSearch(rooms, keyword, t), unauthorized: false };
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     return { ok: false };

@@ -4,34 +4,43 @@
  */
 import {
   normalizeSellerListingState,
-  publicListingBadge,
+  publicListingBadgeKey,
   type SellerListingState,
 } from "@/lib/products/seller-listing-state";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 export type TradeItemStatus = "available" | "reserved" | "sold" | "hidden" | "deleted";
 
-export function resolveTradeItemStatus(input: {
-  sellerListingStateRaw?: unknown;
-  postStatus?: string | null;
-}): { itemStatus: TradeItemStatus; statusBadgeLabel: string; listingState: SellerListingState } {
+export function resolveTradeItemStatus(
+  input: {
+    sellerListingStateRaw?: unknown;
+    postStatus?: string | null;
+  },
+  /** 보는 사람 언어 — 서버 조립은 요청 언어를 넘긴다. 없으면 클라이언트 런타임 언어 */
+  langInput?: AppLanguageCode | null
+): { itemStatus: TradeItemStatus; statusBadgeLabel: string; listingState: SellerListingState } {
+  const lang = langInput ?? getRuntimeAppLanguage();
   const postStatus = (input.postStatus ?? "").trim().toLowerCase();
   if (postStatus === "deleted") {
-    return { itemStatus: "deleted", statusBadgeLabel: "삭제된 상품", listingState: "completed" };
+    return { itemStatus: "deleted", statusBadgeLabel: translate(lang, "cm_ui_trade_item_deleted"), listingState: "completed" };
   }
   if (postStatus === "hidden" || postStatus === "blinded") {
-    return { itemStatus: "hidden", statusBadgeLabel: "숨김", listingState: "inquiry" };
+    return { itemStatus: "hidden", statusBadgeLabel: translate(lang, "ui_product_status_hidden"), listingState: "inquiry" };
   }
   if (postStatus === "sold") {
-    return { itemStatus: "sold", statusBadgeLabel: "거래완료", listingState: "completed" };
+    return { itemStatus: "sold", statusBadgeLabel: translate(lang, "ui_product_status_sold"), listingState: "completed" };
   }
   const listingState = normalizeSellerListingState(input.sellerListingStateRaw, postStatus);
-  const badge = publicListingBadge(listingState, postStatus || "active");
+  /** 언어 재감사 2026-11-27: 한국어 저장 토큰 라벨 대신 같은 규칙의 키 → 보는 사람 언어 */
+  const badge = publicListingBadgeKey(listingState, postStatus || "active");
   let itemStatus: TradeItemStatus = "available";
   if (listingState === "reserved") itemStatus = "reserved";
   if (listingState === "completed") itemStatus = "sold";
   return {
     itemStatus,
-    statusBadgeLabel: badge.label,
+    statusBadgeLabel: translate(lang, badge.key),
     listingState,
   };
 }
@@ -52,15 +61,18 @@ export function normalizeTradeListPreviewLine(input: {
   previewText: string;
   isSystem: boolean;
   statusBadgeLabel: string | null;
+  /** 보는 사람 언어 — 서버 조립은 요청 언어를 넘긴다. 없으면 클라이언트 런타임 언어 */
+  lang?: AppLanguageCode | null;
 }): { text: string; isSystemEvent: boolean } {
+  const lang = input.lang ?? getRuntimeAppLanguage();
   const text = input.previewText.trim();
   const isStatusCopy = looksLikeTradeStatusChangePreview(text);
   const isSystemEvent = input.isSystem || isStatusCopy;
   if (isStatusCopy && input.statusBadgeLabel) {
     return {
-      text: `상태 변경 · ${input.statusBadgeLabel}`,
+      text: translate(lang, "cm_ui_trade_status_changed_line", { state: input.statusBadgeLabel }),
       isSystemEvent: true,
     };
   }
-  return { text: text || "메시지가 없습니다", isSystemEvent };
+  return { text: text || translate(lang, "community_messenger_no_messages"), isSystemEvent };
 }

@@ -50,13 +50,12 @@ export async function uploadStoreOwnerProductImage(
 ): Promise<UploadStoreOwnerProductImageResult> {
   const { ok, json } = await postStoreOwnerImageUpload(storeId, file, apiBase);
   if (!ok || !json.url) {
-    const msg =
-      typeof json?.message === "string" && json.message.trim()
-        ? json.message
-        : typeof json?.error === "string"
-          ? json.error
-          : "upload_failed";
-    throw new Error(msg);
+    /** 서버 `message` 문장은 쓰지 않는다 — 코드만 던지고 화면이 키로 그린다 (재감사 2026-11-27) */
+    const code =
+      typeof json?.error === "string" && /^[a-z][a-z0-9_]*$/.test(json.error.trim())
+        ? json.error.trim()
+        : "upload_failed";
+    throw new Error(code);
   }
   const width = typeof json.width === "number" && Number.isFinite(json.width) ? json.width : undefined;
   const height =

@@ -10,6 +10,7 @@ import {
   resolveFixedOrRandomBase,
 } from "@/lib/community-points/deterministic-award";
 import { resolveCommunityEventMultiplier } from "@/lib/community-points/event-multiplier";
+import { buildCommunityPointLedgerDescription } from "@/lib/points/point-ledger-description";
 import { evaluateCommunityContentAcceptance } from "@/lib/community-points/content-acceptance";
 import { normalizeCommunityText } from "@/lib/community-points/content-normalize";
 import { resolveCommunityPointPolicy } from "@/lib/community-points/policy-resolver";
@@ -400,6 +401,7 @@ async function recordBlocked(
   });
 }
 
+/** 원장 설명 — 저장 글자는 예전과 같고, 회원 화면은 키로 다시 그린다(`lib/points/point-ledger-description.ts` · 설계 §4-3) */
 function buildLedgerDescription(input: {
   actionType: "write" | "comment";
   isQna: boolean;
@@ -413,20 +415,7 @@ function buildLedgerDescription(input: {
   finalPoint: number;
   content: string;
 }): string {
-  const action =
-    input.actionType === "write"
-      ? input.isQna
-        ? "커뮤니티 질문 작성"
-        : "커뮤니티 게시글 작성"
-      : "커뮤니티 댓글 작성";
-  const board = input.boardName || input.topicSlug || (input.isQna ? "Q&A" : "커뮤니티");
-  const preview = input.content.replace(/\s+/g, " ").trim().slice(0, 40);
-  const randomBit =
-    input.rewardType === "random"
-      ? `랜덤 ${input.randomMin}~${input.randomMax}P 중 ${input.basePoint}P`
-      : `고정 ${input.basePoint}P`;
-  const mult = input.multiplier && input.multiplier !== 1 ? ` ×${input.multiplier}` : "";
-  return `${action} · ${board} · ${randomBit}${mult} · "${preview}"`.slice(0, 500);
+  return buildCommunityPointLedgerDescription(input);
 }
 
 export async function applyCommunityPointReclaim(input: {

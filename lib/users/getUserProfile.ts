@@ -2,6 +2,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { mapProfileRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { PROFILE_PUBLIC_MIN_SELECT } from "@/lib/users/profile-public-select";
 
 export interface UserProfilePublic {
@@ -34,7 +35,7 @@ export async function getUserProfile(userId: string): Promise<UserProfilePublic 
 
     if (!error && data) {
       const row = data as Record<string, unknown>;
-      const base = mapProfileRowToPublicSeller(row);
+      const base = mapProfileRowToPublicSeller(row, getRuntimeAppLanguage());
       const ts = row.trust_score;
       return {
         ...base,

@@ -5,8 +5,6 @@ import type { DomainDisplayIdentity } from "@/lib/messenger/contracts/ports";
 import { assertTradeOwnedRoom } from "@/lib/messenger/trade/identity";
 import {
   TRADE_DOMAIN,
-  TRADE_PEER_PLACEHOLDER,
-  TRADE_PRODUCT_TITLE_PLACEHOLDER,
   type TradeListItem,
 } from "@/lib/messenger/trade/types";
 
@@ -42,11 +40,12 @@ export function resolveTradePresentation(input: TradePresentationInput): TradePr
   if (input.storeName?.trim() || input.groupName?.trim()) {
     throw new Error("dibay_trade_foreign_presentation_forbidden");
   }
-  const productTitle = input.itemTitle?.trim() || TRADE_PRODUCT_TITLE_PLACEHOLDER;
+  /** 빈 값 그대로 — 화면 렌더러가 보는 사람 언어 키로 그림(한국어 고정 대체 금지) */
+  const productTitle = input.itemTitle?.trim() || "";
   if (!input.itemTitle?.trim()) {
     console.warn("[trade-display-identity]", { reason: "missing_item_title", roomId: input.roomId });
   }
-  const peerLabel = input.peerDisplayName?.trim() || TRADE_PEER_PLACEHOLDER;
+  const peerLabel = input.peerDisplayName?.trim() || "";
   return {
     productTitle,
     productImageUrl: input.itemImageUrl?.trim() || null,

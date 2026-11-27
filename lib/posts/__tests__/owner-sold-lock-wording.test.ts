@@ -46,8 +46,10 @@ describe("판매자 메뉴 잠금 문구 (F1 · B-13 · D-1)", () => {
     const cat = readFileSync("lib/i18n/catalog/ui-phase-finish.ts", "utf8");
     expect(cat).toContain(`ui_post_owner_delete_locked_completed: "${OWNER_DELETE_LOCKED_COMPLETED_KO}"`);
     const route = readFileSync("app/api/posts/[postId]/owner-delete/route.ts", "utf8");
-    expect(route).toContain('lifecycle === "completed"');
-    expect(route).toContain("OWNER_DELETE_LOCKED_COMPLETED_KO");
+    /** 언어 재감사 2026-11-27: 서버는 잠금 키(lockKey)·코드만 보낸다 — 한국어 문장 없음 */
+    expect(route).toContain("ownerDeleteLockHintKey(");
+    expect(route).toContain('"delete_not_allowed"');
+    expect(route).not.toContain("OWNER_DELETE_LOCKED_COMPLETED_KO");
     const actions = readFileSync("components/mypage/products/MyProductActions.tsx", "utf8");
     expect(actions).not.toContain("disabled: isSold");
     expect(actions).toContain("disabled: editLocked");

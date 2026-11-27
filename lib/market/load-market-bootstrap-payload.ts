@@ -73,13 +73,13 @@ export async function loadMarketBootstrapPayload(
   const supabase = clients.readSb as unknown as SupabaseClient;
   const q = args.q?.trim();
   if (!q) {
-    return { ok: false, httpStatus: 400, message: "q 파라미터가 필요합니다." };
+    return { ok: false, httpStatus: 400, message: "q_required" };
   }
 
   const rawTrim = q;
   const id = normalizeMarketSlugParam(q);
   if (!id) {
-    return { ok: false, httpStatus: 400, message: "유효하지 않은 경로입니다." };
+    return { ok: false, httpStatus: 400, message: "invalid_path" };
   }
 
   /** API 라우트와 동일 — 생성된 Database 타입 없이 categories/posts 체인만 사용 */
@@ -106,7 +106,7 @@ export async function loadMarketBootstrapPayload(
   }
 
   if (err || !cat?.id) {
-    return { ok: false, httpStatus: 404, message: "카테고리를 찾을 수 없습니다." };
+    return { ok: false, httpStatus: 404, message: "category_not_found" };
   }
 
   const parentId = String(cat.id);
@@ -118,7 +118,7 @@ export async function loadMarketBootstrapPayload(
     .order("sort_order", { ascending: true });
 
   if (childErr) {
-    return { ok: false, httpStatus: 500, message: "하위 주제를 불러오지 못했습니다." };
+    return { ok: false, httpStatus: 500, message: "subtopics_load_failed" };
   }
 
   const rawChildren = Array.isArray(childRows) ? childRows : [];

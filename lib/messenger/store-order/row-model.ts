@@ -49,6 +49,7 @@ function previewFromItem(item: StoreOrderListItem, lang: AppLanguageCode): strin
       text: storeOrderListItemPreviewSourceText(item, lang),
       messageType: item.latestChatMessageType,
     },
+    lang,
   }).text;
 }
 

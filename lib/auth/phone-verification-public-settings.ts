@@ -27,11 +27,15 @@ export type PublicPhoneVerificationSettings = {
 const HANGUL_RE = /[ᄀ-ᇿ㄰-㆏가-힯]/;
 
 /**
- * 안내 문구 — 관리자가 한국어로만 저장하므로, 영어 요청이면 한국어 문구를 비워 화면이 `t("my_phone_tg_desc")` 로 대체한다 (B8).
+ * 안내 문구 — 관리자가 한 언어로만 저장하므로, 글자가 화면 언어와 다르면 비워 화면이 `t("my_phone_tg_desc")` 로 대체한다.
+ * - 영어 요청 + 한국어 문구 → 비움 (B8)
+ * - 한국어 요청 + 한글 없는 문구(영어로 저장) → 비움 (재감사 2026-11-27 A4)
  */
 export function resolvePublicPhoneGuideText(guideText: string | null | undefined, language: AppLanguageCode): string {
   const text = String(guideText ?? "").trim();
-  if (language === "en" && HANGUL_RE.test(text)) return "";
+  const hasHangul = HANGUL_RE.test(text);
+  if (language === "en" && hasHangul) return "";
+  if (language === "ko" && !hasHangul) return "";
   return text;
 }
 

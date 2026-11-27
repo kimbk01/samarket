@@ -289,7 +289,7 @@ export async function enforceWebOAuthProviderPolicy(
       return {
         ok: false,
         errorCode: "provider_email_conflict",
-        message: "보안을 위해 기존 로그인 확인이 필요합니다.",
+        message: "provider_email_conflict",
         diag,
         conflict: {
           email: conflictEmail,
@@ -320,7 +320,7 @@ export async function enforceWebOAuthProviderPolicy(
     return {
       ok: false,
       errorCode: "provider_email_conflict",
-      message: "보안을 위해 기존 로그인 확인이 필요합니다.",
+      message: "provider_email_conflict",
       diag,
       conflict: {
         email: resolved.conflict.email,
@@ -428,7 +428,7 @@ export async function enforceWebOAuthProviderPolicy(
     return {
       ok: false,
       errorCode: "provider_account_conflict",
-      message: "이 로그인 계정은 다른 DIBAY 회원에 연결되어 있습니다.",
+      message: "provider_account_conflict",
       diag,
     };
   }

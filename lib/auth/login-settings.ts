@@ -58,7 +58,7 @@ export function mapProviderToSupabaseOAuth(
 export async function loadAuthLoginSettings(): Promise<AuthLoginSetting[]> {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    throw new AuthLoginSettingsLoadError("supabase_service_unconfigured", "Auth 설정 조회 구성이 준비되지 않았습니다.");
+    throw new AuthLoginSettingsLoadError("supabase_service_unconfigured", "supabase_service_unconfigured");
   }
   const { data, error } = await sb
     .from("auth_login_settings")
@@ -69,7 +69,7 @@ export async function loadAuthLoginSettings(): Promise<AuthLoginSetting[]> {
     if (isTableMissingError(error.message, code)) {
       return sortLoginSettings(DEFAULT_AUTH_LOGIN_SETTINGS);
     }
-    throw new AuthLoginSettingsLoadError(code || "auth_login_settings_load_failed", error.message || "Auth 설정 조회에 실패했습니다.");
+    throw new AuthLoginSettingsLoadError(code || "auth_login_settings_load_failed", error.message || "auth_login_settings_load_failed");
   }
   const rows = Array.isArray(data) ? (data as AuthLoginSetting[]) : [];
   if (rows.length === 0) return sortLoginSettings(DEFAULT_AUTH_LOGIN_SETTINGS);
@@ -107,7 +107,7 @@ export async function fetchAuthLoginSettingsClient(): Promise<
     | { ok?: boolean; settings?: AuthLoginSetting[]; error?: string }
     | null;
   if (!res.ok || !json?.ok || !Array.isArray(json.settings)) {
-    return { ok: false, error: json?.error || "로그인 방식을 불러오지 못했습니다." };
+    return { ok: false, error: json?.error || "auth_login_settings_load_failed" };
   }
   return { ok: true, settings: sortLoginSettings(json.settings) };
 }

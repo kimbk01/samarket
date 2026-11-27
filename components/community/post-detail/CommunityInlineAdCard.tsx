@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { communityAuthorNameText } from "@/lib/community/community-display-fallbacks";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -43,7 +44,7 @@ async function loadCommunityInlineAd(currentPostId: string | null): Promise<AdFe
 }
 
 export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?: string | null }) {
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const [ad, setAd] = useState<AdFeedPost | null>(null);
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export function CommunityInlineAdCard({ currentPostId = null }: { currentPostId?
             <div className="min-w-0 flex-1">
               <p className="m-0 line-clamp-2 text-[15px] font-semibold leading-[1.4] text-[var(--cm-text)]">{title}</p>
               <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[var(--cm-text-muted)]">
-                <span className="text-[var(--cm-text)]">{post.author_name}</span>
+                <span className="text-[var(--cm-text)]">{communityAuthorNameText(post.author_name, t)}</span>
                 <span className="mx-1">·</span>
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">
                   {safeT("community_top_fix_badge")}

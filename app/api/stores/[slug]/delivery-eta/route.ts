@@ -234,7 +234,7 @@ export async function GET(
       canonicalLguId: deriveAddressLocation(rowToUserAddressDTO(row as Record<string, unknown>)).canonicalLguId,
     };
     if (isSameDeliveryAddressForList(sameOrigin, effectiveStore)) {
-      const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
+      const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json, uiLang);
       if (rideTimeSource === "store") {
         return NextResponse.json(
           deliveryEtaOkJson({
@@ -301,7 +301,7 @@ export async function GET(
   const ulng = parseFiniteLongitude(rawUlng);
   const slat = parseFiniteLatitude(rawSlat);
   const slng = parseFiniteLongitude(rawSlng);
-  const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
+  const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json, uiLang);
   const coordsOk = ulat != null && ulng != null && slat != null && slng != null;
   const straightDistanceKm = coordsOk ? haversineKm(slat!, slng!, ulat, ulng) : null;
   const straightDistanceMeters =

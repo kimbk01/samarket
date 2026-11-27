@@ -12,7 +12,8 @@ import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
-  ownerAdminLockLabelKo,
+  ownerAdminLockLabel,
+  ownerProductStatusBlockText,
   ownerProductToggleLockReason,
 } from "@/lib/stores/store-product-admin-lock";
 import {
@@ -104,7 +105,7 @@ function ownerHubStatusPillClass(active: boolean): string {
 
 import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { isOwnerApiErrorCode, resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { useSearchParams } from "next/navigation";
 
@@ -121,13 +122,13 @@ export function OwnerProductsHubClient({
   /** RSC 부트스트랩 실패 시 클라에서 API 재시도 */
   rscBootstrapError?: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const searchParams = useSearchParams();
   const statusFromUrl = searchParams.get("status");
   const hasRscPayload = initialSections != null && initialProducts != null;
 
   const adminStore = useBusinessAdminStore();
-  const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
+  const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency, language), [language]);
   const [sections, setSections] = useState<Section[]>(() => {
     if (hasRscPayload) {
       return initialSections.map((s) => ({
@@ -215,7 +216,7 @@ export function OwnerProductsHubClient({
       let nextProducts: HubProduct[] = [];
       let nextSections: Section[] = [];
       if (!pj?.ok) {
-        setError(typeof pj?.error === "string" ? pj.error : t("business_phase7_424"));
+        setError(isOwnerApiErrorCode(pj?.error) ? pj.error : t("business_phase7_424"));
         setProducts([]);
         nextProducts = [];
       } else {
@@ -301,27 +302,19 @@ export function OwnerProductsHubClient({
       if (!res.ok || !j?.ok) {
         if (j?.error === "sales_not_approved") {
           toast.error(t("business_phase7_425"));
-        } else if (j?.error === "admin_review_rejected") {
-          toast.error(
-            t("owner_product_lock_review_rejected")
-          );
+        } else if (j?.error === "product_changed") {
+          toast.error(t("owner_product_err_changed_elsewhere"));
+          await loadAll({ silent: true });
         } else if (
           j?.error === "admin_locked" ||
           j?.error === "admin_review_pending" ||
-          j?.error === "product_changed"
+          j?.error === "admin_review_rejected" ||
+          j?.error === "admin_blocked_product"
         ) {
-          toast.error(
-            typeof j?.message === "string" && j.message
-              ? j.message
-              : t("owner_copy_products_toast_admin_action_locked")
-          );
-          if (j?.error === "product_changed") await loadAll({ silent: true });
-        } else if (j?.error === "admin_blocked_product") {
-          toast.error(
-            t("owner_product_lock_blocked")
-          );
+          /** 언어 재감사 2026-11-27: 서버 `message` 문장 대신 코드 + `params.lock` 으로 키 */
+          toast.error(ownerProductStatusBlockText({ code: j.error, lock: j.params?.lock }, t));
         } else {
-          setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));
+          setError(isOwnerApiErrorCode(j?.error) ? j.error : t("business_phase7_426"));
         }
         return;
       }
@@ -473,7 +466,7 @@ export function OwnerProductsHubClient({
           </p>
         ) : null}
 
-        {error ? <p className="sam-text-body-secondary text-sam-danger">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-sam-danger">{isOwnerApiErrorCode(error) ? resolveOwnerApiErrorText(error, t, "business_phase7_426") : error}</p> : null}
 
         {loading ? (
           <DibayPendingSpinner layout="inline" />
@@ -557,7 +550,7 @@ export function OwnerProductsHubClient({
                                   : lockReason.lock === "blocked"
                                     ? "owner_copy_products_admin_lock_blocked"
                                     : "owner_copy_products_admin_lock_hidden",
-                                { label: ownerAdminLockLabelKo(lockReason.lock) }
+                                { label: ownerAdminLockLabel(lockReason.lock, t) }
                               )
                             : lockReason.kind === "blocked"
                               ? t("owner_copy_products_badge_blocked")

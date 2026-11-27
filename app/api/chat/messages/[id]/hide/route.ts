@@ -17,7 +17,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { id: messageId } = await params;
   // SEC-03: 세션 기반 관리자 인증. body.adminId 는 더 이상 신뢰하지 않는다.
@@ -31,7 +31,7 @@ export async function POST(
     body = {};
   }
   if (!messageId) {
-    return NextResponse.json({ ok: false, error: "messageId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;
@@ -42,7 +42,7 @@ export async function POST(
     .eq("id", messageId)
     .maybeSingle();
   if (!msg) {
-    return NextResponse.json({ ok: false, error: "메시지를 찾을 수 없습니다." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "message_not_found", code: "message_not_found" }, { status: 404 });
   }
   const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : null;
   await sbAny

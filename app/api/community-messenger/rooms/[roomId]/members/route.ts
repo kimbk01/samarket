@@ -19,7 +19,6 @@ export async function GET(
     key: `community-messenger:room-members-page:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "참가자 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_members_page_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -43,9 +42,9 @@ export async function GET(
   });
   if (!result.ok) {
     if (result.error === "room_not_found") {
-      return jsonError("대화방을 찾을 수 없습니다.", 404, { code: result.error });
+      return jsonError(result.error, 404, { code: result.error });
     }
-    return jsonError("참가자 목록을 불러오지 못했습니다.", 400, { code: result.error });
+    return jsonError(result.error, 400, { code: result.error });
   }
   return jsonOk({
     members: result.members,

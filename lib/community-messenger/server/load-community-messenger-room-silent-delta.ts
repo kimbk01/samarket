@@ -4,6 +4,7 @@
  */
 import { resolveRoomLastMessageForViewer } from "@/lib/community-messenger/call-stub-room-tip";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -142,16 +143,18 @@ function buildSilentDeltaRoomSummary(
   const messengerDirectKey = roomType === "direct" ? trimText(room.direct_key ?? "") || null : null;
 
   const effectiveMemberCount = roomType === "direct" ? 2 : 2;
+  /** 이름 없는 방의 대체 제목·부제 — 요청 언어(보는 사람)로 */
   const title =
     roomType === "direct"
-      ? roomTitle || "대화"
-      : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹`);
+      ? roomTitle || translate(lang, "cm_ui_chat_fallback")
+      : roomTitle ||
+        (roomType === "open_group" ? translate(lang, "cm_svc_open_group_room") : translate(lang, "community_messenger_groups"));
   const subtitle =
     roomType === "direct"
-      ? "친구와 나누는 대화"
+      ? translate(lang, "cm_svc_direct_subtitle")
       : roomType === "open_group"
-        ? `공개 그룹`
-        : `${effectiveMemberCount}명 참여 중`;
+        ? translate(lang, "cm_ui_open_group_subtitle")
+        : translate(lang, "cm_svc_group_subtitle", { count: effectiveMemberCount });
 
   return {
     id: roomId,
@@ -247,12 +250,16 @@ export async function loadCommunityMessengerRoomSilentDeltaSnapshot(
 
   const room = roomData as SilentDeltaRoomRow;
   const me = meData as SilentDeltaParticipantRow;
-  const summary = buildSilentDeltaRoomSummary(await resolveRequestAppLanguageOr("ko"), uid, room, me);
+  const lang = await resolveRequestAppLanguageOr("en");
+  const summary = buildSilentDeltaRoomSummary(lang, uid, room, me);
   const description =
     summary.roomType === "direct"
-      ? "친구와 1:1로 대화하는 메신저 방"
+      ? translate(lang, "cm_svc_room_desc_direct")
       : summary.summary ||
-        `${summary.memberCount}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`;
+        translate(lang, "cm_svc_room_desc_group", {
+          count: summary.memberCount,
+          visibility: translate(lang, summary.roomType === "open_group" ? "cm_svc_room_vis_open" : "cm_svc_room_vis_private"),
+        });
 
   const snap: CommunityMessengerRoomSnapshot = {
     viewerUserId: uid,

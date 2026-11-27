@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, message: "인증에 실패했습니다." }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured", code: "supabase_unconfigured" }, { status: 503 });
   }
 
   let body: { phone?: string; otp?: string };
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const otp = String(body.otp ?? "").trim();
   if (!isValidPhoneOtpCodeInput(otp)) {
     return NextResponse.json(
-      { ok: false, code: "otp_invalid", message: "인증번호를 확인해 주세요." },
+      { ok: false, error: "otp_invalid", code: "otp_invalid" },
       { status: 400 },
     );
   }

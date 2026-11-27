@@ -782,9 +782,9 @@ export function StoreProductAddSheet({
               </p>
             ) : null}
 
-            {mergedHasOptionsFlag && product.options_summary ? (
+            {mergedHasOptionsFlag ? (
               <p className="mx-4 mt-2 text-[length:var(--overlay-caption-size)] font-medium text-[color:var(--overlay-text-secondary)]">
-                {product.options_summary}
+                {product.options_summary || t("store_menu_has_options")}
               </p>
             ) : null}
 

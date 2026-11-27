@@ -554,7 +554,7 @@ export function WriteSheetFlowInner({
             </label>
             <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
               <span className="shrink-0 sam-text-body font-medium text-sam-muted">
-                {getCurrencyUnitLabel(masterTradeCurrency)}
+                {getCurrencyUnitLabel(masterTradeCurrency, language)}
               </span>
               <input
                 id="write-ungated-price"

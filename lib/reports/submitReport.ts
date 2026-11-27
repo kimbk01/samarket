@@ -2,8 +2,14 @@
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ReportTargetType } from "@/lib/types/trade-report";
+import {
+  reportClientFailure,
+  reportClientFailureFromResponse,
+  type ReportClientFailure,
+} from "@/lib/reports/report-block-error-text";
 
-export type SubmitReportResult = { ok: true; reportId: string } | { ok: false; error: string };
+/** 실패는 코드만 — 문구는 화면이 `reportErrorText` 로 고른다 (재감사 2026-11-27) */
+export type SubmitReportResult = { ok: true; reportId: string } | ReportClientFailure;
 
 export interface SubmitReportPayload {
   targetType: ReportTargetType;
@@ -20,7 +26,7 @@ export interface SubmitReportPayload {
  */
 export async function submitReport(payload: SubmitReportPayload): Promise<SubmitReportResult> {
   const user = getCurrentUser();
-  if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
+  if (!user?.id) return reportClientFailure("login_required");
 
   const res = await fetch("/api/reports", {
     method: "POST",
@@ -38,14 +44,10 @@ export async function submitReport(payload: SubmitReportPayload): Promise<Submit
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     id?: string;
-    error?: string;
   };
 
   if (!res.ok || !json.ok) {
-    return {
-      ok: false,
-      error: json.error ?? `신고 접수에 실패했습니다. (${res.status})`,
-    };
+    return reportClientFailureFromResponse(res.status, json);
   }
   return { ok: true, reportId: json.id ?? "" };
 }

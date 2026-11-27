@@ -14,6 +14,7 @@ import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
@@ -109,7 +110,7 @@ export function OwnerStoreNoticesView() {
         meta?: { slug?: string | null };
       };
       if (!j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "load_failed");
+        setErr(isOwnerApiErrorCode(j?.error) ? j.error : "load_failed");
         if (loadedStoreIdRef.current !== sid) setNotices([]);
       } else {
         setNotices(Array.isArray(j.notices) ? j.notices : []);
@@ -167,7 +168,7 @@ export function OwnerStoreNoticesView() {
         });
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j?.ok) {
-          setErr(typeof j?.error === "string" ? j.error : "save_failed");
+          setErr(isOwnerApiErrorCode(j?.error) ? j.error : "save_failed");
           return;
         }
       } else {
@@ -188,7 +189,7 @@ export function OwnerStoreNoticesView() {
         });
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j?.ok) {
-          setErr(typeof j?.error === "string" ? j.error : "save_failed");
+          setErr(isOwnerApiErrorCode(j?.error) ? j.error : "save_failed");
           return;
         }
       }
@@ -233,7 +234,7 @@ export function OwnerStoreNoticesView() {
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <OwnerStoreAdminDashSection>
-        {err ? <p className="text-sm text-sam-danger">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+        {err ? <p className="text-sm text-sam-danger">{isOwnerApiErrorCode(err) ? resolveOwnerApiErrorMessage(err, t) : err}</p> : null}
 
         <button
           type="button"

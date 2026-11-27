@@ -47,8 +47,9 @@ export function buildStoreOrderHubViewModel(
           messageType: latest.latestChatMessageType,
           isSystemAllowed: true,
         },
+        lang,
       })
-    : resolveStoreOrderPreview({ chatDomain: STORE_ORDER_DOMAIN, latestChatMessage: null });
+    : resolveStoreOrderPreview({ chatDomain: STORE_ORDER_DOMAIN, latestChatMessage: null, lang });
   const unreadCount = rows.filter((r) => r.unreadCount > 0).length;
   return {
     domain: STORE_ORDER_DOMAIN,

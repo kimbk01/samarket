@@ -15,6 +15,11 @@ import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 const TARGET_TYPES = ["user", "product", "chat_room", "chat_message", "post", "comment", "feed_ad"] as const;
 
+/** 오류는 코드만(`error`=`code`) — 문구는 화면이 `UNIFIED_REPORT_ERROR_KEYS` 로 고른다 (재감사 2026-11-27). 원인은 로그로만. */
+function reportError(code: string, status: number) {
+  return NextResponse.json({ ok: false, error: code, code }, { status });
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
@@ -28,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return reportError("server_config", 500);
   }
 
   let body: {
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "요청 본문이 올바르지 않습니다." }, { status: 400 });
+    return reportError("invalid_json", 400);
   }
 
   const reporterId = auth.userId;
@@ -50,20 +55,13 @@ export async function POST(req: NextRequest) {
   const targetId = body.targetId?.trim();
   const reasonCode = body.reasonCode?.trim();
   if (!targetType || !TARGET_TYPES.includes(targetType as (typeof TARGET_TYPES)[number])) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error:
-          "targetType(user|product|post|comment|chat_room|chat_message|feed_ad)이 필요합니다. (커뮤니티 글은 post)",
-      },
-      { status: 400 }
-    );
+    return reportError("target_type_required", 400);
   }
   if (!targetId) {
-    return NextResponse.json({ ok: false, error: "targetId가 필요합니다." }, { status: 400 });
+    return reportError("target_required", 400);
   }
   if (!reasonCode) {
-    return NextResponse.json({ ok: false, error: "reasonCode가 필요합니다." }, { status: 400 });
+    return reportError("reason_code_required", 400);
   }
 
   const sbAny = sb;
@@ -73,10 +71,11 @@ export async function POST(req: NextRequest) {
   if (targetType === "product" || targetType === "post") {
     const { data: post, error: postErr } = await sbAny.from(POSTS_TABLE_READ).select("id").eq("id", targetId).maybeSingle();
     if (postErr) {
-      return NextResponse.json({ ok: false, error: postErr.message }, { status: 500 });
+      console.error("[reports] post_lookup_failed", postErr.message);
+      return reportError("report_failed", 500);
     }
     if (!post) {
-      return NextResponse.json({ ok: false, error: "해당 게시글을 찾을 수 없습니다." }, { status: 404 });
+      return reportError("post_not_found", 404);
     }
     if (targetType === "product" && !productId) productId = targetId;
     if (targetType === "post") productId = targetId;
@@ -89,11 +88,12 @@ export async function POST(req: NextRequest) {
       .eq("id", targetId)
       .maybeSingle();
     if (cErr) {
-      return NextResponse.json({ ok: false, error: cErr.message }, { status: 500 });
+      console.error("[reports] comment_lookup_failed", cErr.message);
+      return reportError("report_failed", 500);
     }
     const c = cRow as { id?: string; post_id?: string } | null;
     if (!c?.post_id) {
-      return NextResponse.json({ ok: false, error: "해당 댓글을 찾을 수 없습니다." }, { status: 404 });
+      return reportError("comment_not_found", 404);
     }
     productId = c.post_id;
   }
@@ -106,10 +106,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (adErr) {
       console.error("[reports] feed_ad_lookup_failed", adErr.message);
-      return NextResponse.json({ ok: false, error: "신고 접수에 실패했습니다." }, { status: 500 });
+      return reportError("report_failed", 500);
     }
     if (!ad) {
-      return NextResponse.json({ ok: false, error: "해당 광고를 찾을 수 없습니다." }, { status: 404 });
+      return reportError("ad_not_found", 404);
     }
     productId = null;
   }
@@ -167,26 +167,15 @@ export async function POST(req: NextRequest) {
       }
     }
     if (/foreign key|violates foreign key|reporter_id/i.test(msg)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "신고자 UUID가 auth.users에 없습니다. Supabase에 해당 사용자를 등록하거나 테스트 로그인 UUID를 맞춰 주세요.",
-        },
-        { status: 400 }
-      );
+      console.error("[reports] reporter missing in auth.users (register the user or fix the test login UUID)", msg);
+      return reportError("report_failed", 400);
     }
     if (/column|does not exist|schema/i.test(msg)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "reports 테이블 스키마가 맞지 않습니다. 마이그레이션을 적용해 주세요.",
-        },
-        { status: 500 }
-      );
+      console.error("[reports] reports table schema mismatch — apply migrations", msg);
+      return reportError("report_failed", 500);
     }
-    return NextResponse.json({ ok: false, error: msg || "신고 접수에 실패했습니다." }, { status: 500 });
+    console.error("[reports] insert failed", msg);
+    return reportError("report_failed", 500);
   }
 
   return NextResponse.json({ ok: true, id: (data as { id: string }).id, already: false });

@@ -8,6 +8,7 @@ import { buildPublishContent } from "@/lib/community-operator-import/publish-con
 import { QUALITY_REASON_LABELS } from "@/lib/community-operator-import/quality";
 import { loadRules, rulesFor } from "@/lib/community-operator-import/rules";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
+import { importRouteErrorDetail } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
       qualityLabels: QUALITY_REASON_LABELS,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "detail_failed";
-    return jsonError(msg, 502, { code: "detail_failed" });
+    const detail = importRouteErrorDetail(e, "detail_failed");
+    return jsonError("detail_failed", 502, { code: "detail_failed", ...(detail ? { detail } : {}) });
   }
 }

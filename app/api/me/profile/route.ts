@@ -58,7 +58,6 @@ import {
   expectedConditionsForPatch,
   parseProfilePatchExpected,
   PROFILE_CONFLICT_ERROR_CODE,
-  PROFILE_CONFLICT_MESSAGE_KO,
 } from "@/lib/profile/profile-patch-concurrency";
 export const dynamic = "force-dynamic";
 
@@ -259,8 +258,15 @@ const PROFILE_ADDRESS_KEYS = ["address_street_line", "address_detail"] as const;
 const PROFILE_MAP_KEYS = ["latitude", "longitude", "full_address"] as const;
 const PROFILE_COMPLETION_KEYS = ["profile_completed"] as const;
 
+/** 재감사 2026-11-27 P1 — 화면 문장 대신 코드만 (`docs/i18n-ssot.md` §3-3). 원인은 로그로 */
 function serviceUnavailable(why: string) {
-  return NextResponse.json({ ok: false, error: why }, { status: 503 });
+  console.error("[me/profile] service_unavailable", why);
+  return NextResponse.json({ ok: false, error: "service_unavailable", code: "service_unavailable" }, { status: 503 });
+}
+
+/** PATCH 오류 응답 — `error` = `code` (오류 코드만, 문구는 화면 카탈로그 `profile-save-error-text.ts`) */
+function profileError(code: string, status: number) {
+  return NextResponse.json({ ok: false, error: code, code }, { status });
 }
 
 /** PostgREST 스키마 캐시에 컬럼이 없을 때(마이그레이션 미적용) */
@@ -282,6 +288,7 @@ function isMissingProfileAddressColumnError(message: string): boolean {
   );
 }
 
+/** DB 오류 → 오류 코드 (DB 원문은 화면에 보내지 않고 로그로만) */
 function mapProfileDbError(message: string): string {
   const lower = message.toLowerCase();
   if (
@@ -289,15 +296,10 @@ function mapProfileDbError(message: string): string {
     lower.includes("duplicate key") ||
     (lower.includes("unique") && lower.includes("nickname"))
   ) {
-    return "이미 사용 중인 닉네임입니다";
+    return "nickname_taken";
   }
-  if (isMissingProfileAddressColumnError(message)) {
-    return (
-      "DB에 프로필 주소·지도 컬럼이 없습니다. " +
-      "마이그레이션 적용 후 잠시 뒤 다시 저장해 주세요."
-    );
-  }
-  return message;
+  console.error("[me/profile PATCH] db_error", message);
+  return "profile_save_failed";
 }
 
 /** PATCH 응답 — 클라이언트가 저장 결과를 검증·스냅샷에 반영 */
@@ -333,7 +335,7 @@ function rowHasOptionalProfileAddressFields(row: Record<string, unknown>): boole
 
 function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
   if (body == null || typeof body !== "object") {
-    return { ok: false, error: "요청 형식이 올바르지 않습니다." };
+    return { ok: false, error: "invalid_request" };
   }
   const b = body as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
@@ -350,8 +352,8 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
         ? String(b.display_name ?? "").trim()
         : null;
   if (nicknameFromBody != null) {
-    if (nicknameFromBody.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
-    if (nicknameFromBody.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
+    if (nicknameFromBody.length < 2) return { ok: false, error: "nickname_too_short" };
+    if (nicknameFromBody.length > 20) return { ok: false, error: "nickname_too_long" };
     patch.nickname = nicknameFromBody;
     patch.display_name = nicknameFromBody;
   }
@@ -389,7 +391,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     if (v === null) patch.latitude = null;
     else {
       const n = typeof v === "number" ? v : Number(v);
-      if (!Number.isFinite(n)) return { ok: false, error: "latitude 값이 올바르지 않습니다." };
+      if (!Number.isFinite(n)) return { ok: false, error: "invalid_location" };
       patch.latitude = n;
     }
   }
@@ -398,7 +400,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     if (v === null) patch.longitude = null;
     else {
       const n = typeof v === "number" ? v : Number(v);
-      if (!Number.isFinite(n)) return { ok: false, error: "longitude 값이 올바르지 않습니다." };
+      if (!Number.isFinite(n)) return { ok: false, error: "invalid_location" };
       patch.longitude = n;
     }
   }
@@ -406,7 +408,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   if ("phone" in b) {
     return {
       ok: false,
-      error: "전화번호는 프로필 저장이 아닌 전화 인증에서 등록·변경해 주세요.",
+      error: "phone_change_via_verification",
     };
   }
   if ("preferred_language" in b) {
@@ -496,7 +498,7 @@ export async function GET(request: NextRequest) {
   const cookieAuth = await getOptionalRouteHandlerCookieAuth();
   const requireAuthMs = devPerfNow() - auth0;
   if (!cookieAuth.userId) {
-    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
+    return jsonError("unauthorized", 401, { authenticated: false, code: "unauthorized" });
   }
   const userId = cookieAuth.userId;
   const bypassRouteCache = shouldBypassRouteMemoryCache(request.nextUrl.searchParams);
@@ -876,7 +878,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!cookieAuth.supabase) {
-    return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
+    return serviceUnavailable("supabase not configured");
   }
 
   let getUserCallCount = 0;
@@ -1097,12 +1099,12 @@ export async function PATCH(req: NextRequest) {
   try {
     raw = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "JSON 이 필요합니다." }, { status: 400 });
+    return profileError("invalid_request", 400);
   }
 
   const parsed = parsePatchBody(raw);
   if (!parsed.ok) {
-    return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
+    return profileError(parsed.error, 400);
   }
 
   const existingCompletionRow = await fetchProfileCompletionRow(auth.userId);
@@ -1124,7 +1126,7 @@ export async function PATCH(req: NextRequest) {
       })
     ) {
       return NextResponse.json(
-        { ok: false, error: "프로필 사진은 앱에서 올린 본인 사진만 사용할 수 있습니다.", code: "avatar_url_not_allowed" },
+        { ok: false, error: "avatar_url_not_allowed", code: "avatar_url_not_allowed" },
         { status: 400 }
       );
     }
@@ -1142,7 +1144,7 @@ export async function PATCH(req: NextRequest) {
       acceptLanguage: req.headers.get("accept-language"),
     });
     if (!filtered.ok) {
-      return NextResponse.json({ ok: false, error: filtered.error, code: filtered.code }, { status: filtered.status });
+      return NextResponse.json({ ok: false, error: filtered.code, code: filtered.code }, { status: filtered.status });
     }
   }
 
@@ -1152,10 +1154,7 @@ export async function PATCH(req: NextRequest) {
   if (serviceSb && typeof parsed.patch.nickname === "string") {
     const taken = await isMemberNicknameTaken(serviceSb, auth.userId, parsed.patch.nickname);
     if (taken) {
-      return NextResponse.json(
-        { ok: false, error: "이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해 주세요." },
-        { status: 409 }
-      );
+      return profileError("nickname_taken", 409);
     }
   }
 
@@ -1169,15 +1168,13 @@ export async function PATCH(req: NextRequest) {
   if (!writeSb) {
     const routeSb = await createSupabaseRouteHandlerClient();
     if (!routeSb) {
-      return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
+      return serviceUnavailable("supabase not configured");
     }
     const {
       data: { user },
     } = await routeSb.auth.getUser();
     if (!user?.id || user.id !== auth.userId) {
-      return serviceUnavailable(
-        "아이디 로그인(테스트)으로 저장하려면 서버에 SUPABASE_SERVICE_ROLE_KEY 를 넣어 주세요."
-      );
+      return serviceUnavailable("id-login save needs SUPABASE_SERVICE_ROLE_KEY");
     }
     writeSb = routeSb;
   }
@@ -1201,31 +1198,24 @@ export async function PATCH(req: NextRequest) {
     data = second.data;
     error = second.error;
     if (!error) {
-      warning =
-        "프로필은 저장되었으나 DB에 주소·지도 컬럼이 없어 위치는 반영되지 않았습니다. 마이그레이션을 확인해 주세요.";
+      /** 경고도 코드만 — 화면 `profile_edit_warn_location_not_saved` */
+      console.error("[me/profile PATCH] address columns missing — location not saved");
+      warning = "profile_location_not_saved";
     }
   }
   if (error) {
-    return NextResponse.json(
-      { ok: false, error: mapProfileDbError(error.message ?? "저장 실패") },
-      { status: 500 }
-    );
+    const code = mapProfileDbError(error.message ?? "");
+    return profileError(code, code === "nickname_taken" ? 409 : 500);
   }
   if (!data) {
     if (conditions.length > 0) {
       const { data: exists } = await writeSb.from("profiles").select("id").eq("id", auth.userId).maybeSingle();
       if (exists) {
         /** 기대값 불일치 — 다른 곳에서 먼저 변경됨. 오래된 화면 값으로 덮어쓰지 않는다. */
-        return NextResponse.json(
-          { ok: false, error: PROFILE_CONFLICT_MESSAGE_KO, code: PROFILE_CONFLICT_ERROR_CODE },
-          { status: 409 }
-        );
+        return profileError(PROFILE_CONFLICT_ERROR_CODE, 409);
       }
     }
-    return NextResponse.json(
-      { ok: false, error: "프로필 행을 찾을 수 없습니다. 가입·동기화 후 다시 시도해 주세요." },
-      { status: 409 }
-    );
+    return profileError("profile_not_found", 409);
   }
   if ("avatar_url" in parsed.patch) {
     /**

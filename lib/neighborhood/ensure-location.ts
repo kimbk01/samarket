@@ -179,8 +179,9 @@ export async function resolveNeighborhoodLocationId(
   return {
     locationId: null,
     failure: "persist_failed",
+    /** 로그 전용 원인 — 화면에는 코드(`location_persist_failed`)만 나간다 (재감사 2026-11-27) */
     supabaseMessage: isPermissionError(upErr)
-      ? "DB 쓰기 권한이 없습니다. Supabase에서 service role 키와 RLS를 확인하세요."
+      ? "permission_denied: check service role key and RLS"
       : upErr.message,
   };
 }

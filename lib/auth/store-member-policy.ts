@@ -2,7 +2,12 @@ import { isPrivilegedAdminAuthority } from "@/lib/auth/admin-policy";
 
 export const STORE_TERMS_VERSION = "2026-04-store-review";
 export const STORE_PRIVACY_VERSION = "2026-04-store-review";
-export const STORE_PHONE_GATE_MESSAGE = "전화번호 인증 후 이용할 수 있습니다.";
+/**
+ * 전화 인증 필요 — 응답 `error` 값(코드). 문장을 보내지 않는다(언어 재감사 2026-11-27).
+ * 화면 문구 키 `auth_phone_gate_requirement`. `code` 필드는 예전 값 `PHONE_VERIFICATION_REQUIRED` 유지(클라이언트 비교).
+ * `isPhoneVerificationRequiredError` 는 이 값을 `includes` 로 본다.
+ */
+export const STORE_PHONE_GATE_MESSAGE = "phone_verification_required";
 export const DUPLICATE_LOGIN_MESSAGE = "동일 아이디가 다른 기기에서 접속 중입니다.";
 
 export type StoreMemberStatus =

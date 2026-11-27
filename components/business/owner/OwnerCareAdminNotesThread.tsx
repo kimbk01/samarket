@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 import { OWNER_ADMIN_LIST_CARD_CLASS } from "@/lib/business/owner-admin-list-ui";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 
@@ -21,7 +22,7 @@ type Thread = {
 
 /** A2-1: legacy Care thread = read-only archive (no reply composer). */
 export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind }) {
-  const { safeT, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const params = useParams();
   const threadId = String(params?.threadId ?? "").trim();
   const [thread, setThread] = useState<Thread | null>(null);
@@ -68,7 +69,9 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
         </p>
       </div>
 
-      {error ? <p className="mb-2 text-sm text-sam-danger">{error}</p> : null}
+      {error ? (
+          <p className="mb-2 text-sm text-sam-danger">{resolveOwnerApiErrorText(error, t, "business_phase7_353")}</p>
+        ) : null}
 
       <ul className="flex-1 space-y-2" data-owner-care-thread-history="1">
         {messages.length === 0 ? (

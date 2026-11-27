@@ -25,7 +25,7 @@ function pickString(v: unknown): string | undefined {
 
 function isProductNotFound(status: number, payload: LegacyErrPayload): boolean {
   const error = pickString(payload.error) ?? "";
-  return status === 404 || error.includes("상품을 찾을 수 없습니다");
+  return status === 404 || error === "product_not_found";
 }
 
 export async function resolveTradeChatEntry(
@@ -45,7 +45,7 @@ export async function resolveTradeChatEntry(
   perf?.mark("resolve_service_sb");
   const sb = resolveServiceSupabaseForApi();
   if (!sb) {
-    return { ok: false, error: "서버 설정이 필요합니다.", status: 500 };
+    return { ok: false, error: "service_unavailable", status: 500 };
   }
 
   perf?.mark("resolve_item_core_start");
@@ -85,7 +85,7 @@ export async function resolveTradeChatEntry(
     perf?.mark("resolve_fail_non_404");
     return {
       ok: false,
-      error: pickString(payload.error) ?? "채팅방 생성에 실패했습니다.",
+      error: pickString(payload.error) ?? "chat_room_create_failed",
       status: status >= 400 ? status : 400,
     };
   }
@@ -103,7 +103,7 @@ export async function resolveTradeChatEntry(
 
   return {
     ok: false,
-    error: (legacy.ok ? undefined : legacy.error) ?? pickString(payload.error) ?? "채팅방 생성에 실패했습니다.",
+    error: (legacy.ok ? undefined : legacy.error) ?? pickString(payload.error) ?? "chat_room_create_failed",
     status: legacy.ok ? 500 : legacy.status,
   };
 }

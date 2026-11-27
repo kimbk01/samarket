@@ -2,6 +2,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 function scT(
   lang: AppLanguageCode,
@@ -101,7 +102,11 @@ function readExplicitDeliveryFeeMode(o: Record<string, unknown>): StoreDeliveryF
 }
 
 /** business_hours_json 확장 필드에서 최소주문·배달비 등 */
-export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFromHours {
+export function parseCommerceExtrasFromHoursJson(
+  raw: unknown,
+  /** 조리 시간 라벨(`estPrepLabel`) 언어 — 없으면 화면 언어 */
+  language: AppLanguageCode = getRuntimeAppLanguage()
+): CommerceExtrasFromHours {
   const base: CommerceExtrasFromHours = {
     minOrderPhp: null,
     deliveryFeePhp: null,
@@ -110,7 +115,7 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
     deliveryFeeMode: null,
     deliveryFeeStrikeReferencePhp: null,
     prepMinutes: null,
-    estPrepLabel: "20~40분",
+    estPrepLabel: scT(language, "store_prep_default_range"),
     deliveryRideDisplayManual: null,
   };
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return base;
@@ -128,7 +133,9 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
     prepMinutes = parsePrepMinutesLegacyFromEstPrepLabel(prepLabelRaw);
   }
   const estPrepLabel =
-    prepMinutes != null ? `${prepMinutes}분` : prepLabelRaw || base.estPrepLabel;
+    prepMinutes != null
+      ? scT(language, "store_prep_minutes_unit", { minutes: prepMinutes })
+      : prepLabelRaw || base.estPrepLabel;
 
   const manualRideRaw = String(o.delivery_ride_display_manual ?? o.deliveryRideDisplayManual ?? "").trim();
   const deliveryRideDisplayManual =

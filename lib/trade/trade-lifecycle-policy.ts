@@ -395,6 +395,18 @@ export function diffCoreExceptDescription(kind: TradeKind, before: FlatPostShape
   return JSON.stringify(fa) !== JSON.stringify(fb);
 }
 
+/** 본문 덧붙이기 저장 머리글 — 저장·비교 형식(`contentChangeIsAppendOnly`)이라 글자는 바꾸지 않는다 */
+const TRADE_APPEND_NOTE_SEPARATOR = "\n\n[추가 안내]\n";
+
+/**
+ * 언어 재감사 2026-11-27: 저장 본문의 덧붙이기 머리글(한국어 고정)을 화면 언어로 바꿔 그린다.
+ * 사람이 쓴 본문은 그대로 — 저장 형식의 머리글 줄만 바꾼다.
+ */
+export function localizeTradeAppendNoteMarker(content: string, t: (key: MessageKey) => string): string {
+  if (!content.includes(TRADE_APPEND_NOTE_SEPARATOR)) return content;
+  return content.split(TRADE_APPEND_NOTE_SEPARATOR).join(`\n\n[${t("reaudit_trade_append_note_heading")}]\n`);
+}
+
 export function contentChangeIsAppendOnly(beforeContent: string, afterContent: string): boolean {
   if (afterContent === beforeContent) return true;
   const prefix = `${beforeContent}\n\n[추가 안내]\n`;
@@ -406,12 +418,13 @@ export function validateRestrictedMetaPatch(
   before: FlatPostShape,
   after: FlatPostShape
 ): { ok: true } | { ok: false; error: string } {
-  const coreLockedMsg = "지금 단계에서는 가격·제목·핵심 조건을 바꿀 수 없습니다.";
+  /** 오류 코드 — 화면 문구는 `lib/trade/trade-api-error-text.ts` (`trade_core_locked`·`trade_content_append_only`) */
+  const coreLockedMsg = "trade_core_locked";
   if (diffCoreExceptDescription(kind, before, after)) {
     return { ok: false, error: coreLockedMsg };
   }
   if (!contentChangeIsAppendOnly(before.content, after.content)) {
-    return { ok: false, error: "본문은 기존 내용을 유지한 채 추가 안내만 붙일 수 있습니다." };
+    return { ok: false, error: "trade_content_append_only" };
   }
   const keys = new Set([...Object.keys(before.meta), ...Object.keys(after.meta)]);
   for (const k of keys) {

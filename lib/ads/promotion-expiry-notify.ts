@@ -11,6 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { translateBy } from "@/lib/i18n/translate-by";
 import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
@@ -87,7 +88,20 @@ export async function runPromotionExpiryNoticeBatch(
         push_kind: pushKind,
         ref_id: orderId,
         dedupe_key: `promotion-${kind}:${orderId}`,
-        meta: { kind: kind === "soon" ? "promotion_expiry_soon" : "promotion_ended", order_id: orderId, domain },
+        meta: {
+          kind: kind === "soon" ? "promotion_expiry_soon" : "promotion_ended",
+          order_id: orderId,
+          domain,
+          ...notificationCopyMeta({
+            titleKey: kind === "soon" ? "promo_notice_soon_title" : "promo_notice_ended_title",
+            messageKey: kind === "soon" ? "promo_notice_soon_body" : "promo_notice_ended_body",
+            vars: {
+              ...(String(r.target_title ?? "").trim() ? { title } : {}),
+              ...(kind === "soon" ? { date: endAt ? formatPhtDisplayDateTime(endAt, lang) : "—" } : {}),
+            },
+            varKeys: String(r.target_title ?? "").trim() ? undefined : { title: "promo_target_untitled" },
+          }),
+        },
       });
       if (saved) {
         if (kind === "soon") soon += 1;

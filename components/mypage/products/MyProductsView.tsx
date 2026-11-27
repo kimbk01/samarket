@@ -26,6 +26,7 @@ import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerPostApiErrorText } from "@/lib/posts/owner-post-api-error-text";
 import type { PointPromotionOrder } from "@/lib/types/point";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
@@ -204,10 +205,16 @@ export function MyProductsView({
         });
         const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
         if (!res.ok || !data.ok) {
-          /** M-2: 서버가 정한 거절 사유(code 동반 — 관리자 숨김·삭제 글 등)는 그대로 안내, 그 밖은 i18n 오류 토스트 */
-          const reason =
-            data.code && typeof data.error === "string" && data.error.trim() ? data.error.trim() : "";
-          showMypageToast(reason || t("mypage_comp_product_network_change_failed"), "error");
+          /** M-2: 서버 거절 코드(관리자 숨김·삭제 글 등)는 화면 언어 문구로, 그 밖은 i18n 오류 토스트 (재감사 2026-11-27) */
+          showMypageToast(
+            resolveOwnerPostApiErrorText({
+              json: data,
+              status: res.status,
+              fallbackKey: "mypage_comp_product_network_change_failed",
+              t,
+            }),
+            "error"
+          );
           return;
         }
         if (isMarkSold) {

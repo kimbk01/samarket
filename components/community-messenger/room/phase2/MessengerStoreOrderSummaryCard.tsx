@@ -13,6 +13,7 @@ import { StoreOrderReceiptCard } from "@/components/community-messenger/room/pha
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { useStoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   content: string;
@@ -21,6 +22,7 @@ type Props = {
 };
 
 export function MessengerStoreOrderSummaryCard({ content, timeline, metadata }: Props) {
+  const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const roomMeta = vm.snapshot.room.contextMeta;
   const storeOrderId =
@@ -49,7 +51,7 @@ export function MessengerStoreOrderSummaryCard({ content, timeline, metadata }: 
     );
   }
   const lines = content.split("\n").filter((l) => l.trim());
-  const header = lines[0] ?? "📋 주문 요약";
+  const header = lines[0] ?? t("cm_home_preview_order_summary");
   const bodyLines = lines.slice(1);
 
   return (

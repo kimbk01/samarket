@@ -18,7 +18,7 @@ export async function GET() {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return jsonError("인증 설정이 준비되지 않았습니다.", 503, { code: "supabase_unconfigured" });
+  if (!sb) return jsonError("supabase_unconfigured", 503, { code: "supabase_unconfigured" });
 
   const [eventsRes, profile, ageState, marketing] = await Promise.all([
     sb

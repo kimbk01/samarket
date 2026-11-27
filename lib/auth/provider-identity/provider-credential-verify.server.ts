@@ -25,13 +25,13 @@ export async function verifyProviderCredentialInput(
 ): Promise<ProviderIdentityCandidate | { errorCode: string; message: string }> {
   const provider = String(input.provider ?? "").trim().toLowerCase();
   if (!isLinkableAuthProvider(provider)) {
-    return { errorCode: "invalid_provider", message: "지원하지 않는 로그인 방식입니다." };
+    return { errorCode: "invalid_provider", message: "invalid_provider" };
   }
 
   if (provider === "google") {
     const idToken = String(input.idToken ?? "").trim();
     if (!idToken) {
-      return { errorCode: "credential_missing", message: "Google 로그인 정보가 없습니다." };
+      return { errorCode: "credential_missing", message: "credential_missing" };
     }
     const verified = await verifyGoogleIdToken({ idToken });
     return buildGoogleProviderCandidate(verified);
@@ -47,7 +47,7 @@ export async function verifyProviderCredentialInput(
 
   const identityToken = String(input.identityToken ?? input.idToken ?? "").trim();
   if (!identityToken) {
-    return { errorCode: "credential_missing", message: "Apple 로그인 정보가 없습니다." };
+    return { errorCode: "credential_missing", message: "credential_missing" };
   }
   const verified = await verifyAppleIdentityToken({
     identityToken,

@@ -2,6 +2,8 @@ import { buildStoreOrderMessengerRoomHref, storeOrderChatEnsureRedirectHref } fr
 import { buildMessengerContextMetaFromStoreOrder } from "@/lib/community-messenger/store-order-messenger-context";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 export function buildOwnerStoreOrderMessengerContext(
   order: OwnerStoreOrderListRow,
@@ -9,9 +11,12 @@ export function buildOwnerStoreOrderMessengerContext(
   storeId: string
 ) {
   const firstLine = (order.items ?? [])[0]?.product_title_snapshot?.trim();
-  const headline = firstLine
-    ? `${storeName.trim() || "매장"} · ${firstLine}`
-    : `${storeName.trim() || "매장"} · 주문 ${order.order_no}`;
+  /** 언어 재감사 2026-11-27: 매장·주문 대체어는 화면 언어 키로 (Provider 와 동기화된 런타임 언어) */
+  const language = getRuntimeAppLanguage();
+  const storeLabel = storeName.trim() || translate(language, "store_owner_store_fallback");
+  const headline = `${storeLabel} · ${
+    firstLine || translate(language, "store_owner_order_line_short", { no: order.order_no })
+  }`;
   return buildMessengerContextMetaFromStoreOrder({
     storeOrderId: order.id,
     orderNo: order.order_no,

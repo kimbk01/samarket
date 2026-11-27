@@ -54,7 +54,6 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:trade-post-list-preview:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_trade_post_list_preview_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -113,7 +112,8 @@ export async function GET(req: NextRequest) {
   }
 
   const row = post;
-  const title = tradePostHeadlineForMessengerList(row) || "거래";
+  /** 빈 제목은 빈 값 — 화면이 약한 제목 키로 그림(한 언어 고정 「거래」 금지) */
+  const title = tradePostHeadlineForMessengerList(row) || "";
   const priceRaw = row.price;
   const price =
     typeof priceRaw === "number" && Number.isFinite(priceRaw)

@@ -76,6 +76,10 @@ function mapIntegratedRow(m: IntegratedRow): ChatMessage {
     readAt: m.read_at ?? null,
     createdAt: m.created_at ?? "",
     isRead: !!m.read_at,
+    /** 시스템 줄만 metadata 전달 — 화면이 종류 코드로 보는 사람 언어 문장을 그린다 (재감사 2026-11-27, 필드 추가만) */
+    ...(messageType === "system" && m.metadata && typeof m.metadata === "object" && !Array.isArray(m.metadata)
+      ? { metadata: m.metadata as Record<string, unknown> }
+      : {}),
   };
 }
 

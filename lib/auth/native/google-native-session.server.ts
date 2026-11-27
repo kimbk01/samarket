@@ -90,7 +90,7 @@ type GoogleAuthUserPrepared = { userId: string; isNewUser: boolean; plan: Google
 const GOOGLE_WITHDRAWN_RESULT: GoogleNativeSessionResult = {
   ok: false,
   errorCode: "account_withdrawn",
-  message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
+  message: "account_withdrawn",
   status: 403,
 };
 
@@ -446,7 +446,7 @@ export async function establishGoogleNativeSession(
     return {
       ok: false,
       errorCode: "profile_ensure_failed",
-      message: "프로필 동기화에 실패했습니다. 다시 로그인해 주세요.",
+      message: "profile_ensure_failed",
       status: 500,
     };
   }

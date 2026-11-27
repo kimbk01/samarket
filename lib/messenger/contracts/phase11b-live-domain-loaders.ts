@@ -39,6 +39,7 @@ import {
 import type { GroupSubtype } from "@/lib/messenger/group/types";
 import { parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
 import { resolveTradeItemStatus } from "@/lib/messenger/trade/item-status";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { parseGeneralDirectIdentityKey } from "@/lib/messenger/general-direct/identity";
 import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
 import type { GeneralDirectBootstrapSource } from "@/lib/messenger/general-direct/phase6-bootstrap";
@@ -200,13 +201,18 @@ async function loadTradeListingPosts(
       statusBadgeLabel: string | null;
     }
   >();
+  /** 상태 배지는 보는 사람(요청) 언어 — 요청 밖이면 en */
+  const lang = await resolveRequestAppLanguageOr("en");
   for (const row of (data ?? []) as Array<Record<string, unknown>>) {
     const id = String(row.id ?? "").trim();
     if (!id) continue;
-    const status = resolveTradeItemStatus({
-      sellerListingStateRaw: row.seller_listing_state,
-      postStatus: typeof row.status === "string" ? row.status : null,
-    });
+    const status = resolveTradeItemStatus(
+      {
+        sellerListingStateRaw: row.seller_listing_state,
+        postStatus: typeof row.status === "string" ? row.status : null,
+      },
+      lang
+    );
     map.set(id, {
       title: typeof row.title === "string" ? row.title.trim() || null : null,
       imageUrl: typeof row.thumbnail_url === "string" ? row.thumbnail_url.trim() || null : null,

@@ -11,8 +11,6 @@ export type ProfilePatchExpectableKey = (typeof PROFILE_PATCH_EXPECTABLE_KEYS)[n
 export type ProfilePatchExpected = Partial<Record<ProfilePatchExpectableKey, string | null>>;
 
 export const PROFILE_CONFLICT_ERROR_CODE = "profile_conflict" as const;
-export const PROFILE_CONFLICT_MESSAGE_KO =
-  "다른 곳에서 프로필이 먼저 변경되었습니다. 최신 내용을 다시 불러왔으니 확인 후 저장해 주세요.";
 
 /** body.expected 파싱 — 허용 키만, 문자열/null 만 */
 export function parseProfilePatchExpected(body: unknown): ProfilePatchExpected {

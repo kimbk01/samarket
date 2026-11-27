@@ -13,12 +13,18 @@ import { PostImageGrid } from "@/components/community/post-detail/PostImageGrid"
 import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
 import { communityViewerDisplayUrl } from "@/lib/community/post-image-display";
 import { PostTextWithVideos } from "@/components/community/post-detail/PostTextWithVideos";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { localizeImportedPostBody } from "@/lib/community/community-display-fallbacks";
 
 type Props = {
   post: NeighborhoodFeedPostDTO;
 };
 
 export function CommunityPostDetailBody({ post }: Props) {
+  const { t } = useI18n();
+  /** 가져온 글 — 옛 행의 고정 출처 줄·「원문 링크만」 안내를 화면 언어로 (재감사 2026-11-27). 회원 글은 그대로 */
+  const bodyText =
+    post.origin_kind === "imported" ? localizeImportedPostBody(post.content, post.source_attribution, t) : post.content;
   /** 서식 본문: 가져온 글 원문 구조 + 회원 서식 글(Owner 승인 ①) */
   const richBlocks = post.content_blocks?.length ? post.content_blocks : null;
   const richBodyImageUrls = richBlocks ? new Set(richBlocksImageUrls(richBlocks)) : null;
@@ -48,10 +54,10 @@ export function CommunityPostDetailBody({ post }: Props) {
         <ImportedRichContent blocks={richBlocks} />
       ) : isInterleavedBody ? (
         <div className="mt-3">
-          <NeighborhoodInterleavedContent content={post.content} />
+          <NeighborhoodInterleavedContent content={bodyText} />
         </div>
       ) : (
-        <PostTextWithVideos text={post.content} className={CM_BODY_CLASS} />
+        <PostTextWithVideos text={bodyText} className={CM_BODY_CLASS} />
       )}
 
       {showImageGallery ? (
@@ -59,7 +65,7 @@ export function CommunityPostDetailBody({ post }: Props) {
           <PostImageGrid
             urls={galleryUrls}
             onOpen={(i) => openAt(galleryUrls, i)}
-            labelFor={(i) => `이미지 ${i + 1} 크게 보기`}
+            labelFor={(i) => t("community_image_open_n", { n: i + 1 })}
           />
         </div>
       ) : null}

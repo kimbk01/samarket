@@ -22,6 +22,11 @@ import { notifyTradeSoldToEligibleCounterparts } from "@/lib/trade/notify-trade-
 /** Member-facing coarse status via this route — reserved/sold rejected (buyer binding). */
 const ALLOWED = new Set(["active", "hidden"]);
 
+/** 언어 재감사 2026-11-27: 서버 문장 대신 오류 코드만 보낸다 — 화면은 `resolveOwnerPostApiErrorText` */
+function ownerStatusFail(code: string, status: number) {
+  return NextResponse.json({ ok: false, error: code, code }, { status });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ postId: string }> }
@@ -34,7 +39,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
+    return ownerStatusFail("server_unconfigured", 500);
   }
 
   const { postId } = await params;
@@ -46,7 +51,7 @@ export async function POST(
   }
   const nextStatus = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
   if (!postId?.trim()) {
-    return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });
+    return ownerStatusFail("post_id_required", 400);
   }
 
   /**
@@ -55,39 +60,19 @@ export async function POST(
    */
   const listing = typeof body.listing === "string" ? body.listing.trim().toLowerCase() : "";
   if (listing === "selling") {
-    return NextResponse.json(
-      { ok: false, error: "판매완료한 글은 판매중으로 되돌릴 수 없습니다.", code: "sold_is_final" },
-      { status: 400 }
-    );
+    return ownerStatusFail("sold_is_final", 400);
   }
   if (listing === "sold") {
     return applySellerMarkSold(sb, userId, postId.trim());
   }
   if (nextStatus === "reserved") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "예약 기능은 제공하지 않습니다. 판매완료만 할 수 있습니다.",
-        code: "reserved_not_supported",
-      },
-      { status: 400 }
-    );
+    return ownerStatusFail("reserved_not_supported", 400);
   }
   if (nextStatus === "sold") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.",
-        code: "sold_requires_seller_complete",
-      },
-      { status: 400 }
-    );
+    return ownerStatusFail("sold_requires_seller_complete", 400);
   }
   if (!ALLOWED.has(nextStatus)) {
-    return NextResponse.json(
-      { ok: false, error: "postId, status(active|hidden) 필요" },
-      { status: 400 }
-    );
+    return ownerStatusFail("invalid_status", 400);
   }
 
   const { data: post, error: postErr } = await sb
@@ -97,13 +82,11 @@ export async function POST(
     .maybeSingle();
 
   if (postErr) {
-    return NextResponse.json(
-      { ok: false, error: `글 조회 오류: ${postErr.message}` },
-      { status: 500 }
-    );
+    console.error("[owner-status] post lookup", postErr.message);
+    return ownerStatusFail("post_lookup_failed", 500);
   }
   if (!post) {
-    return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
+    return ownerStatusFail("post_not_found", 404);
   }
   const row = post as {
     user_id?: string;
@@ -112,7 +95,7 @@ export async function POST(
     owner_state?: string | null;
   };
   if (!row.user_id || row.user_id !== userId) {
-    return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
+    return ownerStatusFail("not_owner", 403);
   }
 
   /**
@@ -122,22 +105,12 @@ export async function POST(
    */
   const moderation = String(row.moderation_state ?? "visible");
   if (nextStatus === "active" && (moderation === "admin_hidden" || moderation === "admin_deleted")) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "운영 정책에 따라 숨김 처리된 글입니다. 고객센터로 문의해 주세요.",
-        code: "admin_hidden",
-      },
-      { status: 403 }
-    );
+    return ownerStatusFail("admin_hidden", 403);
   }
 
   /** 거래 계획 1단계 M-1: 판매자가 삭제한 글은 「다시 보이기」로 공개할 수 없다 */
   if (nextStatus === "active" && String(row.owner_state ?? "") === "owner_deleted") {
-    return NextResponse.json(
-      { ok: false, error: "삭제한 글은 다시 보이게 할 수 없습니다.", code: "owner_deleted" },
-      { status: 403 }
-    );
+    return ownerStatusFail("owner_deleted", 403);
   }
 
   const now = new Date().toISOString();
@@ -156,10 +129,8 @@ export async function POST(
     .maybeSingle();
 
   if (updErr) {
-    return NextResponse.json(
-      { ok: false, error: updErr.message ?? "저장 실패" },
-      { status: 500 }
-    );
+    console.error("[owner-status] update", updErr.message);
+    return ownerStatusFail("save_failed", 500);
   }
 
   const u = (updated ?? {}) as { status?: string; seller_listing_state?: string };
@@ -188,9 +159,10 @@ async function applySellerMarkSold(
     .eq("id", postId)
     .maybeSingle();
   if (postErr) {
-    return NextResponse.json({ ok: false, error: `글 조회 오류: ${postErr.message}` }, { status: 500 });
+    console.error("[owner-status] sold lookup", postErr.message);
+    return ownerStatusFail("post_lookup_failed", 500);
   }
-  if (!post) return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
+  if (!post) return ownerStatusFail("post_not_found", 404);
   const row = post as {
     user_id?: string;
     title?: string | null;
@@ -200,18 +172,15 @@ async function applySellerMarkSold(
     owner_state?: string | null;
   };
   if (!row.user_id || row.user_id !== userId) {
-    return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
+    return ownerStatusFail("not_owner", 403);
   }
   const moderation = String(row.moderation_state ?? "visible");
   if (moderation === "admin_hidden" || moderation === "admin_deleted") {
-    return NextResponse.json(
-      { ok: false, error: "운영 정책에 따라 숨김 처리된 글입니다. 고객센터로 문의해 주세요.", code: "admin_hidden" },
-      { status: 403 }
-    );
+    return ownerStatusFail("admin_hidden", 403);
   }
 
   if (String(row.owner_state ?? "") === "owner_deleted") {
-    return NextResponse.json({ ok: false, error: "삭제한 글입니다.", code: "owner_deleted" }, { status: 403 });
+    return ownerStatusFail("owner_deleted", 403);
   }
   /** 이미 판매완료 — 같은 요청 반복은 그대로 성공(시스템 메시지·방송 재발행 없음) */
   if (String(row.status ?? "") === "sold" || String(row.seller_listing_state ?? "") === "completed") {
@@ -232,7 +201,10 @@ async function applySellerMarkSold(
     .eq("id", postId)
     .select("status, seller_listing_state")
     .maybeSingle();
-  if (updErr) return NextResponse.json({ ok: false, error: updErr.message ?? "저장 실패" }, { status: 500 });
+  if (updErr) {
+    console.error("[owner-status] sold update", updErr.message);
+    return ownerStatusFail("save_failed", 500);
+  }
 
   const u = (updated ?? {}) as { status?: string; seller_listing_state?: string };
   const threadNotices = await applySellerListingChangeSideEffectsServer(sb, {

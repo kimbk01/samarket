@@ -1,5 +1,6 @@
 "use client";
 
+import { storeOrderRejectReasonForDisplay } from "@/lib/stores/store-order-reject-reason-text";
 import "@/app/store-order-list-tokens.css";
 import { resolveMyStickyCtaBodyClearanceClass } from "@/lib/mypage/my-sticky-cta-placement";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
@@ -856,8 +857,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                         })}`
                       : ""}
                   </p>
-                  {ev.message?.trim() ? (
-                    <p className="mt-1 text-sam-fg">{ev.message.trim()}</p>
+                  {/* 옛 관리자 기본 거절 문장(「Rejected by admin」 등)은 숨긴다 — 재감사 2026-11-27 */}
+                  {storeOrderRejectReasonForDisplay(ev.message) ? (
+                    <p className="mt-1 text-sam-fg">{storeOrderRejectReasonForDisplay(ev.message)}</p>
                   ) : null}
                 </li>
               );

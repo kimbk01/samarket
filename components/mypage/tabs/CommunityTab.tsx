@@ -11,6 +11,8 @@ import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
+import { communityRegionLabelText } from "@/lib/community/community-display-fallbacks";
 import { philifePostLikeUrl } from "@/lib/philife/api";
 
 type CommunityPostPreview = {
@@ -174,7 +176,7 @@ function MyCommunityPostsPanel() {
                     item.topic_name_en,
                     item.topic_slug ?? undefined
                   ) || t("mypage_comp_community_topic_fallback")}{" "}
-                  · {item.region_label || t("mypage_comp_community_region_none")} ·{" "}
+                  · {communityRegionLabelText(item.region_label, t) || t("mypage_comp_community_region_none")} ·{" "}
                   {t("mypage_comp_community_comments_count", { count: item.comment_count ?? 0 })}
                 </p>
               </Link>
@@ -245,7 +247,10 @@ function MyCommunityActivityPanel({
         };
         if (cancelled) return;
         if (!res.ok || !json.ok) {
-          setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_activity_load_failed"));
+          /** 서버 코드·DB 원문은 화면에 내보내지 않는다 (재감사 2026-11-27) */
+          setError(
+            resolveApiErrorText({ json, status: res.status, fallbackKey: "mypage_comp_community_activity_load_failed", t })
+          );
           return;
         }
         setError(null);
@@ -279,7 +284,7 @@ function MyCommunityActivityPanel({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; saved?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unsave_failed"));
+        setError(resolveApiErrorText({ json, status: res.status, fallbackKey: "mypage_comp_community_unsave_failed", t }));
         return;
       }
       if (json.saved === true) {
@@ -315,7 +320,7 @@ function MyCommunityActivityPanel({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean; error?: string };
       if (!res.ok || !json.ok || json.liked === true) {
-        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unlike_failed"));
+        setError(resolveApiErrorText({ json, status: res.status, fallbackKey: "mypage_comp_community_unlike_failed", t }));
         return;
       }
       setLikedPosts((prev) => prev.filter((row) => row.postId !== postId));
@@ -337,7 +342,7 @@ function MyCommunityActivityPanel({
             <p className="sam-text-body font-medium text-sam-fg">{item.postTitle}</p>
             <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.content}</p>
             <p className="mt-1 sam-text-helper text-sam-meta">
-              {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
+              {[communityRegionLabelText(item.regionLabel, t), formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
             </p>
           </Link>
         ))}
@@ -352,7 +357,7 @@ function MyCommunityActivityPanel({
             <Link href={`/philife/${encodeURIComponent(item.postId)}`} className="min-w-0 flex-1 hover:opacity-80">
               <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
               <p className="mt-1 sam-text-helper text-sam-meta">
-                {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
+                {[communityRegionLabelText(item.regionLabel, t), formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
               </p>
             </Link>
             <button
@@ -376,7 +381,7 @@ function MyCommunityActivityPanel({
             <Link href={`/philife/${encodeURIComponent(item.postId)}`} className="min-w-0 flex-1 hover:opacity-80">
               <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
               <p className="mt-1 sam-text-helper text-sam-meta">
-                {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
+                {[communityRegionLabelText(item.regionLabel, t), formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
               </p>
             </Link>
             <button

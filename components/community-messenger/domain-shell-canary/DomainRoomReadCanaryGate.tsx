@@ -1,5 +1,6 @@
 "use client";
 
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
@@ -90,7 +91,8 @@ function toHeader(dto: RoomDto): DomainRoomCanaryHeader | null {
     };
   }
   if (h.kind === "trade") {
-    const peerTitle = h.peerLabel?.trim() || "";
+    /** 서버가 빈 이름을 보내면(한국어 고정 대체 제거) 보는 사람 언어 키로 그린다 — 헤더 매핑은 유지 */
+    const peerTitle = h.peerLabel?.trim() || translateCmUi("chats_trade_list_peer_fallback");
     if (!peerTitle) return null;
     return {
       kind: "trade",
@@ -109,7 +111,7 @@ function toHeader(dto: RoomDto): DomainRoomCanaryHeader | null {
     if (h.storeName.trim().startsWith("@")) return null;
     return {
       kind: "buyer_store",
-      title: h.storeName,
+      title: h.storeName.trim() || translateCmUi("common_store"),
       avatarUrl: h.storeImageUrl,
       orderId: h.orderId?.trim() || null,
       orderStatusLabel: h.orderStatusLabel?.trim() || null,
@@ -120,7 +122,7 @@ function toHeader(dto: RoomDto): DomainRoomCanaryHeader | null {
   if (h.kind === "owner_buyer_peer") {
     return {
       kind: "owner_buyer_peer",
-      title: h.customerName,
+      title: h.customerName.trim() || translateCmUi("cm_ui_store_order_customer_fallback"),
       avatarUrl: h.customerAvatarUrl,
       orderId: h.orderId?.trim() || null,
       orderStatusLabel: h.orderStatusLabel?.trim() || null,

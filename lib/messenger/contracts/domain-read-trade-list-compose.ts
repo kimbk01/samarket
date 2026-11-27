@@ -116,18 +116,19 @@ export async function composeDomainReadTradeListDto(
     const sb = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    /** 언어 SSOT B3 — 저장 시스템 문장 미리보기를 요청 언어로(서버에는 런타임 언어가 없다) — 행·hub 같은 언어 */
+    const lang = await resolveDomainReadRequestLanguage();
     const trade = await runTradeBootstrap({
       viewerUserId,
       generation: `trade-list-${Date.now()}`,
       snapshotKind: "full",
       source: createTradeLiveBootstrapSource(sb, undefined, { inboxOnly: true }),
+      lang,
     });
     if (trade.viewerUserId !== viewerUserId) {
       return { ok: false, trigger: "viewer_mismatch" };
     }
 
-    /** 언어 SSOT B3 — 저장 시스템 문장 미리보기를 요청 언어로(서버에는 런타임 언어가 없다) */
-    const lang = await resolveDomainReadRequestLanguage();
     const hub = buildTradeHubViewModel(trade.rows, lang);
     const latest = selectLatestRowByActivityAt(trade.rows, (r) => ({
       activityAt: r.lastMessageAt,

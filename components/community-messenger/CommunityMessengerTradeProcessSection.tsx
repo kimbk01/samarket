@@ -23,6 +23,7 @@ import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { tradeListingErrorText, tradeListingWarningText } from "@/lib/trade/trade-api-error-text";
 import { prefetchTradeBoostState, withTradeBoostListingNote } from "@/lib/promotion/trade-boost-listing-notice";
 import { resolveMessengerTradeActionStripKind } from "@/lib/trade/messenger-trade-action-strip";
 
@@ -244,11 +245,12 @@ export function CommunityMessengerTradeProcessSection({
           threadNotices?: TradeListingThreadNotice[];
         };
         if (!res.ok || !data.ok || !data.sellerListingState) {
-          setListingError(String(data.error ?? t("common_save_failed")));
+          /** 서버 문장·코드 원문 대신 코드 → 보는 사람 언어 */
+          setListingError(tradeListingErrorText({ json: data, status: res.status }, t));
           return;
         }
-        const w = typeof data.warning === "string" ? data.warning.trim() : "";
-        setListingNotice(w || null);
+        /** 경고는 코드로 온다 — 코드 → 문구(모르는 값은 표시하지 않음) */
+        setListingNotice(tradeListingWarningText(typeof data.warning === "string" ? data.warning : null, t));
         setPinnedListing(data.sellerListingState as SellerListingState);
         setPinnedForProductId(postId);
         const threadNotices = Array.isArray(data.threadNotices) ? data.threadNotices : [];

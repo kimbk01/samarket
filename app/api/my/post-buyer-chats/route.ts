@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const userId = auth.userId;
   const postId = req.nextUrl.searchParams.get("postId")?.trim();
   if (!postId) {
-    return NextResponse.json({ error: "postId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   if (isOfflineMockPostId(postId)) {
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 500 });
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   const prow = post as Record<string, unknown> | null;
   const author = postAuthorUserId(prow ?? undefined);
   if (!author || author !== userId) {
-    return NextResponse.json({ error: "판매자만 조회할 수 있습니다." }, { status: 403 });
+    return NextResponse.json({ error: "seller_only", code: "seller_only" }, { status: 403 });
   }
   const postStatus = (prow?.status as string) ?? "active";
   const sellerListingState = typeof prow?.seller_listing_state === "string" ? prow.seller_listing_state : "";

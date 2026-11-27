@@ -20,7 +20,19 @@ import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRej
 import { OwnerOrderStepConfirmDialog } from "@/components/business/owner/OwnerOrderStepConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
-import { translate } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+/**
+ * 언어 재감사 2026-11-27: `formatOwnerOrderPatchErr` 는 모르는 코드를 원문 그대로 돌려준다 —
+ * 원문 코드(= 표에 없는 코드)는 일반 실패 문구로 바꾼다.
+ */
+function ownerOrderPatchErrText(
+  code: string,
+  formatted: string,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string
+): string {
+  return !formatted || formatted === code ? t("owner_order_err_action_failed") : formatted;
+}
 
 const BTN_PRIMARY =
   "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-sam-on-primary shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50";
@@ -88,7 +100,7 @@ function usePatchOrder(
             }
           );
           if (!res.ok) {
-            setErr(res.displayMessage);
+            setErr(ownerOrderPatchErrText(res.error, res.displayMessage, t));
             return false;
           }
           dispatchOwnerHubBadgeRefresh({
@@ -115,7 +127,7 @@ function usePatchOrder(
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!j?.ok) {
           const code = typeof j?.error === "string" ? j.error : "update_failed";
-          setErr(formatOwnerOrderPatchErr(code, language));
+          setErr(ownerOrderPatchErrText(code, formatOwnerOrderPatchErr(code, language), t));
           return false;
         }
         dispatchOwnerHubBadgeRefresh({
@@ -186,14 +198,14 @@ function usePatchOrder(
               onReconcileOrder: mutation.onReconcileOrder,
             });
             if (!res.ok) {
-              setErr(res.displayMessage);
+              setErr(ownerOrderPatchErrText(res.error, res.displayMessage, t));
               return;
             }
             await mutation.onReconcileOrder?.(order.id);
           } else {
             const res = await postOwnerStoreOrderCancelRequest(storeId, order.id, { reason });
             if (!res.ok) {
-              setErr(formatOwnerOrderPatchErr(res.error, language));
+              setErr(ownerOrderPatchErrText(res.error, formatOwnerOrderPatchErr(res.error, language), t));
               return;
             }
           }

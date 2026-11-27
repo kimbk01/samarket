@@ -14,6 +14,7 @@ import { fetchMeProfileFresh, invalidateMeProfileDedupedCache } from "@/lib/prof
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { PROFILE_CONFLICT_ERROR_CODE } from "@/lib/profile/profile-patch-concurrency";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { profileSaveErrorText } from "@/lib/profile/profile-save-error-text";
 
 /** 하단 「내정보」 프로필 사진(앱 부팅 프로필)도 바로 바꾼다 — 홈 설계안 v11 */
 function syncAppBootAvatar(url: string): void {
@@ -95,9 +96,9 @@ export function ProfileImageField({
         body: fd,
         credentials: "include",
       });
-      const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string; code?: string } | null;
       if (!res.ok || !data?.ok || !data.url) {
-        setUploadError(data?.error || t("profile_edit_upload_failed"));
+        setUploadError(profileSaveErrorText({ json: data, status: res.status }, t, "profile_edit_upload_failed"));
         return;
       }
 
@@ -107,7 +108,7 @@ export function ProfileImageField({
        */
       const save = await updateMyProfile({ avatar_url: data.url }, { expected: { avatar_url: avatarUrl } });
       if (!save.ok) {
-        setUploadError(save.error || t("profile_edit_save_failed"));
+        setUploadError(profileSaveErrorText(save, t));
         await syncLatestAvatarOnConflict(save);
         return;
       }
@@ -136,7 +137,7 @@ export function ProfileImageField({
           { expected: { avatar_url: avatarUrl } }
         );
         if (!save.ok) {
-          setUploadError(save.error || t("profile_edit_save_failed"));
+          setUploadError(profileSaveErrorText(save, t));
           await syncLatestAvatarOnConflict(save);
           return;
         }

@@ -3,6 +3,9 @@ import { resolveStoreCartSheetPrefetchedRow } from "@/lib/stores/store-cart-shee
 import { openStoreProductSheet } from "@/lib/stores/store-product-sheet-ui-store";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 export type StoreCartSheetStoreHead = {
   id: string;
@@ -45,6 +48,8 @@ export function openStoreProductSheetFromCart(opts: {
   editCartLine?: StoreCommerceCartLine | null;
   menusRowsById?: Record<string, Record<string, unknown>>;
   prefetchedListRow?: Record<string, unknown> | null;
+  /** 영업 안내 문구 언어 — 없으면 화면 언어 */
+  language?: AppLanguageCode;
 }): void {
   const productId = String(opts.productId ?? "").trim();
   if (!productId) return;
@@ -59,10 +64,11 @@ export function openStoreProductSheetFromCart(opts: {
 
   const commerce = resolveStoreFrontCommerceState(opts.store.business_hours_json, opts.store.is_open);
   const blocked = !commerce.isOpenForCommerce;
+  const lang = opts.language ?? getRuntimeAppLanguage();
   const hint = blocked
     ? commerce.inBreak
-      ? `준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.`
-      : "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다."
+      ? translate(lang, "store_menu_blocked_break", { range: commerce.breakRangeLabel })
+      : translate(lang, "store_cart_sheet_blocked_hours")
     : undefined;
 
   openStoreProductSheet({

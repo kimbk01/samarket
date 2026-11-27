@@ -11,6 +11,9 @@ export function resolveNotifInboxErrorMessageKey(code: string): MessageKey | nul
       return "notif_inbox_error_delete_failed";
     case "failed":
       return "notif_inbox_error_failed";
+    /** 가격 제안 수락 후 채팅 연결 실패 (`acceptPriceOffer` — 서버는 코드만 보낸다) */
+    case "offer_accept_chat_failed":
+      return "offer_err_chat_connect_failed";
     default:
       return null;
   }

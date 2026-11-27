@@ -2,6 +2,7 @@ import { DIBAY_SERVICE_BRAND as B } from "../../brand/dibay-service-brand";
 
 export const authUiMessages = {
   ko: {
+    auth_sms_verify_code: "[DIBAY] 인증번호: {otp}",
     auth_login_title: "dibaY 시작하기",
     auth_login_auto_signup_hint: "처음이면 자동으로 가입됩니다",
     auth_err_generic_retry: "일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
@@ -337,6 +338,7 @@ export const authUiMessages = {
       `처음 가입한 방법(카카오·구글·애플 등)으로 다시 로그인해 주세요. 그 계정의 ${B.MY} › 기기 권한 › 연결된 로그인 관리에서 다른 로그인 방법을 추가할 수 있어요. 기억나지 않으면 고객센터로 문의해 주세요.`,
   },
   en: {
+    auth_sms_verify_code: "[DIBAY] Verification code: {otp}",
     auth_login_title: "Get started with dibaY",
     auth_login_auto_signup_hint: "New here? Your account is created automatically.",
     auth_err_generic_retry: "Something went wrong. Please try again in a moment.",

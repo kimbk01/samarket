@@ -1,0 +1,654 @@
+rule	file	line	text	verdict	evidence	fix
+hangul	app/api/categories/market-bootstrap/route.ts	18	q 파라미터가 필요합니다.	HARMLESS_CODE_USED	CategoryListLayout.tsx:264 j.ok·category 만 보고 실패 시 클라 조회 폴백, error 미표시	
+hangul	app/api/categories/market-bootstrap/route.ts	23	데이터베이스 설정이 없습니다.	HARMLESS_CODE_USED	CategoryListLayout.tsx:264 j.ok·category 만 보고 실패 시 클라 조회 폴백, error 미표시	
+hangul	app/api/chat/create-room/route.ts	52	productId 필요	HARMLESS_CODE_USED	/api/chat/create-room 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/create-room/route.ts	56	productId 필요	HARMLESS_CODE_USED	/api/chat/create-room 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/item/start/route.ts	32	서버 설정이 필요합니다.	HARMLESS_CODE_USED	/api/chat/item/start 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (본문은 entry/resolve 공유 core)	
+hangul	app/api/chat/item/start/route.ts	40	itemId 필요	HARMLESS_CODE_USED	/api/chat/item/start 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (본문은 entry/resolve 공유 core)	
+hangul	app/api/chat/item/start/route.ts	45	itemId 필요	HARMLESS_CODE_USED	/api/chat/item/start 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (본문은 entry/resolve 공유 core)	
+hangul	app/api/chat/messages/[id]/hide/route.ts	20	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/messages/[id]/hide 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/messages/[id]/hide/route.ts	34	messageId 필요	HARMLESS_CODE_USED	/api/chat/messages/[id]/hide 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/messages/[id]/hide/route.ts	45	메시지를 찾을 수 없습니다.	HARMLESS_CODE_USED	/api/chat/messages/[id]/hide 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/reports/route.ts	30	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/reports 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/reports/route.ts	50	reportType(room|message|user|item) 필요	HARMLESS_CODE_USED	/api/chat/reports 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/reports/route.ts	53	reasonType 필요	HARMLESS_CODE_USED	/api/chat/reports 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/reports/route.ts	74	신고 접수 실패	HARMLESS_CODE_USED	/api/chat/reports 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/room/[roomId]/bootstrap/route.ts	23	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	fetch-chat-room-bootstrap-api.ts:28 error 존재만 확인, 문장 미표시	
+hangul	app/api/chat/room/[roomId]/leave/route.ts	27	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/room/[roomId]/leave/route.ts	32	서버 설정 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/room/[roomId]/leave/route.ts	46	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/room/[roomId]/leave/route.ts	65	참여자만 나갈 수 있습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/room/[roomId]/leave/route.ts	87	나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/room/[roomId]/messages/route.ts	33	메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	fetch-chat-room-messages-api.ts error 필드 읽지 않음	
+hangul	app/api/chat/room/[roomId]/messages/route.ts	41	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	fetch-chat-room-messages-api.ts error 필드 읽지 않음	
+hangul	app/api/chat/room/[roomId]/read/route.ts	25	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1353 read 응답 error 미사용	
+hangul	app/api/chat/room/[roomId]/route.ts	22	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	fetch-chat-room-detail-api.ts:62 error 존재만 확인	
+hangul	app/api/chat/room/[roomId]/send/route.ts	36	roomId 형식이 올바르지 않습니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	51	본문 필요	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	64	이미지 URL이 필요합니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	67	메시지를 입력하세요	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	72	서버 설정 필요	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	90	채팅방을 찾을 수 없습니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	93	참여자만 메시지를 보낼 수 있습니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	97	이미 나간 채팅방입니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	100	이미 나간 채팅방입니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	104	판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	120	이 채팅은 제한 모드라 메시지를 보낼 수 없습니다.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	127	상대와 대화할 수 없어요.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	144	(시스템)	STORED	product_chat_messages.content 에 '(시스템)' 저장 → 채팅 말풍선 ChatMessageList	저장은 빈 본문+message_type=system, 화면에서 키로
+hangul	app/api/chat/room/[roomId]/send/route.ts	162	전송에 실패했습니다. 잠시 후 다시 시도해 주세요.	EXPOSED	sendChatMessage.ts:52 data.error 그대로 → ChatDetailView.tsx:1434/1574 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/room/[roomId]/send/route.ts	169	거래 상태 안내	STORED	product_chats.last_message_preview 저장(send/route.ts:178) → 채팅 목록 미리보기	저장은 종류 코드(system/image+장수), 화면에서 키로
+hangul	app/api/chat/room/[roomId]/send/route.ts	174	사진 ${imageList.length}장	STORED	product_chats.last_message_preview 저장(send/route.ts:178) → 채팅 목록 미리보기	저장은 종류 코드(system/image+장수), 화면에서 키로
+hangul	app/api/chat/room/[roomId]/send/route.ts	175	사진	STORED	product_chats.last_message_preview 저장(send/route.ts:178) → 채팅 목록 미리보기	저장은 종류 코드(system/image+장수), 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/appointments/route.ts	24	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/appointments 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/appointments/route.ts	40	roomId, appointmentAt 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/appointments 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/appointments/route.ts	51	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/appointments 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/appointments/route.ts	61	참여자만 약속을 만들 수 있습니다.	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/appointments 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/appointments/route.ts	80	약속 생성 실패	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/appointments 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/block/route.ts	31	서버 설정 필요	EXPOSED	BlockActionSheet.tsx:60 d.error → BlockActionSheet.tsx:88	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/block/route.ts	42	roomId 필요	EXPOSED	BlockActionSheet.tsx:60 d.error → BlockActionSheet.tsx:88	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/block/route.ts	53	채팅방을 찾을 수 없습니다.	EXPOSED	BlockActionSheet.tsx:60 d.error → BlockActionSheet.tsx:88	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/block/route.ts	59	상대를 찾을 수 없습니다.	EXPOSED	BlockActionSheet.tsx:60 d.error → BlockActionSheet.tsx:88	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/hide/route.ts	25	서버 설정 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1904 res.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/hide/route.ts	29	roomId 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1904 res.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/hide/route.ts	43	참여 정보를 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1904 res.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	40	참여자만 나갈 수 있습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	65	거래 채팅 나가기 동기화에 실패했습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	86	서버 설정 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	90	roomId 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	109	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	112	삭제된 채팅 유형입니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	145	거래 채팅을 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	147	참여자만 나갈 수 있습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	149	방장은 나갈 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	151	매장 사장님은 주문 채팅을 나갈 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	153	나가기 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	154	나가기 처리에 실패했습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/leave/route.ts	189	참여 정보를 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1761 leave 응답 res.ok 만 확인, error 미표시	
+hangul	app/api/chat/rooms/[roomId]/lock/route.ts	20	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/lock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/lock/route.ts	34	roomId 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/lock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	71	메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	GET messages — fetch-chat-room-messages-api.ts error 필드 읽지 않음	
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	82	roomId 필요	HARMLESS_CODE_USED	GET messages — fetch-chat-room-messages-api.ts error 필드 읽지 않음	
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	134	메시지 전송이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	147	서버 설정 필요	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	155	body 필요	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	172	roomId 필요	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	177	이미지 주소가 필요합니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	181	메시지를 입력하세요	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	216	채팅방을 찾을 수 없습니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	236	읽기 전용 채팅방입니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	243	상대와 대화할 수 없어요.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	247	상대와 대화할 수 없어요.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	252	주문 채팅은 주문 전용 경로로 이동했습니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	256	삭제된 채팅 유형입니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	276	참여자 확인에 실패했습니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	282	참여자만 메시지를 보낼 수 있습니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	287	채팅이 승인된 후에 메시지를 보낼 수 있어요.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	311	이 상품은 다른 분과 예약 중입니다. 예약된 분과의 채팅만 이어갈 수 있어요.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	320	사진 ${imageList.length}장	STORED	chat_messages.body 에 저장(messages/route.ts:333) → 말풍선·목록 미리보기	저장은 빈 body+metadata(이미지 장수), 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	320	사진	STORED	chat_messages.body 에 저장(messages/route.ts:333) → 말풍선·목록 미리보기	저장은 빈 body+metadata(이미지 장수), 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	321	(메시지)	STORED	chat_messages.body 에 저장(messages/route.ts:333) → 말풍선·목록 미리보기	저장은 빈 body+metadata(이미지 장수), 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	343	전송에 실패했습니다.	EXPOSED	ChatDetailView.tsx:1418(텍스트)/1566(사진) data.error 그대로 → setSendError → ChatDetailView.tsx:1961	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	354	사진 ${imageList.length}장	STORED	chat_rooms 미리보기 preview 저장(messages/route.ts:351) → 채팅 목록	저장은 종류 코드+장수, 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/messages/route.ts	355	사진	STORED	chat_rooms 미리보기 preview 저장(messages/route.ts:351) → 채팅 목록	저장은 종류 코드+장수, 화면에서 키로
+hangul	app/api/chat/rooms/[roomId]/read/route.ts	44	채팅 참가자가 아닙니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1336 read 응답 r.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/read/route.ts	59	서버 설정 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1336 read 응답 r.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/read/route.ts	70	roomId 필요	HARMLESS_CODE_USED	ChatDetailView.tsx:1336 read 응답 r.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/read/route.ts	82	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1336 read 응답 r.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/read/route.ts	90	삭제된 채팅 유형입니다.	HARMLESS_CODE_USED	ChatDetailView.tsx:1336 read 응답 r.ok 만 확인	
+hangul	app/api/chat/rooms/[roomId]/reopen/route.ts	25	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/reopen 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/reopen/route.ts	29	roomId 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/reopen 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/reopen/route.ts	41	참여 정보를 찾을 수 없습니다.	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/reopen 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/route.ts	30	서버 설정 필요	HARMLESS_CODE_USED	GET /api/chat/rooms/[roomId] 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (상세는 /api/chat/room)	
+hangul	app/api/chat/rooms/[roomId]/route.ts	34	roomId 필요	HARMLESS_CODE_USED	GET /api/chat/rooms/[roomId] 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (상세는 /api/chat/room)	
+hangul	app/api/chat/rooms/[roomId]/route.ts	44	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	GET /api/chat/rooms/[roomId] 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (상세는 /api/chat/room)	
+hangul	app/api/chat/rooms/[roomId]/route.ts	47	삭제된 채팅 유형입니다.	HARMLESS_CODE_USED	GET /api/chat/rooms/[roomId] 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (상세는 /api/chat/room)	
+hangul	app/api/chat/rooms/[roomId]/route.ts	55	참여자만 조회할 수 있습니다.	HARMLESS_CODE_USED	GET /api/chat/rooms/[roomId] 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios) (상세는 /api/chat/room)	
+hangul	app/api/chat/rooms/[roomId]/unblock/route.ts	27	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unblock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/unblock/route.ts	31	roomId 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unblock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/unblock/route.ts	42	차단한 사용자만 해제할 수 있습니다.	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unblock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/unblock/route.ts	48	상대 정보를 찾을 수 없습니다.	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unblock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/unlock/route.ts	20	서버 설정 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unlock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/[roomId]/unlock/route.ts	28	roomId 필요	HARMLESS_CODE_USED	/api/chat/rooms/[roomId]/unlock 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/chat/rooms/route.ts	65	서버 설정 필요	HARMLESS_CODE_USED	fetch-chat-rooms-by-segment.ts error 필드 읽지 않음	
+hangul	app/api/community/posts/[postId]/comments/[commentId]/like/route.ts	24	요청이 올바르지 않습니다.	HARMLESS_CODE_USED	/api/philife 재export · use-philife-post-comments.ts:113 resolveLikeBlockedError 코드·403 만 키로, 문장 미사용	
+hangul	app/api/community/posts/[postId]/comments/[commentId]/route.ts	33	요청이 올바르지 않습니다.	EXPOSED	app/api/philife/posts/[postId]/comments/[commentId] 재export → use-philife-post-comments.ts:281 data.error 반환 → CommunityDetail.tsx:354 편집 오류	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/[commentId]/route.ts	37	JSON 필요	EXPOSED	app/api/philife/posts/[postId]/comments/[commentId] 재export → use-philife-post-comments.ts:281 data.error 반환 → CommunityDetail.tsx:354 편집 오류	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/[commentId]/route.ts	66	요청이 올바르지 않습니다.	EXPOSED	philife 재export DELETE → use-philife-post-comments.ts:328 data.error 를 알림 제목으로	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	52	postId가 필요합니다.	HARMLESS_CODE_USED	GET — philife-post-comments.client.ts:21 status 만 사용	
+hangul	app/api/community/posts/[postId]/comments/route.ts	142	댓글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	149	postId가 필요합니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	151	JSON 필요	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	155	내용을 입력하세요.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	164	댓글은 ${ops.max_comment_length}자 이하로 입력하세요.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	179	글을 찾을 수 없습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	190	실패	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	202	댓글은 ${ops.min_comment_interval_sec}초 간격으로만 작성할 수 있습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	214	글을 찾을 수 없습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	226	글을 찾을 수 없습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	230	차단 관계에서는 댓글을 작성할 수 없습니다.	HARMLESS_CODE_USED	403 → use-philife-post-comments.ts:104 키 community_comment_blocked_relation	
+hangul	app/api/community/posts/[postId]/comments/route.ts	252	답글 대상 댓글을 찾을 수 없습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	257	차단 관계에서는 댓글을 작성할 수 없습니다.	HARMLESS_CODE_USED	403 → use-philife-post-comments.ts:104 키 community_comment_blocked_relation	
+hangul	app/api/community/posts/[postId]/comments/route.ts	264	더 이상 답글을 달 수 없습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	281	댓글 저장에 실패했습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/comments/route.ts	316	댓글 저장에 실패했습니다.	EXPOSED	app/api/philife/posts/[postId]/comments 재export → use-philife-post-comments.ts:107 data.error → setSubmitError(댓글 입력 오류)	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/community/posts/[postId]/like/route.ts	62	차단 관계에서는 공감할 수 없습니다.	HARMLESS_CODE_USED	CommunityDetail.tsx:253 code/403 → 키 community_like_blocked_relation	
+hangul	app/api/community/posts/[postId]/share/internal/route.ts	27	공유 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	/api/community/posts/[postId]/share/internal 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/community/posts/route.ts	67	게시글 작성 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	79	JSON 본문이 필요합니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	89	주제를 선택하세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	92	제목을 입력하세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	95	내용을 입력하세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	105	제목은 ${ops.max_title_length}자 이하로 입력하세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	111	본문은 ${ops.max_content_length}자 이하로 입력하세요.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	126	유효한 주제가 아닙니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	139	하루에 올릴 수 있는 글은 ${ops.max_posts_per_day}개까지입니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	152	섹션을 찾을 수 없습니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	160	지역 정보를 확인하지 못했습니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	185	등록에 실패했습니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/community/posts/route.ts	204	이미지 저장에 실패했습니다.	HARMLESS_CODE_USED	POST /api/community/posts(·/api/philife/posts 재export) 클라 호출처 없음(grep, 동네 글쓰기는 neighborhood-posts)	
+hangul	app/api/exchange-rates/route.ts	36	환율 조회 실패	HARMLESS_CODE_USED	fetchExchangeRates.ts:29 res.ok 만 확인, null 반환	
+hangul	app/api/exchange-rates/route.ts	44	환율 데이터 형식 오류	HARMLESS_CODE_USED	fetchExchangeRates.ts:29 res.ok 만 확인, null 반환	
+hangul	app/api/exchange-rates/route.ts	62	환율 조회 중 오류	HARMLESS_CODE_USED	fetchExchangeRates.ts:29 res.ok 만 확인, null 반환	
+hangul	app/api/favorites/toggle/route.ts	60	서버 설정이 필요합니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	79	잘못된 요청	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	85	postId가 필요합니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	99	글을 찾을 수 없습니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	109	본인이 등록한 글에는 찜할 수 없습니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	153	찜할 수 없는 글입니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	168	삭제에 실패했습니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	187	추가에 실패했습니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/favorites/toggle/route.ts	197	처리에 실패했습니다.	HARMLESS_CODE_USED	toggleFavorite.ts 경유 — PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시, FavoriteProductsView 는 키 토스트	
+hangul	app/api/me/chats/mark-all-read/route.ts	30	서버 설정 필요	HARMLESS_CODE_USED	bulk-mark-all-read.ts:25 클라 호출 격리(quarantine), 문장 미표시	
+hangul	app/api/me/chats/mark-all-read/route.ts	124	product_chats 갱신 실패	HARMLESS_CODE_USED	bulk-mark-all-read.ts:25 클라 호출 격리(quarantine), 문장 미표시	
+hangul	app/api/me/chats/mark-trade-read/route.ts	21	서버 설정 필요	HARMLESS_CODE_USED	/api/me/chats/mark-trade-read 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/me/posts/bulk-region/route.ts	31	대표·거래·생활 기본 주소 또는 프로필 지역을 먼저 설정해 주세요.	EXPOSED	BulkRegionChangeContent.tsx:35 json.error 그대로 setError	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/my/post-buyer-chats/route.ts	24	postId 필요	HARMLESS_CODE_USED	/api/my/post-buyer-chats 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/my/post-buyer-chats/route.ts	38	서버 설정 필요	HARMLESS_CODE_USED	/api/my/post-buyer-chats 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/my/post-buyer-chats/route.ts	46	판매자만 조회할 수 있습니다.	HARMLESS_CODE_USED	/api/my/post-buyer-chats 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/my/posts/route.ts	32	서버 설정 필요	HARMLESS_CODE_USED	use-mypage-cursor-list.ts:77 status 만 사용	
+hangul	app/api/my/trade-counts/route.ts	26	서버 설정 필요	HARMLESS_CODE_USED	trade-history-client.ts → warm-main-shell-data.ts:67 예열만, 화면 미표시	
+hangul	app/api/offers/[id]/accept/route.ts	20	서버 설정이 필요합니다.	HARMLESS_CODE_USED	MyOffersView.tsx:128 키 토스트 · MyNotificationsView.tsx:605 코드→키	
+hangul	app/api/offers/[id]/reject/route.ts	20	서버 설정이 필요합니다.	HARMLESS_CODE_USED	MyOffersView.tsx:128 키 토스트 · MyNotificationsView.tsx:605 코드→키	
+hangul	app/api/offers/[id]/withdraw/route.ts	20	서버 설정이 필요합니다.	HARMLESS_CODE_USED	MyOffersView.tsx:128 키 토스트 · MyNotificationsView.tsx:605 코드→키	
+hangul	app/api/offers/mine/route.ts	16	서버 설정이 필요합니다.	HARMLESS_CODE_USED	MyOffersView.tsx:128 키 토스트 · MyNotificationsView.tsx:605 코드→키	
+hangul	app/api/offers/received/route.ts	16	서버 설정이 필요합니다.	HARMLESS_CODE_USED	MyOffersView.tsx:128 키 토스트 · MyNotificationsView.tsx:605 코드→키	
+hangul	app/api/offers/route.ts	23	서버 설정이 필요합니다.	HARMLESS_CODE_USED	POST /api/offers 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/offers/route.ts	36	JSON 본문이 필요합니다.	HARMLESS_CODE_USED	POST /api/offers 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/comments/route.ts	25	서버 설정이 필요합니다.	HARMLESS_CODE_USED	GET — PostCommunityCommentsSection.tsx:48 error 미사용	
+hangul	app/api/posts/[postId]/comments/route.ts	29	postId 필요	HARMLESS_CODE_USED	GET — PostCommunityCommentsSection.tsx:48 error 미사용	
+hangul	app/api/posts/[postId]/comments/route.ts	68	서버 설정이 필요합니다.	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	86	postId 필요	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	94	content 필요	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	97	댓글 내용을 입력해 주세요.	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	112	원 댓글을 찾을 수 없습니다.	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	115	대댓글에는 다시 답글을 달 수 없습니다.	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	138	대댓글 컬럼이 없습니다. Supabase에 마이그레이션 comments.parent_id(20250322170000)를 적용해 주세요.	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/comments/route.ts	143	등록 실패	EXPOSED	PostCommunityCommentsSection.tsx:133 data.error → PostCommunityCommentsSection.tsx:300	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/detail/route.ts	20	postId 필요	HARMLESS_CODE_USED	TradePostDetailSlidePanel.tsx:93 status 만 보고 키	
+hangul	app/api/posts/[postId]/detail/route.ts	25	서버 설정이 필요합니다.	HARMLESS_CODE_USED	TradePostDetailSlidePanel.tsx:93 status 만 보고 키	
+hangul	app/api/posts/[postId]/detail/route.ts	31	글을 찾을 수 없습니다.	HARMLESS_CODE_USED	TradePostDetailSlidePanel.tsx:93 status 만 보고 키	
+hangul	app/api/posts/[postId]/job-apply/route.ts	25	서버 설정이 필요합니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	36	postId 필요	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	50	글을 찾을 수 없습니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	55	본인 글에는 지원할 수 없습니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	60	일자리 글이 아닙니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	71	구인 공고만 지원할 수 있습니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	76	지원할 수 없는 상태입니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	97	이미 지원한 공고입니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/job-apply/route.ts	101	지원에 실패했습니다.	EXPOSED	PostDetailView.tsx:1177 data.error → setChatError → PostDetailView.tsx:1275	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/route.ts	25	서버 설정이 필요합니다.	HARMLESS_CODE_USED	PostDetailPageClient.tsx:178 status 만 사용	
+hangul	app/api/posts/[postId]/route.ts	31	postId 필요	HARMLESS_CODE_USED	PostDetailPageClient.tsx:178 status 만 사용	
+hangul	app/api/posts/[postId]/route.ts	77	상품을 찾을 수 없습니다.	HARMLESS_CODE_USED	PostDetailPageClient.tsx:178 status 만 사용	
+hangul	app/api/posts/[postId]/route.ts	92	상품을 찾을 수 없습니다.	HARMLESS_CODE_USED	PostDetailPageClient.tsx:178 status 만 사용	
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	136	서버 설정이 필요합니다.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	152	postId, sellerListingState 필요	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	170	글 조회 오류: ${postErr.message}	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	178	상품을 찾을 수 없습니다. (id: ${postId.trim().slice(0, 8)}…) Supabase posts에 해당 UUID가 있는지 확인하세요.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	186	판매자만 변경할 수 있습니다.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	197	예약 기능은 제공하지 않습니다. 판매완료만 할 수 있습니다.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	206	거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	214	이전 단계에서 허용되지 않는 변경이에요.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	222	예약할 구매자를 선택해 주세요. (채팅 문의가 있는 구매자만 가능합니다.)	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	229	이 구매자와의 채팅이 없어 예약할 수 없습니다.	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	288	저장 실패	EXPOSED	ChatDetailView.tsx:992 data.error → setListingError → TradeFlowBanner.tsx:301	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	335	예약 구매자 ID 컬럼(reserved_buyer_id)이 없어 예약자만 DB에 고정되지 않을 수 있습니다. 마이그레이션 적용을 권장합니다.	EXPOSED	warning 필드 → ChatDetailView.tsx:1004 setListingNotice → TradeFlowBanner listingNotice	warning 코드 + 화면 키
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	391	판매 단계 전용 컬럼(seller_listing_state)이 없어 글 상태(status)와 채팅방 거래단계만 반영했습니다. 목록·새로고침 후 «판매중/문의중» 	EXPOSED	warning 필드 → ChatDetailView.tsx:1004 setListingNotice → TradeFlowBanner listingNotice	warning 코드 + 화면 키
+hangul	app/api/posts/[postId]/seller-listing-state/route.ts	401	판매 단계를 저장하지 못했습니다. Supabase SQL 또는 프로젝트 마이그레이션으로 posts.seller_listing_state를 추가한 뒤 다시 시도해 	HARMLESS_CODE_USED	ChatDetailView.tsx:994 정규식(마이그레이션)에 걸려 키 chats_listing_save_schema_error 로 바뀜	
+hangul	app/api/posts/[postId]/similar/route.ts	26	postId·categoryId 필요	HARMLESS_CODE_USED	/api/posts/[postId]/similar 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/similar/route.ts	31	서버 설정이 필요합니다.	HARMLESS_CODE_USED	/api/posts/[postId]/similar 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	32	서버 설정이 필요합니다.	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	45	postId, action(resume_active|cancel_trade) 필요	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	73	글을 찾을 수 없습니다.	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	78	판매자만 변경할 수 있습니다.	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	102	취소된 글만 판매중으로 돌릴 수 있습니다.	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	117	거래 진행 중일 때만 거래 취소를 할 수 있습니다.	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/[postId]/trade-lifecycle/route.ts	142	저장 실패	HARMLESS_CODE_USED	/api/posts/[postId]/trade-lifecycle 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/by-author/route.ts	19	userId 필요	HARMLESS_CODE_USED	/api/posts/by-author 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/by-author/route.ts	24	서버 설정이 필요합니다.	HARMLESS_CODE_USED	/api/posts/by-author 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	app/api/posts/create/route.ts	35	JSON 본문이 필요합니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	40	유효하지 않은 글 유형입니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	44	카테고리가 필요합니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	48	제목을 입력해 주세요.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	49	내용을 입력해 주세요.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	133	JSON 본문이 필요합니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	145	서버 설정이 필요합니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	233	사진을 1장 이상 올려 주세요.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	259	저장에 실패했습니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/create/route.ts	266	저장에 실패했습니다.	EXPOSED	createPost.ts:49 data.error 그대로 → TradeWriteForm.tsx:2005/2263 errors.submit → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/posts/upload-image/route.ts	44	서버 설정 오류	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	51	multipart 필요	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	56	file 필드 필요	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	59	8MB 이하만 가능합니다.	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	64	JPEG, PNG, WebP, GIF, HEIC만 가능합니다.	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	76	JPEG, PNG, WebP, GIF, HEIC만 가능합니다.	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/posts/upload-image/route.ts	96	업로드 실패	EXPOSED	uploadPostImages.ts:29 json.error → message → TradeWriteForm.tsx:69/86 「(…)」 로 붙여 표시	서버 code(too_large·bad_type 등) + 화면 키, 원문 붙이기 제거
+hangul	app/api/trade/chat/entry/resolve/route.ts	50	productId 필요	EXPOSED	createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/chat/entry/resolve/route.ts	56	productId 필요	EXPOSED	createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/product-chat/[roomId]/buyer-issue/route.ts	21	서버 설정 필요	EXPOSED	TradeFlowBanner.tsx:114 data.error → TradeFlowBanner.tsx:302	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/product-chat/[roomId]/buyer-issue/route.ts	36	roomId 필요	EXPOSED	TradeFlowBanner.tsx:114 data.error → TradeFlowBanner.tsx:302	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/product-chat/[roomId]/buyer-issue/route.ts	45	채팅방을 찾을 수 없습니다.	EXPOSED	TradeFlowBanner.tsx:114 data.error → TradeFlowBanner.tsx:302	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/product-chat/[roomId]/buyer-issue/route.ts	50	구매자만 접수할 수 있습니다.	EXPOSED	TradeFlowBanner.tsx:114 data.error → TradeFlowBanner.tsx:302	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	app/api/trade/product-chat/[roomId]/buyer-issue/route.ts	74	구매자 문제있어요	HARMLESS_ADMIN	reports.reason_text 저장값 — 관리자 신고 화면에서만 봄	
+raw-error	components/chats/ChatDetailView.tsx	178	(a.message ?? "") === (b.message ?? "") &&	FALSE_POSITIVE	ChatDetailView.tsx:178 메시지 본문 같음 비교, 오류 표시 아님	
+raw-error	components/chats/ChatDetailView.tsx	992	const errMsg = String(data.error ?? t("common_save_failed"));	RAW_ERROR_EXPOSED	TradeFlowBanner.tsx:301 listingError 로 서버 문장 표시	resolveApiErrorText(code→키)
+raw-error	components/chats/ChatDetailView.tsx	1472	return r.ok ? { ok: true } : { ok: false, error: r.error ?? t("nav_trade_cannot_send_message") };	RAW_ERROR_EXPOSED	StoreOrderSellerOrderPanel.tsx:196 r.error 토스트(서버 문장)	resolveApiErrorText(code→키)
+raw-error	components/chats/ChatDetailView.tsx	1481	setSendError(r.error ?? t("chats_send_ack_failed"));	RAW_ERROR_EXPOSED	ChatDetailView.tsx:1961 sendError 로 서버 문장 표시	resolveApiErrorText(code→키)
+raw-error	components/chats/ChatDetailView.tsx	1496	setSendError(r.error ?? t("nav_trade_cannot_send_message"));	RAW_ERROR_EXPOSED	ChatDetailView.tsx:1961 sendError 로 서버 문장 표시	resolveApiErrorText(code→키)
+raw-error	components/chats/ChatDetailView.tsx	1593	setSendError(sendRes.error || t("nav_trade_cannot_send_message"));	RAW_ERROR_EXPOSED	ChatDetailView.tsx:1961 sendError 로 서버 문장 표시	resolveApiErrorText(code→키)
+raw-error	components/chats/ChatMessageList.tsx	237	const body = ((block.msg.message || "").trim() || t("common_system_message")).trim();	FALSE_POSITIVE	채팅 메시지 본문 표시(서버 오류 아님). 저장된 한국어 시스템 문장은 STORED 행에서 따로 판정	
+raw-error	components/chats/ChatMessageList.tsx	308	const text = (msg.message || "").trim();	FALSE_POSITIVE	채팅 메시지 본문 표시(서버 오류 아님). 저장된 한국어 시스템 문장은 STORED 행에서 따로 판정	
+raw-error	components/chats/ChatMessageList.tsx	387	const text = (msg.message || "").trim();	FALSE_POSITIVE	채팅 메시지 본문 표시(서버 오류 아님). 저장된 한국어 시스템 문장은 STORED 행에서 따로 판정	
+hangul	components/chats/StoreOrderSellerHamburger.tsx	20	주문 내역 패널 닫기	EXPOSED	ChatDetailView.tsx:2110 StoreOrderSellerHamburger aria-label(스크린리더 낭독)	키로
+hangul	components/chats/StoreOrderSellerHamburger.tsx	20	주문 내역 패널 열기	EXPOSED	ChatDetailView.tsx:2110 StoreOrderSellerHamburger aria-label(스크린리더 낭독)	키로
+hangul	components/community/post-detail/CommunityCommentItem.tsx	97	댓글이 삭제 되었습니다.	HARMLESS_DATA	삭제 댓글 판정 비교값(입력 비교), 화면 문구 아님	
+hangul	components/community/post-detail/CommunityCommentItem.tsx	98	댓글이 삭제 되엇습니다.	HARMLESS_DATA	삭제 댓글 판정 비교값(입력 비교), 화면 문구 아님	
+hangul	components/community/post-detail/CommunityCommentItem.tsx	99	댓글이 삭제 되었습니다	HARMLESS_DATA	삭제 댓글 판정 비교값(입력 비교), 화면 문구 아님	
+hangul	components/community/post-detail/CommunityCommentItem.tsx	100	댓글이 삭제 되엇습니다	HARMLESS_DATA	삭제 댓글 판정 비교값(입력 비교), 화면 문구 아님	
+hangul	components/community/post-detail/CommunityPostDetailBody.tsx	62	이미지 ${i + 1} 크게 보기	EXPOSED	CommunityPostDetailBody.tsx:62 이미지 버튼 label(낭독)	키 + {n}
+hangul	components/community/post-detail/ImportedRichContent.tsx	152	이미지 ${at + 1} 크게 보기	EXPOSED	ImportedRichContent.tsx:152 이미지 label(낭독)	키 + {n}
+raw-error	components/philife/write-editor/PhilifeBodyEditor.tsx	340	<span className="min-w-0 truncate">{a.error || o.labels.failed}</span>	FALSE_POSITIVE	오류는 PhilifeNeighborhoodWriteForm.tsx:326 키 문구(uploadCommunityImageFile messages·byCode)	
+raw-error	components/post/PostCommunityCommentsSection.tsx	130	setError(profileHandled.error);	RAW_ERROR_EXPOSED	handle-profile-incomplete-api-response.ts:15 한국어 고정 문장 → PostCommunityCommentsSection.tsx:300	handled 시 키 반환
+raw-error	components/post/PostCommunityCommentsSection.tsx	133	setError(data.error ?? t("post_comment_submit_failed"));	RAW_ERROR_EXPOSED	PostCommunityCommentsSection.tsx:300 서버 문장	resolveApiErrorText(code→키)
+raw-error	components/post/PostCommunityCommentsSection.tsx	179	else setError(res.error);	RAW_ERROR_EXPOSED	createCommunityCommentReport.ts json.error·한국어 폴백 → PostCommunityCommentsSection.tsx:300	resolveApiErrorText(code→키)
+hangul	components/post/PostDetailRelatedSections.tsx	106	무료나눔	EXPOSED	PostDetailRelatedSections → PostDetailView 상세 하단 카드·제목	키로
+hangul	components/post/PostDetailRelatedSections.tsx	109	가격 문의	EXPOSED	PostDetailRelatedSections → PostDetailView 상세 하단 카드·제목	키로
+hangul	components/post/PostDetailRelatedSections.tsx	148	${nick}님을 위한 새 상품 · 광고	EXPOSED	PostDetailRelatedSections → PostDetailView 상세 하단 카드·제목	키로
+hangul	components/post/PostDetailRelatedSections.tsx	148	당신을 위한 새 상품 · 광고	EXPOSED	PostDetailRelatedSections → PostDetailView 상세 하단 카드·제목	키로
+hangul	components/post/PostDetailRelatedSections.tsx	210	광고 페이지 ${idx + 1}	EXPOSED	PostDetailRelatedSections.tsx:210 aria-label(낭독)	키 + {n}
+raw-error	components/post/ReportReasonModal.tsx	68	setError(res.error ?? t("ui_post_report_failed"));	RAW_ERROR_EXPOSED	createReport.ts:50 json.error → ReportReasonModal.tsx:68 setError	resolveApiErrorText(code→키)
+raw-error	components/trade/TradeFlowBanner.tsx	114	setMsg(data.error ?? t("trade_detail_action_failed"));	RAW_ERROR_EXPOSED	TradeFlowBanner.tsx:302 서버 문장	resolveApiErrorText(code→키)
+raw-error	components/trade/TradeRatingStrip.tsx	96	setError(t(ERROR_KEY[data.error ?? ""] ?? "trade_rating_error_generic"));	FALSE_POSITIVE	ERROR_KEY 표로 코드→키	
+hangul	components/trade/TradeSellerListingStepDiagram.tsx	133	거래 진행 단계 (${stepLabels}). 판매자는 다른 단계의 원을 탭하면 물품 상태를 변경할 수 있습니다.	EXPOSED	TradeFlowBanner.tsx:214 진행 단계 role=group aria-label(낭독)	키로
+hangul	components/trade/TradeSellerListingStepDiagram.tsx	134	거래 진행 단계 (${stepLabels})	EXPOSED	TradeFlowBanner.tsx:214 진행 단계 role=group aria-label(낭독)	키로
+raw-error	components/trade/location/TradeBrowseLocationSheet.tsx	112	setGeoError(pos.message || t("trade_location_geo_failed"));	RAW_ERROR_EXPOSED	lib/map/geolocation.ts:12·38 한국어 고정 message → TradeBrowseLocationSheet.tsx:112 setGeoError	geolocation 은 code 만, 화면 키
+raw-error	components/trade/seller-ad/TradeAdQuickSheet.tsx	314	const err = j.error ?? "";	FALSE_POSITIVE	promotionPurchaseErrorKey({error,code}) 로 키	
+hangul	components/write/service/ServiceWriteForm.tsx	21	요청	HARMLESS_DATA	postType 입력 비교값	
+hangul	components/write/shared/image-editor-canvas.ts	10	이미지를 불러올 수 없습니다.	HARMLESS_CODE_USED	ImageEditorModal.tsx:128 키 trade_write_image_editor_load_err 사용	
+hangul	components/write/trade/TradeWriteForm.tsx	562	임대	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	562	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	562	임대	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	814	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	814	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	814	임대	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	988	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	988	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	988	임대	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	1357	임대	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	components/write/trade/TradeWriteForm.tsx	1736	판매	HARMLESS_DATA	meta.deal_type 저장값(임대/판매) 상태·비교값, 화면 라벨은 option-catalogs labelKo/En	
+hangul	lib/chat/chat-room-admin-suspend.ts	37	관리자에 의해 이 채팅방에서는 대화할 수 없습니다.	EXPOSED	ChatDetailView.tsx:2162·2254 상수 직접 표시 + send·messages 응답 error	키로(서버는 code admin_chat_suspended)
+hangul	lib/chat/postSellerListingChangeNotice.ts	13	제품의 상태가 ${label}으로 변경되었습니다.	STORED	insert-seller-listing-change-system-messages.ts:104 시스템 메시지 본문 저장 → 채팅 말풍선	저장은 messageKey+state, 화면에서 키로
+hangul	lib/chat/sendChatMessage.ts	56	전송에 실패했습니다. (${res.status})	EXPOSED	sendChatMessage.ts → ChatDetailView.tsx:1961 sendError	키로
+hangul	lib/chat/sendChatMessage.ts	57	전송에 실패했습니다. 다시 시도해 주세요.	EXPOSED	sendChatMessage.ts → ChatDetailView.tsx:1961 sendError	키로
+hangul	lib/chat/sendChatMessage.ts	60	전송에 실패했습니다.	EXPOSED	sendChatMessage.ts → ChatDetailView.tsx:1961 sendError	키로
+hangul	lib/chat/sendChatMessage.ts	73	로그인이 필요합니다.	EXPOSED	sendChatMessage.ts → ChatDetailView.tsx:1961 sendError	키로
+hangul	lib/chat-domain/samarket-three-chat-pillars.ts	20	중고·마켓 상품 문의 등. 목록=`/community-messenger/trade-chats`, 방=`/community-messenger/rooms/…`, co	HARMLESS_DATA	pillar 설명 상수 — 화면 사용처 없음(grep labelKo·descriptionKo)	
+hangul	lib/chat-domain/samarket-three-chat-pillars.ts	36	친구·그룹·오픈채팅 등 **전용 허브** — `lib/community-messenger`, `/community-messenger` 만. Philife 탭과 동	HARMLESS_DATA	pillar 설명 상수 — 화면 사용처 없음(grep labelKo·descriptionKo)	
+hangul	lib/chat-domain/samarket-three-chat-pillars.ts	44	주문 단위 채팅. community messenger delivery pillar/contextMeta.kind === \"delivery\" 로 관리한다. **	HARMLESS_DATA	pillar 설명 상수 — 화면 사용처 없음(grep labelKo·descriptionKo)	
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	21	로그인이 필요합니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	24	productId 필요	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	31	서버 설정이 필요합니다. .env.local에 SUPABASE_SERVICE_ROLE_KEY를 넣어 주세요.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	44	상품을 찾을 수 없습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	49	상품을 찾을 수 없습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	52	내 상품에는 채팅할 수 없습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	55	삭제된 상품입니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	58	비공개 상품입니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	61	거래완료된 상품입니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	66	차단 관계에서는 채팅할 수 없습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	97	채팅방 생성에 실패했습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/legacy-product-chat-create-or-get.ts	105	채팅방 생성에 실패했습니다.	EXPOSED	legacy-product-chat-create-or-get → trade-chat-entry-resolve.ts:106 → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/trade-chat-entry-resolve.ts	28	상품을 찾을 수 없습니다	HARMLESS_DATA	trade-chat-entry-resolve.ts:28 error.includes 비교값	
+hangul	lib/chat-domain/use-cases/trade-chat-entry-resolve.ts	48	서버 설정이 필요합니다.	EXPOSED	trade-chat-entry-resolve.ts error → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/trade-chat-entry-resolve.ts	88	채팅방 생성에 실패했습니다.	EXPOSED	trade-chat-entry-resolve.ts error → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chat-domain/use-cases/trade-chat-entry-resolve.ts	106	채팅방 생성에 실패했습니다.	EXPOSED	trade-chat-entry-resolve.ts error → entry/resolve 응답 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/chats/chat-list-preview-trim.ts	81	상품	EXPOSED	chat-list-preview-trim 폴백 '상품' → ChatProductSummary.tsx:17 trimPreviewForChatHeader(채팅 상단 상품 줄)	빈 값 반환, 화면 키
+hangul	lib/chats/chat-product-from-post.ts	121	글 · ${postId.slice(0, 8)}…	EXPOSED	displayTitleFromPost 폴백 제목 → room.product.title → ChatProductSummary(채팅 상단)	빈 제목 + 화면 키
+hangul	lib/chats/chat-product-from-post.ts	121	상품	EXPOSED	displayTitleFromPost 폴백 제목 → room.product.title → ChatProductSummary(채팅 상단)	빈 제목 + 화면 키
+hangul	lib/chats/chat-product-from-post.ts	132	글 · ${pid.slice(0, 8)}…	HARMLESS_DATA	chat-product-from-post.ts:132 폴백 제목 판별 비교값	
+hangul	lib/chats/chat-rooms-list-core.ts	320	주문 상태 · ${statusLabel}	HARMLESS_CODE_USED	목록 응답 roomSubtitle — 읽는 화면은 ChatDetailView(상세 응답)뿐(grep roomSubtitle), 목록 UI 미사용	
+hangul	lib/chats/chat-rooms-list-core.ts	320	배달채팅	HARMLESS_CODE_USED	목록 응답 roomSubtitle — 읽는 화면은 ChatDetailView(상세 응답)뿐(grep roomSubtitle), 목록 UI 미사용	
+hangul	lib/chats/save-chat-image.ts	106	사진 저장	EXPOSED	navigator.share title — messenger-image-save.ts:20 saveChatImagesToDevice 경유 OS 공유창	t 받아 키로
+hangul	lib/chats/save-chat-image.ts	131	이미지 주소가 없습니다.	HARMLESS_CODE_USED	saveChatImageToDevice 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	lib/chats/save-chat-image.ts	136	저장에 실패했습니다. 네트워크·권한을 확인해 주세요.	HARMLESS_CODE_USED	saveChatImageToDevice 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	lib/chats/server/load-chat-room-bootstrap.ts	61	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	bootstrap 오류 — page.tsx boot null 처리, 문장 미표시	
+hangul	lib/chats/server/load-chat-room-detail.ts	268	roomId 형식이 올바르지 않습니다.	HARMLESS_CODE_USED	상세 오류 — chats/[roomId]/page.tsx boot null · fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-detail.ts	300	서버 설정 필요	HARMLESS_CODE_USED	상세 오류 — chats/[roomId]/page.tsx boot null · fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-detail.ts	631	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	상세 오류 — chats/[roomId]/page.tsx boot null · fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-detail.ts	681	참여자가 아닙니다.	HARMLESS_CODE_USED	상세 오류 — chats/[roomId]/page.tsx boot null · fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-detail.ts	756	주문 상태 · ${statusLabel}	EXPOSED	store_order roomSubtitle → ChatDetailView.tsx:1922·2309 상단 부제	statusCode 내려 화면 키로
+hangul	lib/chats/server/load-chat-room-detail.ts	756	배달채팅	EXPOSED	store_order roomSubtitle → ChatDetailView.tsx:1922·2309 상단 부제	statusCode 내려 화면 키로
+hangul	lib/chats/server/load-chat-room-detail.ts	815	배달채팅	EXPOSED	store_order roomSubtitle → ChatDetailView.tsx:1922·2309 상단 부제	statusCode 내려 화면 키로
+hangul	lib/chats/server/load-chat-room-detail.ts	860	지원하지 않는 채팅 유형입니다.	HARMLESS_CODE_USED	상세 오류 — fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-detail.ts	876	참여자가 아닙니다.	HARMLESS_CODE_USED	상세 오류 — fetch-chat-room-detail-api.ts:62 존재만	
+hangul	lib/chats/server/load-chat-room-messages.ts	98	서버 설정 필요	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	110	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	113	참여자가 아님	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	140	기준 메시지를 찾을 수 없습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	193	서버 설정 필요	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	197	roomId 필요	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	218	채팅방을 찾을 수 없습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	223	주문 채팅은 주문 전용 경로로 이동했습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	226	삭제된 채팅 유형입니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	231	참여자만 조회할 수 있습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/server/load-chat-room-messages.ts	260	기준 메시지를 찾을 수 없습니다.	HARMLESS_CODE_USED	메시지 GET 오류 — fetch-chat-room-messages-api.ts error 미사용	
+hangul	lib/chats/surfaces/trade-chat-surface.ts	38	거래채팅	HARMLESS_CODE_USED	TRADE_CHAT_SURFACE 문자열 필드 — 화면은 *Key 필드 사용, 문자열 필드 사용처 없음(grep)	
+hangul	lib/chats/surfaces/trade-chat-surface.ts	45	받은 거래채팅이 없어요.	HARMLESS_CODE_USED	TRADE_CHAT_SURFACE 문자열 필드 — 화면은 *Key 필드 사용, 문자열 필드 사용처 없음(grep)	
+hangul	lib/chats/surfaces/trade-chat-surface.ts	49	거래 둘러보기	HARMLESS_CODE_USED	TRADE_CHAT_SURFACE 문자열 필드 — 화면은 *Key 필드 사용, 문자열 필드 사용처 없음(grep)	
+hangul	lib/exchange/form-options.ts	12	필리핀 페소	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	13	한국 원	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	14	미국 달러	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	47	신분증	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	48	본인 명의 통장	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	49	본인 확인 불필요	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/exchange/form-options.ts	51	본인 확인 필요	HARMLESS_CODE_USED	CURRENCY_LABELS 사용처 없음 · PREP_LABELS 는 t 없을 때만(유일 호출 detail-field-formatters.ts:110 t 전달)	
+hangul	lib/favorites/toggleFavorite.ts	21	로그인이 필요합니다.	HARMLESS_CODE_USED	PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시	
+hangul	lib/favorites/toggleFavorite.ts	38	로그인이 필요합니다.	HARMLESS_CODE_USED	PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시	
+hangul	lib/favorites/toggleFavorite.ts	38	처리에 실패했습니다.	HARMLESS_CODE_USED	PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시	
+hangul	lib/favorites/toggleFavorite.ts	55	응답 형식 오류	HARMLESS_CODE_USED	PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시	
+hangul	lib/favorites/toggleFavorite.ts	57	네트워크 오류	HARMLESS_CODE_USED	PostDetailView.tsx:795·PostFavoriteButton.tsx:93 error 미표시	
+hangul	lib/jobs/form-options.ts	57	기타	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	64	매장관리/판매	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	65	주방보조/설거지	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	66	주방장/조리사	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	67	서빙	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	68	배달	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	69	사무보조	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	70	청소	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	71	재고/물류	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	72	이사/짐	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	73	돌봄	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	151	식당/주방	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	152	서빙/카페	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	153	매장관리/판매	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	154	사무/통역	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	155	운전/배송	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	156	청소/가사	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	157	마사지/스파	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	158	건설/현장	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/form-options.ts	159	온라인/재택	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	10	주방보조/설거지	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	10	주방장/조리사	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	12	서빙	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	12	매장관리/판매	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	14	매장관리/판매	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	14	재고/물류	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	16	사무보조	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	18	배달	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	18	이사/짐	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	20	청소	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	22	기타	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	24	이사/짐	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/jobs/job-list-industry-db-filter.ts	26	재고/물류	HARMLESS_DATA	DB work_category/job_category 저장값·필터 비교값, 화면은 labelKey(jobWorkCategoryDbLabel)	
+hangul	lib/legal/marketing-consent-default.ts	10	혜택·이벤트 알림 받기	FALSE_POSITIVE	MARKETING_CONSENT_DEFAULT ko/en 분리(NotificationsSettingsContent.tsx:170)	
+hangul	lib/legal/marketing-consent-default.ts	12	DIBAY 가 진행하는 이벤트, 할인·쿠폰 등 혜택 소식을 앱 푸시 알림으로 보내 드립니다.	FALSE_POSITIVE	MARKETING_CONSENT_DEFAULT ko/en 분리(NotificationsSettingsContent.tsx:170)	
+hangul	lib/legal/marketing-consent-default.ts	13	동의하지 않아도 DIBAY 의 모든 서비스를 이용할 수 있습니다. 공지사항·시스템 안내·업데이트 소식은 동의와 관계없이 받으며, 혜택·이벤트 소식도 앱 알림함에서	FALSE_POSITIVE	MARKETING_CONSENT_DEFAULT ko/en 분리(NotificationsSettingsContent.tsx:170)	
+hangul	lib/legal/marketing-consent-default.ts	14	동의는 내정보 › 알림 설정 › 혜택·이벤트 알림에서 언제든 끄거나 다시 켤 수 있습니다.	FALSE_POSITIVE	MARKETING_CONSENT_DEFAULT ko/en 분리(NotificationsSettingsContent.tsx:170)	
+hangul	lib/market/load-market-bootstrap-payload.ts	76	q 파라미터가 필요합니다.	HARMLESS_CODE_USED	market-bootstrap 오류 — CategoryListLayout.tsx:264 미표시	
+hangul	lib/market/load-market-bootstrap-payload.ts	82	유효하지 않은 경로입니다.	HARMLESS_CODE_USED	market-bootstrap 오류 — CategoryListLayout.tsx:264 미표시	
+hangul	lib/market/load-market-bootstrap-payload.ts	109	카테고리를 찾을 수 없습니다.	HARMLESS_CODE_USED	market-bootstrap 오류 — CategoryListLayout.tsx:264 미표시	
+hangul	lib/market/load-market-bootstrap-payload.ts	121	하위 주제를 불러오지 못했습니다.	HARMLESS_CODE_USED	market-bootstrap 오류 — CategoryListLayout.tsx:264 미표시	
+hangul	lib/mypage/trade-history-client.ts	136	거래 건수를 불러오지 못했어요.	HARMLESS_CODE_USED	warm-main-shell-data.ts:67 예열만, 화면 미표시	
+hangul	lib/offers/offers-map.ts	91	상품	EXPOSED	offers-map 제목 폴백 '상품' → MyOffersView.tsx:281 productTitle 표시	빈 값 → MyOffersView:204 키 mypage_r5_offer_product_fallback
+hangul	lib/offers/offers-map.ts	112	상품	EXPOSED	offers-map 제목 폴백 '상품' → MyOffersView.tsx:281 productTitle 표시	빈 값 → MyOffersView:204 키 mypage_r5_offer_product_fallback
+hangul	lib/philife/post-body-images.ts	86	업로드가 완료되지 않았거나 사용할 수 없는 이미지가 있습니다. 해당 사진을 삭제하거나 다시 올려 주세요.	HARMLESS_CODE_USED	PhilifeNeighborhoodWriteForm.tsx:953 code(image_not_allowed·too_many_images) → imageErrorText 키	
+hangul	lib/philife/post-body-images.ts	95	사진은 ${max}장까지 올릴 수 있습니다.	HARMLESS_CODE_USED	PhilifeNeighborhoodWriteForm.tsx:953 code(image_not_allowed·too_many_images) → imageErrorText 키	
+hangul	lib/posts/apply-owner-snapshot-to-trade-write-form.ts	26	임대	HARMLESS_DATA	deal_type 저장값 타입	
+hangul	lib/posts/apply-owner-snapshot-to-trade-write-form.ts	26	판매	HARMLESS_DATA	deal_type 저장값 타입	
+hangul	lib/posts/car-trade-label.ts	8	삽니다	HARMLESS_CODE_USED	getCarTradeLabelKo 사용처 없음 — 화면은 getCarTradeLabel(키)	
+hangul	lib/posts/car-trade-label.ts	8	팝니다	HARMLESS_CODE_USED	getCarTradeLabelKo 사용처 없음 — 화면은 getCarTradeLabel(키)	
+hangul	lib/posts/car-trade-label.ts	10	삽니다	HARMLESS_CODE_USED	getCarTradeLabelKo 사용처 없음 — 화면은 getCarTradeLabel(키)	
+hangul	lib/posts/car-trade-label.ts	11	팝니다	HARMLESS_CODE_USED	getCarTradeLabelKo 사용처 없음 — 화면은 getCarTradeLabel(키)	
+hangul	lib/posts/count-posts-by-category-server.ts	13	categoryId 필요	HARMLESS_ADMIN	app/api/admin/categories/[categoryId]/post-count 전용	
+hangul	lib/posts/count-posts-by-category-server.ts	22	게시물 수 조회에 실패했습니다.	HARMLESS_ADMIN	app/api/admin/categories/[categoryId]/post-count 전용	
+hangul	lib/posts/createPost.ts	24	로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/createPost.ts	29	제목을 입력해 주세요.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/createPost.ts	30	내용을 입력해 주세요.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/createPost.ts	49	저장에 실패했습니다.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/createPost.ts	53	저장에 실패했습니다.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/createPost.ts	66	저장에 실패했습니다.	EXPOSED	createPost 반환 error → TradeWriteForm.tsx:3266 · ServiceWriteForm.tsx:221	키로(서버는 code)
+hangul	lib/posts/getPostCountByCategory.ts	15	categoryId 필요	HARMLESS_CODE_USED	getPostCountByCategory 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	lib/posts/getPostCountByCategory.ts	27	게시물 수를 확인할 수 없습니다.	HARMLESS_CODE_USED	getPostCountByCategory 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	lib/posts/getPostCountByCategory.ts	32	게시물 수를 확인할 수 없습니다.	HARMLESS_CODE_USED	getPostCountByCategory 앱 안 호출처 없음(grep app·components·lib·hooks·android·ios)	
+hangul	lib/posts/post-list-owner-menu.ts	10	거래가 끝난 글은 거래 기록으로 남아 수정·삭제할 수 없어요.	HARMLESS_CODE_USED	owner-delete 응답 lockKey → PostDetailView.tsx:981·PostCard·MyProductsView 키 우선	
+hangul	lib/posts/post-list-preview-model.ts	236	삽니다	HARMLESS_DATA	제목·deal_type 비교값	
+hangul	lib/posts/post-list-preview-model.ts	237	팝니다	HARMLESS_DATA	제목·deal_type 비교값	
+hangul	lib/posts/post-list-preview-model.ts	302	판매	HARMLESS_DATA	제목·deal_type 비교값	
+hangul	lib/posts/post-list-preview-model.ts	305	임대	HARMLESS_DATA	제목·deal_type 비교값	
+hangul	lib/posts/trade-write-form-session-draft.ts	49	임대	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	49	판매	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	101	임대	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	101	판매	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	217	판매	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	217	판매	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/trade-write-form-session-draft.ts	217	임대	HARMLESS_DATA	deal_type 저장값 타입·정규화	
+hangul	lib/posts/updateTradePost.ts	35	로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요.	EXPOSED	updateTradePost 반환 error → TradeWriteForm.tsx:1992/2248 → TradeWriteForm.tsx:3266	키로(서버는 code)
+hangul	lib/posts/updateTradePost.ts	40	제목을 입력해 주세요.	EXPOSED	updateTradePost 반환 error → TradeWriteForm.tsx:1992/2248 → TradeWriteForm.tsx:3266	키로(서버는 code)
+hangul	lib/posts/updateTradePost.ts	41	내용을 입력해 주세요.	EXPOSED	updateTradePost 반환 error → TradeWriteForm.tsx:1992/2248 → TradeWriteForm.tsx:3266	키로(서버는 code)
+hangul	lib/posts/updateTradePost.ts	67	저장에 실패했습니다.	EXPOSED	updateTradePost 반환 error → TradeWriteForm.tsx:1992/2248 → TradeWriteForm.tsx:3266	키로(서버는 code)
+hangul	lib/posts/updateTradePost.ts	71	저장에 실패했습니다.	EXPOSED	updateTradePost 반환 error → TradeWriteForm.tsx:1992/2248 → TradeWriteForm.tsx:3266	키로(서버는 code)
+hangul	lib/product-backlog/product-backlog-db.ts	71	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	admin product-backlog 전용	
+hangul	lib/product-backlog/product-backlog-state.ts	24	피드 무한스크롤 깜빡임 개선	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	25	스크롤 시 리스트 깜빡임 제거	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	43	QA 이슈와 연동. 재현 확실함.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	47	상품 사진 업로드 성능 개선	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	48	이미지 업로드 대기 시간 단축	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	66	사용자 피드백 다수. impact 높음.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	70	채팅 알림 수신 안정화	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	71	알림 설정 반영 및 FCM 검증	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	89	CS 문의 다수. 긴급 검토 필요.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	93	포인트 내역 필터 추가	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	94	기간/유형 필터 UI	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	112	운영 메모 기반. effort 낮음.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	116	신고 처리 결과 알림	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	117	신고 접수/처리 결과 푸시 알림	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	146	상품 등록 시 사진 업로드 느림	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	147	이미지 5장 올리면 10초 이상 걸림	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	152	사용자1	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	162	채팅 알림 안 옴	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	163	알림 설정 켜져 있는데 채팅 알림 수신 안 됨	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	178	피드 무한스크롤 시 깜빡임	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	179	스크롤 시 리스트가 잠깐 비었다가 다시 채워짐	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	189	백로그 pbi-1로 전환됨	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	194	포인트 사용 내역 필터 부족	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	195	운영 메모: 사용자 문의 다수. 기간/유형 필터 요청	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	210	신고 처리 후 사용자 알림 없음	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	211	신고 접수/처리 결과 알림 요청 다수	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	226	온보딩 이탈률 상승	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	227	최근 2주 이탈률 +15%	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	249	피드 깜빡임 QA 이슈와 동일. 재현 확실. 우선 처리 요청.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	250	가상화 리스트 키 이슈로 추정. 수정 중.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	251	스크롤 시 리스트가 비었다가 채워지는 현상 없음	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	253	관리자	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	254	개발팀 placeholder	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	262	CS 문의 다수. 채팅 알림 미수신. FCM/권한 점검 요청.	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	264	알림 설정 ON 시 채팅 메시지 도착 시 푸시 수신	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/product-backlog/product-backlog-state.ts	266	관리자	HARMLESS_ADMIN	components/admin/product-backlog 시드·상태(관리자 전용)	
+hangul	lib/production-migration/production-migration-db.ts	76	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	admin production-migration 전용	
+hangul	lib/products/save-product-from-form.ts	26	이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.	HARMLESS_CODE_USED	ProductForm.tsx:97 try/finally(catch 없음) — 화면 미표시(별도: 실패 안내 없음)	
+hangul	lib/products/seller-listing-state.ts	22	판매중	EXPOSED	SELLER_LISTING_LABEL → ChatProductSummary.tsx:116·149 상품 줄 직접 표시(+ 시스템 메시지 저장 :103)	sellerListingStateMessageKey 키로
+hangul	lib/products/seller-listing-state.ts	23	문의중	EXPOSED	SELLER_LISTING_LABEL → ChatProductSummary.tsx:116·149 상품 줄 직접 표시(+ 시스템 메시지 저장 :103)	sellerListingStateMessageKey 키로
+hangul	lib/products/seller-listing-state.ts	24	예약중	EXPOSED	SELLER_LISTING_LABEL → ChatProductSummary.tsx:116·149 상품 줄 직접 표시(+ 시스템 메시지 저장 :103)	sellerListingStateMessageKey 키로
+hangul	lib/products/seller-listing-state.ts	25	거래완료	EXPOSED	SELLER_LISTING_LABEL → ChatProductSummary.tsx:116·149 상품 줄 직접 표시(+ 시스템 메시지 저장 :103)	sellerListingStateMessageKey 키로
+hangul	lib/products/seller-listing-state.ts	64	숨김	EXPOSED	publicListingBadge.label → PurchaseHistoryCard.tsx:81 purchaseProductStatusBadge · sales-history-ui.ts:22	state 코드 반환, 화면 키
+hangul	lib/products/seller-listing-state.ts	64	숨김	EXPOSED	publicListingBadge.label → PurchaseHistoryCard.tsx:81 purchaseProductStatusBadge · sales-history-ui.ts:22	state 코드 반환, 화면 키
+hangul	lib/products/seller-listing-state.ts	64	삭제됨	EXPOSED	publicListingBadge.label → PurchaseHistoryCard.tsx:81 purchaseProductStatusBadge · sales-history-ui.ts:22	state 코드 반환, 화면 키
+hangul	lib/products/seller-listing-state.ts	67	거래완료	EXPOSED	publicListingBadge.label → PurchaseHistoryCard.tsx:81 purchaseProductStatusBadge · sales-history-ui.ts:22	state 코드 반환, 화면 키
+hangul	lib/products/seller-listing-state.ts	72	거래완료	EXPOSED	publicListingBadge.label → PurchaseHistoryCard.tsx:81 purchaseProductStatusBadge · sales-history-ui.ts:22	state 코드 반환, 화면 키
+hangul	lib/products/seller-listing-state.ts	133	숨김	STORED	getChatListingItemStateLabel → product-chat-messenger-meta.ts:116·listing-visibility-room-sync.ts:77 방 summary.itemStateLabel 저장 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/seller-listing-state.ts	133	숨김	STORED	getChatListingItemStateLabel → product-chat-messenger-meta.ts:116·listing-visibility-room-sync.ts:77 방 summary.itemStateLabel 저장 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/seller-listing-state.ts	133	삭제됨	STORED	getChatListingItemStateLabel → product-chat-messenger-meta.ts:116·listing-visibility-room-sync.ts:77 방 summary.itemStateLabel 저장 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/seller-listing-state.ts	150	숨김	STORED	getChatListingBoxPresentation → insert-seller-listing-change-system-messages.ts:35 summary.itemStateLabel 저장 · home-list-patch.ts:573 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/seller-listing-state.ts	150	숨김	STORED	getChatListingBoxPresentation → insert-seller-listing-change-system-messages.ts:35 summary.itemStateLabel 저장 · home-list-patch.ts:573 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/seller-listing-state.ts	150	삭제됨	STORED	getChatListingBoxPresentation → insert-seller-listing-change-system-messages.ts:35 summary.itemStateLabel 저장 · home-list-patch.ts:573 → MessengerChatListItem.tsx:1010	저장은 state 코드, 화면에서 키로
+hangul	lib/products/status-utils.ts	8	판매중	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	9	예약중	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	10	판매완료	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	11	숨김	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	12	블라인드	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	13	삭제됨	HARMLESS_CODE_USED	STATUS_LABEL(status-utils) 사용처 없음(grep)	
+hangul	lib/products/status-utils.ts	19	전체	HARMLESS_CODE_USED	MyProductFilter.tsx:56 FILTER_LABEL_KEY 키 사용, label 미사용	
+hangul	lib/products/status-utils.ts	20	판매중	HARMLESS_CODE_USED	MyProductFilter.tsx:56 FILTER_LABEL_KEY 키 사용, label 미사용	
+hangul	lib/products/status-utils.ts	21	판매완료	HARMLESS_CODE_USED	MyProductFilter.tsx:56 FILTER_LABEL_KEY 키 사용, label 미사용	
+hangul	lib/products/status-utils.ts	22	숨김	HARMLESS_CODE_USED	MyProductFilter.tsx:56 FILTER_LABEL_KEY 키 사용, label 미사용	
+hangul	lib/trade/category-form/behavior-adapters.ts	66	판매	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/behavior-adapters.ts	67	임대	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/behavior-adapters.ts	102	기타	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/edit-hydrator.ts	37	임대	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/edit-hydrator.ts	37	판매	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/edit-hydrator.ts	71	판매	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/edit-hydrator.ts	71	판매	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/edit-hydrator.ts	71	임대	HARMLESS_DATA	deal_type·work_category 비교값	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	8	텍스트	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	9	긴 글	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	10	숫자	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	11	연도	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	12	금액	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	13	선택형	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	14	사용/미사용	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	15	위치	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	16	약속장소	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/field-widget-operator-label.ts	17	사진	HARMLESS_ADMIN	CategoryFieldCompositionEditor(관리자) 전용 · ko/en 분리	
+hangul	lib/trade/category-form/option-catalogs.ts	41	기타	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	58	기타 모델	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	105	임대	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	106	판매	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	109	상가	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	110	주택	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	111	콘도	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	112	주차장	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	115	협의 가능	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	116	즉시입주	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	128	매장관리/판매	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	129	주방보조/설거지	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	130	주방장/조리사	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	131	서빙	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	132	배달	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	133	사무보조	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	134	청소	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	135	재고/물류	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	136	이사/짐	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	137	돌봄	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/category-form/option-catalogs.ts	138	기타	FALSE_POSITIVE	option-catalogs labelKo/labelEn 언어별 선택(GenericTradeWriteFields.tsx:104), value 는 DB 저장값	
+hangul	lib/trade/insert-seller-listing-change-system-messages.ts	74	거래	STORED	insert-seller-listing-change-system-messages.ts:74 summary.headline 기본값 저장 → 메신저 목록	빈 headline, 화면 키
+hangul	lib/trade/item-trade-chat-start-core.ts	257	거래 채팅이 제한되어 있습니다. 이의신청은 고객센터에서 할 수 있습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	263	상품을 찾을 수 없습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	268	상품 정보가 올바르지 않습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	272	내 상품에는 채팅할 수 없습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	275	비공개 또는 삭제된 상품입니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	293	차단 관계에서는 채팅할 수 없습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	317	다른 분과 예약이 진행 중인 상품입니다. 예약자만 이어서 채팅할 수 있어요.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	326	거래완료된 상품입니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	340	요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	389	채팅방 생성에 실패했습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/item-trade-chat-start-core.ts	405	참여자 등록에 실패했습니다.	EXPOSED	item-trade-chat-start-core 응답 error → trade-chat-entry-resolve.ts:88 → createOrGetChatRoom.ts:169 data.error → TradeChatComposeClient.tsx:185 setError → TradeChatComposePreparingShell.tsx:53	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/listing-visibility/listing-visibility-room-sync.ts	20	삭제됨	STORED	ROOM_SYNC_DELETED_LABEL summary.itemStateLabel 저장 → MessengerChatListItem.tsx:1010	저장은 deleted 코드, 화면 키
+hangul	lib/trade/marketplace/public-listing-status.ts	68	판매완료	HARMLESS_CODE_USED	t 없을 때만 폴백 — 유일 호출 TradeListingStatusBadge.tsx:41 t 전달	
+hangul	lib/trade/marketplace/public-listing-status.ts	70	판매중	HARMLESS_CODE_USED	t 없을 때만 폴백 — 유일 호출 TradeListingStatusBadge.tsx:41 t 전달	
+hangul	lib/trade/marketplace/public-listing-status.ts	87	삭제됨	HARMLESS_CODE_USED	t 없을 때만 폴백 — 유일 호출 TradeListingStatusBadge.tsx:41 t 전달	
+hangul	lib/trade/marketplace/public-listing-status.ts	90	숨김	HARMLESS_CODE_USED	t 없을 때만 폴백 — 유일 호출 TradeListingStatusBadge.tsx:41 t 전달	
+hangul	lib/trade/marketplace/search-candidate-expansion.ts	134	기타	HARMLESS_DATA	검색 확장 제외 비교값	
+hangul	lib/trade/post-detail-i18n.ts	13	판매	HARMLESS_DATA	meta.deal_type 저장값 상수	
+hangul	lib/trade/post-detail-i18n.ts	14	임대	HARMLESS_DATA	meta.deal_type 저장값 상수	
+hangul	lib/trade/seller-listing-chat-transitions.ts	6	판매중	HARMLESS_CODE_USED	TRADE_LISTING_CHAT_STEPS.label 미사용 — TradeSellerListingStepDiagram 은 state 로 키	
+hangul	lib/trade/seller-listing-chat-transitions.ts	7	문의중	HARMLESS_CODE_USED	TRADE_LISTING_CHAT_STEPS.label 미사용 — TradeSellerListingStepDiagram 은 state 로 키	
+hangul	lib/trade/seller-listing-chat-transitions.ts	8	예약중	HARMLESS_CODE_USED	TRADE_LISTING_CHAT_STEPS.label 미사용 — TradeSellerListingStepDiagram 은 state 로 키	
+hangul	lib/trade/seller-listing-chat-transitions.ts	9	거래완료	HARMLESS_CODE_USED	TRADE_LISTING_CHAT_STEPS.label 미사용 — TradeSellerListingStepDiagram 은 state 로 키	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	34	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	34	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	34	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	35	판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	35	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	35	Avida Towers 스튜디오	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	35	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	36	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	36	주택	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	36	Katipunan 2층 주택	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	36	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	37	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	37	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	37	IT Park 원룸	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	37	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	38	판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	38	주택	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	38	BF Homes 타운하우스	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	38	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	39	판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	39	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	39	Rockwell 2BR 콘도	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	39	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	40	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	40	상가	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	40	Ortigas 사무실	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	40	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	41	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	41	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	41	Kapitolyo 1BR 콘도	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	41	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	42	판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	42	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	42	Shaw 고층 콘도	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	42	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	43	임대	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	43	콘도	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	43	Eastwood 2BR 콘도	EXPOSED	샘플 building_name → post-list-preview-model.ts:345 목록 줄 · PostDetailView.tsx:1350 상세	샘플 시드 건물명 언어 중립(영문 고유명)으로
+hangul	lib/trade/showcase/trade-showcase-listings.ts	43	즉시입주	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	54	매장관리/판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	55	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	56	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	57	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	58	매장관리/판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	59	매장관리/판매	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	60	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	61	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	62	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/showcase/trade-showcase-listings.ts	63	기타	HARMLESS_DATA	trade_showcase 샘플 meta 저장값(deal_type·estate_type·move_in·work_category) — 화면은 option-catalogs 라벨	
+hangul	lib/trade/trade-activity-restriction.ts	24	별도 안내 시까지	EXPOSED	tradeRestrictedResponse error → messages/route.ts(POST) → ChatDetailView.tsx:1418 → :1961 · 글쓰기 errors.submit	code trade_restricted + params end_at, 화면 키
+hangul	lib/trade/trade-activity-restriction.ts	26	별도 안내 시까지	EXPOSED	tradeRestrictedResponse error → messages/route.ts(POST) → ChatDetailView.tsx:1418 → :1961 · 글쓰기 errors.submit	code trade_restricted + params end_at, 화면 키
+hangul	lib/trade/trade-activity-restriction.ts	27	${d.toLocaleString("ko-KR", { timeZone: "Asia/Manila" })}까지	EXPOSED	tradeRestrictedResponse error → messages/route.ts(POST) → ChatDetailView.tsx:1418 → :1961 · 글쓰기 errors.submit	code trade_restricted + params end_at, 화면 키
+hangul	lib/trade/trade-activity-restriction.ts	35	거래 활동이 제한되어 있습니다 (${formatUntilKo(r.end_at)}). 이의신청은 고객센터에서 할 수 있습니다.	EXPOSED	tradeRestrictedResponse error → messages/route.ts(POST) → ChatDetailView.tsx:1418 → :1961 · 글쓰기 errors.submit	code trade_restricted + params end_at, 화면 키
+hangul	lib/trade/trade-lifecycle-policy.ts	175	협의중 상태입니다. 주요 정보 수정이 제한됩니다.	EXPOSED	owner-edit 응답 hint → TradeWriteForm.tsx:2714 tradePolicy.hint	lifecycle 코드, 화면 키
+hangul	lib/trade/trade-lifecycle-policy.ts	177	거래 진행중입니다. 가격 및 조건 수정이 불가능합니다.	EXPOSED	owner-edit 응답 hint → TradeWriteForm.tsx:2714 tradePolicy.hint	lifecycle 코드, 화면 키
+hangul	lib/trade/trade-lifecycle-policy.ts	179	거래 완료된 게시글입니다.	EXPOSED	owner-edit 응답 hint → TradeWriteForm.tsx:2714 tradePolicy.hint	lifecycle 코드, 화면 키
+hangul	lib/trade/trade-lifecycle-policy.ts	400	${beforeContent}\n\n[추가 안내]\n	HARMLESS_DATA	본문 추가 안내 접두 비교값(저장은 :452)	
+hangul	lib/trade/trade-lifecycle-policy.ts	409	지금 단계에서는 가격·제목·핵심 조건을 바꿀 수 없습니다.	EXPOSED	owner-trade-update 응답 error → updateTradePost.ts:67 → TradeWriteForm.tsx:3266	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/trade-lifecycle-policy.ts	414	본문은 기존 내용을 유지한 채 추가 안내만 붙일 수 있습니다.	EXPOSED	owner-trade-update 응답 error → updateTradePost.ts:67 → TradeWriteForm.tsx:3266	서버 code + 화면 resolveApiErrorText 표(키)
+hangul	lib/trade/trade-lifecycle-policy.ts	452	${before.content}\n\n[추가 안내]\n${append}	STORED	posts.content 에 '[추가 안내]' 머리글 저장 → 글 상세 본문	구분 표시는 meta 로, 화면에서 키
+hangul	lib/trade/trade-lightweight-goals.ts	11	페이지당 JS 줄이기	HARMLESS_DATA	개발 지침 상수 — 화면 사용처 없음(grep)	
+hangul	lib/trade/trade-lightweight-goals.ts	13	서버에서 데이터 한 번에 가져오기	HARMLESS_DATA	개발 지침 상수 — 화면 사용처 없음(grep)	
+hangul	lib/trade/trade-lightweight-goals.ts	15	불필요한 클라이언트 상태 줄이기	HARMLESS_DATA	개발 지침 상수 — 화면 사용처 없음(grep)	
+hangul	lib/trade/trade-lightweight-goals.ts	17	쿼리 단순화·캐싱	HARMLESS_DATA	개발 지침 상수 — 화면 사용처 없음(grep)	
+en-literal	components/chats/ChatDetailView.tsx	345	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/chats/StoreOrderBuyerChatTop.tsx	70	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/chats/StoreOrderSellerOrderPanel.tsx	31	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/chats/TradeChatComposePreparingShell.tsx	38	IMG	NEED_OWNER	TradeChatComposePreparingShell.tsx:38 썸네일 없음 자리 'IMG' 장식 글자	
+en-literal	components/community/post-detail/CommunityCommentItem.tsx	37	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/community/post-detail/CommunityCommentItem.tsx	45	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/community/post-detail/CommunityCommentSection.tsx	48	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/community/post-detail/CommunityCommentSection.tsx	52	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/favorites/FavoriteProductsView.tsx	102	Record	FALSE_POSITIVE	TypeScript 타입 이름(Record)	
+en-literal	components/mypage/products/MyProductsView.tsx	118	new Set	FALSE_POSITIVE	코드 new Set	
+en-literal	components/philife/write-editor/PhilifeBodyEditor.tsx	112	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/philife/write-editor/PhilifeBodyEditor.tsx	114	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/post/PostListByCategory.tsx	453	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/product/form/ProductForm.tsx	34	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	
+en-literal	components/trade/TradeFlowBanner.tsx	34	Promise	FALSE_POSITIVE	TypeScript 타입 이름(Promise)	

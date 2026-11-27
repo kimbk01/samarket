@@ -30,7 +30,8 @@ export type ItemTradeChatStartCoreResult =
         tradeChatKind?: "job";
       };
     }
-  | { ok: false; httpStatus: number; body: { ok: false; error: string } };
+  /** 실패 `error`·`code` = 오류 코드(화면 문구는 `tradeChatEntryErrorText`) — 회원 검증 실패는 그 모듈 값 그대로 */
+  | { ok: false; httpStatus: number; body: { ok: false; error: string; code?: string } };
 
 function trimMessengerCol(raw: unknown): string {
   if (typeof raw !== "string") return "";
@@ -254,25 +255,25 @@ export async function runItemTradeChatStartCore(args: {
     return {
       ok: false,
       httpStatus: 403,
-      body: { ok: false, error: "거래 채팅이 제한되어 있습니다. 이의신청은 고객센터에서 할 수 있습니다." },
+      body: { ok: false, error: "trade_chat_restricted", code: "trade_chat_restricted" },
     };
   }
 
   perf?.mark("item_post_validate");
   if (!post) {
-    return { ok: false, httpStatus: 404, body: { ok: false, error: "상품을 찾을 수 없습니다." } };
+    return { ok: false, httpStatus: 404, body: { ok: false, error: "product_not_found", code: "product_not_found" } };
   }
   const row = post as Record<string, unknown>;
   const sellerId = postAuthorUserId(row) ?? "";
   if (!sellerId) {
-    return { ok: false, httpStatus: 400, body: { ok: false, error: "상품 정보가 올바르지 않습니다." } };
+    return { ok: false, httpStatus: 400, body: { ok: false, error: "product_invalid", code: "product_invalid" } };
   }
 
   if (sellerId === buyerId) {
-    return { ok: false, httpStatus: 400, body: { ok: false, error: "내 상품에는 채팅할 수 없습니다." } };
+    return { ok: false, httpStatus: 400, body: { ok: false, error: "own_product_chat", code: "own_product_chat" } };
   }
   if (row.is_deleted === true || row.status === "hidden" || row.visibility === "hidden") {
-    return { ok: false, httpStatus: 400, body: { ok: false, error: "비공개 또는 삭제된 상품입니다." } };
+    return { ok: false, httpStatus: 400, body: { ok: false, error: "product_unavailable", code: "product_unavailable" } };
   }
 
   perf?.mark("blocks_and_existing_room_parallel");
@@ -290,7 +291,7 @@ export async function runItemTradeChatStartCore(args: {
       .maybeSingle(),
   ]);
   if (blockedEitherWay) {
-    return { ok: false, httpStatus: 403, body: { ok: false, error: "차단 관계에서는 채팅할 수 없습니다." } };
+    return { ok: false, httpStatus: 403, body: { ok: false, error: "blocked_relation", code: "blocked_relation" } };
   }
 
   const existing = existingRes.data as { id?: string } | null;
@@ -312,10 +313,7 @@ export async function runItemTradeChatStartCore(args: {
     return {
       ok: false,
       httpStatus: 403,
-      body: {
-        ok: false,
-        error: "다른 분과 예약이 진행 중인 상품입니다. 예약자만 이어서 채팅할 수 있어요.",
-      },
+      body: { ok: false, error: "item_reserved_other_buyer", code: "item_reserved_other_buyer" },
     };
   }
 
@@ -323,7 +321,7 @@ export async function runItemTradeChatStartCore(args: {
   if (row.status === "sold") {
     const settings = await getAppSettingsServer(sbAny as never);
     if (settings.allowChatAfterSold !== true) {
-      return { ok: false, httpStatus: 403, body: { ok: false, error: "거래완료된 상품입니다." } };
+      return { ok: false, httpStatus: 403, body: { ok: false, error: "product_sold", code: "product_sold" } };
     }
   }
 
@@ -337,7 +335,7 @@ export async function runItemTradeChatStartCore(args: {
     return {
       ok: false,
       httpStatus: 429,
-      body: { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      body: { ok: false, error: "too_many_requests", code: "too_many_requests" },
     };
   }
 
@@ -383,10 +381,11 @@ export async function runItemTradeChatStartCore(args: {
   }
 
   if (insertRoomErr || !insertedRoom?.id) {
+    if (insertRoomErr) console.error("[item-trade-chat-start] room insert failed", insertRoomErr);
     return {
       ok: false,
       httpStatus: 500,
-      body: { ok: false, error: insertRoomErr?.message ?? "채팅방 생성에 실패했습니다." },
+      body: { ok: false, error: "chat_room_create_failed", code: "chat_room_create_failed" },
     };
   }
   const roomId = insertedRoom.id as string;
@@ -399,10 +398,11 @@ export async function runItemTradeChatStartCore(args: {
   ]);
 
   if (insertPartErr) {
+    console.error("[item-trade-chat-start] participant insert failed", insertPartErr);
     return {
       ok: false,
       httpStatus: 500,
-      body: { ok: false, error: insertPartErr.message ?? "참여자 등록에 실패했습니다." },
+      body: { ok: false, error: "participant_insert_failed", code: "participant_insert_failed" },
     };
   }
 

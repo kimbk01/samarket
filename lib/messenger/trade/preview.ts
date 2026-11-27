@@ -8,6 +8,7 @@ import type { CommunityMessengerMessageType } from "@/lib/community-messenger/ty
 import type { DomainPreview } from "@/lib/messenger/contracts/ports";
 import { resolveDomainListSystemPreviewText } from "@/lib/messenger/contracts/domain-list-system-preview";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import type { TradeListItem } from "@/lib/messenger/trade/types";
 
 export type TradePreviewMessage = Readonly<{
@@ -18,29 +19,41 @@ export type TradePreviewMessage = Readonly<{
 
 const FORBIDDEN = ["📋 주문 요약", "상품 요약", "주문 요약"] as const;
 
-/** 메시지 없음 · body 빈 문자열 — summary/status로 대체하지 않음 */
+/** 메시지 없음 · body 빈 문자열 — summary/status로 대체하지 않음 (옛 한국어 고정값 — 비교·테스트 호환용, 화면은 키) */
 export const TRADE_EMPTY_CONVERSATION_PREVIEW = "메시지가 없습니다" as const;
+/** 메시지 없음 화면 문구 키 */
+export const TRADE_EMPTY_CONVERSATION_PREVIEW_KEY = "community_messenger_no_messages" as const;
 
-export function resolveTradePreview(message: TradePreviewMessage | null | undefined): DomainPreview {
-  if (!message) return { text: TRADE_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+/**
+ * @param lang 보는 사람 언어 — 서버 조립은 요청 언어를 넘긴다. 없으면 클라이언트 런타임 언어
+ */
+export function resolveTradePreview(
+  message: TradePreviewMessage | null | undefined,
+  lang?: AppLanguageCode | null
+): DomainPreview {
+  const viewerLang = lang ?? getRuntimeAppLanguage();
+  const emptyText = translate(viewerLang, TRADE_EMPTY_CONVERSATION_PREVIEW_KEY);
+  if (!message) return { text: emptyText, source: "empty" };
   const type = (message.messageType ?? "text").trim();
   const content = (message.content ?? "").trim();
   for (const m of FORBIDDEN) {
     if (content.includes(m)) throw new Error("dibay_trade_preview_summary_forbidden");
   }
-  if (type === "image") return { text: "사진", source: "latest_user_message" };
-  if (type === "voice") return { text: "음성 메시지", source: "latest_user_message" };
-  if (type === "file") return { text: content || "파일", source: "latest_user_message" };
+  if (type === "image") return { text: translate(viewerLang, "cm_home_preview_photo"), source: "latest_user_message" };
+  if (type === "voice") return { text: translate(viewerLang, "cm_home_preview_voice"), source: "latest_user_message" };
+  if (type === "file") {
+    return { text: content || translate(viewerLang, "cm_home_preview_file"), source: "latest_user_message" };
+  }
   if (type === "system") {
     if (message.isSystemAllowed === false) {
-      return { text: TRADE_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+      return { text: emptyText, source: "empty" };
     }
     return {
-      text: content || TRADE_EMPTY_CONVERSATION_PREVIEW,
+      text: content || emptyText,
       source: content ? "allowed_system_message" : "empty",
     };
   }
-  if (!content) return { text: TRADE_EMPTY_CONVERSATION_PREVIEW, source: "empty" };
+  if (!content) return { text: emptyText, source: "empty" };
   return { text: content, source: "latest_user_message" };
 }
 
@@ -108,22 +121,28 @@ export function resolveTradeListItemPreview(
   const type = (item.lastMessageType ?? "").trim() || (item.lastMessageIsSystem ? "system" : "text");
   const localizedSystem = resolveTradeListItemLocalizedSystemPreview(item, lang);
   if (localizedSystem) {
-    return resolveTradePreview({ content: localizedSystem, messageType: "system", isSystemAllowed: true });
+    return resolveTradePreview({ content: localizedSystem, messageType: "system", isSystemAllowed: true }, lang);
   }
   if (TRADE_LIST_LABELED_MESSAGE_TYPES.has(type)) {
     const label = formatCmListPreviewTextForViewer(
       { lastMessage: item.lastMessage, lastMessageType: type as CommunityMessengerMessageType },
       viewerUserId
     );
-    return resolveTradePreview({
-      content: label,
-      messageType: type === "call_stub" ? "system" : "text",
-      isSystemAllowed: true,
-    });
+    return resolveTradePreview(
+      {
+        content: label,
+        messageType: type === "call_stub" ? "system" : "text",
+        isSystemAllowed: true,
+      },
+      lang
+    );
   }
-  return resolveTradePreview({
-    content: resolveRoomLastMessageForViewer(item.lastMessage, viewerUserId, lang ?? getRuntimeAppLanguage()),
-    messageType: type,
-    isSystemAllowed: true,
-  });
+  return resolveTradePreview(
+    {
+      content: resolveRoomLastMessageForViewer(item.lastMessage, viewerUserId, lang ?? getRuntimeAppLanguage()),
+      messageType: type,
+      isSystemAllowed: true,
+    },
+    lang
+  );
 }

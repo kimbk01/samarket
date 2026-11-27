@@ -1,0 +1,198 @@
+raw-error2	app/(main)/stores/owner/products/page.tsx	42	          rscBootstrapError={bootstrap.error}	RAW_ERROR_EXPOSED	load-owner-store-read-bootstrap.ts:86 DB error.message·owner-products-list-snapshot.ts:244 → OwnerProductsHubClient.tsx:159 → :476 resolveOwnerApiErrorMessage 가 코드 아닌 문장은 원문 반환(owner-api-error-i18n.ts:47)	로더는 db_error 코드만 반환(ownerCatalogDbErrorResponse 와 같게)
+raw-error2	app/(main)/stores/owner/settings/page.tsx	119	          toast.error(formatOwnerStoreToggleFailure(res.code, language));	FALSE_POSITIVE	formatOwnerStoreToggleFailure → translate 키(owner-store-patch-error-i18n.ts:61)	
+raw-error2	app/(main)/stores/owner/settings/page.tsx	152	        {t("owner_store_settings_load_failed")} ({phase.message})	RAW_ERROR_EXPOSED	settings/page.tsx:52-66 phase.message=unauthorized·load_failed·not_found·network_error 영문 코드를 괄호로 그대로 표시	괄호 코드 제거 또는 resolveOwnerApiErrorMessage(phase.message,t)
+raw-error2	app/(main)/stores/owner/menu-categories/page.tsx	36	        <OwnerMenuCategoriesClient key={storeId} storeId={storeId} rscBootstrapError={sec.error} />	RAW_ERROR_EXPOSED	load-owner-store-read-bootstrap.ts:86 DB error.message → OwnerMenuCategoriesClient.tsx:67 → :502 resolveOwnerApiErrorMessage 원문 반환	로더 db_error 코드만
+raw-error2	app/(main)/group-chat/[roomId]/page.tsx	49	          <p>{boot.error}</p>	RAW_ERROR_EXPOSED	load-group-chat-bootstrap-server.ts:55 「멤버만 볼 수 있습니다.」 한국어 서버 문장 그대로	서버 code(group_chat_members_only) + 화면 키
+raw-error2	app/(main)/group-chat/[roomId]/page.tsx	58	        <p>{boot.error}</p>	RAW_ERROR_EXPOSED	load-group-chat-bootstrap-server.ts:23,30,52,73,85 한국어 문장·DB message 그대로	서버 code + 화면 키(ui_group_chat_*)
+raw-error2	app/(main)/mypage/ads/apply/MyAdsApplyPageClient.tsx	79	          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);	FALSE_POSITIVE	j.error 비교만(price_changed), 표시 안 함	
+raw-error2	app/(main)/mypage/ads/feed-request/page.tsx	427	          setErr(feedAdUploadRejectMessage(check.error, en ? "en" : "ko"));	FALSE_POSITIVE	feedAdUploadRejectMessage(code,lang) → translateBy 키(feed-ad-upload-geometry.ts:64)	
+raw-error2	app/(main)/mypage/points/promotions/page.tsx	248	          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);	FALSE_POSITIVE	j.error 비교만(price_changed), 표시 안 함	
+raw-error2	components/write/trade/TradeWriteForm.tsx	69	  return failure?.message ? `${partial} (${failure.message})` : partial;	RAW_ERROR_EXPOSED	posts/upload-image/route.ts:44-96 한국어 error → uploadPostImages.ts:29 failure.message → 괄호로 붙여 표시	서버 code + 화면 키, 원문 괄호 제거
+raw-error2	components/write/trade/TradeWriteForm.tsx	86	  return { title, description: failure?.message ? `${desc} (${failure.message})` : desc };	RAW_ERROR_EXPOSED	posts/upload-image/route.ts:44-96 한국어 error → uploadPostImages.ts:29 → 확인창 설명 괄호	서버 code + 화면 키, 원문 괄호 제거
+raw-error2	components/write/trade/TradeWriteForm.tsx	1992	            setErrors({ submit: res.error });	RAW_ERROR_EXPOSED	updateTradePost.ts:35-71 한국어 고정문·서버 data.error → TradeWriteForm.tsx:3266	updateTradePost/createPost 가 code 반환, 화면 키
+raw-error2	components/write/trade/TradeWriteForm.tsx	2005	          setErrors({ submit: res.error });	RAW_ERROR_EXPOSED	createPost.ts:24-66 한국어 고정문·서버 data.error·e.message → TradeWriteForm.tsx:3266	createPost code 반환, 화면 키
+raw-error2	components/write/trade/TradeWriteForm.tsx	2248	            setErrors({ submit: res.error });	RAW_ERROR_EXPOSED	updateTradePost.ts:35-71 → TradeWriteForm.tsx:3266	updateTradePost code 반환, 화면 키
+raw-error2	components/write/trade/TradeWriteForm.tsx	2263	            setErrors({ submit: res.error });	RAW_ERROR_EXPOSED	createPost.ts:24-66 → TradeWriteForm.tsx:3266	createPost code 반환, 화면 키
+raw-error2	components/write/trade/TradeWriteForm.tsx	2714	            {tradePolicy.hint}	RAW_ERROR_EXPOSED	posts/[postId]/owner-edit/route.ts:71,98 tradeLifecycleHint 한국어(trade-lifecycle-policy.ts:175-179) → hint 표시	서버 hintKey(tradeLifecycleHintKey 이미 있음) 보내고 화면 t()
+raw-error2	components/write/service/ServiceWriteForm.tsx	96	          setErrors({ submit: res.error });	RAW_ERROR_EXPOSED	createPost.ts:24-66 한국어·서버 error → ServiceWriteForm.tsx:221	createPost code 반환, 화면 키
+raw-error2	components/ui/dibay-overlay/DibaySheetParts.tsx	76	                {item.hint ? <span className="dibay-overlay-menu__hint">{item.hint}</span> : null}	FALSE_POSITIVE	호출처 hint 전부 t() (MessengerFriendRowQuickPopup.tsx:125·CommunityAreaSheet.tsx:47·MessengerContactsMemberSheet.tsx:186·MessengerFriendProfileSheet.tsx:228)	
+raw-error2	components/offers/MyOffersView.tsx	300	              <p className="mt-2 sam-text-helper leading-snug text-sam-muted">{offer.message}</p>	HARMLESS_DATA	offer.message = 구매자가 쓴 가격제안 메시지(사용자 글)	
+raw-error2	components/post/PostDetailView.tsx	1177	      setChatError(typeof data.error === "string" ? data.error : t("trade_detail_job_apply_failed"));	RAW_ERROR_EXPOSED	posts/[postId]/job-apply/route.ts:25-76 한국어 문장·fetchErr.message → setChatError 표시	서버 code + 화면 키
+raw-error2	components/rider/RiderOrderDetailClient.tsx	100	      setErr(e instanceof Error ? e.message : "upload_failed");	RAW_ERROR_EXPOSED	RiderOrderDetailClient.tsx:85 j.error/upload_failed/missing_path 코드 → :249 {err} 그대로	코드→키 표(t)
+raw-error2	components/rider/RiderOrderDetailClient.tsx	115	      setErr(e instanceof Error ? e.message : "upload_failed");	RAW_ERROR_EXPOSED	RiderOrderDetailClient.tsx:85 → :249 {err} 그대로	코드→키 표(t)
+raw-error2	components/auth/RegistrationPhoneStep.tsx	111	      setDiscardError(t(json?.error === "not_empty_account" ? "auth_reg_discard_not_empty" : "auth_reg_discard_failed"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/moim/MoimProfileScreen.tsx	51	    if (!r.ok) return setSaveError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey) (moim-client-api.ts:60)	
+raw-error2	components/moim/MoimScheduleDetailScreen.tsx	101	        <p className={moimCls.hint}>{t("moim_schedule_motivation_lead", { min: MOTIVATION_MIN })}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구는 t()	
+raw-error2	components/moim/MoimScheduleDetailScreen.tsx	109	        <span className={`${moimCls.hint} text-right`}>	FALSE_POSITIVE	moimCls.hint = CSS 클래스	
+raw-error2	components/moim/MoimPublicView.tsx	196	        <p className={`${moimCls.hint} px-4 pt-4`}>{t("moim_public_members_only_note")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimJoinSheet.tsx	102	          <span className={moimCls.hint}>{t("moim_join_profile_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimReportSheet.tsx	51	      setError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimReportSheet.tsx	73	        <p className={moimCls.hint}>{t("moim_report_lead")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimPostDetailScreen.tsx	103	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimPostDetailScreen.tsx	111	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimPostDetailScreen.tsx	117	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimPostDetailScreen.tsx	128	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimPostDetailScreen.tsx	136	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageRequests.tsx	39	        toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey(error)) (moim-manage-shared.tsx:136)	
+raw-error2	components/moim/MoimCreateWizard.tsx	128	      setError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimCreateWizard.tsx	201	              <span className={moimCls.hint}>{t("moim_create_cover_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimCreateWizard.tsx	210	              <p className={moimCls.hint}>{t("moim_create_area_hint")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimCreateWizard.tsx	304	              <span className={moimCls.hint}>{t("moim_profile_privacy_note")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimCreateWizard.tsx	312	            <p className={moimCls.hint}>{t("moim_create_rules_lead")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimCreateWizard.tsx	323	            <p className={moimCls.hint}>{t("moim_create_rules_sanction_note")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimCategoryField.tsx	78	          <span className={`${moimCls.hint} flex justify-between gap-2`}>	FALSE_POSITIVE	moimCls.hint = CSS 클래스	
+raw-error2	components/moim/manage/MoimManageTransfer.tsx	39	    if (!r.ok) return toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey) (moim-manage-shared.tsx:136)	
+raw-error2	components/moim/MoimDetailScreen.tsx	168	      toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageClose.tsx	40	      return toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	156	      setSubmitError(t(v.error));	FALSE_POSITIVE	t(v.error) — validate 가 키 반환	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	164	      if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	170	    if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	218	          <span className={`${moimCls.hint} text-right`}>	FALSE_POSITIVE	moimCls.hint = CSS 클래스	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	229	          {preview ? <span className={moimCls.hint}>{t("moim_schedule_form_pht_preview", { time: preview })}</span> : null}	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	330	          <span className={moimCls.hint}>{t("moim_schedule_form_capacity_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	349	          <span className={moimCls.hint}>	FALSE_POSITIVE	moimCls.hint = CSS 클래스	
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	358	              <span className={`${moimCls.hint} block`}>{t("moim_schedule_form_ask_motivation_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	58	      toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	94	        <p className={`${moimCls.hint} px-4 pb-2 pt-4`}>{t("moim_notify_lead")}</p>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	100	                <span className={`${moimCls.hint} block`}>{t(row.hint)}</span>	FALSE_POSITIVE	t(row.hint) 키	
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	109	                <span className={`${moimCls.hint} block`}>{t("moim_notify_chat_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/moim-ui.tsx	177	  const node = state ? <DibayToast message={state.message} tone={state.tone} /> : null;	FALSE_POSITIVE	useMoimToast 호출처 전부 t() 문구(MoimReportSheet.tsx:54 onDone(t(...)) 등)	
+raw-error2	components/moim/MoimInvitesScreen.tsx	48	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManagePermissions.tsx	48	      toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageHostRequest.tsx	48	        setErrorText(t(r.error === "moim_host_recently_active" ? "moim_err_moim_host_recently_active" : "moim_err_moim_transfer_pending"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/moim/manage/MoimManageHostRequest.tsx	51	      toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/MoimWriteScreen.tsx	93	      if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimWriteScreen.tsx	99	    if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));	FALSE_POSITIVE	t(moimErrorKey)	
+raw-error2	components/moim/MoimWriteScreen.tsx	208	          <span className={moimCls.hint}>{visibility === "members" ? t("moim_write_visibility_members_hint") : t("moim_write_visibility_public_hint")}</span>	FALSE_POSITIVE	moimCls.hint = CSS 클래스, 문구 t()	
+raw-error2	components/moim/manage/MoimManageInfo.tsx	72	    else toast.show(r.error, "error");	FALSE_POSITIVE	r.error = 넘긴 t() 문구 또는 byCode(client-image-resize.ts:113-127, 서버 문구 미사용)	
+raw-error2	components/moim/manage/MoimManageInfo.tsx	113	      toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageMembers.tsx	126	        toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageMembers.tsx	374	              toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/moim-manage-shared.tsx	32	      else setState({ status: "error", errorKey: moimErrorKey(r.error) });	FALSE_POSITIVE	moimErrorKey → 키	
+raw-error2	components/moim/manage/moim-manage-shared.tsx	137	  const node = toast ? <DibayToast key={toast.seq} message={toast.message} tone={toast.tone} /> : null;	FALSE_POSITIVE	useMoimManageToast show 호출처 t() (showError 포함, MoimManageInfo.tsx:72 도 t() 문구)	
+raw-error2	components/moim/manage/MoimManageBoards.tsx	35	      toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageReports.tsx	66	        toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageInvite.tsx	65	    if (!r.ok) return toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageInvite.tsx	97	    if (!r.ok) return toast.showError(r.error);	FALSE_POSITIVE	showError = t(moimErrorKey)	
+raw-error2	components/moim/manage/MoimManageInvite.tsx	238	      setResults((prev) => ({ ...prev, [id]: r.ok ? { ok: true } : { ok: false, key: moimErrorKey(r.error) } }));	FALSE_POSITIVE	moimErrorKey → 키	
+raw-error2	components/platform/AndroidPlayInAppUpdateHost.tsx	129	        setScreen((s) => (s ? { ...s, step: "ready", waitingForCall: false, error: outcome.message } : s));	FALSE_POSITIVE	outcome.message = 코드(android-play-update-prompt-gate.ts:209-241) → AndroidPlayUpdateScreen.tsx:50 errorText 키	
+raw-error2	components/platform/AndroidPlayInAppUpdateHost.tsx	156	          setScreen((s) => (s ? { ...s, step: "intro", error: outcome.message } : s));	FALSE_POSITIVE	코드 → AndroidPlayUpdateScreen.tsx:50 키	
+raw-error2	components/business/MyBusinessNavList.tsx	214	        <span className="mt-0.5 block sam-text-helper leading-relaxed text-sam-muted">{item.hint}</span>	FALSE_POSITIVE	hint = bizT(descriptionKey) (my-business-nav-i18n.ts:57)	
+raw-error2	components/business/apply/StorePhoneVerifySheet.tsx	90	        setError(t(storePhoneVerifyErrorKey(json.code ?? json.error)));	FALSE_POSITIVE	t(storePhoneVerifyErrorKey)	
+raw-error2	components/business/apply/StorePhoneVerifySheet.tsx	127	          setError(t(storePhoneVerifyErrorKey(json.code ?? json.error)));	FALSE_POSITIVE	t(storePhoneVerifyErrorKey)	
+raw-error2	components/business/owner/OwnerStoreOrderChatsView.tsx	126	          {state.message}	RAW_ERROR_EXPOSED	order-chats/route.ts:45-61 영문 코드(unauthorized·forbidden·store_not_found 등) → OwnerStoreOrderChatsView.tsx:82 → :126 그대로	resolveOwnerApiErrorMessage(code,t)
+raw-error2	components/business/owner/OwnerStoreFinanceView.tsx	174	        setError(resolveOwnerApiErrorMessage(json.error, t));	FALSE_POSITIVE	resolveOwnerApiErrorMessage — finance route 코드만(finance/route.ts:28-40)	
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	120	        setError(typeof j?.error === "string" ? j.error : "load_failed");	FALSE_POSITIVE	코드 → :502 resolveOwnerApiErrorMessage, menu-sections route 코드만	
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	306	        setError(typeof j?.error === "string" ? j.error : t("business_phase7_476"));	FALSE_POSITIVE	코드 → :376/:502 resolveOwnerApiErrorMessage, order route 코드만	
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	339	        setError(typeof j?.error === "string" ? j.error : t("business_phase7_352"));	FALSE_POSITIVE	코드 → resolveOwnerApiErrorMessage, [sectionId] route 코드만	
+raw-error2	components/business/owner/OwnerStorePagePhaseGate.tsx	58	        <p className="sam-text-body text-sam-danger">{phase.message}</p>	RAW_ERROR_EXPOSED	profile/page.tsx:59·basic-info/page.tsx:110·ops-status/page.tsx:54 load_failed·network_error·서버 코드 → 그대로 표시	resolveOwnerApiErrorMessage(phase.message,t)
+raw-error2	components/business/owner/OwnerStoreReviewsView.tsx	97	        setErr(typeof payload.j?.error === "string" ? payload.j.error : "load_failed");	FALSE_POSITIVE	err → :188 resolveOwnerApiErrorMessage, reviews GET 코드만	
+raw-error2	components/business/owner/OwnerStoreReviewsView.tsx	149	          toast.error(msg);	RAW_ERROR_EXPOSED	reply/route.ts:68 guardBannedWords 서버 문장(Accept-Language 기준, banned-word-guard.server.ts:94) → owner-fetch-json.ts:57 code=문장 → resolveOwnerApiErrorMessage 원문 반환 → toast	서버 code(content_filter_blocked) 로 판정, 화면 키
+raw-error2	components/business/owner/OwnerBusinessCashView.tsx	128	        setError(resolveOwnerApiErrorMessage(json.error, t));	FALSE_POSITIVE	resolveOwnerApiErrorMessage — business-cash route 코드만	
+raw-error2	components/business/owner/OwnerBusinessCashView.tsx	225	        setError(topUpErrorMessage(json.error));	FALSE_POSITIVE	topUpErrorMessage switch t() + resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	166	        setErr(typeof bj?.error === "string" ? bj.error : "load_failed");	FALSE_POSITIVE	err → :352 resolveOwnerApiErrorMessage, banners route 코드만	
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	335	        toast.error(t("owner_s4_delete_failed"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	339	      toast.error(t("owner_s4_delete_failed"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerStoreInquiriesView.tsx	152	        toast.error(ownerFetchErrorMessage(res, t));	FALSE_POSITIVE	ownerFetchErrorMessage → resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreInquiriesView.tsx	186	        toast.error(ownerFetchErrorMessage(res, t));	FALSE_POSITIVE	ownerFetchErrorMessage → resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreOrderDeliveryActions.tsx	196	              setErr(formatOwnerOrderPatchErr(res.error, language));	RAW_ERROR_EXPOSED	formatOwnerOrderPatchErr 모르는 코드는 code 원문 반환(owner-order-patch-errors.ts:17)	모르는 코드는 일반 실패 키
+raw-error2	components/business/owner/OwnerOrderRequestDecision.tsx	71	      setErr(key ? t(key) : t("store_owner_decision_err_failed", { code: res.error }));	RAW_ERROR_EXPOSED	모르는 코드면 store_owner_decision_err_failed 「({code})」로 영문 코드 노출	{code} 빼고 일반 실패 키
+raw-error2	components/business/owner/OwnerStoreCommerceStateLabel.tsx	38	      data-owner-store-commerce-state={st.reason}	FALSE_POSITIVE	data- 속성 값, 화면 글자 아님	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	218	        setError(typeof pj?.error === "string" ? pj.error : t("business_phase7_424"));	FALSE_POSITIVE	GET products → ownerCatalogDbErrorResponse 코드(products/route.ts:93) → :476 resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	303	          toast.error(t("business_phase7_425"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	305	          toast.error(	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	313	          toast.error(	RAW_ERROR_EXPOSED	products-core.server.ts:909 「다른 곳에서 상품이 변경되었습니다…」·:782 statusBlock.message 한국어 j.message → toast	j.message 무시, error 코드별 키
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	320	          toast.error(	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	324	          setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));	FALSE_POSITIVE	PATCH 코드 → :476 resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	354	    toast.error(t("business_phase7_427"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerCoinConvertSection.tsx	166	        setError(reason(r.error));	FALSE_POSITIVE	reason = ownerCoinConvertReason(lang) || resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerCoinConvertSection.tsx	184	        setError(reason(q.error));	FALSE_POSITIVE	reason = ownerCoinConvertReason(lang) || resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	112	        setErr(typeof j?.error === "string" ? j.error : "load_failed");	FALSE_POSITIVE	err → :236 resolveOwnerApiErrorMessage, notices route 코드만	
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	170	          setErr(typeof j?.error === "string" ? j.error : "save_failed");	FALSE_POSITIVE	err → :236 resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	191	          setErr(typeof j?.error === "string" ? j.error : "save_failed");	FALSE_POSITIVE	err → :236 resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	219	        toast.error(t("owner_s4_delete_failed"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	223	      toast.error(t("owner_s4_delete_failed"));	FALSE_POSITIVE	t()	
+raw-error2	components/business/owner/OwnerStoreOrderReviewBlock.tsx	90	        setReplyErr(typeof j?.error === "string" ? j.error : "reply_failed");	RAW_ERROR_EXPOSED	reply/route.ts:68 guardBannedWords 문장(Accept-Language) → :252 resolveOwnerApiErrorMessage 원문 반환	서버 code 로 판정, 화면 키
+raw-error2	components/business/owner/OwnerStoreOrderReviewBlock.tsx	119	        setReplyErr(typeof j?.error === "string" ? j.error : "delete_reply_failed");	FALSE_POSITIVE	DELETE reply 코드 → :252 resolveOwnerApiErrorMessage	
+raw-error2	components/business/owner/OwnerStoreOrdersView.tsx	1187	        <p className="text-sm text-sam-danger">({state.message})</p>	RAW_ERROR_EXPOSED	OwnerStoreOrdersView.tsx:364,394 load_failed·network_error·서버 코드 → :1187 「(코드)」 그대로	resolveOwnerApiErrorMessage(state.message,t)
+raw-error2	components/business/owner/OwnerToastHost.tsx	89	      message={item.message}	FALSE_POSITIVE	공용 토스트 표시부(sink) — 출처는 호출처 행에서 판정(예: 104번 OwnerProductsHubClient.tsx:313)	
+raw-error2	components/business/owner/OwnerStorePartnerAgreementView.tsx	108	        if (json?.error === "partner_terms_version_mismatch") setReloadKey((n) => n + 1);	FALSE_POSITIVE	j.error 비교만	
+raw-error2	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	293	      setError(e instanceof Error ? e.message : "image_failed");	FALSE_POSITIVE	error → :494 safeT(ownerPopupErrorKey(error))	
+raw-error2	components/business/admin/BusinessAdminVisibleToggle.tsx	69	          toast.error(formatOwnerStoreToggleFailure(res.code, language));	FALSE_POSITIVE	formatOwnerStoreToggleFailure → 키	
+raw-error2	components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx	463	        setError(ownerAdDraftSaveErrorCode(patchJson.error));	FALSE_POSITIVE	코드 → ownerAdErrorKey → t (OwnerStoreSponsoredCreateView.tsx:575)	
+raw-error2	components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx	489	      setError(ownerAdDraftSaveErrorCode(createJson.error));	FALSE_POSITIVE	코드 → ownerAdErrorKey → t	
+raw-error2	components/business/owner/ads/OwnerBannerCreateView.tsx	439	        setError(ownerAdDraftSaveErrorCode(json.error));	FALSE_POSITIVE	코드 → OwnerBannerCreateView.tsx:633 t(ownerAdErrorKey)	
+raw-error2	components/business/owner/ads/OwnerBannerCreateView.tsx	510	      setError(ownerAdDraftSaveErrorCode(createJson.error));	FALSE_POSITIVE	코드 → t(ownerAdErrorKey)	
+raw-error2	components/business/owner/ads/OwnerDeliveryAdDetailView.tsx	790	                        : {h.reason}	HARMLESS_DATA	h.reason = 관리자가 입력한 사유 글(admin-delivery-ad-writer.ts:571 input.reason) — 사람 글	
+raw-error2	components/business/admin/BusinessAdminOpenToggle.tsx	56	          toast.error(formatOwnerStoreToggleFailure(res.code, language));	FALSE_POSITIVE	formatOwnerStoreToggleFailure → 키	
+raw-error2	components/business/admin/BusinessAdminShell.tsx	289	        setLoadErr(typeof json?.error === "string" ? json.error : "load_failed");	RAW_ERROR_EXPOSED	/api/me/stores 코드·load_failed → BusinessAdminShell.tsx:676 business_phase7_083 「({v1})」 로 영문 코드 노출(사장님 셸)	괄호 코드 제거 또는 resolveOwnerApiErrorMessage
+raw-error2	components/stores/StoreCartEntrySwitch.tsx	120	      hint={state.hint}	FALSE_POSITIVE	hint = network/missing/api enum, 자식이 키로 그림	
+raw-error2	components/stores/StoreCommerceOrderDetailClient.tsx	142	        <p className="text-sm text-sam-muted">{state.message}</p>	FALSE_POSITIVE	message = t() (StoreCommerceOrderDetailClient.tsx:91-110)	
+raw-error2	components/stores/StoreCommerceCartPageClient.tsx	1309	          setDistanceBlockReason(svc.ok === true ? (svc.reason ?? null) : null);	FALSE_POSITIVE	reason → resolveDeliveryDistanceBlockCopyKeys 키(:1580)	
+raw-error2	components/stores/commission/StoreCommissionLedgerTable.tsx	349	        `Approved ${formatCashMinor(d.approvedMinor)} = Cash ${formatCashMinor(d.cashRefundMinor)} + unpaid cancelled ${formatCashMinor(d.outstandingCancelMinor)} · Reason: ${d.reason}`	FALSE_POSITIVE	pickCommissionCopy(lang, ko, en) 언어 분기(인라인 ko/en 은 SSOT 신규 금지 형식), d.reason 은 관리자 입력	
+raw-error2	components/stores/commission/StoreCommissionLedgerParts.tsx	230	            {translateBy(lang, "stores_reason", undefined, "en")}: {d.reason}	HARMLESS_DATA	d.reason = 관리자 결정 사유 입력 글	
+raw-error2	components/stores/owner/OwnerNotificationSettings.tsx	130	          toast.error(t("owner_s4_setting_failed_reverted"));	FALSE_POSITIVE	t()	
+raw-error2	components/stores/owner/dashboard/OwnerFinanceHomeCards.tsx	46	        setError(resolveOwnerApiErrorMessage(payload.error, t));	FALSE_POSITIVE	resolveOwnerApiErrorMessage — finance route 코드만	
+raw-error2	components/stores/StoreReviewReportButton.tsx	79	        setErr(t(resolveStoreReportSubmitErrorKey(json.code ?? json.error)));	FALSE_POSITIVE	t(resolveStoreReportSubmitErrorKey)	
+raw-error2	components/stores/StoreReportForm.tsx	76	        setErr(t(resolveStoreReportSubmitErrorKey(json?.code ?? json?.error)));	FALSE_POSITIVE	t(resolveStoreReportSubmitErrorKey)	
+raw-error2	components/stores/modifiers/StoreModifierPicker.tsx	207	                  <p className={sheetCls.hint}>{rangeHint}</p>	FALSE_POSITIVE	sheetCls.hint = 클래스, rangeHint = t() (StoreModifierPicker.tsx:176)	
+raw-error2	components/stores/owner/OwnerNotificationList.tsx	119	            setError(typeof j?.error === "string" ? j.error : "load_failed");	FALSE_POSITIVE	error → :464 resolveOwnerApiErrorMessage, notifications route 코드만	
+raw-error2	components/mypage/MypageToastHost.tsx	104	      message={toast.message}	FALSE_POSITIVE	공용 내정보 토스트 표시부(sink) — 출처는 showMypageToast 호출처에서 판정	
+raw-error2	components/map/AddressSelectClient.tsx	209	        setMapsError(e instanceof Error ? e.message : t("addr_ui_maps_load_failed"));	RAW_ERROR_EXPOSED	load-google-maps.ts:13 「NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 가 없습니다.」·Google 로더 영문 예외 → AddressSelectClient.tsx:482 그대로	항상 t("addr_ui_maps_load_failed")
+raw-error2	components/map/AddressSelectClient.tsx	266	        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/map/AddressSelectClient.tsx	289	        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_map") : t("addr_ui_geo_failed"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/messenger/call/CallInAppNoticeBanner.tsx	55	        <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug tracking-tight">{current.message}</p>	RAW_ERROR_EXPOSED	call-session-navigation-seed.ts:495 「로그인이 필요합니다.」·:511 서버 json.error 문장 → :724 alertOutgoingCallFailure → call-in-app-notice-store.ts:37 messageOverride(코드 아닌 문장) 그대로	userMessage 를 키로(통화 코드 — 통화 변경 규정 승인 필요)
+raw-error2	components/mypage/MyStoreOrderDetailView.tsx	459	        setRefundErr(t(resolveStoreOrderMutationErrorKey("request_cancel", j?.error)));	FALSE_POSITIVE	t(resolveStoreOrderMutationErrorKey)	
+raw-error2	components/addresses/AddressPlatformSearchClient.tsx	255	        setErr(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/mypage/tabs/CommunityTab.tsx	248	          setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_activity_load_failed"));	RAW_ERROR_EXPOSED	me/community-activity/route.ts:43,63 activity_fetch_failed·e.message → CommunityTab.tsx:454 그대로	코드→키 표
+raw-error2	components/mypage/tabs/CommunityTab.tsx	282	        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unsave_failed"));	RAW_ERROR_EXPOSED	community/posts/[postId]/save/route.ts:21-66 not_found·blocked·DB msg → CommunityTab.tsx:454	코드→키 표
+raw-error2	components/mypage/tabs/CommunityTab.tsx	318	        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unlike_failed"));	RAW_ERROR_EXPOSED	philife like route error 코드 → CommunityTab.tsx:454 그대로	코드→키 표
+raw-error2	components/addresses/AddressMapConfirmClient.tsx	132	          setErr(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));	FALSE_POSITIVE	t(키 선택)	
+raw-error2	components/my/MyNotificationsView.tsx	286	            setError(typeof j?.error === "string" ? j.error : "load_failed");	FALSE_POSITIVE	error → :670 notifErrorMessage 키	
+raw-error2	components/my/MyNotificationsView.tsx	467	        setActionErrorToast(typeof j?.error === "string" ? j.error : "failed");	FALSE_POSITIVE	→ :793 notifErrorMessage 키	
+raw-error2	components/my/MyNotificationsView.tsx	587	          setActionErrorToast(typeof json?.error === "string" ? json.error : "notif_inbox_offer_action_failed");	FALSE_POSITIVE	→ :793 notifErrorMessage 키	
+raw-error2	components/my/settings/NoticesContent.tsx	52	          setError(typeof json.error === "string" ? json.error : t("settings_notices_load_failed"));	RAW_ERROR_EXPOSED	me/settings/notices/route.ts:65-116 영문 코드 → NoticesContent.tsx:76 그대로	코드→키 표
+raw-error2	components/my/settings/BulkRegionChangeContent.tsx	35	        setError(typeof json.error === "string" ? json.error : t("settings_bulk_region_error"));	RAW_ERROR_EXPOSED	me/posts/bulk-region/route.ts:31 한국어 문장·:49,69 DB message → BulkRegionChangeContent.tsx:57	서버 code + 화면 키
+raw-error2	components/delivery/DeliveryServiceAreaEditorCore.tsx	317	        setError(t(serviceAreaErrorKey(json.error, "load")));	FALSE_POSITIVE	t(serviceAreaErrorKey)	
+raw-error2	components/delivery/DeliveryServiceAreaEditorCore.tsx	445	        setSearchError(t(serviceAreaErrorKey(json.error, "search")));	FALSE_POSITIVE	t(serviceAreaErrorKey)	
+raw-error2	components/finance/AdminFinanceAdsView.tsx	100	        setError(json.error || "load_failed");	HARMLESS_ADMIN	AdminFinance* 관리자 재무 화면	
+raw-error2	components/chats/StoreOrderSellerOrderPanel.tsx	196	      setSendToast(r.error?.trim() || t("chats_seller_panel_send_failed_toast"));	RAW_ERROR_EXPOSED	sendChatMessage.ts:53-73 서버 error·「전송에 실패했습니다.」·「로그인이 필요합니다.」 → ChatDetailView.tsx:1448 → 토스트	sendChatMessage code 반환, 화면 키
+raw-error2	components/finance/AdminFinanceSettingsView.tsx	44	        setError(json.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceSettingsView.tsx	102	        setResult({ ok: false, code: json.error || "save_failed" });	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceOrderDetailView.tsx	35	        setError(json.error || "not_found");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceHubView.tsx	51	        setSummaryErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceHubView.tsx	102	        setTxError(res.status === 403 ? "forbidden" : adminSafeErrorCode(json.error, "load_failed"));	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceTransactionDetailView.tsx	37	        setError(json.error || "not_found");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/chats/ChatDetailView.tsx	1448	        return { ok: false, error: res.error };	RAW_ERROR_EXPOSED	sendChatMessage.ts:53-73 문장 → postChatText → StoreOrderSellerOrderPanel.tsx:196 토스트	sendChatMessage code 반환, 화면 키
+raw-error2	components/chats/TradeChatComposePreparingShell.tsx	53	          <p className="text-[13px] text-sam-danger">{errorBanner.message}</p>	RAW_ERROR_EXPOSED	createOrGetChatRoom.ts:169 서버 data.error·:171 e.message → TradeChatComposeClient.tsx:185 → 배너	서버 code → 화면 키
+raw-error2	components/my/settings/NotificationsSettingsContent.tsx	528	                  if (j?.error === "column_missing") setCommerceEmailColumnMissing(true);	FALSE_POSITIVE	j.error 비교만	
+raw-error2	components/my/settings/NotificationsSettingsContent.tsx	529	                  else if (j?.error === "profile_not_found") setCommerceEmailPatchError(t("notifications_profile_missing"));	FALSE_POSITIVE	j.error 비교 후 t()	
+raw-error2	components/finance/AdminFinanceTransactionsView.tsx	95	        setError(json.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/community/CommunityPostDetailPage.tsx	24	        reason={access.reason}	FALSE_POSITIVE	reason enum → CommunityPostAccessScreen MESSAGE_KEY	
+raw-error2	components/finance/AdminFinanceOutstandingView.tsx	107	        error={list.error}	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceConversionsView.tsx	106	        setError(json.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	119	        setError(json.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	344	        setError(stJson.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	403	        setTxError(json.error || "load_failed");	HARMLESS_ADMIN	관리자 재무 화면	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1425	        setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage switch t(), default 일반 키	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1719	        setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1869	        setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1982	      setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2082	      setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2141	      setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2173	          setActionError(getMessengerActionErrorMessage(json.error));	FALSE_POSITIVE	messengerHomeActionErrorMessage → t()	
+raw-error2	components/community/CommunityDetail.tsx	394	        setActionToast(res.error);	RAW_ERROR_EXPOSED	request-user-block.ts:17-66 한국어 문장·서버 error → CommunityDetail.tsx:646 토스트	requestUserBlock code 반환, 화면 키
+raw-error2	components/community-messenger/MessengerSnackbarHost.tsx	65	      message={current.message}	FALSE_POSITIVE	메신저 스낵바 표시부(sink) — 출처는 showMessengerSnackbar 호출처에서 판정	
+raw-error2	components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx	475	     * 확실한 거절 + 같은 화면이면 `setMessage(글)`(→ 위 vm.message 동기화) + 방별 초안 저장, 결과 불명이면 실패 행만.	FALSE_POSITIVE	주석 줄	
+raw-error2	components/community-messenger/domain-shell-canary/load-domain-room-timeline-seed.ts	60	    if (!prepared.ok) return { ok: false, error: prepared.error };	FALSE_POSITIVE	화면 호출처 없음(테스트 domain-room-timeline-seed.test.ts 만), 값도 코드	
+raw-error2	components/community-messenger/friend-qr/FriendQrResultHost.tsx	69	      setErrorKey(status === 429 ? "common_try_again_later" : friendQrErrorMessageKey(j.error));	FALSE_POSITIVE	friendQrErrorMessageKey → 키	
+raw-error2	components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx	362	        if (result.error === "already_requested") setPeerPending({ kind: "outgoing" });	FALSE_POSITIVE	result.error 비교만, 문구는 communityMessengerFriendRequestFailureMessage/t()	
+raw-error2	components/share/DibayShareSheet.tsx	152	      ? createPortal(<DibayToast message={toast.message} tone={toast.tone} />, document.body)	FALSE_POSITIVE	toast 문구 전부 t() (DibayShareSheet.tsx:107-121)	
+raw-error2	components/community-messenger/room/message/MessageLongPressPopover.tsx	372	          copyTitle={copyAction?.reason}	EXPOSED	message-long-press-policy.ts:42 「복사할 수 없는 메시지입니다」 하드코딩 → MessageActionMenu title 속성(:117)	reasonKey 로 바꾸고 t()
+raw-error2	components/community-messenger/room/message/MessageLongPressPopover.tsx	376	          replyTitle={replyAction?.reason}	FALSE_POSITIVE	reply 액션은 reason 없음(message-long-press-policy.ts), 항상 undefined	
+raw-error2	components/debug/CallQaDebugPanel.tsx	124	                  {e.reason ? <span className="text-sam-fg-muted"> reason={e.reason}</span> : null}	DEV_ONLY	components/debug/CallQaDebugPanel 통화 QA 디버그 패널	
+en-sentence	app/(main)/mypage/points/page.tsx	448	The start date is after the end date	FALSE_POSITIVE	pick(ko,en) 영어 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식)	
+en-sentence	app/(main)/mypage/points/page.tsx	449	Choose both a start and an end date	FALSE_POSITIVE	pick(ko,en) 영어 분기 값	
+en-sentence	app/(main)/mypage/points/page.tsx	587	Deposit requests you can cancel, regardless of period.	FALSE_POSITIVE	pick(ko,en) 영어 분기 값	
+en-sentence	app/(main)/mypage/points/promotions/page.tsx	341	The start date is after the end date	FALSE_POSITIVE	pick(ko,en) 영어 분기 값	
+en-sentence	app/(main)/mypage/points/promotions/page.tsx	342	Choose both a start and an end date	FALSE_POSITIVE	pick(ko,en) 영어 분기 값	

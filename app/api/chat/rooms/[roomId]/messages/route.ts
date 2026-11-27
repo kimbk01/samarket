@@ -16,9 +16,11 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { touchProductChatAfterItemTradeMessage } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 import { shouldBlockItemTradeMessagingForReservation } from "@/lib/trade/reserved-item-chat";
 import {
-  ADMIN_CHAT_SUSPENDED_MESSAGE,
+  ADMIN_CHAT_SUSPENDED_CODE,
   resolveAdminChatSuspension,
 } from "@/lib/chat/chat-room-admin-suspend";
+import { tradeApiError } from "@/lib/trade/trade-api-error-response";
+import { TRADE_CHAT_PREVIEW_TOKEN_MESSAGE, tradeChatPhotoPreviewToken } from "@/lib/trade/trade-api-error-text";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
@@ -28,10 +30,8 @@ import { guardBannedWords } from "@/lib/community-feed/banned-word-guard.server"
 import {
   enforceRateLimit,
   getRateLimitKey,
-  jsonError,
   jsonOk,
   parseJsonBody,
-  safeErrorMessage,
 } from "@/lib/http/api-route";
 import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/load-chat-room-messages";
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
@@ -68,7 +68,6 @@ export async function GET(
     key: `trade-chat:message-page:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "메시지 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "trade_chat_message_page_rate_limited",
   });
   if (!pageRateLimit.ok) {
@@ -79,7 +78,7 @@ export async function GET(
   const { roomId } = await params;
   if (!roomId) {
     markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, 400);
-    return NextResponse.json({ error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
   const rawLimit = Number(req.nextUrl.searchParams.get("limit"));
   const limitUsed = Math.min(
@@ -131,7 +130,7 @@ export async function POST(
     key: `trade-chat:message-send:${getRateLimitKey(req, userId)}`,
     limit: 24,
     windowMs: 60_000,
-    message: "메시지 전송이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    message: "trade_chat_message_rate_limited",
     code: "trade_chat_message_rate_limited",
   });
   if (!sendRateLimit.ok) {
@@ -144,7 +143,7 @@ export async function POST(
     sb = getSupabaseServer();
   } catch {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
-    return jsonError("서버 설정 필요", 500);
+    return tradeApiError("service_unavailable", 500);
   }
   const { roomId } = await params;
   const parsed = await parseJsonBody<{
@@ -152,7 +151,7 @@ export async function POST(
     messageType?: string;
     imageUrl?: string | null;
     imageUrls?: unknown;
-  }>(req, "body 필요");
+  }>(req, "invalid_request");
   if (!parsed.ok) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, parsed.response.status);
     return parsed.response;
@@ -169,16 +168,16 @@ export async function POST(
   });
   if (!roomId) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
-    return jsonError("roomId 필요", 400);
+    return tradeApiError("invalid_request", 400);
   }
   if (messageType === "image") {
     if (imageList.length === 0) {
       markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
-      return jsonError("이미지 주소가 필요합니다.", 400);
+      return tradeApiError("image_required", 400);
     }
   } else if (!text && messageType === "text") {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 400);
-    return jsonError("메시지를 입력하세요", 400);
+    return tradeApiError("message_required", 400);
   }
 
   const sbAny = sb;
@@ -213,7 +212,7 @@ export async function POST(
 
   if (roomFetchErr || !room) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
-    return NextResponse.json({ ok: false, error: "채팅방을 찾을 수 없습니다." }, { status: 404 });
+    return tradeApiError("chat_room_not_found", 404);
   }
   const r = room as {
     is_blocked: boolean;
@@ -229,31 +228,31 @@ export async function POST(
   const adminSuspend = resolveAdminChatSuspension(r);
   if (adminSuspend.suspended) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-    return NextResponse.json({ ok: false, error: ADMIN_CHAT_SUSPENDED_MESSAGE }, { status: 403 });
+    return tradeApiError(ADMIN_CHAT_SUSPENDED_CODE, 403);
   }
   if (r.is_readonly === true) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-    return NextResponse.json({ ok: false, error: "읽기 전용 채팅방입니다." }, { status: 403 });
+    return tradeApiError("chat_readonly", 403);
   }
   const peerUserId = [r.seller_id, r.buyer_id, r.initiator_id, r.peer_id].find(
     (id) => typeof id === "string" && id.trim() && id !== userId
   );
   if (peerUserId && (await isBlockedEitherWay(userId, peerUserId))) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
+    return tradeApiError("peer_blocked", 403);
   }
   if (r.is_blocked && r.blocked_by && userId !== r.blocked_by) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
+    return tradeApiError("peer_blocked", 403);
   }
   const roomTypePost = String((room as { room_type?: string }).room_type ?? "");
   if (roomTypePost === "store_order") {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
-    return NextResponse.json({ ok: false, error: "주문 채팅은 주문 전용 경로로 이동했습니다." }, { status: 404 });
+    return tradeApiError("store_order_chat_moved", 404);
   }
   if (roomTypePost !== "item_trade") {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 404);
-    return NextResponse.json({ ok: false, error: "삭제된 채팅 유형입니다." }, { status: 404 });
+    return tradeApiError("chat_type_removed", 404);
   }
   if (tradeRestriction) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
@@ -273,18 +272,19 @@ export async function POST(
   }
   if (partFetchErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
-    return jsonError("참여자 확인에 실패했습니다.", 500, { code: "trade_chat_participant_lookup_failed" });
+    console.error("[chat/rooms/messages] participant lookup failed", partFetchErr);
+    return tradeApiError("trade_chat_participant_lookup_failed", 500);
   }
   {
     const partRow = part as { hidden?: boolean; left_at?: string | null; is_active?: boolean | null } | null;
     if (!partRow || partRow.hidden || partRow.left_at || partRow.is_active === false) {
       markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-      return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+      return tradeApiError("not_participant", 403);
     }
   }
   if (r.request_status === "pending") {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-    return NextResponse.json({ ok: false, error: "채팅이 승인된 후에 메시지를 보낼 수 있어요." }, { status: 403 });
+    return tradeApiError("chat_request_pending", 403);
   }
 
   const roomTrade = room as {
@@ -305,20 +305,14 @@ export async function POST(
       )
     ) {
       markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "이 상품은 다른 분과 예약 중입니다. 예약된 분과의 채팅만 이어갈 수 있어요.",
-        },
-        { status: 403 }
-      );
+      return tradeApiError("item_reserved_other_buyer", 403);
     }
   }
 
   const bodyText =
     messageType === "image"
-      ? text || (imageList.length > 1 ? `사진 ${imageList.length}장` : "사진")
-      : text || "(메시지)";
+      ? text || tradeChatPhotoPreviewToken(imageList.length)
+      : text || TRADE_CHAT_PREVIEW_TOKEN_MESSAGE;
   const metadata: Record<string, unknown> =
     messageType === "image"
       ? imageList.length > 1
@@ -340,9 +334,8 @@ export async function POST(
 
   if (insertErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
-    return jsonError(safeErrorMessage(insertErr, "전송에 실패했습니다."), 500, {
-      code: "trade_chat_message_insert_failed",
-    });
+    console.error("[chat/rooms/messages] insert failed", insertErr);
+    return tradeApiError("trade_chat_message_insert_failed", 500);
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();
   const msgId = (msg as { id: string }).id;
@@ -350,9 +343,7 @@ export async function POST(
     messageType === "image"
       ? text
         ? text.slice(0, 100)
-        : imageList.length > 1
-          ? `사진 ${imageList.length}장`
-          : "사진"
+        : tradeChatPhotoPreviewToken(imageList.length)
       : text.slice(0, 100);
 
   const roomAny = room as {

@@ -1,3 +1,6 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { modifierLineIdentityKey } from "@/lib/stores/modifiers/identity";
 import { parseProductOptionsJson as parseProductOptionsJsonImpl } from "@/lib/stores/modifiers/parse-json";
@@ -108,8 +111,11 @@ export function validateModifierSelection(
   return validateLineModifiers(groups, wire, baseUnitAfterDiscount);
 }
 
-/** UI·목록용 요약 한 줄 */
-export function orderLineOptionsSummary(snapshot: unknown): string {
+/** UI·목록용 요약 한 줄 — 메모 머리말은 `language`(없으면 화면 언어) */
+export function orderLineOptionsSummary(
+  snapshot: unknown,
+  language: AppLanguageCode = getRuntimeAppLanguage()
+): string {
   if (snapshot == null) return "";
   if (typeof snapshot === "object" && snapshot !== null) {
     const s = snapshot as Record<string, unknown>;
@@ -122,8 +128,8 @@ export function orderLineOptionsSummary(snapshot: unknown): string {
       const sum = s.summary;
       if (typeof sum === "string" && sum.trim()) base = sum.trim();
     }
-    if (ln && base) return `${base} · 메모: ${ln}`;
-    if (ln) return `메모: ${ln}`;
+    if (ln && base) return translate(language, "store_line_note_with_options", { options: base, note: ln });
+    if (ln) return translate(language, "store_line_note_label", { note: ln });
     return base;
   }
   return "";

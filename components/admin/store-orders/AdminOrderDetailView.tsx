@@ -6,6 +6,7 @@
  * Sections A–H (docs/admin-store-order-ops-ssot.md §5). Money comes from the server; the only
  * browser arithmetic is the integrity check (compare only).
  */
+import { storeOrderRejectReasonForDisplay } from "@/lib/stores/store-order-reject-reason-text";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
@@ -508,7 +509,9 @@ export function AdminOrderDetailView({ orderId, initialSection = null, onChanged
                       <div className="mt-1 sam-text-xxs text-sam-muted">
                         {t("admin_store_orders_decided")} {formatManilaDateTime(r.decidedAt)}
                         {r.decidedBy ? ` · ${r.decidedBy}` : ""}
-                        {r.rejectedReason ? ` · ${t("admin_store_orders_reason_2")}: ${r.rejectedReason}` : ""}
+                        {storeOrderRejectReasonForDisplay(r.rejectedReason)
+                          ? ` · ${t("admin_store_orders_reason_2")}: ${storeOrderRejectReasonForDisplay(r.rejectedReason)}`
+                          : ""}
                       </div>
                     ) : null}
                   </li>

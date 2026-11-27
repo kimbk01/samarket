@@ -41,6 +41,7 @@ import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerSto
 import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
@@ -279,7 +280,7 @@ export function OwnerProductForm({
   const apiBase = endpoints.apiBase(storeId);
   const productsHubHref = endpoints.productsHubHref(storeId);
   const categoriesHref = endpoints.categoriesHref(storeId);
-  const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
+  const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency, language), [language]);
   const [values, setValues] = useState<FormValues>(() => ({
     ...initialValues(defaultDraft),
     menu_section_id: initialMenuSectionId.trim(),
@@ -444,7 +445,7 @@ export function OwnerProductForm({
       });
       const json = await res.json();
       if (!json?.ok) {
-        setError(json?.error ?? t("business_phase7_352"));
+        setError(isOwnerApiErrorCode(json?.error) ? json.error : "delete_failed");
         return;
       }
       router.push(productsHubHref);
@@ -465,7 +466,7 @@ export function OwnerProductForm({
       });
       const json = await res.json();
       if (!json?.ok || !json.product) {
-        setError(json?.error ?? t("business_phase7_353"));
+        setError(isOwnerApiErrorCode(json?.error) ? json.error : "load_failed");
         return;
       }
       const p = json.product as Record<string, unknown>;

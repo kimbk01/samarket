@@ -506,7 +506,7 @@ export function OwnerStoreOrderMockCard({
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
-                              {it.product_title_snapshot} x {it.qty}
+                              {it.product_title_snapshot?.trim() || t("store_checkout_summary_item_fallback")} x {it.qty}
                             </p>
                             {orderReview?.item_feedback?.[it.id] ? (
                               <OwnerOrderItemFeedbackBadge vote={orderReview.item_feedback[it.id]} />
@@ -723,7 +723,7 @@ function summarizeMenu(
   const extra = items.length - 1;
   if (!first) return t("store_owner_menu_summary_none");
   return t("store_owner_menu_summary_line", {
-    title: first.product_title_snapshot,
+    title: first.product_title_snapshot?.trim() || t("store_checkout_summary_item_fallback"),
     qty: String(first.qty),
     extra: extra > 0 ? t("store_owner_menu_summary_extra", { count: String(extra) }) : "",
   });

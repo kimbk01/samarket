@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductEditSupportShell } from "@/components/support/OwnerProductEditSupportShell";
-import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { translate } from "@/lib/i18n/messages";
 
 export default function OwnerEditProductPage({
@@ -32,16 +32,15 @@ async function OwnerEditProductPageBody({
   const pid = typeof productId === "string" ? productId.trim() : "";
 
   if (!storeId || !pid) {
-    const language = getRuntimeAppLanguage();
+    /** 언어 재감사 2026-11-27: 주소 변수 이름(storeId)을 화면에 쓰지 않는다 · 서버는 요청 언어 */
+    const language = await resolveRequestAppLanguageOr("en");
     return (
       <div className="min-h-screen bg-background px-4 py-8">
         <p className="sam-text-body text-sam-fg">
-          {translate(language, "business_phase7_698")}{" "}
-          <code className="rounded-ui-rect bg-sam-surface-muted px-1">storeId</code>{" "}
+          {translate(language, "owner_product_edit_need_store")}{" "}
           <Link href="/stores/owner" className="font-medium text-signature underline">
             {translate(language, "business_phase7_699")}
           </Link>
-          {translate(language, "business_phase7_700")}
         </p>
       </div>
     );

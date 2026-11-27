@@ -49,6 +49,7 @@ export function buildTradeListViewModelForLanguage(
         previewText: preview.text,
         isSystem: item.lastMessageIsSystem || preview.source === "allowed_system_message",
         statusBadgeLabel: statusBadge,
+        lang,
       });
   return {
     roomId: item.roomId,

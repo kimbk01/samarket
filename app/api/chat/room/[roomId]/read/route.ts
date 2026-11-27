@@ -22,7 +22,7 @@ export async function POST(
   const { roomId: raw } = await params;
   const roomId = parseRoomId(raw);
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_room_id", code: "invalid_room_id" }, { status: 400 });
   }
 
   const sb = tryCreateSupabaseServiceClient();

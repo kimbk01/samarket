@@ -74,9 +74,10 @@ export function resolveClientSignupGateHref(
   return resolveDibaySignupRoute(status, next?.trim() || currentHrefFallback());
 }
 
+/** 한국어 문장(옛 응답) + 오류 코드 `unauthorized`·`login_required`(재감사 2026-11-27 코드 응답) 모두 인식 */
 export function isLoginRequiredError(error: string | null | undefined): boolean {
   const msg = String(error ?? "").toLowerCase();
-  return msg.includes("로그인이 필요") || msg.includes("unauthorized");
+  return msg.includes("로그인이 필요") || msg.includes("unauthorized") || msg.trim() === "login_required";
 }
 
 export { isPhoneVerificationRequiredError };

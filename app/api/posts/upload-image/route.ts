@@ -9,7 +9,8 @@ import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_MB = 8;
+const MAX_BYTES = MAX_MB * 1024 * 1024;
 const ALLOWED = new Set<string>(CANONICAL_POST_IMAGE_ALLOWED_MIMES);
 
 /**
@@ -29,7 +30,10 @@ function sniffIsAllowedImage(buf: Buffer): boolean {
   return false;
 }
 
-/** 거래 글 이미지 — post-images + upload-time canonical derivatives. */
+/**
+ * 거래 글 이미지 — post-images + upload-time canonical derivatives.
+ * 오류는 코드만 보낸다 (`{ ok:false, error, code, params? }` — 화면 문구는 `post-image-upload-error-text.ts`).
+ */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -41,29 +45,26 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "service_unavailable", code: "service_unavailable" }, { status: 500 });
   }
 
   let form: FormData;
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ ok: false, error: "multipart 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_form", code: "invalid_form" }, { status: 400 });
   }
 
   const file = form.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "file 필드 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "file_required", code: "file_required" }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "8MB 이하만 가능합니다." }, { status: 413 });
+    return NextResponse.json({ ok: false, error: "too_large", code: "too_large", params: { maxMb: MAX_MB } }, { status: 413 });
   }
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
-    return NextResponse.json(
-      { ok: false, error: "JPEG, PNG, WebP, GIF, HEIC만 가능합니다." },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "unsupported_type", code: "unsupported_type" }, { status: 400 });
   }
 
   const ext =
@@ -72,10 +73,7 @@ export async function POST(req: NextRequest) {
   const path = `${uid}/${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
   if (!sniffIsAllowedImage(buf)) {
-    return NextResponse.json(
-      { ok: false, error: "JPEG, PNG, WebP, GIF, HEIC만 가능합니다." },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "unsupported_type", code: "unsupported_type" }, { status: 400 });
   }
 
   try {
@@ -93,6 +91,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[posts/upload-image]", e);
-    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "upload_failed", code: "upload_failed" }, { status: 500 });
   }
 }

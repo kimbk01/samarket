@@ -3,6 +3,8 @@ import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdmi
 import { OwnerProductsHubClient } from "@/components/business/owner/OwnerProductsHubClient";
 import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
 import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+/** 언어 재감사 2026-11-27: 로더 DB 원문을 화면에 넘기지 않는다 — 코드만 */
+import { toOwnerBootstrapErrorCode } from "@/lib/business/owner-api-error-text";
 
 /**
  * CONTRACT — do not Suspense-fallback to feed-route pulse skeleton.
@@ -39,7 +41,7 @@ async function OwnerProductsHubPageBody({
         <OwnerProductsHubClient
           key={storeId}
           storeId={storeId}
-          rscBootstrapError={bootstrap.error}
+          rscBootstrapError={toOwnerBootstrapErrorCode(bootstrap.error)}
         />
       </OwnerAdminPageScrollShell>
     );

@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
     key: `rider_location:${userId}`,
     limit: 40,
     windowMs: 60_000,
-    message: "위치 업데이트가 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
     code: "rider_location_rate_limited",
   });
   if (!rl.ok) return rl.response;

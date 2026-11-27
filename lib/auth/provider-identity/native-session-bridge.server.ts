@@ -125,7 +125,7 @@ export async function resolveNativeProviderSessionPrelude(
     return {
       ok: false,
       errorCode: "provider_email_conflict",
-      message: "보안을 위해 기존 로그인 확인이 필요합니다.",
+      message: "provider_email_conflict",
       status: 409,
       conflict: {
         email: resolved.conflict.email,

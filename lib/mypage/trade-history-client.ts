@@ -133,11 +133,11 @@ export async function fetchTradeHistoryCounts(
     };
     if (!res.ok) {
       throw new Error(
-        typeof j.error === "string" ? j.error : "거래 건수를 불러오지 못했어요."
+        typeof j.error === "string" ? j.error : "trade_counts_load_failed"
       );
     }
     if (j.ok !== true) {
-      throw new Error(typeof j.error === "string" ? j.error : "거래 건수를 불러오지 못했어요.");
+      throw new Error(typeof j.error === "string" ? j.error : "trade_counts_load_failed");
     }
     const purchaseCount = Math.max(0, Math.floor(Number(j.purchaseCount) || 0));
     const salesCount = Math.max(0, Math.floor(Number(j.salesCount) || 0));
@@ -172,7 +172,7 @@ async function fetchPurchasesPayload(): Promise<PurchaseHistoryRow[]> {
     return [];
   }
   if (!response.ok) {
-    throw new Error(payload.error || "구매 내역을 불러오지 못했어요.");
+    throw new Error(payload.error || "purchase_history_load_failed");
   }
   const items = Array.isArray(payload.items) ? payload.items : [];
   return items.map((item) => ({
@@ -215,7 +215,7 @@ async function fetchSalesPayload(): Promise<SalesHistoryRow[]> {
     return [];
   }
   if (!response.ok) {
-    throw new Error(payload.error || "판매 내역을 불러오지 못했어요.");
+    throw new Error(payload.error || "sales_history_load_failed");
   }
   return Array.isArray(payload.items) ? payload.items : [];
 }

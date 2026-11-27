@@ -6,8 +6,11 @@ import {
   type MemberIdentityProfileFields,
 } from "@/lib/users/public-member-identity";
 
-/** 매장 오너 화면용 — Order CUSTOMER = MEMBER Identity (never store_name / slug) */
-export const BUYER_PUBLIC_LABEL_FALLBACK = "사마켓 회원";
+/**
+ * 매장 오너 화면용 — Order CUSTOMER = MEMBER Identity (never store_name / slug).
+ * 이름을 못 찾으면 서버는 빈 값을 보내고, 화면이 `store_buyer_public_label_fallback` 키로 그린다 (재감사 2026-11-27).
+ */
+export const BUYER_PUBLIC_LABEL_FALLBACK = "";
 
 /**
  * `buyer_user_id` 집합 → Member compact/public label.

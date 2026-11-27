@@ -129,8 +129,9 @@ export function assembleChatRoomsFromSnapshotPayload(
 
   const profiles = asRecordArray(payload.profiles);
   const testUsers = asRecordArray(payload.test_users);
-  const nicknameByUserId = buildNicknamesFromIdentityRows(profiles, testUsers);
-  const identityByUserId = buildIdentityMapFromProfiles(profiles, testUsers);
+  const userLang = normalizeAppLanguage(payload.user_lang);
+  const nicknameByUserId = buildNicknamesFromIdentityRows(profiles, testUsers, userLang);
+  const identityByUserId = buildIdentityMapFromProfiles(profiles, testUsers, userLang);
 
   const postMap = new Map(asRecordArray(payload.posts).map((p) => [String(p.id ?? ""), p]));
   enrichAuthorNicknamesInPostMap(postMap, nicknameByUserId);
@@ -156,7 +157,6 @@ export function assembleChatRoomsFromSnapshotPayload(
     ])
   );
 
-  const userLang = normalizeAppLanguage(payload.user_lang);
 
   return assembleChatRoomsList({
     userId,

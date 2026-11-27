@@ -26,6 +26,15 @@ export type AutoBusinessHoursFormSlice = {
   closedDates?: string[];
 };
 
+/**
+ * 언어 재감사 2026-11-27: `weekdays` 요약에 화면 문장(「매일」)을 저장하지 않는다 — 시각·시간대 값만.
+ * 구조값은 `auto_business_hours.open/close/timezone` 에 있고, 「매일」 같은 말은 화면이 키로 붙인다.
+ * 이미 저장된 「매일 …」 옛 행은 고치지 않는다(읽는 쪽 `compactStoreHoursRangeForDisplay` 가 시각만 뽑는다).
+ */
+function autoWeekdaysSummary(open: string, close: string, tz: string): string {
+  return `${open}–${close} (${tz})`;
+}
+
 /** OPS-03 — weekly/closed_dates 를 정규화해 auto_business_hours 객체에 붙인다 (비어 있으면 키 생략). */
 function attachScheduleExt(
   target: Record<string, unknown>,
@@ -73,9 +82,9 @@ export function applyAutoBusinessHoursToRecord(
       weeklyIn,
       slice.closedDates
     );
-    // 요일별 구간이 있으면 「매일 …」 요약은 틀린 정보 — 공개 화면은 weekly 표로 표시한다.
+    // 요일별 구간이 있으면 매일 요약은 틀린 정보 — 공개 화면은 weekly 표로 표시한다.
     if (!(prev.auto_business_hours as Record<string, unknown>).weekly) {
-      prev.weekdays = `매일 ${open}–${close} (${tz})`;
+      prev.weekdays = autoWeekdaysSummary(open, close, tz);
     }
     return;
   }
@@ -132,7 +141,7 @@ export function sanitizeBusinessHoursJsonForPersistence(raw: unknown): Record<st
     );
     const wd = typeof prev.weekdays === "string" ? prev.weekdays.trim() : "";
     const hasWeekly = Boolean((prev.auto_business_hours as Record<string, unknown>).weekly);
-    if (!wd && !hasWeekly) prev.weekdays = `매일 ${open}–${close} (${tz})`;
+    if (!wd && !hasWeekly) prev.weekdays = autoWeekdaysSummary(open, close, tz);
     return prev;
   }
 
@@ -148,4 +157,26 @@ export function sanitizeBusinessHoursJsonForPersistence(raw: unknown): Record<st
     a.closed_dates
   );
   return prev;
+}
+
+/**
+ * 언어 재감사 2026-11-27 (STORED 옛 행 대응) — `weekdays` 자동 요약을 화면 언어로 다시 그린다.
+ * - 옛 행 「매일 09:00–22:00 (Asia/Manila)」·새 행 「09:00–22:00 (Asia/Manila)」 → `owner_store_hours_daily_range`
+ * - 그 밖(사장님이 직접 쓴 글)은 그대로 둔다.
+ */
+/** 옛 행 앞말 「매일」 = `\uB9E4\uC77C` (코드 안 한국어 글자 없이 대응) */
+const AUTO_WEEKDAYS_SUMMARY = /^(?:\uB9E4\uC77C\s+)?(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})(?:\s*\(([^()]+)\))?$/;
+
+export function localizeStoredWeekdaysSummary(
+  raw: string,
+  t: (key: "owner_store_hours_daily_range", vars: { range: string }) => string
+): string {
+  const text = raw.trim();
+  const m = AUTO_WEEKDAYS_SUMMARY.exec(text);
+  if (!m) return raw;
+  const open = normalizeHHMM(m[1] ?? "");
+  const close = normalizeHHMM(m[2] ?? "");
+  if (!open || !close) return raw;
+  const tz = m[3]?.trim();
+  return t("owner_store_hours_daily_range", { range: tz ? `${open}–${close} (${tz})` : `${open}–${close}` });
 }

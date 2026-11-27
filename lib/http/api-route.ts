@@ -86,10 +86,18 @@ export function jsonWithRequestIdHeader<T>(
  * 운영 환경에서는 PostgREST/DB 원문을 클라이언트에 넘기지 않음 (정보 누수·스키마 노출 완화).
  * 로컬·스테이징에서는 디버깅을 위해 상세 메시지 유지.
  */
+/**
+ * 공통 오류 코드 — 응답 `error` 에 문장 대신 넣는다(언어 재감사 2026-11-27 · `docs/i18n-ssot.md` §3-3).
+ * 화면은 `resolveApiErrorText` + `COMMON_API_ERROR_CODE_MAP`(`lib/http/common-api-error-code-map.ts`).
+ */
+export const API_ERROR_INTERNAL = "internal_error";
+export const API_ERROR_TEMPORARILY_UNAVAILABLE = "temporarily_unavailable";
+export const API_ERROR_RATE_LIMITED = "rate_limited";
+
 export function clientSafeInternalErrorMessage(internalMessage: string | undefined | null): string {
   const trimmed = typeof internalMessage === "string" ? internalMessage.trim() : "";
-  if (!isProductionDeploy()) return trimmed || "오류가 발생했습니다.";
-  return "일시적으로 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+  if (!isProductionDeploy()) return trimmed || API_ERROR_INTERNAL;
+  return API_ERROR_TEMPORARILY_UNAVAILABLE;
 }
 
 export function jsonError(
@@ -155,6 +163,19 @@ export function getRateLimitKey(request: NextRequest, userId?: string | null): s
   return `ip:${getClientIp(request)}`;
 }
 
+/**
+ * 429 응답 `error` — 문장 대신 코드(`code` 와 같은 값). 호출처가 `message` 를 직접 넘긴 곳(통화·라이더·웹훅·관리자 등)은
+ * 그 경로의 응답을 바꾸지 않으려고 그대로 둔다(통화 변경 규정 — 통화 경로 응답 diff 0).
+ */
+function rateLimitErrorValue(options: { message?: string; code?: string }): string {
+  return options.message ?? options.code ?? API_ERROR_RATE_LIMITED;
+}
+
+/** 코드 응답일 때만 남은 초를 `params.retryAfterSec` 로 보낸다(화면 키 치환값) */
+function rateLimitErrorExtra(options: { message?: string }, retryAfterSec: number): JsonObject {
+  return options.message ? {} : { params: { retryAfterSec } };
+}
+
 function enforceRateLimitMemory(options: {
   key: string;
   limit: number;
@@ -187,17 +208,18 @@ function enforceRateLimitMemory(options: {
     return {
       ok: false as const,
       response: jsonError(
-        options.message ?? "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+        rateLimitErrorValue(options),
         {
           status: 429,
-          code: options.code ?? "rate_limited",
+          code: options.code ?? API_ERROR_RATE_LIMITED,
           headers: {
             "Retry-After": String(retryAfterSec),
             "X-RateLimit-Limit": String(options.limit),
             "X-RateLimit-Remaining": "0",
             "X-RateLimit-Reset": String(current.resetAt),
           },
-        }
+        },
+        rateLimitErrorExtra(options, retryAfterSec)
       ),
     };
   }
@@ -229,17 +251,18 @@ export async function enforceRateLimit(options: {
         return {
           ok: false as const,
           response: jsonError(
-            options.message ?? "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+            rateLimitErrorValue(options),
             {
               status: 429,
-              code: options.code ?? "rate_limited",
+              code: options.code ?? API_ERROR_RATE_LIMITED,
               headers: {
                 "Retry-After": String(retryAfterSec),
                 "X-RateLimit-Limit": String(options.limit),
                 "X-RateLimit-Remaining": "0",
                 "X-RateLimit-Reset": String(resetAt),
               },
-            }
+            },
+            rateLimitErrorExtra(options, retryAfterSec)
           ),
         };
       }
@@ -253,7 +276,7 @@ export async function enforceRateLimit(options: {
 
 export function safeErrorMessage(
   error: unknown,
-  fallback = "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+  fallback: string = API_ERROR_TEMPORARILY_UNAVAILABLE
 ): string {
   if (error instanceof Error) {
     const message = error.message?.trim();

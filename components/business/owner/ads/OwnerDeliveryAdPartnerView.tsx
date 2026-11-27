@@ -12,6 +12,7 @@ import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { DeliveryAdOwnerPartnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerPartnerStepProgress";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import { OwnerIosCashPurchaseNotice } from "@/components/business/owner/OwnerIosCashPurchaseNotice";
+import { ownerAdErrorKey } from "@/lib/stores/advertising/owner-ad-error-copy";
 import {
   dibayShellRequestHeaders,
   useIosAppDigitalPurchaseBlocked,
@@ -50,7 +51,7 @@ type HubStore = {
 };
 
 export function OwnerDeliveryAdPartnerView() {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const iosCashPurchaseBlocked = useIosAppDigitalPurchaseBlocked();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() || "";
@@ -259,8 +260,8 @@ export function OwnerDeliveryAdPartnerView() {
         </p>
       ) : error ? (
         <p className="mt-3 text-[13px] text-sam-danger" role="alert">
-          {safeT("owner_ads_error_generic")}{" "}
-          ({error})
+          {/* 언어 재감사 2026-11-27: 오류 코드를 괄호로 붙이지 않는다 — 코드별 키 */}
+          {t(ownerAdErrorKey(error) ?? "owner_ads_error_generic")}
         </p>
       ) : null}
 

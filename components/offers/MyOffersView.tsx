@@ -278,7 +278,7 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
               </Link>
               <div className="min-w-0 flex-1">
                 <Link href={offer.productHref} className="block truncate sam-text-body font-semibold text-sam-fg">
-                  {offer.productTitle}
+                  {offer.productTitle.trim() || t("mypage_r5_offer_product_fallback")}
                 </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span

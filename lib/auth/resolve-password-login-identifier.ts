@@ -91,7 +91,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     return {
       ok: false,
       status: 400,
-      error: "이메일 또는 아이디를 입력하세요.",
+      error: "identifier_required",
       code: "identifier_required",
     };
   }
@@ -110,7 +110,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     return {
       ok: false,
       status: 503,
-      error: "로그인 식별자 조회 구성이 준비되지 않았습니다.",
+      error: "login_identifier_lookup_unconfigured",
       code: "login_identifier_lookup_unconfigured",
     };
   }
@@ -157,7 +157,7 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     return {
       ok: false,
       status: 500,
-      error: "로그인 식별자를 확인하지 못했습니다.",
+      error: loaded.errorCode,
       code: loaded.errorCode,
     };
   }

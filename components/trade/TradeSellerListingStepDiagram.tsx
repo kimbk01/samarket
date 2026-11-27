@@ -130,8 +130,8 @@ export function TradeSellerListingStepDiagram({
       role="group"
       aria-label={
         interactive
-          ? `거래 진행 단계 (${stepLabels}). 판매자는 다른 단계의 원을 탭하면 물품 상태를 변경할 수 있습니다.`
-          : `거래 진행 단계 (${stepLabels})`
+          ? t("reaudit_trade_steps_aria_seller", { steps: stepLabels })
+          : t("reaudit_trade_steps_aria", { steps: stepLabels })
       }
     >
       <div className="flex h-7 min-h-7 w-full min-w-0 items-center">

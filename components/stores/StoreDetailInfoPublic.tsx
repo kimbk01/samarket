@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
+import { localizeStoredWeekdaysSummary } from "@/lib/stores/serialize-store-business-hours-json";
 import { formatStoreDetailDeliveryFeeValue, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { StorePublicNoticesList } from "@/components/stores/StorePublicNoticesList";
 import {
@@ -391,7 +392,9 @@ export function StoreDetailInfoPublic({
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
               <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_weekday")}</dt>
               <dd className="min-w-0 flex-1 sam-text-body font-medium leading-snug text-sam-fg">
-                {deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine || "—"}
+                {deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine
+                  ? localizeStoredWeekdaysSummary(deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine, t)
+                  : "—"}
               </dd>
             </div>
           )}

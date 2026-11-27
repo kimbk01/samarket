@@ -89,8 +89,11 @@ export const MEMBER_ACCOUNT_LOGIN_DENIED = {
   },
 };
 
-export const MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE =
-  "이 회원은 현재 활동이 제한되어 있습니다.";
+/**
+ * 쓰기 거부 응답 `error` — 문장 대신 코드(`code` 와 같은 값 · 언어 재감사 2026-11-27).
+ * 화면 문구는 키 `api_err_member_activity_restricted`(`COMMON_API_ERROR_CODE_MAP`).
+ */
+export const MEMBER_ACCOUNT_WRITE_DENIED_MESSAGE = "member_activity_restricted";
 
 /** P0-R3 — lifecycle authority missing/unreadable (not ACTIVE). */
 export const MEMBER_ACCOUNT_STATE_UNAVAILABLE = {

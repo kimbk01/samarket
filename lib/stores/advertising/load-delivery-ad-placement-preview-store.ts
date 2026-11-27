@@ -92,8 +92,8 @@ export async function loadDeliveryAdPlacementPreviewStore(
     subSlug: topic.slug,
     subLabel: topic.name,
   };
-  const commerce = buildBrowseStoreCommerceSnapshot(raw.business_hours_json);
-  const extras = parseCommerceExtrasFromHoursJson(raw.business_hours_json);
+  const commerce = buildBrowseStoreCommerceSnapshot(raw.business_hours_json, locale);
+  const extras = parseCommerceExtrasFromHoursJson(raw.business_hours_json, locale);
   const deliveryAvailable = raw.delivery_available === true;
   const labels = formatBrowseStoreRowLabels(locale, commerce, {
     deliveryAvailable,

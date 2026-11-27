@@ -6,6 +6,7 @@ import { VERIFY_PHONE_COUNTRY_FLAG } from "@/lib/phone/verify-phone-number";
 import { phoneOtpProviderCountry } from "@/lib/phone/admin-phone-country-display";
 import Link from "next/link";
 import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
@@ -81,6 +82,17 @@ type OpsPayload = {
 function pht(iso: string | null | undefined): string {
   return iso ? `${formatAdminManilaDateTime(iso)} PHT` : "—";
 }
+
+/** 전화 인증 ON/OFF 변경 실패 코드 → 문구 키 (서버 `lib/auth/phone-otp-ops.ts` — 문장 대신 코드, 언어 재감사 2026-11-27) */
+const PHONE_OPS_UPDATE_ERROR_KEYS: Partial<Record<string, MessageKey>> = {
+  confirm_required: "admin_api_users_phone_ops_confirm_required",
+  invalid_reason: "admin_users_member_dibay_id_reason_required",
+  forbidden_security: "admin_phone_ops_err_security_unmet",
+  rpc_unavailable: "admin_phone_ops_err_rpc_unavailable",
+  version_conflict: "admin_trade_err_stale_state",
+  settings_missing: "admin_phone_ops_err_settings_missing",
+  server_error: "admin_phone_ops_err_update_failed",
+};
 
 function remediation(ops: OpsPayload, lang: string): { title: string; steps: string[] } {
   const tr = (key: Parameters<typeof translateBy>[1], vars?: Record<string, unknown>) => translateBy(lang, key, vars);
@@ -227,18 +239,17 @@ export function AdminPhoneVerificationOpsPage() {
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        message?: string;
         error?: string;
         blockers?: string[];
         ops?: OpsPayload;
       };
       if (!res.ok || !json.ok) {
         const extra = json.blockers?.length ? ` (${json.blockers.join(", ")})` : "";
+        const errorCode = membersOperatorErrorCode(json.error, "update_failed");
+        const errorKey = PHONE_OPS_UPDATE_ERROR_KEYS[errorCode];
         setResult({
           ok: false,
-          text:
-            (json.message || adminOperatorErrorMessage(membersOperatorErrorCode(json.error, "update_failed"), ko)) +
-            extra,
+          text: (errorKey ? t(errorKey) : adminOperatorErrorMessage(errorCode, ko)) + extra,
         });
         if (json.ops) setOps(json.ops);
         return;

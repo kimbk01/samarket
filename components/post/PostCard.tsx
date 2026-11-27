@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerPostApiErrorText } from "@/lib/posts/owner-post-api-error-text";
 import { useTradeListingRemoved } from "@/lib/trade/listing-visibility/listing-visibility-client";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { MapPin } from "lucide-react";
@@ -711,7 +712,17 @@ export const PostCard = memo(function PostCard({
                     const lockKey = ownerLockKeyFromResponse(data.lockKey);
                     await dibayAlert(
                       lockKey || data.error
-                        ? { title: t("popup_error_title"), description: lockKey ? t(lockKey) : data.error }
+                        ? {
+                            title: t("popup_error_title"),
+                            description: lockKey
+                              ? t(lockKey)
+                              : resolveOwnerPostApiErrorText({
+                                  json: data,
+                                  status: res.status,
+                                  fallbackKey: "trade_detail_delete_failed",
+                                  t,
+                                }),
+                          }
                         : { title: t("trade_detail_delete_failed") }
                     );
                     return;

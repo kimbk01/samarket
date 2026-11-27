@@ -7,12 +7,13 @@ import { createPortal } from "react-dom";
 import { MyBusinessNavList } from "@/components/business/MyBusinessNavList";
 import { buildMyBusinessNavGroups } from "@/lib/business/my-business-nav";
 import {
-  formatStoreOrderSummaryForChatMessage,
+  formatStoreOrderSummaryText,
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
 import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
@@ -55,7 +56,7 @@ export function StoreOrderSellerOrderPanel({
   stackAboveOwnerChatModal = false,
   aboveOwnerChatSlide = false,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -184,7 +185,7 @@ export function StoreOrderSellerOrderPanel({
 
   const handleSendSummary = useCallback(async () => {
     if (!orderSnap || sendBusy || sendSummaryDisabled) return;
-    const body = formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller");
+    const body = formatStoreOrderSummaryText(orderSnap, itemsSnap, language);
     setSendBusy(true);
     setSendToast(null);
     const r = await postChatText(body);
@@ -193,9 +194,11 @@ export function StoreOrderSellerOrderPanel({
       setSendToast(t("chats_seller_panel_sent_toast"));
       onOpenChange(false);
     } else {
-      setSendToast(r.error?.trim() || t("chats_seller_panel_send_failed_toast"));
+      setSendToast(
+        resolveApiErrorText({ code: r.error, fallbackKey: "chats_seller_panel_send_failed_toast", t })
+      );
     }
-  }, [orderSnap, itemsSnap, postChatText, sendBusy, sendSummaryDisabled, onOpenChange, t]);
+  }, [orderSnap, itemsSnap, postChatText, sendBusy, sendSummaryDisabled, onOpenChange, t, language]);
 
   const onOrderPatched = useCallback(() => {
     void loadOrder();
@@ -280,7 +283,7 @@ export function StoreOrderSellerOrderPanel({
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
         <pre data-user-content="" className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
-          {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
+          {formatStoreOrderSummaryText(orderSnap, itemsSnap, language)}
         </pre>
       ) : null}
     </div>
@@ -294,7 +297,7 @@ export function StoreOrderSellerOrderPanel({
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
         <pre data-user-content="" className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
-          {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
+          {formatStoreOrderSummaryText(orderSnap, itemsSnap, language)}
         </pre>
       ) : null}
     </div>

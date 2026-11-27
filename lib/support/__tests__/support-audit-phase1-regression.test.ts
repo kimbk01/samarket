@@ -663,6 +663,7 @@ describe("support audit phase 1 — regression lock", () => {
     await adminEditSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id, body: "수정본" });
     expect(db.notification_events[0].body).toBe("수정본");
     await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id });
-    expect(db.notification_events[0].body).toBe("삭제된 메시지입니다.");
+    // 언어 재감사 2026-11-27 §4-3: 문장 대신 문구 키 — 알림함이 보는 사람 언어로 그린다
+    expect(db.notification_events[0].body).toBe("support_message_deleted");
   });
 });

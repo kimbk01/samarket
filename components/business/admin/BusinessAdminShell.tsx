@@ -673,7 +673,10 @@ export function BusinessAdminShell({
           {...ownerStackShellRootProps}
           className={`${ownerStackShellRootClassName} px-4 py-8`}
         >
-          <p className="text-sm text-sam-danger">{t("business_phase7_083", { v1: loadErr })}</p>
+          {/* 언어 재감사 2026-11-27: 영문 코드를 괄호로 붙이지 않는다 */}
+          <p className="text-sm text-sam-danger">
+            {loadErr === "unauthorized" ? t("common_login_required") : t("store_owner_store_load_failed")}
+          </p>
           <button
             type="button"
             className="mt-2 text-sm font-medium text-signature underline"

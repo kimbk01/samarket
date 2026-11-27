@@ -104,7 +104,9 @@ export async function POST(req: NextRequest) {
   if (alreadyBlocked) {
     const result = await unblockUserSocial(auth.userId, target);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
+      /** 재감사 2026-11-27: DB 원문은 로그로만, 응답은 코드 */
+      if (result.error) console.error("[community/block-relations] unblock failed", result.error);
+      return NextResponse.json({ ok: false, error: "unblock_failed", code: "unblock_failed" }, { status: 500 });
     }
     await restoreDirectRoomsOnUnblockForViewer(auth.userId, target);
     return NextResponse.json({ ok: true, blocked: false });
@@ -123,7 +125,9 @@ export async function POST(req: NextRequest) {
 
   const result = await blockUserSocial(auth.userId, target);
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error ?? "block_failed" }, { status: 500 });
+    /** 재감사 2026-11-27: DB 원문은 로그로만, 응답은 코드 */
+    if (result.error) console.error("[community/block-relations] block failed", result.error);
+    return NextResponse.json({ ok: false, error: "block_failed", code: "block_failed" }, { status: 500 });
   }
 
   const cleanup = await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, target);

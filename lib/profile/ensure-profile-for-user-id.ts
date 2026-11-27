@@ -5,6 +5,8 @@ import type { ProfileRow } from "./types";
 import { withDefaultAvatar } from "./default-avatar";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
+import { resolveOAuthSeedDisplayName } from "@/lib/auth/oauth-seed-display-name";
 import { normalizeStoreAuthProvider } from "@/lib/auth/store-member-policy";
 
 /**
@@ -80,7 +82,14 @@ export async function ensureProfileForUserId(
     (metaUser || (email && email.includes("@") ? email.split("@")[0] : null)) ?? null;
   const nicknameRaw =
     metaNick || username || (email && email.includes("@") ? email.split("@")[0] : null);
-  const nickname = (nicknameRaw && nicknameRaw.length > 0 ? nicknameRaw : "회원").slice(0, 20);
+  /**
+   * 이름이 없으면 임시 닉네임 — 저장 언어(가입 언어 → 요청 언어, 요청 밖이면 en) 카탈로그 값(재감사 A1 과 같은 방식 · 2026-11-27).
+   * 예전 고정 「회원」은 영어 화면에도 한국어로 남았다.
+   */
+  const nickname = resolveOAuthSeedDisplayName(
+    nicknameRaw,
+    nicknameRaw ? "en" : preferredLanguage ?? (await resolveRequestAppLanguageOr("en")),
+  ).slice(0, 20);
   const rawProvider =
     (typeof meta.provider === "string" && meta.provider.trim()) ||
     (typeof meta.auth_provider === "string" && meta.auth_provider.trim()) ||

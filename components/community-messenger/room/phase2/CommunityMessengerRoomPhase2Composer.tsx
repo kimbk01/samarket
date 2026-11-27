@@ -513,7 +513,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               aria-label={t("cm_ui_go_to_reply_target_message")}
             >
               <p className="text-[length:var(--cm-chat-font-quote)] font-bold leading-snug text-[color:var(--cm-room-primary)]">
-                {formatReplyQuoteKakaoHeader(replyToMessage.senderLabel)}
+                {formatReplyQuoteKakaoHeader(replyToMessage.senderLabel, t)}
               </p>
               <p className="mt-0.5 line-clamp-2 text-[length:var(--cm-chat-font-quote)] text-[color:var(--cm-room-text-muted)]">
                 {buildReplyPreviewSnapshot(replyToMessage).previewText}

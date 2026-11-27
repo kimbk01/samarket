@@ -3,6 +3,7 @@ import { PublicUserProfileView } from "@/components/users/PublicUserProfileView"
 import { PublicProfileSafetyActions } from "@/components/reports/PublicProfileSafetyActions";
 import { listCommunityPostsForUser } from "@/lib/community-feed/list-community-posts-for-user";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { mapProfileRowToPublicSeller, mapTestUserRowToPublicSeller } from "@/lib/users/map-profile-to-public-seller";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import {
@@ -56,7 +57,7 @@ export default async function PublicUserProfilePage({ params }: { params: Promis
   }
 
   let profile = prof && typeof (prof as { id?: string }).id === "string"
-    ? mapProfileRowToPublicSeller(prof as Record<string, unknown>)
+    ? mapProfileRowToPublicSeller(prof as Record<string, unknown>, await resolveRequestAppLanguageOr("en"))
     : null;
 
   if (!profile?.id) {

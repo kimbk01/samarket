@@ -1,7 +1,12 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import {
+  TRADE_CHAT_PREVIEW_TOKEN_MESSAGE,
+  tradeChatStoredPreviewText,
+} from "@/lib/trade/trade-api-error-text";
 import { buildTradeLegacyChatWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
 
 export type MessageNotificationPreviewKind =
@@ -97,10 +102,16 @@ function resolvePreviewText(
       return notifySafeT(language, "notify_preview_new_message");
     case "text":
     default: {
+      /** 거래 채팅 저장 토큰(「(메시지)」·미리보기 「사진」「거래 상태 안내」 등) → 받는 사람 언어. 회원 글은 그대로 */
+      const tr = (key: MessageKey, vars?: Record<string, string | number>) =>
+        notifySafeT(language, key, vars ? { vars } : undefined);
       const fromContent = trimText(textContent);
-      if (fromContent) return fromContent.slice(0, 200);
+      if (fromContent) {
+        const shown = fromContent === TRADE_CHAT_PREVIEW_TOKEN_MESSAGE ? tradeChatStoredPreviewText(fromContent, tr) : fromContent;
+        return shown.slice(0, 200);
+      }
       const fromFallback = trimText(previewFallback);
-      if (fromFallback) return fromFallback.slice(0, 200);
+      if (fromFallback) return tradeChatStoredPreviewText(fromFallback, tr).slice(0, 200);
       return notifySafeT(language, "notify_preview_new_message");
     }
   }

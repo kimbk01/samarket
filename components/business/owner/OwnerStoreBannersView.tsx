@@ -12,6 +12,7 @@ import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
@@ -96,7 +97,8 @@ function formatBannerSaveError(
     case "store_suspended":
       return tr("business_phase7_450");
     default:
-      return code;
+      /** 모르는 값 — 코드면 그대로(화면이 키로), 서버 문장이면 저장 실패 코드 (재감사 2026-11-27) */
+      return isOwnerApiErrorCode(code) ? code : "save_failed";
   }
 }
 
@@ -163,7 +165,7 @@ export function OwnerStoreBannersView() {
         meta?: { slug?: string | null };
       };
       if (!bj?.ok) {
-        setErr(typeof bj?.error === "string" ? bj.error : "load_failed");
+        setErr(isOwnerApiErrorCode(bj?.error) ? bj.error : "load_failed");
         setBanners([]);
       } else {
         setBanners(Array.isArray(bj.banners) ? bj.banners : []);
@@ -231,12 +233,11 @@ export function OwnerStoreBannersView() {
       // IMG-02: 압축 후 전송 · 413(비 JSON)도 코드로 받는다
       const { ok, json: j } = await postStoreOwnerImageUpload(sid, file);
       if (!ok) {
+        /** 서버 `message` 문장은 쓰지 않는다 — 코드만 키로 (재감사 2026-11-27) */
         const msg =
-          typeof j?.message === "string" && j.message.trim()
-            ? j.message.trim()
-            : typeof j?.error === "string" && j.error.trim()
-              ? formatBannerSaveError(j.error.trim(), t)
-              : "upload_failed";
+          typeof j?.error === "string" && j.error.trim()
+            ? formatBannerSaveError(j.error.trim(), t)
+            : "upload_failed";
         setErr(msg);
         return null;
       }
@@ -349,7 +350,7 @@ export function OwnerStoreBannersView() {
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <OwnerStoreAdminDashSection>
-        {err ? <p className="text-sm text-sam-danger">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+        {err ? <p className="text-sm text-sam-danger">{isOwnerApiErrorCode(err) ? resolveOwnerApiErrorMessage(err, t) : err}</p> : null}
 
         <button
           type="button"

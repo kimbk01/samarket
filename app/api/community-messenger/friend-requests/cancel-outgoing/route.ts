@@ -15,7 +15,6 @@ export async function POST(req: NextRequest) {
     key: `community-messenger:friend-request-cancel-outgoing:${getRateLimitKey(req, auth.userId)}`,
     limit: 45,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_friend_request_cancel_outgoing_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

@@ -1795,7 +1795,7 @@ export function useCommunityMessengerHomeBootstrap({
       };
       /** F-11 — 실패 시 기존 friends 캐시 유지 · 빈 목록으로 덮지 않음 · 사용자 안내 */
       if (!friendsRes.ok || !friendsJson.ok) {
-        setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        setPageError((prev) => prev || tRef.current("cm_ui_friends_list_load_failed"));
         return;
       }
       setData((prev) => {
@@ -1839,7 +1839,7 @@ export function useCommunityMessengerHomeBootstrap({
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setPageError((prev) => prev || "친구 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setPageError((prev) => prev || tRef.current("cm_ui_friends_list_load_failed"));
     } finally {
       if (friendsHydrateAbortRef.current === controller) {
         friendsHydrateAbortRef.current = null;

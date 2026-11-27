@@ -308,13 +308,13 @@ export async function requestLocationWithDiBaYGate(options?: {
   featureKey?: DevicePermissionFeatureKey;
 }): Promise<LocationRequestResult> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
-    return { ok: false, reason: "no_api", message: "이 환경에서는 위치를 사용할 수 없습니다." };
+    return { ok: false, reason: "no_api", message: "location_unavailable" };
   }
 
   const browserState = await refreshPermissionState("location");
 
   if (browserState === "denied") {
-    return { ok: false, reason: "denied", message: "브라우저·기기 설정에서 위치 권한을 허용해 주세요." };
+    return { ok: false, reason: "denied", message: "location_permission_denied" };
   }
 
   // granted · prompt · unknown — OS geolocation API 직접 호출 (DIBAY 안내 UI 없음)

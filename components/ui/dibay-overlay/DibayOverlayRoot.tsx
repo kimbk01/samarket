@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { registerOpenOverlay } from "@/lib/ui/open-overlay-registry";
 import {
   OVERLAY_Z_CLASS,
@@ -72,6 +73,7 @@ export function DibayOverlayRoot({
   backdropVariant = "default",
   adLayer = false,
 }: DibayOverlayRootProps) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -168,7 +170,7 @@ export function DibayOverlayRoot({
         <button
           type="button"
           className={`${OverlayUi.backdrop}${backdropVariant === "dim-only" ? " dibay-overlay-backdrop--dim-only" : ""}`}
-          aria-label="Close"
+          aria-label={t("common_close")}
           onClick={onClose}
         />
       ) : (

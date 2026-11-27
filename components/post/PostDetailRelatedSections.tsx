@@ -103,10 +103,10 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
   const currency = resolveTradePostCurrency(item.meta, getAppSettings().defaultCurrency || "KRW");
   const priceText =
     item.is_free_share === true
-      ? "무료나눔"
+      ? t("trade_detail_free_share")
       : item.price != null
         ? formatPrice(item.price, currency)
-        : "가격 문의";
+        : t("trade_detail_price_inquiry");
 
   const detailHref = `/post/${encodeURIComponent(item.id)}`;
   return (
@@ -145,8 +145,10 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const personalTitle = useMemo(() => {
     const nick = (items[0]?.author_nickname ?? "").trim();
-    return nick ? `${nick}님을 위한 새 상품 · 광고` : "당신을 위한 새 상품 · 광고";
-  }, [items]);
+    return nick
+      ? t("reaudit_post_related_ads_title_named", { name: nick })
+      : t("reaudit_post_related_ads_title");
+  }, [items, t]);
 
   if (items.length === 0) return null;
 
@@ -207,7 +209,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
               key={`dot-${idx}`}
               type="button"
               className={`h-2 w-2 rounded-full ${idx === page ? "bg-sam-primary" : "bg-sam-border"}`}
-              aria-label={`광고 페이지 ${idx + 1}`}
+              aria-label={t("reaudit_post_related_ads_page_aria", { n: idx + 1 })}
               onClick={() => {
                 const el = scrollerRef.current;
                 if (!el) return;

@@ -16,12 +16,12 @@ export async function GET(req: NextRequest) {
   const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? "");
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(24, Math.floor(limitRaw))) : 12;
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "userId 필요", posts: [] }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request", posts: [] }, { status: 400 });
   }
 
   const clients = resolvePostsReadClients(req);
   if (!clients) {
-    return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다.", posts: [] }, { status: 503 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config", posts: [] }, { status: 503 });
   }
 
   const posts = await fetchPostsByAuthorWithSupabase(clients.readSb, userId, {

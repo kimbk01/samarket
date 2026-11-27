@@ -37,12 +37,15 @@ const KNOWN_CODES: Record<string, MessageKey> = {
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
-/** 사장님·비즈 API `error` 코드·폴백 문자열 → `t()` 메시지 */
+/**
+ * 사장님·비즈 API `error` 코드 → `t()` 메시지.
+ * 모르는 코드·문장(서버 원문·DB 원문)은 기본 키 — 서버 문장을 화면에 내보내지 않는다 (언어 재감사 2026-11-27).
+ * 화면이 직접 `t()` 로 만든 문구를 오류 상태에 같이 두는 호출처는 `isOwnerApiErrorCode` 로 코드일 때만 이 함수를 쓴다.
+ */
 export function resolveOwnerApiErrorMessage(codeOrMessage: string | null | undefined, t: TranslateFn): string {
   const raw = (codeOrMessage ?? "").trim();
   if (!raw) return t("common_error");
   const key = KNOWN_CODES[raw];
   if (key) return t(key);
-  if (/^[a-z][a-z0-9_]*$/.test(raw)) return t("business_phase7_426");
-  return raw;
+  return t("business_phase7_426");
 }

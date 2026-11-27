@@ -98,6 +98,8 @@ const ERROR_I18N_KEYS: Record<string, MessageKey> = {
   shop_store_required: "addr_ui_pick_shop",
   shop_owner_required: "addr_ui_store_permission",
   shop_place_required: "addr_ui_store_no_place",
+  /** 주소 연락처 휴대전화 형식 (`PH_LOCAL_MOBILE_RULE_ERROR_CODE`) — 공통 오류 표와 같은 키 */
+  invalid_ph_phone: "phone_rule",
 };
 
 /** 구버전 서버가 한국어 문장을 그대로 내려줄 때(배포 전후 호환) */

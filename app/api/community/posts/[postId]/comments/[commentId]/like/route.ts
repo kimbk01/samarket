@@ -21,7 +21,7 @@ export async function POST(
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";
-  if (!rawP || !rawC) return jsonError("요청이 올바르지 않습니다.", 400);
+  if (!rawP || !rawC) return jsonError("invalid_request", { status: 400, code: "invalid_request" });
 
   if (process.env.NODE_ENV !== "production" && getNeighborhoodDevSamplePost(rawP)) {
     return jsonOk({ liked: true, like_count: 0, fallback: "dev_samples" });

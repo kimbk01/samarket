@@ -5,7 +5,10 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "crypto";
-import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/community-public-region-label";
+import {
+  COMMUNITY_PUBLIC_REGION_FALLBACK,
+  resolveCommunityPublicRegionLabelForUser,
+} from "@/lib/addresses/community-public-region-label";
 import { sanitizeImportedContentBlocks } from "@/lib/community/imported-content-blocks";
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
@@ -44,9 +47,14 @@ export type PublishResult =
       imageCount: number;
       warnings: string[];
     }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: string; message: string; detail?: string };
 
-const fail = (code: string, message: string): PublishResult => ({ ok: false, code, message });
+/**
+ * 실패 = 코드만(`message` 도 코드 — 언어 재감사 2026-11-27). 관리자 진단용 원문·근거는 `detail` 에만 둔다
+ * (관리자 화면이 「키 문구 (detail)」로 보여 준다).
+ */
+const fail = (code: string, detail?: string): PublishResult =>
+  detail ? { ok: false, code, message: code, detail } : { ok: false, code, message: code };
 
 export function toIsoDisplayDate(edit: OperatorDraftEdit, article: OperatorNormalizedArticle): string | null {
   if (edit.dateMode === "publish") return null;
@@ -68,15 +76,15 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
   const warnings: string[] = [];
 
   const quality = assessArticleQuality(article);
-  if (quality.verdict === "FAILED") return fail("quality_failed", `품질 FAILED: ${quality.reasons.join(", ")}`);
+  if (quality.verdict === "FAILED") return fail("quality_failed", `FAILED: ${quality.reasons.join(", ")}`);
   if (quality.verdict === "PARTIAL" && !input.acceptPartial) {
-    return fail("quality_partial_needs_confirm", `품질 PARTIAL (${quality.reasons.join(", ")}) — 확인 후 게시하세요.`);
+    return fail("quality_partial_needs_confirm", `PARTIAL: ${quality.reasons.join(", ")}`);
   }
 
   const source = await loadManagedSource(sb, article.sourceSite);
-  if (!source) return fail("source_not_found", "출처를 찾을 수 없습니다.");
+  if (!source) return fail("source_not_found");
   const board = source.boards.find((b) => b.boardId === article.sourceBoard);
-  if (!board) return fail("board_not_found", "게시판을 찾을 수 없습니다.");
+  if (!board) return fail("board_not_found");
 
   const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
   let topicId = String(edit.topicId || "").trim();
@@ -88,12 +96,12 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       topicSlug = String((t as { slug: string }).slug);
     }
   }
-  if (!topicId || !topicSlug) return fail("topic_required", "DIBAY 주제를 선택하세요.");
+  if (!topicId || !topicSlug) return fail("topic_required");
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
-  if (!meta || meta.is_feed_sort || meta.id !== topicId) return fail("invalid_topic", "유효한 DIBAY 주제가 아닙니다.");
+  if (!meta || meta.is_feed_sort || meta.id !== topicId) return fail("invalid_topic");
 
   const principalId = await loadCommunityImportPrincipalUserId(sb);
-  if (!principalId) return fail("import_principal_missing", "community_import_principal 이 없습니다.");
+  if (!principalId) return fail("import_principal_missing");
 
   const { data: sec, error: se } = await sb
     .from("community_sections")
@@ -101,7 +109,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     .eq("slug", sectionSlug)
     .eq("is_active", true)
     .maybeSingle();
-  if (se || !sec) return fail("section_missing", "커뮤니티 섹션을 찾을 수 없습니다.");
+  if (se || !sec) return fail("section_missing");
 
   const content = buildPublishContent({
     article,
@@ -111,9 +119,9 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     rules: rulesFor(input.rules, article.sourceSite, article.sourceBoard),
     rights: source.rights,
   });
-  if (content.cappedByRights) warnings.push("policy_capped_by_rights: 재게시 권한 미확인 → 요약·링크로 게시");
-  if (edit.showAttribution === false && content.attributionVisible) warnings.push("attribution_required: 출처 표시 의무 → 출처 표시 유지");
-  if (!content.title) return fail("empty_content", "제목이 필요합니다.");
+  if (content.cappedByRights) warnings.push("policy_capped_by_rights");
+  if (edit.showAttribution === false && content.attributionVisible) warnings.push("attribution_required");
+  if (!content.title) return fail("empty_content", "title");
 
   // The same original collected through another board/key must never become a second post. The RPC
   // also checks the public 출처 URL, but that column is empty when the operator hides the 출처 block,
@@ -130,7 +138,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     }) as { post_id?: string } | undefined;
     if (dup?.post_id) {
       const { data: live } = await sb.from("community_posts").select("id").eq("id", dup.post_id).neq("status", "deleted").maybeSingle();
-      if (live) return fail("published_under_other_key", `이미 같은 원문이 게시되어 있습니다 (게시물 ${dup.post_id}).`);
+      if (live) return fail("published_under_other_key", `post ${dup.post_id}`);
     }
   }
   const showAttribution = content.attributionVisible;
@@ -144,7 +152,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
   });
   for (const f of ingested.failures) warnings.push(`image_dropped: ${f.error}`);
   if (content.policy === "full" && content.imageUrls.length > 0 && ingested.mapped.length === 0) {
-    return fail("image_ingest_failed", "본문 이미지를 DIBAY 저장소로 가져오지 못했습니다.");
+    return fail("image_ingest_failed");
   }
   const urlMap = new Map(ingested.mapped.map((m) => [m.sourceUrl, m]));
   const ingestedUrls = new Map(ingested.mapped.map((m) => [m.sourceUrl, m.publicUrl]));
@@ -158,7 +166,7 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
     .map((m, i) => ({ image_url: m.publicUrl, storage_path: m.storagePath, sort_order: i }));
 
   const markdown = blocksToCommunityMarkdown(blocks);
-  if (!markdown) return fail("empty_content", "본문이 비어 있습니다.");
+  if (!markdown) return fail("empty_content", "body");
   // Detail structure: only DIBAY copies survive the sanitizer (a failed image is dropped, never hot-linked).
   const contentBlocks = content.richBlocks
     ? sanitizeImportedContentBlocks(
@@ -166,7 +174,8 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       )
     : null;
 
-  let regionLabel = "동네";
+  /** NOT NULL 호환 기본값 — 화면은 `communityRegionLabelText` 가 화면 언어로 그린다 (재감사 2026-11-27) */
+  let regionLabel = COMMUNITY_PUBLIC_REGION_FALLBACK;
   try {
     regionLabel = await resolveCommunityPublicRegionLabelForUser(sb, principalId);
   } catch {
@@ -230,10 +239,10 @@ export async function publishImportedArticle(sb: SupabaseClient, input: PublishI
       ),
     );
     const m = mapPublishRpcError(error.message);
-    return fail(m.code, m.message);
+    return fail(m.code, m.code === "publish_failed" ? error.message : undefined);
   }
   const postId = String((data as { post_id?: string } | null)?.post_id || "");
-  if (!postId) return fail("publish_readback_failed", "게시 결과를 확인할 수 없습니다.");
+  if (!postId) return fail("publish_readback_failed");
   const keep = new Set(imageRows.map((r) => r.storage_path));
   const stale = previousImagePaths.filter((path) => !keep.has(path));
   if (stale.length) {

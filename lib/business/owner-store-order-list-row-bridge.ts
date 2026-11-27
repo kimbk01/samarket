@@ -7,7 +7,6 @@ import {
   mergeRealtimeRecordIntoOwnerOrder,
 } from "@/lib/store-owner/map-realtime-store-order-to-owner";
 import type { OwnerOrder } from "@/lib/store-owner/types";
-import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 
 /** `OwnerStoreOrdersView` 목록 행 — API list/detail 응답과 동일 계열 */
 export type OwnerStoreOrderListRow = {
@@ -118,7 +117,8 @@ function coerceOwnerStoreOrderListItem(
   return {
     id,
     product_id: String(r.product_id ?? "").trim(),
-    product_title_snapshot: String(r.product_title_snapshot ?? "").trim() || "품목",
+    /** 언어 재감사 2026-11-27: 품목명 스냅샷이 없으면 빈 값 — 화면이 키로 그린다 */
+    product_title_snapshot: String(r.product_title_snapshot ?? "").trim(),
     price_snapshot: Number(r.price_snapshot) || 0,
     qty: Math.max(1, Math.floor(Number(r.qty) || 1)),
     subtotal: Number(r.subtotal) || 0,
@@ -261,7 +261,7 @@ export function ownerOrderToListRow(
     id: o.id,
     order_no: o.order_no,
     buyer_user_id: "",
-    buyer_public_label: o.buyer_name || BUYER_PUBLIC_LABEL_FALLBACK,
+    buyer_public_label: o.buyer_name || "",
     buyer_phone: o.buyer_phone !== "—" ? o.buyer_phone : null,
     total_amount: o.total_amount,
     payment_amount: o.customer_remaining_payment ?? o.total_amount,

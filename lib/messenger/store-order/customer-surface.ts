@@ -30,7 +30,8 @@ export function assertStoreOrderCustomerDisplayIdentity(input: {
   if (input.peerUserName?.trim() || input.peerAvatarUrl?.trim() || input.roomTitleFallback?.trim()) {
     throw new Error("dibay_store_order_customer_peer_fallback_forbidden");
   }
-  const name = input.storeName.trim() || "매장";
+  /** 매장명 없으면 빈 값 — 화면이 매장 대체 키(`common_store`)로 그린다 */
+  const name = input.storeName.trim();
   return {
     title: name,
     avatarUrl: input.storeImageUrl?.trim() || null,

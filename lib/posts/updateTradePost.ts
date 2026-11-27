@@ -3,8 +3,21 @@
 import type { CreatePostPayload } from "./types";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { pickApiErrorCode, pickApiErrorParams } from "@/lib/i18n/api-error-text";
 
-export type UpdateTradePostResponse = { ok: true } | { ok: false; error: string };
+/**
+ * 실패 시 `error` = 오류 코드 — 화면 문구는 `tradeWriteErrorText`(`lib/trade/trade-api-error-text.ts`).
+ * `blockedReason` 은 가입·로그인 막힘 판정용 서버 원문(화면 표시 금지).
+ */
+export type UpdateTradePostResponse =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      status?: number;
+      params?: Record<string, string | number>;
+      blockedReason?: string;
+    };
 
 type TradeUpdateBody = {
   categoryId: string;
@@ -32,13 +45,13 @@ type TradeUpdateBody = {
 export async function updateTradePost(postId: string, body: TradeUpdateBody): Promise<UpdateTradePostResponse> {
   const userId = await getCurrentUserIdForDb();
   if (!userId) {
-    return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
+    return { ok: false, error: "login_required", status: 401, blockedReason: "unauthorized" };
   }
 
   const title = body.title?.trim() ?? "";
   const content = body.content?.trim() ?? "";
-  if (!title) return { ok: false, error: "제목을 입력해 주세요." };
-  if (!content && !body.descriptionAppend?.trim()) return { ok: false, error: "내용을 입력해 주세요." };
+  if (!title) return { ok: false, error: "title_required" };
+  if (!content && !body.descriptionAppend?.trim()) return { ok: false, error: "content_required" };
 
   try {
     const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/owner-trade-update`, {
@@ -62,13 +75,21 @@ export async function updateTradePost(postId: string, body: TradeUpdateBody): Pr
         tradeJob: body.tradeJob ?? undefined,
       }),
     });
-    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
     if (!res.ok || !data.ok) {
-      return { ok: false, error: typeof data.error === "string" ? data.error : "저장에 실패했습니다." };
+      const params = pickApiErrorParams(data);
+      const blockedReason = typeof data.error === "string" ? data.error.trim() : "";
+      return {
+        ok: false,
+        error: pickApiErrorCode(data) ?? "save_failed",
+        status: res.status,
+        ...(params ? { params } : {}),
+        ...(blockedReason ? { blockedReason } : {}),
+      };
     }
     return { ok: true };
-  } catch (e) {
-    return { ok: false, error: (e as Error)?.message ?? "저장에 실패했습니다." };
+  } catch {
+    return { ok: false, error: "network_error" };
   }
 }
 

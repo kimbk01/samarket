@@ -9,6 +9,7 @@ import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 function trim(v: unknown): string {
@@ -66,6 +67,11 @@ export async function notifyGiftTransferOffered(
     push_kind: "community",
     meta: {
       kind: "gift_transfer_offered",
+      ...notificationCopyMeta({
+        titleKey: "notify_gift_transfer_offered_title",
+        messageKey: "notify_gift_transfer_offered_body",
+        vars: { name },
+      }),
       gift_transfer_id: transferId,
       room_id: roomId,
       instance_id: trim(args.instanceId) || undefined,
@@ -112,6 +118,11 @@ export async function notifyGiftTransferAccepted(
     push_kind: "community",
     meta: {
       kind: "gift_transfer_accepted",
+      ...notificationCopyMeta({
+        titleKey: "notify_gift_transfer_accepted_title",
+        messageKey: "notify_gift_transfer_accepted_body",
+        vars: { name },
+      }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,
       instance_id: trim(args.instanceId) || undefined,
@@ -158,6 +169,11 @@ export async function notifyGiftTransferRejected(
     push_kind: "community",
     meta: {
       kind: "gift_transfer_rejected",
+      ...notificationCopyMeta({
+        titleKey: "notify_gift_transfer_rejected_title",
+        messageKey: "notify_gift_transfer_rejected_body",
+        vars: { name },
+      }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,
       instance_id: trim(args.instanceId) || undefined,
@@ -204,6 +220,11 @@ export async function notifyGiftTransferCancelled(
     push_kind: "community",
     meta: {
       kind: "gift_transfer_cancelled",
+      ...notificationCopyMeta({
+        titleKey: "notify_gift_transfer_cancelled_title",
+        messageKey: "notify_gift_transfer_cancelled_body",
+        vars: { name },
+      }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,
       instance_id: trim(args.instanceId) || undefined,

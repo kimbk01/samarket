@@ -2,9 +2,15 @@ import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-orde
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { orderStatusLabelForSummary } from "@/lib/store-order-chat/store-order-summary-timeline";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
-/** 채팅·서버 idempotent 요약 — 단일 헤더 (구매자/매장 동일) */
-export const STORE_ORDER_SUMMARY_HEADER = "📋 주문 요약";
+/**
+ * 채팅·서버 idempotent 요약 — 단일 헤더 (구매자/매장 동일).
+ * 한국어 저장본·레거시 판별(`collapse-duplicate-order-summaries`)과 같은 값을 유지하려고 ko 카탈로그 값을 쓴다.
+ */
+export const STORE_ORDER_SUMMARY_HEADER = translate("ko", "store_order_summary_header");
 
 export type ChatSummaryOrderFields = {
   store_name?: string;
@@ -35,53 +41,76 @@ export type ChatSummaryItemFields = {
   options_snapshot_json?: unknown;
 };
 
-/** 채팅방 주문 요약 — 자동·수동 전송 모두 동일 포맷 */
-export function formatStoreOrderSummaryForChatMessage(
+/** DB 상태 코드 모양(`accepted`·`cancel_requested` …)이 아니면 이미 사람이 읽는 라벨로 보고 그대로 쓴다 */
+const ORDER_STATUS_CODE_SHAPE = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * 채팅방 주문 요약 — 자동·수동 전송 모두 동일 포맷 (문구는 카탈로그 `store_order_summary_*`).
+ * `language` 를 넘기면 그 언어로, 서버 저장본(레거시 판별 유지)은 `"ko"`.
+ */
+export function formatStoreOrderSummaryText(
   order: ChatSummaryOrderFields,
   items: ChatSummaryItemFields[],
-  _role: "seller" | "buyer" = "seller"
+  language: AppLanguageCode,
+  /** 상태 라벨 언어 — 기본은 `language` (서버 저장본 호환은 아래 deprecated 함수 참고) */
+  statusLanguage: AppLanguageCode = language
 ): string {
+  const tr = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) =>
+    translate(language, key, vars);
   const lines: string[] = [];
-  lines.push(STORE_ORDER_SUMMARY_HEADER);
-  if (order.store_name) lines.push(`매장: ${order.store_name}`);
-  if (order.order_no) lines.push(`주문번호: ${order.order_no}`);
+  lines.push(tr("store_order_summary_header"));
+  if (order.store_name) lines.push(tr("store_order_summary_store", { store: order.store_name }));
+  if (order.order_no) lines.push(tr("store_order_summary_order_no", { orderNo: order.order_no }));
   if (order.order_status) {
-    const labeled =
-      order.order_status.includes("주문") || order.order_status.includes("배달") || order.order_status.includes("조리")
-        ? order.order_status
-        : orderStatusLabelForSummary(order.order_status, order.fulfillment_type ?? "local_delivery");
-    lines.push(`상태: ${labeled}`);
+    const raw = order.order_status.trim();
+    const labeled = ORDER_STATUS_CODE_SHAPE.test(raw)
+      ? orderStatusLabelForSummary(raw, order.fulfillment_type ?? "local_delivery", statusLanguage)
+      : order.order_status;
+    lines.push(tr("store_order_summary_status", { status: labeled }));
   }
   const deliveryAddr = formatStoreOrderDeliveryAddressPlain({
     summary: order.delivery_address_summary,
     detail: order.delivery_address_detail,
   });
   if (deliveryAddr) {
-    lines.push(`배달 주소: ${deliveryAddr}`);
+    lines.push(tr("store_order_summary_address", { address: deliveryAddr }));
   }
   if (order.buyer_phone?.trim()) {
-    lines.push(`연락처: ${order.buyer_phone.trim()}`);
+    lines.push(tr("store_order_summary_phone", { phone: order.buyer_phone.trim() }));
   }
   if (items.length > 0) {
-    lines.push("— 품목 —");
+    lines.push(tr("store_order_summary_items"));
     for (const it of items) {
-      const opt = orderLineOptionsSummary(it.options_snapshot_json);
+      const opt = orderLineOptionsSummary(it.options_snapshot_json, language);
       const titleLine = [it.product_title_snapshot, opt].filter(Boolean).join(" · ");
       const subtotal = Number(it.subtotal ?? it.price_snapshot * it.qty) || 0;
       lines.push(`· ${titleLine} ${formatMoneyPhp(it.price_snapshot)} × ${it.qty} = ${formatMoneyPhp(subtotal)}`);
     }
   }
   if (order.discount_amount != null && Number(order.discount_amount) > 0) {
-    lines.push(`할인: -${formatMoneyPhp(order.discount_amount)}`);
+    lines.push(tr("store_order_summary_discount", { amount: formatMoneyPhp(order.discount_amount) }));
   }
   if (order.delivery_fee_amount != null && Number(order.delivery_fee_amount) > 0) {
-    lines.push(`배달비: ${formatMoneyPhp(order.delivery_fee_amount)}`);
+    lines.push(tr("store_order_summary_delivery_fee", { amount: formatMoneyPhp(order.delivery_fee_amount) }));
   }
   if (typeof order.payment_amount === "number") {
-    lines.push(`합계: ${formatMoneyPhp(order.payment_amount)}`);
+    lines.push(tr("store_order_summary_total", { amount: formatMoneyPhp(order.payment_amount) }));
   }
   if (order.buyer_note?.trim()) {
-    lines.push(`요청사항: ${order.buyer_note.trim()}`);
+    lines.push(tr("store_order_summary_note", { note: order.buyer_note.trim() }));
   }
   return lines.join("\n");
+}
+
+/**
+ * @deprecated 언어를 받는 `formatStoreOrderSummaryText` 를 쓴다.
+ * 서버 저장본 호환(한국어 레거시 판별 `isStoreOrderSummarySystemContent`·같은 값이면 다시 쓰지 않는 비교) 때문에
+ * 본문은 ko, 상태 라벨은 예전과 같이 런타임 언어로 만든다 — 저장 본문이 바뀌지 않는다.
+ */
+export function formatStoreOrderSummaryForChatMessage(
+  order: ChatSummaryOrderFields,
+  items: ChatSummaryItemFields[],
+  _role: "seller" | "buyer" = "seller"
+): string {
+  return formatStoreOrderSummaryText(order, items, "ko", getRuntimeAppLanguage());
 }

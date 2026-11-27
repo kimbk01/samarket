@@ -75,12 +75,17 @@ describe("B3 trade list — stored system preview in viewer language", () => {
     expect(resolveTradeListItemPreview(rows[0]!, "ko").text).toBe(translate("ko", "order_event_delivered"));
   });
 
-  it("meta absent → same as before (stored text, Korean status normalization kept)", () => {
+  it("meta absent → stored text, status normalization line in viewer language (언어 재감사 2026-11-27)", () => {
     const rows = rowsFor(tradeRoom({ lastMessage: LISTING_BODY, lastMessageType: "system", lastMessageIsSystem: true }));
     expect(rows[0]!).not.toHaveProperty("lastMessageMeta");
     expect(resolveTradeListItemPreview(rows[0]!, "en").text).toBe(LISTING_BODY);
-    expect(buildTradeListViewModelForLanguage(rows[0]!, "en").previewText).toBe("상태 변경 · 예약중");
-    expect(buildTradeListViewModel(rows[0]!).previewText).toBe("상태 변경 · 예약중");
+    /** 「상태 변경 · {배지}」 줄 머리는 보는 사람 언어. 배지 값(저장 라벨)은 `seller-listing-state` 소관 */
+    expect(buildTradeListViewModelForLanguage(rows[0]!, "en").previewText).toBe(
+      translate("en", "cm_ui_trade_status_changed_line", { state: "예약중" })
+    );
+    expect(buildTradeListViewModel(rows[0]!).previewText).toBe(
+      translate("en", "cm_ui_trade_status_changed_line", { state: "예약중" })
+    );
   });
 
   it("meta text mismatch (stale meta from an older message) → stored text", () => {

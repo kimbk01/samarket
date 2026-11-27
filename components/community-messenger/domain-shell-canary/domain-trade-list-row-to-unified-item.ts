@@ -20,7 +20,8 @@ export function domainTradeListRowToUnifiedItem(row: DomainTradeListRow): Unifie
   const viewerRole = row.viewerRole === "buyer" ? "buyer" : "seller";
   const peerUserId = viewerRole === "buyer" ? sellerUserId || null : buyerUserId || null;
   const peerLabel = row.peerLabel?.trim() || "";
-  const productTitle = row.productTitle.trim() || "거래";
+  /** 빈 제목은 headline 생략 — 목록이 키로 그림 */
+  const productTitle = row.productTitle.trim();
   const viewerUserId = viewerRole === "seller" ? sellerUserId : buyerUserId;
   /** 방어선: 저장된 원문 통화 토큰·스티커 URI 는 홈 리스트 포맷터로 라벨화(렌더 원문 노출 금지). */
   const preview = guardRawCmListPreviewText(row.previewText, viewerUserId || null).trim();
@@ -31,7 +32,7 @@ export function domainTradeListRowToUnifiedItem(row: DomainTradeListRow): Unifie
   const contextMeta = {
     v: 1 as const,
     kind: "trade" as const,
-    headline: productTitle,
+    ...(productTitle ? { headline: productTitle } : {}),
     thumbnailUrl: row.productImageUrl,
     ...(productChatId ? { productChatId } : {}),
     postId: itemId || undefined,

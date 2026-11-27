@@ -28,10 +28,17 @@ export async function call<T>(path: string, init?: { method?: string; body?: unk
   } catch {
     /* non-JSON */
   }
-  const j = (json || {}) as { ok?: boolean; error?: string; code?: string };
+  const j = (json || {}) as { ok?: boolean; error?: string; code?: string; detail?: unknown };
   if (!res.ok || j.ok === false) {
-    const err = new Error(j.error || `HTTP ${res.status}`) as Error & { code?: string; body?: unknown; status?: number };
+    const err = new Error(j.error || `HTTP ${res.status}`) as Error & {
+      code?: string;
+      detail?: string;
+      body?: unknown;
+      status?: number;
+    };
     err.code = j.code;
+    /** 관리자 진단용 서버 원문(관리자 전용 API 만 보낸다) — 화면은 「키 문구 (detail)」 */
+    if (typeof j.detail === "string" && j.detail.trim()) err.detail = j.detail.trim();
     err.body = json;
     err.status = res.status;
     throw err;
@@ -111,16 +118,46 @@ export function importErrorState(e: unknown): { code: string; status: number } {
   return { code, status: typeof err.status === "number" ? err.status : 0 };
 }
 
+/** 게시 오류 코드 → 문구 키 (`publish-errors.ts`·`draft-apply.ts` 는 코드만 보낸다 — 언어 재감사 2026-11-27) */
+const IMPORT_PUBLISH_ERROR_KEYS: Readonly<Record<string, MessageKey>> = {
+  published_under_other_key: "community_import_err_published_elsewhere",
+  already_published: "community_import_err_already_published",
+  not_published: "community_import_err_not_published",
+  post_missing: "community_import_err_post_missing",
+  empty_content: "community_import_err_empty_content",
+  publish_rpc_missing: "community_import_err_rpc_missing",
+  publish_failed: "admin_api_import_publish_failed",
+  no_selection: "community_import_err_no_selection",
+  topic_required: "community_import_err_topic_required",
+  quality_failed: "admin_community_import_err_quality_failed",
+  quality_partial_needs_confirm: "admin_community_import_err_quality_partial",
+  source_not_found: "admin_api_import_source_not_found",
+  board_not_found: "admin_community_import_err_board_not_found",
+  invalid_topic: "admin_community_import_err_invalid_topic",
+  import_principal_missing: "admin_community_import_err_principal_missing",
+  section_missing: "admin_community_import_err_section_missing",
+  image_ingest_failed: "admin_community_import_err_image_ingest_failed",
+  publish_readback_failed: "admin_community_import_err_readback_failed",
+  topics_load_failed: "admin_api_import_topics_load_failed",
+};
+
+/** 키 문구 뒤에 관리자 진단 원문을 괄호로 붙인다 (관리자 화면 — SSOT §4-4 S9 운영 용어 허용) */
+function withImportDetail(text: string, detail: string | undefined): string {
+  return detail ? `${text} (${detail})` : text;
+}
+
 export function importErrorText(e: unknown): string {
-  const err = (e ?? {}) as { message?: string; code?: string };
+  const err = (e ?? {}) as { message?: string; code?: string; detail?: string };
+  const detail = typeof err.detail === "string" && err.detail ? err.detail : undefined;
+  const publishKey = typeof err.code === "string" ? IMPORT_PUBLISH_ERROR_KEYS[err.code] : undefined;
+  if (publishKey) return withImportDetail(translate("ko", publishKey), detail);
   const msg = String(err.message ?? (typeof e === "string" ? e : ""));
   if (/[가-힣]/.test(msg)) {
     return msg.replace(/\b(FULL|VERIFIED|PARTIAL|NOT_PROVEN|BLOCKED|FAILED|REJECT)\b/g, (m) => (VERDICT_LABEL[m] ? translate("ko", VERDICT_LABEL[m]) : m));
   }
-  if (!msg || /^HTTP \d+/.test(msg)) return adminOperatorErrorMessage("server_error", true);
+  if (!msg || /^HTTP \d+/.test(msg)) return withImportDetail(adminOperatorErrorMessage("server_error", true), detail);
   const code = err.code && /^[a-z][a-z0-9_]*$/.test(err.code) ? err.code : msg;
-  const out = adminOperatorErrorMessage(code, true);
-  return out;
+  return withImportDetail(adminOperatorErrorMessage(code, true), detail);
 }
 
 export function fmtDate(iso: string | null | undefined): string {

@@ -20,7 +20,7 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
   const provider = String(rawProvider ?? "").trim().toLowerCase();
   if (!isLinkableAuthProvider(provider)) {
     return NextResponse.json(
-      { ok: false, errorCode: "invalid_provider", message: "지원하지 않는 로그인 방식입니다." },
+      { ok: false, errorCode: "invalid_provider", error: "invalid_provider", code: "invalid_provider" },
       { status: 400 },
     );
   }
@@ -40,7 +40,8 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
       {
         ok: false,
         errorCode: "reauth_required",
-        message: "보안을 위해 다시 로그인한 뒤 연결을 해제해 주세요.",
+        error: "reauth_required",
+        code: "reauth_required",
       },
       { status: 403 },
     );

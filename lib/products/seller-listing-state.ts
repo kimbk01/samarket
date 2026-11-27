@@ -18,6 +18,11 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 export type SellerListingState = "inquiry" | "negotiating" | "reserved" | "completed";
 
+/**
+ * 저장 토큰(채팅방 summary `itemStateLabel`·시스템 안내 등 옛·새 행 공통 한국어 값) — **화면에 그대로 쓰지 않는다**.
+ * 화면: 상태 코드 → `sellerListingStateMessageKey` · 글 상태 포함 배지 → `publicListingBadgeKey`/`publicListingBadgeI18n`
+ * · 저장된 토큰 → `tradeStoredListingLabelText`(`lib/trade/trade-api-error-text.ts`). (재감사 2026-11-27)
+ */
 export const SELLER_LISTING_LABEL: Record<SellerListingState, string> = {
   inquiry: "판매중",
   negotiating: "문의중",
@@ -72,6 +77,22 @@ export function publicListingBadge(
   if (ls === "completed") return { label: "거래완료", tone: "muted" };
   if (ls === "negotiating") return { label, tone: "signature" };
   return { label, tone: "default" };
+}
+
+/** `publicListingBadge` 와 같은 규칙 — 라벨 대신 화면 문구 키(언어별 표시는 `t(key)`) */
+export function publicListingBadgeKey(
+  sellerListingState: SellerListingState | undefined,
+  postStatus: string | undefined
+): { key: MessageKey; tone: "default" | "signature" | "amber" | "muted" } {
+  const st = (postStatus ?? "active").toLowerCase();
+  if (st === "hidden" || st === "blinded") return { key: "mypage_comp_product_status_hidden", tone: "muted" };
+  if (st === "deleted") return { key: "mypage_comp_product_status_deleted", tone: "muted" };
+  if (st === "sold") return { key: "mypage_comp_listing_completed", tone: "muted" };
+  const ls = sellerListingState ?? normalizeSellerListingState(undefined, postStatus);
+  if (ls === "completed") return { key: "mypage_comp_listing_completed", tone: "muted" };
+  if (ls === "reserved") return { key: sellerListingStateMessageKey(ls), tone: "amber" };
+  if (ls === "negotiating") return { key: sellerListingStateMessageKey(ls), tone: "signature" };
+  return { key: sellerListingStateMessageKey(ls), tone: "default" };
 }
 
 /**

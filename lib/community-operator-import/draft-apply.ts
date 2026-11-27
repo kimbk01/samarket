@@ -223,12 +223,12 @@ export function assertPublishGuards(input: {
 }): { ok: true } | { ok: false; code: string; message: string } {
   const keys = (input.selectedArticleKeys || []).map((k) => String(k).trim()).filter(Boolean);
   if (keys.length === 0) {
-    return { ok: false, code: "no_selection", message: "게시할 글을 선택하세요." };
+    return { ok: false, code: "no_selection", message: "no_selection" };
   }
   const topicId = String(input.topicId || "").trim();
   const topicSlug = String(input.topicSlug || "").trim();
   if (!topicId || !topicSlug) {
-    return { ok: false, code: "topic_required", message: "DIBAY 주제를 선택하세요. 기본 주제 자동 선택이 없습니다." };
+    return { ok: false, code: "topic_required", message: "topic_required" };
   }
   return { ok: true };
 }

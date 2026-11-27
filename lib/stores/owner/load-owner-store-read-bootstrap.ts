@@ -83,7 +83,9 @@ export const loadOwnerMenuSectionsForRsc = cache(
       if (/column|does not exist|schema cache/i.test(String(error.message))) {
         return { ok: true, sections: [], meta: { source: "migration_pending" } };
       }
-      return { ok: false, error: error.message };
+      /** DB 원문은 서버 로그만 — 화면에는 코드 (재감사 2026-11-27) */
+      console.error("[owner menu sections bootstrap]", error.message);
+      return { ok: false, error: "db_error" };
     }
 
     const sections: OwnerRscMenuSection[] = (data ?? []).map((row: Record<string, unknown>) => ({

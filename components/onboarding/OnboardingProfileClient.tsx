@@ -8,6 +8,7 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { profileSaveErrorText } from "@/lib/profile/profile-save-error-text";
 
 /**
  * 로그인 직후 닉네임/필수 프로필이 비어있으면 도착하는 화면 (스펙 1-B, 8).
@@ -77,10 +78,10 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
         body: JSON.stringify({ display_name: trimmed }),
       });
       const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string }
+        | { ok?: boolean; error?: string; code?: string }
         | null;
       if (!res.ok || json?.ok === false) {
-        setError(json?.error || t("auth_onboarding_save_retry"));
+        setError(profileSaveErrorText({ json, status: res.status }, t, "auth_onboarding_save_retry"));
         return;
       }
       try {

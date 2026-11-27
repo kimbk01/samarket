@@ -12,6 +12,7 @@ import { normalizeFeedListBodyPreview } from "../feed-list-layouts";
 import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
+import { localizeImportedPostBody } from "@/lib/community/community-display-fallbacks";
 
 type Props = {
   currentPostId: string;
@@ -28,9 +29,14 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
         p.created_at && !Number.isNaN(Date.parse(p.created_at))
           ? formatTimeAgo(p.created_at, language)
           : "";
-      const preview = normalizeFeedListBodyPreview(
-        p.summary || (p.content && p.content.length < 200 ? p.content : "") || ""
-      );
+      /** 가져온 글의 옛 「출처:」 줄·「원문 링크만」 줄은 화면 언어로 — `CommunityCard` 와 같게 (재감사 2026-11-27) */
+      const bodyPreview =
+        p.content && p.content.length < 200
+          ? p.origin_kind === "imported"
+            ? localizeImportedPostBody(p.content, null, t)
+            : p.content
+          : "";
+      const preview = normalizeFeedListBodyPreview(p.summary || bodyPreview || "");
       const topicLabel = resolveCommunityTopicUILabel(
         language,
         p.category_label,
@@ -39,7 +45,7 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
       );
       return { post: p, url, timeLabel, preview, topicLabel };
     });
-  }, [posts, currentPostId, language]);
+  }, [posts, currentPostId, language, t]);
   if (rows.length === 0) return null;
 
   return (

@@ -8,6 +8,7 @@ import { publishImportedArticle, type PublishMode } from "@/lib/community-operat
 import { loadRules } from "@/lib/community-operator-import/rules";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "@/lib/community-operator-import/types";
 import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { importRouteErrorDetail } from "@/lib/community-operator-import/route-error";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       acceptPartial: parsed.value.acceptPartial === true,
       rules: await loadRules(sb),
     });
-    if (!result.ok) return jsonError(result.message, 400, { code: result.code });
+    if (!result.ok) return jsonError(result.code, 400, { code: result.code, ...(result.detail ? { detail: result.detail } : {}) });
     const audit = await appendCommunityAdminAudit(sb, req, {
       actorId: auth.userId,
       targetType: "community_post",
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     });
     return jsonOk({ ...result, ...(audit.ok ? {} : { audit_warning: "audit_failed" }) });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : await adminServerText("admin_api_import_publish_failed"), 500, { code: "publish_failed" });
+    const detail = importRouteErrorDetail(e, "publish_failed");
+    return jsonError("publish_failed", 500, { code: "publish_failed", ...(detail ? { detail } : {}) });
   }
 }

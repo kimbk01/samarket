@@ -4,6 +4,8 @@ import {
 } from "@/lib/stores/get-approved-store-by-slug";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { translate } from "@/lib/i18n/messages";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 
 export type StoreSeoMetadata = {
   title: string;
@@ -26,10 +28,14 @@ export async function loadStoreSeoMetadataBySlug(slug: string): Promise<StoreSeo
   if (storeRes.ok === false) return null;
 
   const s = storeRes.store;
-  const title = String(s.store_name ?? "매장");
+  const lang = await resolveRequestAppLanguageOr("en");
+  const title = String(s.store_name ?? translate(lang, "my_store_orders_store_fallback"));
   const descRaw = typeof s.description === "string" ? s.description.trim() : "";
   const region = formatStoreLocationLine(s) ?? "";
-  const description = (descRaw || (region ? `${region} · 동네 매장` : "동네 매장")).slice(0, 160);
+  const description = (
+    descRaw ||
+    (region ? translate(lang, "store_seo_desc_region", { region }) : translate(lang, "store_seo_desc_default"))
+  ).slice(0, 160);
   const ogImageUrl =
     typeof s.profile_image_url === "string" && s.profile_image_url.trim()
       ? s.profile_image_url.trim()

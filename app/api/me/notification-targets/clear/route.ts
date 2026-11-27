@@ -37,10 +37,10 @@ export async function POST(req: NextRequest) {
   const targetType = parsed.value.targetType?.trim() ?? "";
   const targetId = parsed.value.targetId?.trim() ?? "";
   if (!targetType || !targetId) {
-    return jsonError("targetType과 targetId가 필요합니다.", 400);
+    return jsonError("target_required", { status: 400, code: "target_required" });
   }
   if (!ALLOWED_TYPES.has(targetType as NotificationTargetType)) {
-    return jsonError("지원하지 않는 targetType입니다.", 400);
+    return jsonError("target_type_unsupported", { status: 400, code: "target_type_unsupported" });
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;

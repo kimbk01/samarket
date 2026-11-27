@@ -19,12 +19,14 @@ export async function getActiveGroupMembership(
     .is("left_at", null)
     .maybeSingle();
 
+  /** `error` 는 화면 문장·DB 원문이 아니라 오류 코드(`GROUP_CHAT_API_ERROR_CODE_MAP`) — DB 원문은 로그로만 */
   if (error) {
-    return { ok: false, status: 500, error: error.message };
+    console.error("[group-chat] membership lookup failed", error.message);
+    return { ok: false, status: 500, error: "group_chat_load_failed" };
   }
   const row = data as { id?: string; role?: string; last_read_seq?: number } | null;
   if (!row?.id) {
-    return { ok: false, status: 403, error: "멤버만 접근할 수 있습니다." };
+    return { ok: false, status: 403, error: "group_chat_members_only" };
   }
   return {
     ok: true,

@@ -317,7 +317,9 @@ export function assembleChatRoomsList(input: ChatRoomsListAssembleInput): ChatRo
       chatDomain: "store_order" as const,
       communityMessengerRoomId: cmRoomId,
       roomTitle: title,
-      roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
+      roomSubtitle: statusLabel
+        ? translate(input.userLang, "store_chat_room_subtitle_status", { status: statusLabel })
+        : translate(input.userLang, "store_chat_room_subtitle_delivery"),
     };
   });
 
@@ -350,13 +352,15 @@ export function assembleChatRoomsList(input: ChatRoomsListAssembleInput): ChatRo
 
 export function buildNicknamesFromIdentityRows(
   profiles: Array<Record<string, unknown>>,
-  testUsers: Array<Record<string, unknown>>
+  testUsers: Array<Record<string, unknown>>,
+  /** 이름 없는 회원 대체 이름 언어(보는 사람) */
+  lang?: AppLanguageCode
 ): Map<string, string> {
   const map = new Map<string, string>();
   for (const p of profiles) {
     const id = String(p.id ?? "").trim();
     if (!id) continue;
-    const name = memberDisplayLabelFromRow(p as MemberIdentityProfileFields, { userId: id });
+    const name = memberDisplayLabelFromRow(p as MemberIdentityProfileFields, { userId: id, lang });
     if (name) map.set(id, name);
   }
   for (const t of testUsers) {
@@ -370,13 +374,15 @@ export function buildNicknamesFromIdentityRows(
 
 export function buildIdentityMapFromProfiles(
   profiles: Array<Record<string, unknown>>,
-  testUsers: Array<Record<string, unknown>>
+  testUsers: Array<Record<string, unknown>>,
+  /** 이름 없는 회원 대체 이름 언어(보는 사람) */
+  lang?: AppLanguageCode
 ): Map<string, { username: string | null; displayName: string | null }> {
   const identityByUserId = new Map<string, { username: string | null; displayName: string | null }>();
   for (const row of profiles) {
     const id = String(row.id ?? "").trim();
     if (!id) continue;
-    const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, { userId: id });
+    const identity = resolvePublicMemberIdentity(row as MemberIdentityProfileFields, { userId: id, lang });
     identityByUserId.set(id, {
       username: identity?.dibayId ?? null,
       displayName: identity?.nickname ?? identity?.displayLabel ?? null,

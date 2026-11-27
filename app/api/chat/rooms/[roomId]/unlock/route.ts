@@ -17,7 +17,7 @@ export async function POST(
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
   const { roomId } = await params;
   // SEC-03: 세션 기반 관리자 인증. body.adminId 는 신뢰하지 않는다.
@@ -25,7 +25,7 @@ export async function POST(
   if (!admin.ok) return admin.response;
   const adminId = admin.userId;
   if (!roomId) {
-    return NextResponse.json({ ok: false, error: "roomId 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_request", code: "invalid_request" }, { status: 400 });
   }
 
   const sbAny = sb;

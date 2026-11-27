@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PostVideo } from "@/lib/community/post-media-embed";
 
 /**
@@ -10,6 +11,7 @@ import type { PostVideo } from "@/lib/community/post-media-embed";
  * for videos whose owner disabled embedding (the provider player then shows its own notice).
  */
 export function PostVideoEmbed({ video, label }: { video: PostVideo; label?: string }) {
+  const { t } = useI18n();
   const [playing, setPlaying] = useState(false);
   const vertical = video.provider === "youtube" && video.short;
   const providerName = video.provider === "youtube" ? "YouTube" : video.provider === "vimeo" ? "Vimeo" : null;
@@ -34,7 +36,7 @@ export function PostVideoEmbed({ video, label }: { video: PostVideo; label?: str
         ) : playing ? (
           <iframe
             src={video.embedSrc}
-            title={caption ?? `${providerName} video`}
+            title={caption ?? t("reaudit_post_video_title", { provider: providerName ?? "" })}
             className="absolute inset-0 h-full w-full border-0"
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             allowFullScreen
@@ -47,7 +49,7 @@ export function PostVideoEmbed({ video, label }: { video: PostVideo; label?: str
             type="button"
             onClick={() => setPlaying(true)}
             className="group absolute inset-0 flex items-center justify-center"
-            aria-label={`${providerName} 영상 재생`}
+            aria-label={t("reaudit_post_video_play", { provider: providerName ?? "" })}
             data-testid="post-video-play"
           >
             {video.thumbnailUrl ? (
@@ -68,7 +70,7 @@ export function PostVideoEmbed({ video, label }: { video: PostVideo; label?: str
       <figcaption className="mt-1 flex items-center justify-between gap-2 text-[13px] text-sam-muted">
         <span className="min-w-0 truncate">{caption}</span>
         <a href={video.watchUrl} target="_blank" rel="noreferrer noopener" className="shrink-0 underline underline-offset-2" data-testid="post-video-external">
-          {providerName ? `${providerName}에서 보기` : "원본 보기"}
+          {providerName ? t("reaudit_post_video_open_on", { provider: providerName }) : t("reaudit_post_video_open_source")}
         </a>
       </figcaption>
     </figure>

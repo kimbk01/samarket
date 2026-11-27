@@ -66,6 +66,13 @@ import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
 import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
+import { reauditTradeMessages } from "./catalog/reaudit-trade";
+import { reauditCommunityMessages } from "./catalog/reaudit-community";
+import { reauditMessengerMessages } from "./catalog/reaudit-messenger";
+import { reauditStoreMessages } from "./catalog/reaudit-store";
+import { reauditOwnerMessages } from "./catalog/reaudit-owner";
+import { reauditMiscMessages } from "./catalog/reaudit-misc";
+import { reauditNotifMessages } from "./catalog/reaudit-notif";
 import { notificationMessages } from "./catalog/notifications";
 import { chatsMessages } from "./catalog/chats";
 import { ptrMessages } from "./catalog/ptr";
@@ -256,6 +263,13 @@ export type MessageKey =
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.ko>
   | KeyOf<typeof storeOrderStageTermsMessages.ko>
   | KeyOf<typeof navigationMessages.ko>
+  | KeyOf<typeof reauditTradeMessages.ko>
+  | KeyOf<typeof reauditCommunityMessages.ko>
+  | KeyOf<typeof reauditMessengerMessages.ko>
+  | KeyOf<typeof reauditStoreMessages.ko>
+  | KeyOf<typeof reauditOwnerMessages.ko>
+  | KeyOf<typeof reauditMiscMessages.ko>
+  | KeyOf<typeof reauditNotifMessages.ko>
   | KeyOf<typeof notificationMessages.ko>
   | KeyOf<typeof chatsMessages.ko>
   | KeyOf<typeof ptrMessages.ko>
@@ -396,6 +410,13 @@ type EnMessageKey =
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.en>
   | KeyOf<typeof storeOrderStageTermsMessages.en>
   | KeyOf<typeof navigationMessages.en>
+  | KeyOf<typeof reauditTradeMessages.en>
+  | KeyOf<typeof reauditCommunityMessages.en>
+  | KeyOf<typeof reauditMessengerMessages.en>
+  | KeyOf<typeof reauditStoreMessages.en>
+  | KeyOf<typeof reauditOwnerMessages.en>
+  | KeyOf<typeof reauditMiscMessages.en>
+  | KeyOf<typeof reauditNotifMessages.en>
   | KeyOf<typeof notificationMessages.en>
   | KeyOf<typeof chatsMessages.en>
   | KeyOf<typeof ptrMessages.en>

@@ -1,14 +1,33 @@
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { translate } from "@/lib/i18n/messages";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
-const SUMMARY_MARKERS = ["📋 [주문 요약]", "📋 [매장] 주문 내용 전달", "📋 주문 요약", "[매장] 주문 내용 전달"] as const;
+/**
+ * 요약 머리글·주문번호 표식 — 옛 한국어 고정 행 + `formatStoreOrderSummaryText` 가 만드는 ko·en 본문(카탈로그 값).
+ * 영어로 만든 요약도 같은 요약으로 알아본다(중복 카드 합치기·요약 판별).
+ */
+const SUMMARY_MARKERS: readonly string[] = [
+  "📋 [주문 요약]",
+  "📋 [매장] 주문 내용 전달",
+  "📋 주문 요약",
+  "[매장] 주문 내용 전달",
+  translate("ko", "store_order_summary_header"),
+  translate("en", "store_order_summary_header"),
+];
+
+const ORDER_NO_MARKERS: readonly string[] = [
+  "주문번호",
+  ...(["ko", "en"] as const).map((lang) =>
+    (translate(lang, "store_order_summary_order_no").split("{orderNo}")[0] ?? "").trim()
+  ),
+].filter(Boolean);
 
 export function isStoreOrderSummarySystemContent(content: string): boolean {
   const c = content.trim();
   if (!c) return false;
   if (!SUMMARY_MARKERS.some((m) => c.startsWith(m))) return false;
-  return c.includes("주문번호:") || c.includes("주문번호");
+  return ORDER_NO_MARKERS.some((m) => c.includes(m));
 }
 
 function summaryRank(m: RoomMsg): number {

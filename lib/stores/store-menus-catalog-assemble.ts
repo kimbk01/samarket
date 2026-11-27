@@ -40,7 +40,8 @@ export function buildMenuProductRow(row: Record<string, unknown>): Record<string
   const hasOptionsCol = row.has_options;
   const has_options =
     typeof hasOptionsCol === "boolean" ? hasOptionsCol : menuRowHasOptions(row.options_json);
-  const options_summary = has_options ? "옵션 있음" : "";
+  /** 「옵션 있음」은 화면이 `has_options` 로 `store_menu_has_options` 키를 그린다 (재감사 2026-11-27) — 서버 문장 없음 */
+  const options_summary = "";
   const { options_json: _omit, has_options: _ho, ...rest } = row;
   return {
     ...rest,

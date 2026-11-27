@@ -17,7 +17,6 @@ export async function GET(
     key: `community-messenger:open-group-preview:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
     windowMs: 60_000,
-    message: "오픈채팅 미리보기 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_open_group_preview_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

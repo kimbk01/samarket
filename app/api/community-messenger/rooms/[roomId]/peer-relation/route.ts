@@ -22,7 +22,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
     key: `community-messenger:room-peer-relation:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_room_peer_relation_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

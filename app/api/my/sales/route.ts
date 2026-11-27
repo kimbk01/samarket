@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const previewLimit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 20) : null;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ error: "server_config", code: "server_config" }, { status: 500 });
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 

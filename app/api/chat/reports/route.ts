@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 필요" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "server_config", code: "server_config" }, { status: 500 });
   }
 
   let body: {
@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
   const reportType = body.reportType?.trim();
   const reasonType = body.reasonType?.trim();
   if (!reportType || !REPORT_TYPES.includes(reportType as never)) {
-    return NextResponse.json({ ok: false, error: "reportType(room|message|user|item) 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid_report_type", code: "invalid_report_type" }, { status: 400 });
   }
   if (!reasonType || !REASON_TYPES.includes(reasonType as never)) {
-    return NextResponse.json({ ok: false, error: "reasonType 필요" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "reason_required", code: "reason_required" }, { status: 400 });
   }
   const sbAny = sb;
   const { data: row, error: insErr } = await sbAny
@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (insErr) {
-    return NextResponse.json({ ok: false, error: insErr.message ?? "신고 접수 실패" }, { status: 500 });
+    console.error("[chat-reports] insert", insErr.message);
+    return NextResponse.json({ ok: false, error: "report_failed", code: "report_failed" }, { status: 500 });
   }
   if (body.roomId && row?.id) {
     try {

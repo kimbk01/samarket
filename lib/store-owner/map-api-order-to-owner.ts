@@ -117,7 +117,8 @@ export function mapApiOrderToOwnerOrder(
     store_id: ctx.storeId,
     store_slug: ctx.storeSlug,
     store_name: ctx.storeName,
-    buyer_name: "구매 회원",
+    /** 언어 재감사 2026-11-27: 공개 이름이 없으면 빈 값 — 화면이 `store_buyer_public_label_fallback` 키로 그린다 */
+    buyer_name: "",
     buyer_phone,
     buyer_phone_tel_href,
     order_type: fulfillmentToOrderType(String(row.fulfillment_type ?? "pickup")),

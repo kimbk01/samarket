@@ -4,6 +4,7 @@ import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
 
 export type OwnerStorePagePhase =
   | { kind: "loading" }
@@ -55,7 +56,9 @@ export function OwnerStorePagePhaseGate({ phase, onRetry, children }: Props) {
   if (phase.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="sam-text-body text-sam-danger">{phase.message}</p>
+        <p className="sam-text-body text-sam-danger">
+          {resolveOwnerApiErrorText(phase.message, t, "business_phase7_353")}
+        </p>
         {onRetry ? (
           <button
             type="button"

@@ -25,26 +25,26 @@ export async function POST(req: NextRequest) {
   try {
     sb = getSupabaseServer();
   } catch {
-    return NextResponse.json({ ok: false, error: "서버 설정 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "service_unavailable", code: "service_unavailable" }, { status: 500 });
   }
 
   let form: FormData;
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ ok: false, error: "multipart 필요", code: "multipart_required" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "multipart_required", code: "multipart_required" }, { status: 400 });
   }
 
   const file = form.get("file");
   if (!file || !(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "file 필드 필요", code: "file_required" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "file_required", code: "file_required" }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "3MB 이하만 가능합니다.", code: "too_large" }, { status: 413 });
+    return NextResponse.json({ ok: false, error: "too_large", code: "too_large" }, { status: 413 });
   }
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
-    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP만 가능합니다.", code: "unsupported_type" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "unsupported_type", code: "unsupported_type" }, { status: 400 });
   }
 
   const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
@@ -62,6 +62,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
   } catch (e) {
     console.error("[profile/avatar]", e);
-    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "upload_failed", code: "upload_failed" }, { status: 500 });
   }
 }

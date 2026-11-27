@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 type Props = {
   chatRoomId: string;
   drawerOpen: boolean;
@@ -11,13 +13,14 @@ type Props = {
  * 패널 본문은 `StoreOrderSellerOrderPanel` + `ChatDetailView`에서 렌더합니다.
  */
 export function StoreOrderSellerHamburger({ chatRoomId, drawerOpen, onDrawerOpenChange }: Props) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={() => onDrawerOpenChange(!drawerOpen)}
       className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
       aria-expanded={drawerOpen}
-      aria-label={drawerOpen ? "주문 내역 패널 닫기" : "주문 내역 패널 열기"}
+      aria-label={drawerOpen ? t("store_chat_seller_panel_close") : t("store_chat_seller_panel_open")}
       aria-controls={`seller-drawer-${chatRoomId}`}
     >
       <svg

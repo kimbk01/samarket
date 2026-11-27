@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import type { ReportTargetType } from "@/lib/types/report";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { submitReport } from "@/lib/reports/submitReport";
+import { reportErrorText } from "@/lib/reports/report-block-error-text";
 import { REPORT_REASONS } from "@/lib/reports/report-utils";
 import { ReportReasonSelector } from "./ReportReasonSelector";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -74,7 +75,7 @@ export function ReportActionSheet({
       onClose();
       return;
     }
-    setError(res.error ?? t("ui_report_failed"));
+    setError(reportErrorText(res, t, "ui_report_failed"));
   };
 
   return (
