@@ -457,7 +457,8 @@ describe("S63 상담 내역 — 상태 탭 · 커서 · OWNER 불변", () => {
     expect(src).toContain('status: "active"');
     expect(src).toContain("MyListPager");
     expect(src).not.toMatch(/toLocale/);
-    expect(src).not.toContain("requester_unread_count");
+    // 목록 행에 숫자를 그리지 않는다 (미읽음은 상태 알약 판정에만 — UI U2)
+    expect(src).not.toMatch(/\{c\.requester_unread_count\}/);
     const owner = read("components/business/owner/OwnerCustomerCenterView.tsx");
     expect(owner).not.toContain("withStatusTabs");
     const member = read("components/support/MemberSupportHistoryClient.tsx");

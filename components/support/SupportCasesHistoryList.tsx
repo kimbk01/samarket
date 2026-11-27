@@ -8,10 +8,10 @@ import { SupportGenericHubInquireGate } from "@/components/support/SupportGeneri
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
 import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
-import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
+import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
+import { OWNER_SUPPORT_CTA_CLASS } from "@/lib/support/support-owner-cta";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
-import { isSupportTicketAnsweredStatus } from "@/lib/support/support-ticket-form";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import {
@@ -54,13 +54,14 @@ function useOnSupportModalClosed(onClosed: () => void): void {
 function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
   const { safeT } = useI18n();
   // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
-  const statusMeta = supportCaseStatusLabelMeta(c.status);
-  const statusLabel = safeT(statusMeta.key);
+  // UI U1·U2: 상태 알약 = 고객 화면 공용 정의(색은 상태 기준, 종료+안 읽은 답변 = 「새 답변」)
+  const pill = supportRequesterStatusPill(c.status, c.requester_unread_count);
+  const statusLabel = safeT(pill.key);
   // 분야·세부 이름 = 어드민 「문의 유형 관리」 이름 우선, 없으면 코드 기본 이름
   const labels = useSupportCategoryLabels();
   const categoryLabel = labels.categoryLabel(c.audience, c.category);
   const issueLabel = labels.issueLabel(c.audience, c.category, c.issue_type);
-  const answered = isSupportTicketAnsweredStatus(c.status);
+  const answered = pill.tone === "answered";
   return (
     <li>
       <button
@@ -76,15 +77,14 @@ function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
           {[categoryLabel, issueLabel].filter(Boolean).join(" · ")}
         </span>
         <span
-          className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
-            answered ? "bg-sam-primary-soft text-sam-primary" : "bg-sam-warning-soft text-sam-fg"
-          }`}
+          className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${pill.className}`}
           data-support-history-answered={answered ? "1" : "0"}
         >
           {statusLabel}
         </span>
         <span className="col-start-1 truncate text-[12px] text-sam-muted">
-          {[c.public_case_no, c.created_at ? formatMypageDate(c.created_at, { style: "datetime" }) : ""]
+          {/* UI U3: 시각 = 마지막 글 시각(쓰기 화면 「진행 중인 문의」와 같은 기준) */}
+          {[c.public_case_no, c.last_message_at ? formatMypageDate(c.last_message_at, { style: "datetime" }) : ""]
             .filter(Boolean)
             .join(" · ")}
         </span>
@@ -169,12 +169,31 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
     );
   }
   if (cases.length === 0) {
-    return <p className="px-4 py-6 text-sm text-sam-muted">{safeT("support_history_empty")}</p>;
+    // UI U5: 빈 목록도 회원과 같은 구성 — 안내 + 「문의하기」(사장님 = 갈색, 매장이 있을 때만)
+    return (
+      <div className="flex flex-col items-center gap-3 px-4 py-6" data-support-cases-history-empty="1">
+        <p className="text-sm text-sam-muted">{safeT("support_history_empty")}</p>
+        {audience === "OWNER" && storeId ? (
+          <SupportGenericHubInquireGate
+            audience="OWNER"
+            sourceSurface="owner_customer_center"
+            storeId={storeId}
+            className="w-full max-w-[240px]"
+            buttonClassName={OWNER_SUPPORT_CTA_CLASS}
+            inquireDataAttr="data-owner-support-inquire"
+          />
+        ) : null}
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <ul className="divide-y divide-sam-border" data-support-cases-history="1">
+      {/* UI U5: 회원 「내 문의」와 같은 카드 모양 */}
+      <ul
+        className="divide-y divide-sam-border-soft overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface"
+        data-support-cases-history="1"
+      >
         {cases.map((c) => (
           <SupportCaseHistoryRow key={c.id} c={c} />
         ))}

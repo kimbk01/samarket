@@ -479,9 +479,10 @@ describe("support audit phase 1 — regression lock", () => {
     const hist = readFileSync(join(process.cwd(), "components/support/SupportCasesHistoryList.tsx"), "utf8");
     expect(hist).not.toMatch(/\{c\.status\}/);
     expect(hist).not.toMatch(/\{c\.category\}/);
-    expect(hist).toContain("supportCaseStatusLabelMeta");
-    // 숫자는 고객센터 FAB 아이콘에만 — 목록 행에는 숫자 없음(Owner 2026-11-10)
-    expect(hist).not.toContain("requester_unread_count");
+    // UI U1·U2 (2026-11-27): 상태 알약은 고객 화면 공용 정의(supportRequesterStatusPill) — 미읽음은 색·문구 판정에만 쓴다
+    expect(hist).toContain("supportRequesterStatusPill(c.status, c.requester_unread_count)");
+    // 숫자는 고객센터 FAB 아이콘에만 — 목록 행에는 숫자를 그리지 않는다(Owner 2026-11-10)
+    expect(hist).not.toMatch(/\{c\.requester_unread_count\}/);
   });
 
   it("DEF-07/10/11/12: customer modal failure, restore and audience contracts", () => {

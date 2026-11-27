@@ -1,0 +1,4 @@
+-- 운영 적용 전 정의 백업 (2026-11-27 PHT 조회) — 되돌리기: 아래 두 정의를 그대로 실행
+-- support_append_message md5 a8f0db3d3577b1f48236ffa439a3a561 = supabase/migrations/20270415120000_support_audit_phase2_atomic_append.sql 의 함수 정의
+-- admin_notification_replay_support_replies md5 2e79be46f6f51b6e9122d347c3060f71 = supabase/migrations/20271124120000_admin_action_queue_count_list_parity.sql 의 함수 정의(133행~)
+-- 권한(둘 다): postgres=X, service_role=X

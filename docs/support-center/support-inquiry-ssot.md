@@ -215,7 +215,7 @@
 | I | 지정 알림 support 권한 필수 · 콘솔 토스트·소리 본인 글 제외 · 재생 함수 본인 제외·권한(C 와 같은 파일) | C 와 같음 |
 | J | 재오픈 서비스는 항상 어드민 판정(고객 분기 제거) | 없음 |
 
-UI 불일치 U1~U9(시안 5절)는 **Owner 결정 전** — 이 PR 에서 바꾸지 않음.
+UI 불일치 U1~U9(시안 5절)는 이 PR 에서 바꾸지 않았고, 이후 Owner 「권장안대로」로 §14 에서 반영.
 3차 독립 재감사(같은 PR, 병합 전)에서 추가로 고친 것:
 - 재생 함수도 앱과 같은 조건(OPEN·WAITING_ADMIN 만, 담당자 유무 무관) — 이미 답한 문의에 미읽음 알림이 다시 생기던 경로 차단 · 첫 고객 글 제목 「새 고객 문의」. 적용 시 밀린 재생 = 0건(운영 조회).
 - 응답 뒤 발송 때 상태를 못 읽으면 버리지 않고 기록 후 발송.
@@ -226,3 +226,20 @@ UI 불일치 U1~U9(시안 5절)는 **Owner 결정 전** — 이 PR 에서 바꾸
 
 4차 독립 재감사(병합 직전, `8c926e73b`) 판정: **코드에 중간 이상 결함 없음**(DB 미적용분 제외). 같은 PR 에서 고친 것: 읽음 처리 답변 id = 보여 준 어드민 공개 답변만(요청 주소 길이) · 부분 실패에도 배지 캐시 비움.
 남은 낮은 결함(알고 둠, 재지시 때): ① 고객 미읽음 숫자는 「본 목록 이후 새 글」이면 통째로 남아 알림 행과 1 차이가 날 수 있음(다음 열람 때 맞춰짐) ② 삭제 숫자 재시도가 몇 ms 경합에서 1 낮게 될 수 있음 ③ 상태 읽기 실패 시 보내는 알림은 끝난 문의일 수 있음 ④ (DB 파일) 같은 문의 고객 새 글 때 앱이 건너뛴 옛 글이 재생될 수 있음 ⑤ (DB 파일) support 권한 없는 담당자 재생은 0명 발송 — 앱 경로에는 전원 대체가 있음.
+
+**운영 DB 적용 (2026-11-27 21:36 PHT, Owner 「적용 진행」)**: `20271127230000`(D4·D13) · `20271127240000`(C·I) 적용 완료 — 롤백 시험으로 종료 문의 공개 글 거부·메모가 마지막 글 시각을 바꾸지 않음·재생 0건 확인. 기록 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/db-apply-result.md`.
+
+## 14. 화면 규칙 (UI U1~U9 · Owner 「권장안대로」 2026-11-27, `fix/support-ui-u1-u9`)
+
+시안 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/ui-mockup.html` 5절의 권장안을 규칙으로 고정한다.
+
+| # | 규칙 | 단일 정의 |
+|---|---|---|
+| U1·U2 | 고객 상태 알약 색 = **상태**: 답변 완료·새 답변 = 초록(`bg-sam-primary-soft text-sam-primary`), 답변 대기 = 노랑(`bg-sam-warning-soft text-sam-fg`), 종료 = 회색(`bg-sam-surface-muted text-sam-muted`). 종료+안 읽은 답변 = 「새 답변」. 문의 상세 상태 줄·쓰기 화면 「진행 중인 문의」·내 문의 목록 모두 같음 | `supportRequesterStatusPill` (`lib/support/support-status-label.ts`) |
+| U3 | 목록의 시각 = **마지막 글 시각**(`last_message_at`) | 내 문의 행 · 진행 중 행 |
+| U4·U5 | 사장님 쪽 문의 버튼 = **갈색**(FAB·「문의 접수」와 같음) · 사장님 「내 문의」 = 회원과 같은 카드 · 빈 목록에 「문의하기」 | `OWNER_SUPPORT_CTA_CLASS` (`lib/support/support-owner-cta.ts`) |
+| U6·U9 | 문의 창 모든 버튼 = **높이 44px · 모서리 4px**(문의 창은 전체 화면 → 「화면에 붙은 버튼 4px」 계약) | `SUPPORT_BTN` (`SupportTicketViews.tsx`) |
+| U7 | 어드민 WAITING_USER 이름 = 「고객 확인 대기」 하나(탭·알약) · 고객 화면 = 「답변 완료」 | `admin_waiting_customer` · `support_admin_status_waiting_user` |
+| U8 | 사장님 고객센터 화면에 FAB 없음 — 현행 유지(회원 허브와 같은 규칙) | — |
+
+시험 `lib/support/__tests__/support-ui-u1-u9.test.ts` (동작 = U1·U2 알약 표·U7 / 구조 확인 = U3~U6·U9). 화면 실측: NOT_PROVEN(로그인 필요 화면).
