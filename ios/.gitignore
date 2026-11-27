@@ -16,3 +16,7 @@ App/App/Kakao.local.xcconfig
 
 # Meta(Facebook) app id / client token (local only)
 App/App/Facebook.local.xcconfig
+
+# TikTok App Events SDK id / secret, Firebase iOS config (local only)
+App/App/TikTok.local.xcconfig
+App/App/GoogleService-Info.plist

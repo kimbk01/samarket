@@ -22,6 +22,8 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://devrepo.kakao.com/nexus/content/groups/public/' }
+        // TikTok App Events SDK 배포 저장소(틱톡 공식 안내) — 광고 설치 측정. 설계 docs/audit/ads-sdk-google-tiktok-design-2026-11-27.md
+        maven { url 'https://jitpack.io' }
     }
 }
 

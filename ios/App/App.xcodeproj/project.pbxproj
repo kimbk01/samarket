@@ -45,6 +45,8 @@
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
 		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
 		C7FBK0122AF431CB00220026 /* FacebookCore in Frameworks */ = {isa = PBXBuildFile; productRef = C7FBK0112AF431CB00220026 /* FacebookCore */; };
+		C7TTK0122AF431CB00220026 /* TikTokBusinessSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7TTK0112AF431CB00220026 /* TikTokBusinessSDK */; };
+		C7FBA0122AF431CB00220026 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = C7FBA0112AF431CB00220026 /* FirebaseAnalytics */; };
 		C7KBD0022FED79650016851F /* DibayWebViewKeyboardChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KBD0012FED79650016851F /* DibayWebViewKeyboardChrome.swift */; };
 		C7MEL0022FED79650016851F /* DibayMemberEventEligibilityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */; };
 		C7MIC0022FED79650016851F /* DibayVoiceMicrophonePermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */; };
@@ -230,6 +232,8 @@
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 				C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */,
 				C7FBK0122AF431CB00220026 /* FacebookCore in Frameworks */,
+				C7TTK0122AF431CB00220026 /* TikTokBusinessSDK in Frameworks */,
+				C7FBA0122AF431CB00220026 /* FirebaseAnalytics in Frameworks */,
 				C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -416,6 +420,7 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				C7FBC0012FED79650016851F /* Copy Firebase Config If Present */,
 				C7NSE0202FED79650016851F /* Embed App Extensions */,
 			);
 			buildRules = (
@@ -428,6 +433,8 @@
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
 				C7KAK0112AF431CB00220026 /* KakaoSDK */,
 				C7FBK0112AF431CB00220026 /* FacebookCore */,
+				C7TTK0112AF431CB00220026 /* TikTokBusinessSDK */,
+				C7FBA0112AF431CB00220026 /* FirebaseAnalytics */,
 				C7AGR0112AF431CB00220026 /* RtcBasic */,
 			);
 			productName = App;
@@ -485,6 +492,8 @@
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
 				C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				C7FBK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+				C7TTK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */,
+				C7FBA0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
@@ -548,6 +557,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"${SRCROOT}/../scripts/verify-build-source.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C7FBC0012FED79650016851F /* Copy Firebase Config If Present */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Firebase Config If Present";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Firebase iOS config is local-only (gitignored). Copy into the app bundle only when present; AppDelegate skips FirebaseApp.configure() when absent (CI).\nSRC=\"${SRCROOT}/App/GoogleService-Info.plist\"\nDST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\nif [ -f \"$SRC\" ]; then cp \"$SRC\" \"$DST\"; echo \"Firebase config copied\"; else rm -f \"$DST\"; echo \"warning: GoogleService-Info.plist not found - Firebase Analytics disabled in this build\"; fi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -804,7 +833,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -829,7 +858,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -852,7 +881,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -878,7 +907,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 67;
+				CURRENT_PROJECT_VERSION = 68;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -961,6 +990,22 @@
 				version = 18.0.2;
 			};
 		};
+		C7FBA0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 13.2.0;
+			};
+		};
+		C7TTK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tiktok/tiktok-business-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 1.7.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -983,6 +1028,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C7FBK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
 			productName = FacebookCore;
+		};
+		C7FBA0112AF431CB00220026 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7FBA0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		C7TTK0112AF431CB00220026 /* TikTokBusinessSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7TTK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */;
+			productName = TikTokBusinessSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
