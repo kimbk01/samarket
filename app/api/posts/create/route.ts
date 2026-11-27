@@ -256,7 +256,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    console.error("[posts/create] insert failed", error);
+    console.error("[posts/create] insert failed", { code: (error as { code?: string }).code, message: error.message });
     return tradeApiError("post_save_failed", 500);
   }
 

@@ -319,7 +319,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     if (!snapshot) return [];
     const row = (labelKey: MessageKey, allowed: boolean) => ({
       label: t(labelKey),
-      value: t(allowed ? "cm_ui_group_perm_allowed" : "cm_ui_group_perm_restricted"),
+      value: t(allowed ? "cm_ui_allowed" : "cm_ui_group_perm_restricted"),
       allowed,
     });
     return [

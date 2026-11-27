@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { readAppleIapServerConfig } from "@/lib/apple-iap/apple-iap-config.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   parseAppleSignedTransaction,
   recordAndCreditAppleTransaction,
@@ -54,6 +55,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       attempt: r.attempt,
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("verify_failed", "[me/apple-iap/verify]", e);
   }
 }

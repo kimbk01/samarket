@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function GET() {
         column_missing: true,
       });
     }
-    console.error("[GET profile/notification-email]", r.error);
+    console.error("[GET profile/notification-email]", { code: (r.error as { code?: string }).code, message: r.error.message });
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 
@@ -78,8 +79,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: exists, error: selErr } = await sb.from("profiles").select("id").eq("id", userId).maybeSingle();
   if (selErr) {
-    console.error("[PATCH profile/notification-email select]", selErr);
-    return NextResponse.json({ ok: false, error: selErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[PATCH profile/notification-email select]", selErr);
   }
   if (!exists) {
     return NextResponse.json({ ok: false, error: "profile_not_found" }, { status: 404 });
@@ -95,7 +95,7 @@ export async function PATCH(req: NextRequest) {
     if (msg.includes("notify_commerce_email")) {
       return NextResponse.json({ ok: false, error: "column_missing" }, { status: 503 });
     }
-    console.error("[PATCH profile/notification-email]", error);
+    console.error("[PATCH profile/notification-email]", { code: (error as { code?: string }).code, message: error.message });
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 

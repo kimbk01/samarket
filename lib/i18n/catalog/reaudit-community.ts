@@ -38,7 +38,6 @@ export const reauditCommunityMessages = {
     community_comment_err_parent_not_found: "답글을 달 댓글을 찾을 수 없습니다.",
     community_comment_err_depth_limit: "더 이상 답글을 달 수 없습니다.",
     community_comment_err_not_deletable: "삭제할 수 없는 댓글입니다.",
-    community_comment_err_profile_incomplete: "프로필 정보를 먼저 완성해 주세요.",
     /** 신고·차단 */
     community_report_err_self_post: "내 글은 신고할 수 없습니다.",
     community_report_err_self_comment: "내 댓글은 신고할 수 없습니다.",
@@ -50,7 +49,6 @@ export const reauditCommunityMessages = {
     /** 글 상세 */
     community_image_open_n: "이미지 {n} 크게 보기",
     /** 저장된 기본 지역 이름 「동네」(`COMMUNITY_PUBLIC_REGION_FALLBACK`) 를 화면 언어로 */
-    community_region_fallback: "동네",
     /** 가져온 글 — 옛 행 본문에 저장된 고정 문장을 화면 언어로 다시 그림 */
     community_imported_source_line: "출처: {name} {url}",
     community_imported_source_link: "출처: {name}",
@@ -102,7 +100,6 @@ export const reauditCommunityMessages = {
     community_comment_err_parent_not_found: "The comment you're replying to wasn't found.",
     community_comment_err_depth_limit: "You can't reply any further here.",
     community_comment_err_not_deletable: "This comment can't be deleted.",
-    community_comment_err_profile_incomplete: "Please complete your profile first.",
     community_report_err_self_post: "You can't report your own post.",
     community_report_err_self_comment: "You can't report your own comment.",
     community_report_err_already_comment: "You already reported this comment.",
@@ -111,7 +108,6 @@ export const reauditCommunityMessages = {
     report_err_block_failed: "Couldn't block. Try again shortly.",
     report_err_room_not_found: "Chat not found.",
     community_image_open_n: "View image {n}",
-    community_region_fallback: "Neighborhood",
     community_imported_source_line: "Source: {name} {url}",
     community_imported_source_link: "Source: {name}",
     community_imported_link_only: "Posted on {name}. See the original via the source below.",

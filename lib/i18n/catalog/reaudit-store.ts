@@ -7,19 +7,16 @@ export const reauditStoreMessages = {
     /** 상품권 유효기간 — `format-gift-certificate-expiration.ts` */
     gift_valid_until: "{date}까지",
     /** 주문 채팅 요약 (`format-store-order-chat-summary.ts`) */
-    store_order_summary_header: "📋 주문 요약",
     store_order_summary_store: "매장: {store}",
     store_order_summary_order_no: "주문번호: {orderNo}",
     store_order_summary_status: "상태: {status}",
     store_order_summary_address: "배달 주소: {address}",
-    store_order_summary_phone: "연락처: {phone}",
     store_order_summary_items: "— 품목 —",
     store_order_summary_discount: "할인: -{amount}",
     store_order_summary_delivery_fee: "배달비: {amount}",
     store_order_summary_total: "합계: {amount}",
     store_order_summary_note: "요청사항: {note}",
     /** 주문 채팅 말풍선 보낸 사람 — 구매자 이름 없음 */
-    store_order_chat_sender_buyer_fallback: "주문자",
     /** 다시 주문 — 담을 메뉴 없음 */
     store_reorder_err_no_items: "담을 메뉴가 없습니다.",
     /** 매장 공개 페이지 검색 설명 */
@@ -61,18 +58,15 @@ export const reauditStoreMessages = {
   },
   en: {
     gift_valid_until: "Valid until {date}",
-    store_order_summary_header: "📋 Order summary",
     store_order_summary_store: "Store: {store}",
     store_order_summary_order_no: "Order no.: {orderNo}",
     store_order_summary_status: "Status: {status}",
     store_order_summary_address: "Delivery address: {address}",
-    store_order_summary_phone: "Phone: {phone}",
     store_order_summary_items: "— Items —",
     store_order_summary_discount: "Discount: -{amount}",
     store_order_summary_delivery_fee: "Delivery fee: {amount}",
     store_order_summary_total: "Total: {amount}",
     store_order_summary_note: "Request: {note}",
-    store_order_chat_sender_buyer_fallback: "Customer",
     store_reorder_err_no_items: "No items to add.",
     store_seo_desc_region: "{region} · Neighborhood store",
     store_seo_desc_default: "Neighborhood store",

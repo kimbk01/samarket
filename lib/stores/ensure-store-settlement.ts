@@ -154,5 +154,5 @@ export async function ensureStoreSettlementForCompletedOrder(
     console.error("[ensureStoreSettlementForCompletedOrder insert legacy]", retry.error);
     return;
   }
-  console.error("[ensureStoreSettlementForCompletedOrder insert]", insErr);
+  console.error("[ensureStoreSettlementForCompletedOrder insert]", { code: (insErr as { code?: string }).code, message: insErr.message });
 }

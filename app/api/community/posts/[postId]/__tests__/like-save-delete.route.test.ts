@@ -97,7 +97,14 @@ describe("POST 토글 규칙 회귀 0", () => {
     const post = () => new NextRequest(new URL("http://localhost/x"), { method: "POST" });
     expect((await like.POST(post(), ctx("hidden-post"))).status).toBe(404);
     expect((await save.POST(post(), ctx("hidden-post"))).status).toBe(404);
-    expect((await like.POST(post(), ctx("blocked-author-post"))).status).toBe(403);
+    const blocked = await like.POST(post(), ctx("blocked-author-post"));
+    expect(blocked.status).toBe(403);
+    /** 언어 사후 검토 — 한국어 문장 대신 코드(화면이 키로 그린다) */
+    expect(await blocked.json()).toMatchObject({
+      ok: false,
+      error: "community_like_blocked_relation",
+      code: "community_like_blocked_relation",
+    });
     expect((await save.POST(post(), ctx("blocked-author-post"))).status).toBe(403);
   });
   it("소스: POST 의 차단·가시성 게이트와 알림 호출 유지", () => {

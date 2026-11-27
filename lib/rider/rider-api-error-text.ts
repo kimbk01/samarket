@@ -15,7 +15,6 @@ export const RIDER_API_ERROR_MAP: ApiErrorCodeMap = {
   missing_path: "ui_rider_request_failed",
   /** 서버 코드 */
   unauthorized: "common_login_required",
-  supabase_unconfigured: "common_content_unavailable",
   rider_delivery_columns_missing_apply_migration: "common_content_unavailable",
   rider_profile_not_found: "ui_rider_no_profile",
   missing_order_id: "store_owner_order_not_found",

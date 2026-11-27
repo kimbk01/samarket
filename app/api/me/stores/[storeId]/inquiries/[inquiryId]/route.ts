@@ -92,7 +92,6 @@ export async function PATCH(
     .eq("store_id", sid);
 
   if (uErr) {
-    console.error("[PATCH inquiry]", uErr);
     return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/inquiries/[inquiryId] PATCH]", uErr, 500);
   }
 

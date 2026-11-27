@@ -24,7 +24,7 @@ import {
   isGoogleRoutesApiGloballyDisabled,
 } from "@/lib/geo/google-routes-client";
 import { haversineKm } from "@/lib/geo/haversine-km";
-import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   isSameDeliveryAddressForList,
   loadOwnerDefaultAddressByUserId,
@@ -113,7 +113,8 @@ export async function GET(
   /** ORD-C-16 — 임의 좌표·주소로 유료 경로 API 를 반복 호출하지 못하게 사용자당 상한 */
   const quota = await enforceDeliveryEtaQuota(buyerId);
   if (!quota.ok) return quota.response;
-  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
+  /** M3 — 내정보 언어(화면 언어 쿠키) → 기기 언어 → en (`docs/i18n-ssot.md` §2) */
+  const uiLang = await resolveRequestAppLanguageOr("en");
 
   const { slug } = await context.params;
   const decoded = decodeURIComponent(slug || "").trim();
@@ -380,8 +381,8 @@ export async function GET(
   const cacheKey =
     store.id
       ? deliveryUserAddressId.trim().length > 0
-        ? `eta:${buyerId}:${String(store.id)}:addr:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
-        : `eta:${buyerId}:${String(store.id)}:ll:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
+        ? `eta:${uiLang}:${buyerId}:${String(store.id)}:addr:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
+        : `eta:${uiLang}:${buyerId}:${String(store.id)}:ll:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
       : null;
   if (cacheKey) {
     const hit = deliveryEtaOkCache.get(cacheKey);

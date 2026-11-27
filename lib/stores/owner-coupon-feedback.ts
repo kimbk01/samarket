@@ -1,5 +1,5 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import type { OwnerCouponDetailAction } from "@/lib/stores/owner-coupon-list-bucket";
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

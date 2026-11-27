@@ -18,6 +18,7 @@ import {
 } from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { assertOwnerPlatformPopupNewSalesAllowed } from "@/lib/platform-popup/owner-popup-new-sales-gate";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,7 +137,7 @@ export async function POST(
     if (/bucket not found/i.test(raw)) {
       return NextResponse.json({ ok: false, error: "storage_bucket_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[me/platform-popup-requests/creative]", upErr);
   }
 
   const {

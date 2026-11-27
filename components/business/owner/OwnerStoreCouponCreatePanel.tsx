@@ -17,6 +17,7 @@ import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-k
 import { OWNER_STORE_PROFILE_INNER_PANEL_CLASS } from "@/lib/business/owner-store-stack";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { ownerCouponErrorMessage } from "@/lib/stores/owner-coupon-feedback";
+import { isApiErrorCode } from "@/lib/i18n/api-error-text";
 
 type StepId = "benefit" | "condition" | "issue" | "use" | "cost" | "preview";
 const STEPS: StepId[] = ["benefit", "condition", "issue", "use", "cost", "preview"];
@@ -123,7 +124,7 @@ export function OwnerStoreCouponCreatePanel({
         if (!res.ok || !json.ok) {
           /** 언어 재감사 2026-11-27: 서버 글을 그대로 보이지 않는다 — 코드만 키로, 그 밖은 일반 실패 문구 */
           const code = String(json.error ?? "").trim();
-          setErr(/^[a-z][a-z0-9_]*$/.test(code) ? ownerCouponErrorMessage(code, t) : failCopy());
+          setErr(isApiErrorCode(code) ? ownerCouponErrorMessage(code, t) : failCopy());
           return;
         }
         onCreated();

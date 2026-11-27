@@ -7,6 +7,7 @@ import { resolvePublicCityName } from "@/lib/addresses/address-display-levels";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { resolveTradePostLocationForUser } from "@/lib/trade/location/resolve-trade-post-location.server";
 import { deriveTradeLifecycleStatus, type TradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 /** 일괄 변경 대상 = 아직 끝나지 않은 판매 글만 (L1 2026-11-09 — 이전: 판매 완료·숨김·취소 글까지 모두 변경) */
 const BULK_REGION_EXCLUDED: ReadonlySet<TradeLifecycleStatus> = new Set(["completed", "hidden", "cancelled"]);
@@ -41,7 +42,7 @@ export async function POST() {
     .select("id, status, seller_listing_state, meta")
     .eq("user_id", auth.userId);
   if (readErr) {
-    return NextResponse.json({ ok: false, error: readErr.message ?? "bulk_region_update_failed" }, { status: 500 });
+    return internalErrorResponse("bulk_region_update_failed", "[me/posts/bulk-region read]", readErr);
   }
   const targetIds = (Array.isArray(rows) ? rows : [])
     .filter(
@@ -61,7 +62,7 @@ export async function POST() {
       .in("id", targetIds.slice(i, i + 200))
       .select("id");
     if (upd.error) {
-      return NextResponse.json({ ok: false, error: upd.error.message ?? "bulk_region_update_failed" }, { status: 500 });
+      return internalErrorResponse("bulk_region_update_failed", "[me/posts/bulk-region update]", upd.error);
     }
     updatedCount += Array.isArray(upd.data) ? upd.data.length : 0;
   }

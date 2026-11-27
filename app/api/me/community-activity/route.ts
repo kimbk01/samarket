@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   loadCommunityActivityHubServer,
@@ -59,9 +60,6 @@ export async function GET(req?: NextRequest) {
       source: data.source,
     });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: (e as Error)?.message ?? "activity_fetch_failed" },
-      { status: 500 }
-    );
+    return internalErrorResponse("activity_fetch_failed", "[me/community-activity]", e);
   }
 }

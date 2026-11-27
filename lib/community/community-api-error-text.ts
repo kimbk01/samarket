@@ -49,6 +49,9 @@ export const COMMUNITY_POST_WRITE_ERROR_KEYS: ApiErrorCodeMap = {
   category_unavailable: "community_write_err_topic_unavailable",
   meetup_removed: "community_write_err_topic_unavailable",
   image_save_failed: "community_write_err_image_save",
+  /** 사후 검토 E3 2026-11-27 — 글 저장 사진 검사(`resolveMemberPostImages`). 장수 한도는 `params.max` */
+  image_not_allowed: "philife_write_err_image_not_ready",
+  too_many_images: "philife_write_err_image_limit",
   post_save_failed: "philife_write_err_register_failed",
   not_found: "community_err_post_not_found",
   forbidden: "common_api_forbidden",
@@ -81,7 +84,7 @@ export const COMMUNITY_COMMENT_ERROR_KEYS: ApiErrorCodeMap = {
   community_comment_parent_not_found: "community_comment_err_parent_not_found",
   community_comment_depth_limit: "community_comment_err_depth_limit",
   community_comment_blocked_relation: "community_comment_blocked_relation",
-  profile_incomplete: "community_comment_err_profile_incomplete",
+  profile_incomplete: "api_err_profile_incomplete",
 };
 
 /** 동네 피드 목록 (`GET /api/community/neighborhood-feed`) */

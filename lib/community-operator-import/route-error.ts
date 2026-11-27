@@ -5,7 +5,7 @@
  * - DB·외부 사이트 원문은 관리자 진단용으로 `detail` 에만 넣는다(관리자 전용 API 만 — SSOT §4-4 S9).
  * - 라이브러리 오류는 `코드: 원문`·`코드:값` 모양이 많다 → 앞 코드만 `code` 로 쓴다.
  */
-const CODE_SHAPE = /^[a-z][a-z0-9_]*$/;
+import { isApiErrorCode } from "@/lib/i18n/api-error-text";
 
 export type ImportRouteErrorParts = { code: string; detail: string | null };
 
@@ -19,7 +19,7 @@ function rawMessage(e: unknown): string {
 export function importRouteErrorParts(e: unknown, fallbackCode: string): ImportRouteErrorParts {
   const raw = rawMessage(e);
   const head = raw.split(":")[0]?.trim() ?? "";
-  const code = CODE_SHAPE.test(head) ? head : fallbackCode;
+  const code = isApiErrorCode(head) ? head : fallbackCode;
   return { code, detail: raw && raw !== code ? raw : null };
 }
 

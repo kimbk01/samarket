@@ -108,7 +108,7 @@ export async function POST(
       .eq("id", parentIdRaw)
       .maybeSingle();
     if (pErr) {
-      console.error("[posts/comments] parent lookup failed", pErr);
+      console.error("[posts/comments] parent lookup failed", { code: (pErr as { code?: string }).code, message: pErr.message });
       return tradeApiError("comment_save_failed", 500);
     }
     const p = parentRow as { id?: string; post_id?: string; parent_id?: string | null } | null;
@@ -134,7 +134,7 @@ export async function POST(
 
   if (error) {
     /** DB 원문(대댓글 컬럼 없음 등)은 로그로만 — 화면은 코드 */
-    console.error("[posts/comments] insert failed", error);
+    console.error("[posts/comments] insert failed", { code: (error as { code?: string }).code, message: error.message });
     return tradeApiError("comment_save_failed", 500);
   }
   const row = inserted as { id?: string } | null;

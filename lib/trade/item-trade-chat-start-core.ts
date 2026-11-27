@@ -381,7 +381,7 @@ export async function runItemTradeChatStartCore(args: {
   }
 
   if (insertRoomErr || !insertedRoom?.id) {
-    if (insertRoomErr) console.error("[item-trade-chat-start] room insert failed", insertRoomErr);
+    if (insertRoomErr) console.error("[item-trade-chat-start] room insert failed", { code: (insertRoomErr as { code?: string }).code, message: insertRoomErr.message });
     return {
       ok: false,
       httpStatus: 500,
@@ -398,7 +398,7 @@ export async function runItemTradeChatStartCore(args: {
   ]);
 
   if (insertPartErr) {
-    console.error("[item-trade-chat-start] participant insert failed", insertPartErr);
+    console.error("[item-trade-chat-start] participant insert failed", { code: (insertPartErr as { code?: string }).code, message: insertPartErr.message });
     return {
       ok: false,
       httpStatus: 500,

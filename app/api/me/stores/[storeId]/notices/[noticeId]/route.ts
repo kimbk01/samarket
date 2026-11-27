@@ -103,7 +103,7 @@ export async function PATCH(
 
   const { error: upErr } = await sb.from("store_notices").update(patch).eq("id", nid).eq("store_id", sid);
   if (upErr) {
-    console.error("[PATCH store_notices]", upErr);
+    console.error("[PATCH store_notices]", { code: (upErr as { code?: string }).code, message: upErr.message });
     return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/notices/[noticeId] PATCH]", upErr, 500);
   }
 

@@ -29,6 +29,7 @@ import {
   parsePromotionOrderPageParams,
 } from "@/lib/points/promotion-order-history";
 import { invalidPeriodResponse } from "@/lib/stores/commission/period-input-response";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,7 +132,7 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
     if (isMissingPointsTable(error.message ?? "", "point_promotion_orders")) {
       return NextResponse.json({ ok: true, orders: [], catalog, activeForTarget: null });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/points/promotion-orders GET]", error);
   }
   const orders = (data ?? []).map((r) => mapPointPromotionOrderRow(r as Record<string, unknown>));
   /**

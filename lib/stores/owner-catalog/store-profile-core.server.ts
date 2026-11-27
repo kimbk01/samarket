@@ -16,7 +16,7 @@ import {
   STORE_NOT_APPROVED_FOR_VISIBILITY_ERROR,
 } from "@/lib/stores/owner-store-patch-fields";
 import { buildStoreTaxonomyPatch } from "@/lib/stores/build-store-taxonomy-patch";
-import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
+import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_ERROR_CODE } from "@/lib/utils/ph-mobile";
 import { buildStoreLocationPatchFields } from "@/lib/stores/build-store-location-patch";
 import { afterCanonicalStoreLocationWrite } from "@/lib/stores/after-canonical-store-location-write";
 import {
@@ -239,7 +239,7 @@ export async function patchStoreProfileCore(input: {
     const pt = trimOrNull(body.phone);
     const norm = pt === null ? null : normalizePhMobileDb(pt);
     if (pt !== null && !norm) {
-      return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_MESSAGE_KO }, { status: 400 });
+      return NextResponse.json({ ok: false, error: PH_LOCAL_MOBILE_RULE_ERROR_CODE }, { status: 400 });
     }
     const currentRaw = trimOrNull((currentRow as { phone?: unknown }).phone);
     /** 저장값도 같은 형식(09…)으로 맞춰 비교 — 옛 표기(+63·띄어쓰기)를 번호 변경으로 오판하지 않게 (재감사 2026-11-10) */
@@ -566,7 +566,7 @@ export async function patchStoreProfileCore(input: {
   }
 
   if (upErr) {
-    console.error("[PATCH /api/me/stores/storeId]", upErr);
+    console.error("[PATCH /api/me/stores/storeId]", { code: (upErr as { code?: string }).code, message: upErr.message });
     // LOC-005 — DB guard (stores_guard_delivery_requires_geo) uses the same code as the API check.
     if (isStoreDeliveryGeoGuardViolation(upErr)) {
       return NextResponse.json(

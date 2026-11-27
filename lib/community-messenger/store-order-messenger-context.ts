@@ -7,6 +7,23 @@ import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
+ * 배달 방 상태 글자 — 보는 사람 언어. meta `orderStatus`(원 상태 코드)가 있으면 키로 다시 그리고,
+ * 없으면(옛 행) 저장된 `stepLabel` 을 그대로 쓴다. 언어 사후 검토 — 서버가 기본 언어로 고정 저장한 stepLabel 대응.
+ */
+export function deliveryContextStepLabel(
+  meta: Pick<CommunityMessengerRoomContextMetaV1, "orderStatus" | "stepLabel" | "fulfillmentType"> | null | undefined,
+  lang: AppLanguageCode
+): string | null {
+  if (!meta) return null;
+  const status = typeof meta.orderStatus === "string" ? meta.orderStatus.trim() : "";
+  if (status) {
+    const label = buyerOrderStatusLabel(status, lang, meta.fulfillmentType?.trim() || "local_delivery").trim();
+    if (label) return label;
+  }
+  return meta.stepLabel?.trim() || null;
+}
+
+/**
  * 스토어 주문·장바구니 등에서 커뮤니티 메신저 목록용 컨텍스트(v1)를 만든다.
  * 실제 방 `summary` 저장은 `updateCommunityMessengerRoomContextMeta` 또는 PATCH `context_meta`.
  * 채팅방으로 이동할 때는 `buildCommunityMessengerRoomUrlWithContext` (`cm-ctx-url`) 로 `?cm_ctx=` 딥링크를 붙이면 입장 시 자동 동기화된다.
@@ -113,7 +130,7 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
       : line
     : store
       ? translate(lang, "store_messenger_order_title", { store, orderNo: args.orderNo })
-      : translate(lang, "cm_ui_store_order_title_no_store", { orderNo: args.orderNo });
+      : translate(lang, "store_messenger_receipt_order_line", { orderNo: args.orderNo });
   const ft = (args.fulfillmentType ?? "").trim().toLowerCase();
   /** `shipping` 은 기존 주문 타입 명칭이고 메신저 컨텍스트에는 local_delivery 로 정규화한다. */
   const fulfillmentForMeta = ft === "shipping" ? "local_delivery" : args.fulfillmentType;

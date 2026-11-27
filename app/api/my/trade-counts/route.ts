@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
 
   loadPurchaseHistoryRows,
@@ -38,7 +39,6 @@ export async function GET() {
     const salesCount = countSalesHistoryItems(salesLoad.rows, salesLoad.sellingPostIds);
     return NextResponse.json({ ok: true, purchaseCount, salesCount });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "load failed";
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[my/trade-counts]", e);
   }
 }

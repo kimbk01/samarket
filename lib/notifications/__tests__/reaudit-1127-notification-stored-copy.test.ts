@@ -46,13 +46,13 @@ describe("옛 알림 문장 대응표", () => {
     }
   });
 
-  it("변수는 그대로 옮기고 대체 이름은 보는 사람 언어로", () => {
+  it("변수는 그대로 옮긴다 — 옛 행의 대체 이름 글자는 meta 표시가 없어 원문 유지(사후 검토 E4①)", () => {
     expect(mapLegacyNotificationText("en", ko("notify_friend_request_received_title", { name: "Kim" }))).toBe(
       translate("en", "notify_friend_request_received_title", { name: "Kim" })
     );
     const peer = ko("notify_peer_fallback");
     const out = mapLegacyNotificationText("en", ko("notify_friend_request_accepted_body", { name: peer }));
-    expect(out).toBe(translate("en", "notify_friend_request_accepted_body", { name: translate("en", "notify_peer_fallback") }));
+    expect(out).toBe(translate("en", "notify_friend_request_accepted_body", { name: peer }));
   });
 
   it("영어로 저장된 옛 행은 한국어 화면에서 한국어 (서버 영어 문장 0)", () => {

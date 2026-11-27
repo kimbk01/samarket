@@ -19,6 +19,7 @@ import {
   type ItemTradeRoomPair,
 } from "@/lib/mypage/sales-history-scope";
 import { resolveProductChatMessengerRoomIds } from "@/lib/trade/trade-messenger-room-link-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,8 +49,7 @@ export async function GET(req: NextRequest) {
     sellingPostIds = loaded.sellingPostIds;
     postMap = loaded.postMap;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "load failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[my/sales]", e);
   }
 
   if (sellingPostIds.length === 0) {

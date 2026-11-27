@@ -164,7 +164,8 @@ describe("enrichDeliveryRoomLifecycleFieldsFromStoreOrders", () => {
     await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sb, [summary]);
     expect(summary.contextMeta?.storeDisplayName).toBe("맛업는식당");
     expect(summary.contextMeta?.storeId).toBe("store-9");
-    expect(summary.contextMeta?.headline).toBe("맛업는식당");
+    /** 언어 사후 검토 M2 — headline 은 만들지 않는다(화면이 매장명·주문번호로 보는 사람 언어로 그림) */
+    expect(summary.contextMeta?.headline).toBeUndefined();
   });
 
   it("fills storeDisplayName from stores table when embed is missing", async () => {

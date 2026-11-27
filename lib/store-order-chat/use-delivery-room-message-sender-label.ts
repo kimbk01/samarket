@@ -41,7 +41,7 @@ export function resolveDeliveryRoomMessageSenderLabel(input: {
   if (input.headerMode === "owner_buyer_peer") {
     return (
       stripMessengerMemberHandleSuffix(input.buyerDisplayName) ||
-      translate(lang, "store_order_chat_sender_buyer_fallback")
+      translate(lang, "business_phase7_275")
     );
   }
   if (input.isDeliveryRoom && input.storeDisplayName.trim()) {

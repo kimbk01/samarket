@@ -3,6 +3,7 @@
 import { dibayConfirm, dibayAlert } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { deliveryContextStepLabel } from "@/lib/community-messenger/store-order-messenger-context";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -65,7 +66,8 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   const [cancelBusy, setCancelBusy] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const statusLabel = meta?.stepLabel?.trim() || null;
+  /** 원 상태 코드가 있으면 보는 사람 언어로(서버 stepLabel 은 기본 언어 고정 저장) */
+  const statusLabel = deliveryContextStepLabel(meta, language);
 
   const isSeller = participantLooksSeller || Boolean(snapshot?.ownerOrder);
 

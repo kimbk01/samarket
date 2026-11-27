@@ -13,7 +13,7 @@ export const GROUP_CHAT_API_ERROR_CODE_MAP: ApiErrorCodeMap = {
   group_chat_load_failed: "common_chat_room_load_failed",
   server_config: "common_chat_room_load_failed",
   group_chat_room_create_failed: "ui_group_chat_create_failed",
-  group_chat_message_required: "ui_group_chat_input_placeholder",
+  group_chat_message_required: "nav_messenger_input_placeholder",
   group_chat_message_page_rate_limited: "common_api_too_many_requests",
   group_chat_message_rate_limited: "common_api_too_many_requests",
 };

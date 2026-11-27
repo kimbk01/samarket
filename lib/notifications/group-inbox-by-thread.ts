@@ -247,12 +247,14 @@ export function buildInboxGroupItems(
       title: latest.title,
       body: latest.body,
       meta: metaObj,
+      event_type: latest.event_type ?? null,
     });
     const displayTitle = buildInboxDisplayTitle(safeTitle, fromLabel, latest.notification_type);
     const safeBody = resolveNotificationInboxBody(language, {
       notification_type: latest.notification_type,
       body: latest.body,
       meta: metaObj,
+      event_type: latest.event_type ?? null,
     });
     out.push({
       key: `${key}:${ids[0]}`,

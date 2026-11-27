@@ -35,11 +35,20 @@ function fmt(n: number): string {
 export function validateOwnerProductFields(
   fields: OwnerProductFieldsInput,
   lang: AppLanguageCode
-): { ok: true } | { ok: false; error: OwnerProductFieldLimitError; message: string } {
+):
+  | { ok: true }
+  | {
+      ok: false;
+      error: OwnerProductFieldLimitError;
+      message: string;
+      /** 화면 문구 치환값 — 응답 `params` 로 보낸다 (사후 검토 E2 2026-11-27) */
+      params: { max: string | number };
+    } {
   if (typeof fields.title === "string" && fields.title.trim().length > OWNER_PRODUCT_TITLE_MAX) {
     return {
       ok: false,
       error: "title_too_long",
+      params: { max: OWNER_PRODUCT_TITLE_MAX },
       message: translate(lang, "store_owner_prd_title_too_long", { max: OWNER_PRODUCT_TITLE_MAX }),
     };
   }
@@ -47,6 +56,7 @@ export function validateOwnerProductFields(
     return {
       ok: false,
       error: "summary_too_long",
+      params: { max: OWNER_PRODUCT_SUMMARY_MAX },
       message: translate(lang, "store_owner_prd_summary_too_long", { max: OWNER_PRODUCT_SUMMARY_MAX }),
     };
   }
@@ -54,6 +64,7 @@ export function validateOwnerProductFields(
     return {
       ok: false,
       error: "price_too_large",
+      params: { max: fmt(OWNER_PRODUCT_PRICE_MAX) },
       message: translate(lang, "store_owner_prd_price_too_large", { max: fmt(OWNER_PRODUCT_PRICE_MAX) }),
     };
   }
@@ -65,6 +76,7 @@ export function validateOwnerProductFields(
     return {
       ok: false,
       error: "stock_too_large",
+      params: { max: fmt(OWNER_PRODUCT_STOCK_MAX) },
       message: translate(lang, "store_owner_prd_stock_too_large", { max: fmt(OWNER_PRODUCT_STOCK_MAX) }),
     };
   }

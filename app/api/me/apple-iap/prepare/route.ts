@@ -4,6 +4,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { readAppleIapServerConfig } from "@/lib/apple-iap/apple-iap-config.server";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
 import { prepareAppleIapAttempt } from "@/lib/apple-iap/apple-iap-service.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       idempotent: r.idempotent === true,
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("prepare_failed", "[me/apple-iap/prepare]", e);
   }
 }

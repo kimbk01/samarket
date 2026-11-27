@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { resolveOwnerProductRegisterError } from "@/lib/business/owner-product-register-error";
 import { formatOwnerOrderPatchErr } from "@/lib/business/owner-order-patch-errors";
 import { ownerProductStatusBlockText } from "@/lib/stores/store-product-admin-lock";

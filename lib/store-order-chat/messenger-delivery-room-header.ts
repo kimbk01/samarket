@@ -46,7 +46,7 @@ export function buyerNicknameForOwnerHeader(
   if (fromPeer) return fromPeer;
   const title = roomTitle?.trim() ?? "";
   if (title.length > 0 && !title.includes(" · ")) return title;
-  return translateCmUi("cm_ui_store_order_customer_fallback");
+  return translateCmUi("business_phase7_275");
 }
 
 const STORE_ORDER_ROOM_UUID_RE =

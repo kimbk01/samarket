@@ -116,7 +116,6 @@ import {
   cmMgmtNoticeMessage,
   cmMgmtOwnerTransferMessage,
   cmMgmtPermissionsMessage,
-  cmStoreOrderHeadline,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import {
   buildMessengerContextMetaFromProductChatSnapshot,
@@ -11795,7 +11794,8 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   const peer = userId === buyer ? owner : buyer;
   const out = await ensureCommunityMessengerDirectRoom(userId, peer, { storeOrderId: oid });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
-  const storeName = trimText(storeRow?.store_name) || cmServiceT("cm_svc_store_fallback");
+  /** 매장명이 없으면 비운다 — 화면이 보는 사람 언어 대체 키로 그린다(서버 언어 고정 저장 금지, 언어 사후 검토 M2) */
+  const storeName = trimText(storeRow?.store_name);
   const orderNo = trimText(orderRow.order_no);
   const status = trimText(orderRow.order_status);
   const fulfillmentType = trimText(orderRow.fulfillment_type);
@@ -11811,12 +11811,14 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     orderNo,
     storeId: trimText(orderRow.store_id),
     ...(owner ? { storeOwnerUserId: owner } : {}),
-    storeDisplayName: storeName,
+    ...(storeName ? { storeDisplayName: storeName } : {}),
     fulfillmentType,
-    headline: cmStoreOrderHeadline(storeName, orderNo),
+    /** headline 은 만들지 않는다 — 화면이 매장명·주문번호로 보는 사람 언어로 그린다(`resolveRoomContextHeadline`) */
     ...(profileUrl ? { thumbnailUrl: profileUrl } : {}),
     ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
+    /** stepLabel 은 옛 화면 호환용 저장 — 화면은 orderStatus 로 보는 사람 언어로 그린다(`deliveryContextStepLabel`) */
     ...(status ? { stepLabel: buyerOrderStatusLabel(status, DEFAULT_APP_LANGUAGE, fulfillmentType) || status } : {}),
+    ...(status ? { orderStatus: status } : {}),
   };
   await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
   return { ok: true, roomId: out.roomId, peerUserId: peer };

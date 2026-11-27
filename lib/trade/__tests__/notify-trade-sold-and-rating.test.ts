@@ -106,3 +106,46 @@ describe("감사 P3 ③ 평가 도착 알림", () => {
     expect(append).not.toHaveBeenCalled();
   });
 });
+
+describe("언어 사후 검토 E4① — 대체 이름은 vars 가 아니라 varKeys + peerFallback", () => {
+  beforeEach(() => {
+    append.mockClear();
+    ratingCtx.mockReset();
+    ratingCtx.mockImplementation(async () => ({ eligibility: { eligible: true } }));
+  });
+
+  it("상품명이 없으면 meta 에 대체 상품 키를 남기고 vars 에는 넣지 않는다", async () => {
+    await notifyTradeSoldToEligibleCounterparts(fakeSb([rooms[0]]), {
+      postId: "post-1",
+      sellerUserId: "seller-1",
+      postTitle: null,
+    });
+    const meta = ((append.mock.calls[0] as unknown[])[1] as { meta: Record<string, unknown> }).meta;
+    expect(meta.varKeys).toEqual({ product: "notify_trade_product_fallback" });
+    expect(meta.peerFallback).toBe(true);
+    expect(meta.vars).toBeUndefined();
+  });
+
+  it("상품명이 있으면 vars 에 그대로, 대체 표시 없음", async () => {
+    await notifyTradeSoldToEligibleCounterparts(fakeSb([rooms[0]]), {
+      postId: "post-1",
+      sellerUserId: "seller-1",
+      postTitle: "Bike",
+    });
+    const meta = ((append.mock.calls[0] as unknown[])[1] as { meta: Record<string, unknown> }).meta;
+    expect(meta.vars).toEqual({ product: "Bike" });
+    expect(meta.varKeys).toBeUndefined();
+    expect(meta.peerFallback).toBeUndefined();
+  });
+
+  it("평가한 사람 이름이 없으면 대체 이름 키", async () => {
+    await notifyTradeRatingReceived(
+      fakeSb({ id: "pc-1", post_id: "post-1", community_messenger_room_id: "cm-1" }),
+      { productChatId: "pc-1", reviewerId: "no-nick", revieweeId: "buyer-ok" }
+    );
+    const meta = ((append.mock.calls[0] as unknown[])[1] as { meta: Record<string, unknown> }).meta;
+    expect(meta.varKeys).toEqual({ name: "notify_peer_fallback" });
+    expect(meta.peerFallback).toBe(true);
+    expect(meta.vars).toBeUndefined();
+  });
+});

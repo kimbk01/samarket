@@ -39,16 +39,15 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     if (error.message?.includes("column") || error.message?.includes("does not exist")) {
-      return NextResponse.json({ ok: false, error: "schema_missing", detail: error.message }, { status: 503 });
+      return NextResponse.json({ ok: false, error: "schema_missing" }, { status: 503 });
     }
     console.error("[trade-presence:beacon] update failed", {
       userIdSuffix: auth.userId ? auth.userId.slice(-8) : null,
       pgCode: (error as { code?: string }).code ?? null,
-      pgDetails: (error as { details?: string }).details ?? null,
       pgHint: (error as { hint?: string }).hint ?? null,
       message: error.message,
     });
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

@@ -21,6 +21,7 @@ import { getStoreIfOwnerForOperationalWrite } from "@/lib/stores/owner-product-g
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 import { FUNCTION_MULTIPART_IMAGE_SAFE_MAX_BYTES } from "@/lib/media/function-upload-limits";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(
     .select("*")
     .eq("id", requestId)
     .maybeSingle();
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return internalErrorResponse("load_failed", "[me/event-promotion-requests/upload-image read]", error);
   if (!data) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const row = mapPlatformEventOwnerRequestDbRow(data as PlatformEventOwnerRequestDbRow);
@@ -111,7 +112,7 @@ export async function POST(
     if (/bucket not found/i.test(raw)) {
       return NextResponse.json({ ok: false, error: "storage_bucket_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[me/event-promotion-requests/upload-image]", upErr);
   }
 
   const {

@@ -4,7 +4,8 @@
  * 공통 함수(`lib/http/api-route.ts`·`lib/security/rate-limit-presets.ts`·`lib/auth/server-guards.ts`·
  * `lib/auth/api-session-require.ts`·`lib/auth/member-account-state.ts`·`lib/auth/store-member-policy.ts`·
  * `lib/utils/ph-mobile.ts`·`lib/env/*`)가 `error` 에 넣는 코드를 모두 담는다.
- * 화면은 도메인 표와 합쳐 쓴다: `resolveApiErrorText({ json, status, map: { ...COMMON_API_ERROR_CODE_MAP, ...domainMap }, … })`.
+ * `resolveApiErrorText` 가 도메인 표 다음 단계로 이 표를 늘 본다(사후 검토 D1 2026-11-27) — 도메인 표에 다시 적지 않는다.
+ * 같은 코드는 모든 화면에서 같은 키(D2): `supabase_unconfigured`·`invalid_json`·`phone_verification_required` 는 이 표 값이 기준.
  */
 import type { ApiErrorCodeMap } from "@/lib/i18n/api-error-text";
 
@@ -41,12 +42,13 @@ export const COMMON_API_ERROR_CODE_MAP: ApiErrorCodeMap = {
   login_required: "common_login_required",
   profile_not_found: "api_err_profile_not_found",
   supabase_unconfigured: "net_dibay_error",
+  invalid_json: "reaudit_trade_err_invalid_request",
   internal_error: "net_dibay_error",
   temporarily_unavailable: "net_dibay_error",
   env_missing: "net_dibay_error",
   sms_send_failed: "api_err_sms_send_failed",
   member_activity_restricted: "api_err_member_activity_restricted",
-  phone_verification_required: "auth_phone_gate_requirement",
+  phone_verification_required: "owner_post_err_phone_verification_required",
   profile_incomplete: "api_err_profile_incomplete",
   invalid_ph_phone: "phone_rule",
   ...Object.fromEntries(RATE_LIMIT_CODES.map((code) => [code, "common_api_too_many_requests" as const])),

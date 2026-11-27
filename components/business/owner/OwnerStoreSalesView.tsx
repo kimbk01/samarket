@@ -28,7 +28,7 @@ import {
   type StoreSalesTotals,
 } from "@/lib/stores/sales/store-sales-period";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { translateBy } from "@/lib/i18n/translate-by";
 
 type SalesRow = StoreSalesBucket & { netCommissionMinor: number };

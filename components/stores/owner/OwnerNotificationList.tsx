@@ -8,7 +8,7 @@ import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { NotificationInboxRowSkeleton } from "@/components/notifications/NotificationInboxRowSkeleton";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
   NOTIFICATION_SYNC_POLL_MS,

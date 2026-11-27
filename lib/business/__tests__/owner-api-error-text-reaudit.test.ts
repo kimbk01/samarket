@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import {
-  OWNER_EXTRA_API_ERROR_MAP,
+  OWNER_API_ERROR_MAP,
   isOwnerApiErrorCode,
   resolveOwnerApiErrorText,
   toOwnerBootstrapErrorCode,
@@ -21,7 +21,7 @@ describe("resolveOwnerApiErrorText", () => {
     expect(resolveOwnerApiErrorText("content_filter_blocked", tr("en"))).toBe(
       translate("en", "content_filter_blocked_message")
     );
-    for (const code of Object.keys(OWNER_EXTRA_API_ERROR_MAP)) {
+    for (const code of Object.keys(OWNER_API_ERROR_MAP)) {
       const en = resolveOwnerApiErrorText(code, tr("en"));
       expect(en, code).not.toMatch(HANGUL);
       expect(en, code).not.toBe(code);

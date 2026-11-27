@@ -70,8 +70,8 @@ describe("B3 store-order list — stored system preview in viewer language", () 
     const meta = cmRoomLastMessageMetaFromMessage(SUMMARY, { kind: "store_order_summary" });
     const item = row({ latestChatMessageText: SUMMARY, lastMessageMeta: meta });
     /** 가림 정책은 그대로, 가림 문구는 보는 사람 언어(언어 재감사 2026-11-27) */
-    expect(buildStoreOrderCustomerListViewModel(item, "en").previewText).toBe(translate("en", "cm_ui_new_message_label"));
-    expect(STORE_ORDER_SUMMARY_REDACTED_PREVIEW).toBe(translate("ko", "cm_ui_new_message_label"));
+    expect(buildStoreOrderCustomerListViewModel(item, "en").previewText).toBe(translate("en", "notify_preview_new_message"));
+    expect(STORE_ORDER_SUMMARY_REDACTED_PREVIEW).toBe(translate("ko", "notify_preview_new_message"));
   });
 
   it("list mapping carries lastMessageMeta only when present", () => {

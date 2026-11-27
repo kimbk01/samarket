@@ -17,6 +17,7 @@ import {
   tradeStoredListingLabelText,
   tradeWriteErrorText,
   TRADE_CHAT_PREVIEW_TOKEN_MESSAGE,
+  TRADE_CHAT_PREVIEW_TOKEN_PHOTO,
   TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE,
   TRADE_CHAT_PREVIEW_TOKEN_SYSTEM,
 } from "@/lib/trade/trade-api-error-text";
@@ -125,6 +126,18 @@ describe("거래 채팅 저장 토큰 → 화면 문구 (옛·새 행 공통)", 
       expect(HANGUL.test(en), label).toBe(false);
     }
     expect(tradeStoredListingLabelText("모르는 값", tEn)).toBe("모르는 값");
+  });
+
+  /** 사후 검토 R1 (2026-11-27) — 저장 글자는 카탈로그와 분리된 고정값. 화면 문구를 고쳐도 바뀌면 안 된다 */
+  it("저장 토큰 글자 불변 (옛 행과 같은 글자)", () => {
+    expect(TRADE_CHAT_PREVIEW_TOKEN_PHOTO).toBe("사진");
+    expect(tradeChatPhotoPreviewToken(1)).toBe("사진");
+    expect(tradeChatPhotoPreviewToken(4)).toBe("사진 4장");
+    expect(TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE).toBe("거래 상태 안내");
+    expect(TRADE_CHAT_PREVIEW_TOKEN_SYSTEM).toBe("(시스템)");
+    expect(TRADE_CHAT_PREVIEW_TOKEN_MESSAGE).toBe("(메시지)");
+    expect(tradeStoredListingLabelText("숨김", tEn)).toBe(tEn("mypage_comp_product_status_hidden"));
+    expect(tradeStoredListingLabelText("삭제됨", tEn)).toBe(tEn("mypage_comp_product_status_deleted"));
   });
 });
 

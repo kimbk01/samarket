@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export async function POST(
     if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("cancel_failed", "[me/points/charge/cancel]", error);
   }
   if (!row) {
     return NextResponse.json({ ok: false, error: "cannot_cancel" }, { status: 400 });

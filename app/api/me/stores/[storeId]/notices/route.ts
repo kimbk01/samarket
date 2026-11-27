@@ -119,7 +119,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
     .maybeSingle();
 
   if (insErr) {
-    console.error("[POST store_notices]", insErr);
+    console.error("[POST store_notices]", { code: (insErr as { code?: string }).code, message: insErr.message });
     if (isStoreNoticesTableMissingError(insErr)) {
       return NextResponse.json(storeNoticesUnavailableBody(), { status: 503 });
     }

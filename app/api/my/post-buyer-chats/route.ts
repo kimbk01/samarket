@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
     .eq("seller_id", userId)
     .order("last_message_at", { ascending: false, nullsFirst: false });
   if (pcError) {
-    return NextResponse.json({ error: pcError.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[my/post-buyer-chats]", pcError);
   }
   const pcByBuyer = new Map<string, Record<string, unknown>>();
   for (const r of (pcRows ?? []) as Record<string, unknown>[]) {

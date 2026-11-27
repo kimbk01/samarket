@@ -24,7 +24,7 @@ export function resolveTradeItemStatus(
   const lang = langInput ?? getRuntimeAppLanguage();
   const postStatus = (input.postStatus ?? "").trim().toLowerCase();
   if (postStatus === "deleted") {
-    return { itemStatus: "deleted", statusBadgeLabel: translate(lang, "cm_ui_trade_item_deleted"), listingState: "completed" };
+    return { itemStatus: "deleted", statusBadgeLabel: translate(lang, "mypage_r5_recent_deleted"), listingState: "completed" };
   }
   if (postStatus === "hidden" || postStatus === "blinded") {
     return { itemStatus: "hidden", statusBadgeLabel: translate(lang, "ui_product_status_hidden"), listingState: "inquiry" };

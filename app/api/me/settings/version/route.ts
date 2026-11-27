@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function GET() {
         source: "missing_table",
       });
     }
-    return NextResponse.json({ ok: false, error: error.message ?? "version_fetch_failed" }, { status: 500 });
+    return internalErrorResponse("version_fetch_failed", "[me/settings/version]", error);
   }
 
   const meta = new Map<string, string>();

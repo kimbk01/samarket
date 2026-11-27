@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CM_INPUT_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 
 export type CommunityShareTargetItem = {
   id: string;
@@ -13,10 +14,22 @@ export type CommunityShareTargetItem = {
   subtitle?: string;
   avatarUrl?: string | null;
   roomId?: string;
+  /** 방 대상만 — 대체 제목 표시용 (`resolveMessengerRoomDisplayTitle`) */
+  roomType?: string;
   userId?: string;
   /** 메시지 「전달하기」 대상 가능 여부 — 거래·배달(주문) 방은 false (통합 공유 S6 · G-4) */
   forwardable?: boolean;
 };
+
+/** 표시 이름 — 방은 서버 대체 제목을 보는 사람 언어로(언어 사후 검토 M2), 그 외는 그대로 */
+export function communityShareTargetDisplayLabel(
+  item: Pick<CommunityShareTargetItem, "kind" | "label" | "roomType">,
+  t: Parameters<typeof resolveMessengerRoomDisplayTitle>[1]
+): string {
+  if (item.kind !== "room") return item.label;
+  if (!item.label.trim()) return t("chats_direct_chat_fallback");
+  return resolveMessengerRoomDisplayTitle({ title: item.label, roomType: item.roomType ?? null }, t) || item.label;
+}
 
 type Props = {
   disabled?: boolean;
@@ -121,12 +134,12 @@ export function CommunityShareTargetPicker({ disabled = false, onSelect }: Props
           roundedClassName="rounded-full"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold text-[var(--cm-text)]">{item.label}</p>
+          <p className="truncate text-[15px] font-semibold text-[var(--cm-text)]">{communityShareTargetDisplayLabel(item, t)}</p>
           {item.subtitle ? <p className={`truncate ${CM_META_CLASS}`}>{item.subtitle}</p> : null}
         </div>
       </button>
     ),
-    [disabled, onSelect]
+    [disabled, onSelect, t]
   );
 
   return (

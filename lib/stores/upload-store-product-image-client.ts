@@ -3,6 +3,7 @@ import {
   readFunctionUploadJson,
 } from "@/lib/media/client-image-upload-prepare";
 import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
+import { isApiErrorCode } from "@/lib/i18n/api-error-text";
 
 export type UploadStoreOwnerProductImageResult = {
   url: string;
@@ -51,10 +52,7 @@ export async function uploadStoreOwnerProductImage(
   const { ok, json } = await postStoreOwnerImageUpload(storeId, file, apiBase);
   if (!ok || !json.url) {
     /** 서버 `message` 문장은 쓰지 않는다 — 코드만 던지고 화면이 키로 그린다 (재감사 2026-11-27) */
-    const code =
-      typeof json?.error === "string" && /^[a-z][a-z0-9_]*$/.test(json.error.trim())
-        ? json.error.trim()
-        : "upload_failed";
+    const code = isApiErrorCode(json.error) ? json.error.trim() : "upload_failed";
     throw new Error(code);
   }
   const width = typeof json.width === "number" && Number.isFinite(json.width) ? json.width : undefined;

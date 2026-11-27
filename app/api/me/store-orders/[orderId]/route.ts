@@ -351,7 +351,7 @@ export async function DELETE(
     if (hideErr.message?.includes("store_order_buyer_hides") && hideErr.message.includes("does not exist")) {
       return NextResponse.json({ ok: false, error: "buyer_hide_schema_missing" }, { status: 503 });
     }
-    console.error("[DELETE store-order hide]", hideErr);
+    console.error("[DELETE store-order hide]", { code: (hideErr as { code?: string }).code, message: hideErr.message });
     return internalErrorResponse("delete_failed", "[/api/me/store-orders/[orderId] DELETE]", hideErr, 500);
   }
 

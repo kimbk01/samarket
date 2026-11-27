@@ -249,7 +249,7 @@ export function GroupChatRoomClient({
             onSend={handleSend}
             draftStorageKey={`group-chat:${roomId}`}
             disabled={!currentUserId}
-            placeholder={currentUserId ? t("ui_group_chat_input_placeholder") : t("ui_group_chat_login_to_send")}
+            placeholder={currentUserId ? t("nav_messenger_input_placeholder") : t("ui_group_chat_login_to_send")}
           />
         </div>
       ) : null}

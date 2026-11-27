@@ -6,6 +6,7 @@ import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { formatChatListKakaoTime } from "@/lib/community-messenger/chat-list/chat-list-kakao-time";
@@ -261,7 +262,7 @@ function SearchResults(props: Props & { tab: MessengerChatSearchTab }) {
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[16px] font-semibold leading-[1.3]" style={{ color: "var(--cm-chat-fg)" }}>
-                      {item.room.title}
+                      {resolveMessengerRoomDisplayTitle(item.room, t)}
                     </span>
                     <span className="mt-[3px] block truncate text-[13.5px] leading-[1.35]" style={{ color: "var(--cm-chat-sub)" }}>
                       {item.preview}

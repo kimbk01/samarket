@@ -13,10 +13,6 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OWNER_POST_API_ERROR_MAP } from "@/lib/posts/owner-post-api-error-text";
 import { SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
-import { cmHomeListMessages } from "@/lib/i18n/catalog/cm-home-list";
-import { communityMessengerUiMessages } from "@/lib/i18n/catalog/community-messenger-ui";
-import { mypageComponentsMessages } from "@/lib/i18n/catalog/mypage-components";
-import { reauditTradeMessages } from "@/lib/i18n/catalog/reaudit-trade";
 
 /** 거래 화면 공통 — 로그인·서버·제한 */
 const TRADE_COMMON_ERROR_KEYS = {
@@ -31,7 +27,7 @@ const TRADE_COMMON_ERROR_KEYS = {
   content_filter_blocked: "content_filter_blocked_message",
   too_many_requests: "common_api_too_many_requests",
   rate_limited: "common_api_too_many_requests",
-  profile_incomplete: "reaudit_trade_write_err_profile_incomplete",
+  profile_incomplete: "api_err_profile_incomplete",
   product_not_found: "common_product_not_found",
 } as const satisfies ApiErrorCodeMap;
 
@@ -110,6 +106,8 @@ export const TRADE_WRITE_ERROR_KEYS: ApiErrorCodeMap = {
   post_save_failed: "common_save_failed",
   trade_core_locked: "reaudit_trade_edit_err_core_locked",
   trade_content_append_only: "reaudit_trade_edit_err_append_only",
+  /** 서버 필수 칸 검사(`server-required-fields.server.ts`, 2단계에서만 켜짐) — 사후 검토 M6 2026-11-27 */
+  required_field_missing: "trade_write_err_required_fields",
 };
 
 /**
@@ -127,7 +125,7 @@ export const POST_COMMENT_ERROR_KEYS: ApiErrorCodeMap = {
 /** 일자리 지원 (`/api/posts/[postId]/job-apply`) */
 export const JOB_APPLY_ERROR_KEYS: ApiErrorCodeMap = {
   ...TRADE_COMMON_ERROR_KEYS,
-  post_not_found: "reaudit_trade_job_err_post_not_found",
+  post_not_found: "community_err_post_not_found",
   own_post_apply: "reaudit_trade_job_err_own_post",
   not_job_post: "reaudit_trade_job_err_not_job",
   not_hiring_post: "reaudit_trade_job_err_not_hiring",
@@ -140,7 +138,7 @@ export const JOB_APPLY_ERROR_KEYS: ApiErrorCodeMap = {
 export const BULK_REGION_ERROR_KEYS: ApiErrorCodeMap = {
   ...TRADE_COMMON_ERROR_KEYS,
   /** 화면 `BulkRegionChangeContent` 표와 같은 코드 */
-  location_required: "reaudit_trade_bulk_region_err_location_required",
+  location_required: "settings_bulk_region_location_required",
 };
 
 export type TradeApiErrorInput = {
@@ -190,13 +188,26 @@ export function bulkRegionErrorText(input: TradeApiErrorInput, t: ApiErrorTransl
  * 거래 채팅 저장 미리보기·본문 토큰(`product_chats.last_message_preview` · `chat_messages.body` ·
  * `chat_rooms.last_message_preview`) → 화면 문구. 서버는 언어와 무관한 고정 토큰을 저장하고(옛 행과 같은 값 —
  * 다른 화면·알림이 이 값을 읽으므로 형식은 바꾸지 않는다), 화면이 이 함수로 보는 사람 언어로 그린다.
- * 토큰 = 카탈로그 ko 값(코드에 한국어 문장을 따로 두지 않는다). 대응표에 없는 글(회원이 쓴 메시지)은 그대로.
+ * 대응표에 없는 글(회원이 쓴 메시지)은 그대로.
+ *
+ * 사후 검토 R1 (2026-11-27): 토큰은 카탈로그와 분리한 고정 글자다 — 누가 화면 문구(카탈로그)를 고쳐도 저장 글자는
+ * 바뀌지 않아 옛 행이 계속 맞는다. 값은 옛 행과 같은 한국어 글자 그대로(`*Ko`). 화면에 그대로 쓰지 않는다.
  */
-export const TRADE_CHAT_PREVIEW_TOKEN_PHOTO: string = cmHomeListMessages.ko.cm_home_preview_photo;
-export const TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE: string = reauditTradeMessages.ko.reaudit_trade_chat_preview_status_notice;
-export const TRADE_CHAT_PREVIEW_TOKEN_SYSTEM: string = reauditTradeMessages.ko.reaudit_trade_chat_preview_system;
-export const TRADE_CHAT_PREVIEW_TOKEN_MESSAGE: string = reauditTradeMessages.ko.reaudit_trade_chat_preview_message;
-const PHOTO_COUNT_TEMPLATE: string = communityMessengerUiMessages.ko.cm_ui_photo_count_sheets;
+const TRADE_STORED_TOKEN = {
+  photoKo: "사진",
+  photoCountKo: "사진 {count}장",
+  statusNoticeKo: "거래 상태 안내",
+  systemKo: "(시스템)",
+  messageKo: "(메시지)",
+  listingHiddenKo: "숨김",
+  listingDeletedKo: "삭제됨",
+} as const;
+
+export const TRADE_CHAT_PREVIEW_TOKEN_PHOTO: string = TRADE_STORED_TOKEN.photoKo;
+export const TRADE_CHAT_PREVIEW_TOKEN_STATUS_NOTICE: string = TRADE_STORED_TOKEN.statusNoticeKo;
+export const TRADE_CHAT_PREVIEW_TOKEN_SYSTEM: string = TRADE_STORED_TOKEN.systemKo;
+export const TRADE_CHAT_PREVIEW_TOKEN_MESSAGE: string = TRADE_STORED_TOKEN.messageKo;
+const PHOTO_COUNT_TEMPLATE: string = TRADE_STORED_TOKEN.photoCountKo;
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -232,8 +243,8 @@ const STORED_LISTING_LABEL_KEYS: ReadonlyMap<string, MessageKey> = new Map<strin
   [SELLER_LISTING_LABEL.negotiating, "trade_listing_step_negotiating"],
   [SELLER_LISTING_LABEL.reserved, "trade_listing_step_reserved"],
   [SELLER_LISTING_LABEL.completed, "mypage_comp_listing_completed"],
-  [mypageComponentsMessages.ko.mypage_comp_product_status_hidden, "mypage_comp_product_status_hidden"],
-  [mypageComponentsMessages.ko.mypage_comp_product_status_deleted, "mypage_comp_product_status_deleted"],
+  [TRADE_STORED_TOKEN.listingHiddenKo, "mypage_comp_product_status_hidden"],
+  [TRADE_STORED_TOKEN.listingDeletedKo, "mypage_comp_product_status_deleted"],
 ]);
 
 export function tradeStoredListingLabelKey(stored: string | null | undefined): MessageKey | null {

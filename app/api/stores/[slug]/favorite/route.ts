@@ -50,7 +50,7 @@ export async function POST(_req: Request, context: { params: Promise<{ slug: str
     store_id: storeId,
   });
   if (insErr && insErr.code !== "23505") {
-    console.error("[POST store favorite]", insErr);
+    console.error("[POST store favorite]", { code: (insErr as { code?: string }).code, message: insErr.message });
     return NextResponse.json({ ok: false, error: STORE_PUBLIC_API_ERROR_CODES.favorite }, { status: 500 });
   }
   const { count } = await supabase

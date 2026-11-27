@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { parseTradePresenceAudience } from "@/lib/chats/trade-presence-rules";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function GET() {
         schema_missing: true,
       });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/trade-presence GET]", error);
   }
 
   const row = (data ?? {}) as Row;
@@ -103,7 +104,7 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await sb.from("profiles").update(patch).eq("id", auth.userId);
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/trade-presence PATCH]", error);
   }
 
   return NextResponse.json({ ok: true });

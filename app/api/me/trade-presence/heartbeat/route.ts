@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +24,9 @@ export async function POST() {
 
   if (error) {
     if (error.message?.includes("column") || error.message?.includes("does not exist")) {
-      return NextResponse.json({ ok: false, error: "schema_missing", detail: error.message }, { status: 503 });
+      return NextResponse.json({ ok: false, error: "schema_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/trade-presence/heartbeat]", error);
   }
 
   return NextResponse.json({ ok: true });

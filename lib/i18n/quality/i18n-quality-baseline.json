@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-27 16:14 PHT",
+ "generatedAtPht": "2026-11-27 17:53 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -82,7 +82,6 @@
    "app/api/community-messenger/bridge/product-chat/route.ts": 2,
    "app/api/community-messenger/home-sync/route.ts": 3,
    "app/api/community-messenger/rooms/[roomId]/messages/route.ts": 3,
-   "app/api/community/posts/[postId]/like/route.ts": 1,
    "app/api/me/notification-targets/clear/route.ts": 1,
    "app/api/me/notifications/route.ts": 1,
    "app/api/me/rider/orders/[orderId]/pod-upload/route.ts": 1,
@@ -213,7 +212,6 @@
    "lib/community-messenger/room/messenger-room-bootstrap-refresh.ts": 1,
    "lib/community-messenger/room/messenger-room-last-message-placeholder.ts": 3,
    "lib/community-messenger/room/phase2/use-trade-room-listing-unavailable.ts": 2,
-   "lib/community-messenger/server/load-community-messenger-room-silent-delta.ts": 2,
    "lib/community-messenger/store-order-chat-service.ts": 1,
    "lib/community-messenger/store-order-display-identity.ts": 2,
    "lib/community-messenger/stores/call-in-app-notice-store.ts": 9,
@@ -366,7 +364,6 @@
    "lib/stores/presentation/stores-home-presentation-map.ts": 3,
    "lib/stores/product/stores-home-shelf-product-catalog.ts": 3,
    "lib/stores/sales/store-sales-period.ts": 7,
-   "lib/stores/store-address-form-ui.ts": 7,
    "lib/stores/store-approval-label-ko.ts": 7,
    "lib/stores/store-auto-hours.ts": 4,
    "lib/stores/store-delivery-alert-sound-presets.ts": 2,

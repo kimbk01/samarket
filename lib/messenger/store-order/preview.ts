@@ -47,7 +47,7 @@ export const STORE_ORDER_EMPTY_CONVERSATION_PREVIEW_KEY = "community_messenger_n
  */
 export const STORE_ORDER_SUMMARY_REDACTED_PREVIEW = "새 메시지" as const;
 /** 주문 요약 가림 화면 문구 키 (옛 고정값 `STORE_ORDER_SUMMARY_REDACTED_PREVIEW` 대신) */
-export const STORE_ORDER_SUMMARY_REDACTED_PREVIEW_KEY = "cm_ui_new_message_label" as const;
+export const STORE_ORDER_SUMMARY_REDACTED_PREVIEW_KEY = "notify_preview_new_message" as const;
 
 export function resolveStoreOrderPreview(input: StoreOrderPreviewPortInput): DomainPreview {
   assertStoreOrderPreviewOwnDomainOnly(input.chatDomain);

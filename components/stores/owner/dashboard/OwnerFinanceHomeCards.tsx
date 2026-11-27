@@ -7,7 +7,7 @@ import { useRefetchOnNotificationArrival } from "@/lib/ui/use-refetch-on-notific
 import { STORE_MONEY_OUTCOME_KINDS } from "@/lib/notifications/money-outcome-signal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { CurrencyAmount } from "@/components/currency/CurrencyAmount";

@@ -131,7 +131,7 @@ export function PostCommunityCommentsSection({
         const profileHandled = handleProfileIncompleteApiResponse(data);
         if (profileHandled.handled) {
           /** 서버·공통 함수 문장 대신 화면 언어 키 (재감사 2026-11-27) */
-          setError(t("community_comment_err_profile_incomplete"));
+          setError(t("api_err_profile_incomplete"));
           return;
         }
         setError(

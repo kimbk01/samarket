@@ -13,8 +13,7 @@ import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/res
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
+import { isOwnerApiErrorCode, resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,

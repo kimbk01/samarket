@@ -1,10 +1,10 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 
 /**
  * 4-0 (RC-11) — 오너 화면 공통 JSON fetch.
  * `fetch` 예외·`res.json()` 예외·HTTP 오류·`{ ok:false, error }` 를 한 결과 형태로 모은다.
- * 오류 문구는 `owner-api-error-i18n` 매핑을 그대로 쓴다. 401/403 은 `stateKind:"no_permission"` 으로
+ * 오류 문구는 `owner-api-error-text` 표를 그대로 쓴다. 401/403 은 `stateKind:"no_permission"` 으로
  * 돌려 화면이 `OwnerStateView` 로 전환할 수 있게 한다.
  */
 
@@ -59,7 +59,7 @@ export async function ownerFetchJson<T = Record<string, unknown>>(
   return { ok: false, status, code, body, stateKind };
 }
 
-/** 실패 결과 → 화면 문구 (`owner-api-error-i18n`). */
+/** 실패 결과 → 화면 문구 (`owner-api-error-text`). */
 export function ownerFetchErrorMessage(failure: Pick<OwnerFetchJsonFailure, "code">, t: TranslateFn): string {
   return resolveOwnerApiErrorMessage(failure.code, t);
 }

@@ -61,7 +61,7 @@ export function buildCommunityPointLedgerDescription(input: {
   const L = POINT_LEDGER_STORED_LANGUAGE;
   const action = translate(L, communityActionKey(input.actionType, input.isQna));
   const board =
-    input.boardName || input.topicSlug || (input.isQna ? "Q&A" : translate(L, "point_desc_community_board_fallback"));
+    input.boardName || input.topicSlug || (input.isQna ? "Q&A" : translate(L, "mypage_hub_community_fallback"));
   const preview = input.content.replace(/\s+/g, " ").trim().slice(0, 40);
   const rewardBit =
     input.rewardType === "random"
@@ -86,19 +86,19 @@ export function buildRewardExecutionLedgerDescription(input: {
 }
 
 function communityActionKey(actionType: "write" | "comment", isQna: boolean): MessageKey {
-  if (actionType === "comment") return "point_desc_community_comment";
-  return isQna ? "point_desc_community_qna" : "point_desc_community_write";
+  if (actionType === "comment") return "point_fin_community_comment";
+  return isQna ? "point_fin_community_question" : "point_fin_community_post";
 }
 
 const COMMUNITY_ACTION_KEYS: readonly MessageKey[] = [
-  "point_desc_community_qna",
-  "point_desc_community_write",
-  "point_desc_community_comment",
+  "point_fin_community_question",
+  "point_fin_community_post",
+  "point_fin_community_comment",
 ];
 const matchSimple = createCatalogTemplateMatcher(SIMPLE_KEYS);
 const matchCommunityAction = createCatalogTemplateMatcher(COMMUNITY_ACTION_KEYS);
 const matchRewardBit = createCatalogTemplateMatcher(["point_desc_reward_random", "point_desc_reward_fixed"]);
-const matchBoardFallback = createCatalogTemplateMatcher(["point_desc_community_board_fallback"]);
+const matchBoardFallback = createCatalogTemplateMatcher(["mypage_hub_community_fallback"]);
 const matchRewardExecution = createCatalogTemplateMatcher(["point_desc_reward_write", "point_desc_reward_comment"]);
 const matchAdminReason = createCatalogTemplateMatcher(["point_desc_admin_reason"]);
 
@@ -129,7 +129,7 @@ function localizeCommunity(lang: AppLanguageCode, text: string): string | null {
     const bit = matchRewardBit(multMatch?.[1] ?? bitWithMult);
     if (!bit) continue;
     const preview = after.slice(q + SEP.length);
-    const boardShown = matchBoardFallback(board) ? translate(lang, "point_desc_community_board_fallback") : board;
+    const boardShown = matchBoardFallback(board) ? translate(lang, "mypage_hub_community_fallback") : board;
     return `${translate(lang, action.key)}${SEP}${boardShown}${SEP}${translate(lang, bit.key, bit.vars)}${multMatch?.[2] ?? ""}${SEP}${preview}`;
   }
   return null;

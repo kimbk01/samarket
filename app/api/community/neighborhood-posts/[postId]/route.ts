@@ -160,7 +160,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     previousImages: Array.isArray(r.images) ? r.images : [],
   });
   if (!imagesRes.ok) {
-    return NextResponse.json({ ok: false, error: imagesRes.message, code: imagesRes.error }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: imagesRes.message, code: imagesRes.error, params: imagesRes.params },
+      { status: 400 }
+    );
   }
   const images = imagesRes.images;
 

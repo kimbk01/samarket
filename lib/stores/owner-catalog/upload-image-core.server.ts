@@ -87,7 +87,7 @@ export async function uploadStoreImageCore(
       heroPath: result.derivativePaths.hero ?? null,
     });
   } catch (upErr) {
-    console.error("[upload-image]", upErr);
+    console.error("[upload-image]", { message: upErr instanceof Error ? upErr.message : String(upErr) });
     const raw = String(upErr instanceof Error ? upErr.message : upErr ?? "");
     const bucketMissing =
       /bucket not found/i.test(raw) ||

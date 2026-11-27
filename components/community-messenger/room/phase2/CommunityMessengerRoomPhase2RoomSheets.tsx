@@ -50,6 +50,7 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2SheetsView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
@@ -455,7 +456,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </>
                     ) : null}
                   </div>
-                  <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
+                  <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{resolveMessengerRoomDisplayTitle(vm.snapshot.room, vm.t)}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
                     {typeof vm.snapshot.room.onlineCount === "number"
                       ? vm.t("cm_ui_group_members_online_line", {
@@ -1026,7 +1027,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
 
                   <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                     <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_basic_info")}</p>
-                    <p className="mt-3 sam-text-body font-semibold text-sam-fg">{vm.snapshot.room.title}</p>
+                    <p className="mt-3 sam-text-body font-semibold text-sam-fg">{resolveMessengerRoomDisplayTitle(vm.snapshot.room, vm.t)}</p>
                     <p className="mt-2 sam-text-body-secondary leading-5 text-sam-muted">
                       {vm.roomSummaryHoldsOnlyTradeOrDeliveryMeta
                         ? vm.roomSubtitle || vm.t("nav_messenger_room_no_intro")

@@ -12,8 +12,7 @@ import { useBusinessAdminStore } from "@/components/business/admin/business-admi
 import { useOwnerCatalogEndpoints } from "@/components/business/owner/owner-catalog-endpoints";
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
+import { isOwnerApiErrorCode, resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,

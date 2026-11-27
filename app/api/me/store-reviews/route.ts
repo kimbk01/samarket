@@ -205,7 +205,6 @@ export async function POST(req: NextRequest) {
     if (insErr.message?.includes("store_reviews") && insErr.message?.includes("does not exist")) {
       return NextResponse.json({ ok: false, error: "store_reviews_table_missing" }, { status: 503 });
     }
-    console.error("[POST store-reviews]", insErr);
     return internalErrorResponse("save_failed", "[/api/me/store-reviews POST]", insErr, 500);
   }
 

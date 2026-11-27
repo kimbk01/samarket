@@ -3,6 +3,7 @@ import { enforceWebhookRateLimit } from "@/lib/security/webhook-ip-rate-limit";
 import { verifyDeliveryRiderLocationWebhookSecret } from "@/lib/payments/delivery-rider-location-webhook-secret";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadDeliveryRiderLocationEnabled } from "@/lib/delivery/delivery-ops-settings";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (/delivery_riders/i.test(String(error.message)) && /does not exist/i.test(String(error.message))) {
       return NextResponse.json({ ok: false, error: "schema_missing_delivery_riders" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[webhooks/delivery-rider-location]", error);
   }
 
   return NextResponse.json({ ok: true, applied: true });

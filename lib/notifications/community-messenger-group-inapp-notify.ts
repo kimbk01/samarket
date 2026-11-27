@@ -23,8 +23,10 @@ export async function notifyCommunityMessengerGroupInviteReceived(
   const roomId = trimText(args.roomId);
   if (!uid || !roomId) return;
   const language = await loadNotificationUserLanguage(sb, uid);
-  const roomTitle = trimText(args.roomTitle) || notifySafeT(language, "notify_group_fallback");
-  const inviterLabel = trimText(args.inviterLabel) || notifySafeT(language, "notify_peer_fallback");
+  const rawRoomTitle = trimText(args.roomTitle);
+  const rawInviterLabel = trimText(args.inviterLabel);
+  const roomTitle = rawRoomTitle || notifySafeT(language, "notify_group_fallback");
+  const inviterLabel = rawInviterLabel || notifySafeT(language, "notify_peer_fallback");
 
   await appendUserNotification(sb, {
     user_id: uid,
@@ -45,7 +47,12 @@ export async function notifyCommunityMessengerGroupInviteReceived(
       ...notificationCopyMeta({
         titleKey: "notify_group_invite_received_title",
         messageKey: "notify_group_invite_received_body",
-        vars: { name: inviterLabel, room: roomTitle },
+        // 언어 사후 검토 E4① — 대체 이름은 vars 에 넣지 않고 키(varKeys)로 — 화면이 보는 사람 언어로 그린다.
+        vars: { name: rawInviterLabel || undefined, room: rawRoomTitle || undefined },
+        varKeys: {
+          name: rawInviterLabel ? undefined : "notify_peer_fallback",
+          room: rawRoomTitle ? undefined : "notify_group_fallback",
+        },
       }),
     },
     // Classified as group_message → DB requires the group domain identity (same as group message rows).

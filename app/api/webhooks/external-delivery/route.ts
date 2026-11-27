@@ -6,6 +6,7 @@ import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-
 import { mapExternalDeliveryPartnerStatus } from "@/lib/stores/external-delivery-partner-status-map";
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,8 +139,7 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    console.error("[external-delivery webhook] meta update", extErr);
-    return NextResponse.json({ ok: false, error: extErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[external-delivery webhook] meta update", extErr);
   }
 
   const current = order.order_status as string;

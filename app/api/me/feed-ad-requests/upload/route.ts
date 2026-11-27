@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import sharp from "sharp";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   feedAdUploadRejectMessage,
   validateFeedAdUploadGeometry,
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message || "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[me/feed-ad-requests/upload]", upErr);
   }
 
   const { data: pub } = svc.storage.from(BUCKET).getPublicUrl(path);
