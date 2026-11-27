@@ -62,3 +62,8 @@
 -keep @interface com.getcapacitor.annotation.** { *; }
 -keep @interface com.getcapacitor.NativePlugin { *; }
 -keep @interface com.getcapacitor.PluginMethod { *; }
+
+# TikTok Business SDK(1.7.1) 는 Google Play Billing 을 compileOnly(선택)로만 참조한다.
+# DIBAY 는 Billing 라이브러리를 넣지 않으므로 릴리스 R8 이 「없는 클래스」로 멈춘다 → 경고만 끈다.
+# (SDK 자체 keep 규칙은 AAR consumer-proguard-rules.pro 로 함께 들어온다.)
+-dontwarn com.android.billingclient.api.**
