@@ -1,8 +1,9 @@
 /**
  * DIBAY Intro — PUBLICATION DISCOVERY → ACQUISITION → CACHE PROMOTION (contract §4, §6, §7).
  *
- * Runs only off the startup path: after the OS release (this launch) and when the app returns to
- * the foreground. No polling timer. Native app only (requires a launch epoch).
+ * Runs only off the startup path: after the OS release (this launch, every time) and when the app returns to
+ * the foreground (at most once per 30 minutes after the last successful discovery). No polling timer.
+ * Native app only (requires a launch epoch).
  * The live manifest is fetched with no-store; the current launch snapshot is never changed here.
  */
 import type { LaunchIntroLivePayload } from "@/lib/launch-intro/document";
@@ -23,6 +24,21 @@ import type { LaunchIntroPoolPayload } from "@/lib/launch-intro/pool";
 
 let started = false;
 let inflight = false;
+/**
+ * 마지막으로 Live 게시본을 **받아 확인한** 시각(ms). 다시 열기 발견은 이 뒤 30분이 지났을 때만 한다.
+ * Owner 「결함 2 · 30분」(2026-11-27) — 근거 docs/audit/supabase-request-surge-2026-11-18/resume-fixed-cost-design-2026-11-27.md §3
+ * (11-26 하루 다시 열기 발견 322요청 · Supabase 979). 새로 켤 때(OS release) 발견은 지금처럼 매번 한다.
+ */
+let lastDiscoveryOkAt: number | null = null;
+
+/** 다시 열기 발견 최소 간격 — 인트로는 「완전히 껐다 켬」에만 보이므로 반영 지연은 그 사이 새로 켠 1번뿐 */
+export const LAUNCH_INTRO_RESUME_DISCOVERY_MIN_INTERVAL_MS = 30 * 60 * 1000;
+
+/** 순수 판정 — 다시 열기 발견을 할 때인가(한 번도 성공 못 했으면 한다) */
+export function launchIntroResumeDiscoveryDue(lastOkAt: number | null, now: number): boolean {
+  if (lastOkAt == null) return true;
+  return now - lastOkAt >= LAUNCH_INTRO_RESUME_DISCOVERY_MIN_INTERVAL_MS;
+}
 
 function platformTag(): string {
   const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -60,6 +76,7 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
     if (!res.ok) return;
     const live = (await res.json()) as unknown;
     if (!isPayload(live)) return;
+    lastDiscoveryOkAt = Date.now();
     // 진입 감사 5단계 IN-3: 소재 묶음 → 네이티브 저장소(다음 「새로 켬」의 로딩 시간 안 인트로). 게시본 판과 별개로 맞춘다.
     void syncNativeIntroPool((live as { pool?: LaunchIntroPoolPayload | null }).pool ?? null);
 
@@ -141,7 +158,9 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
   }
 }
 
-/** Idempotent. After the OS release → discovery; on every return to foreground → discovery. */
+/**
+ * Idempotent. After the OS release → discovery (매번); return to foreground → discovery **마지막 성공 뒤 30분이 지났을 때만**.
+ */
 export function startLaunchIntroDiscovery(): void {
   if (started || typeof window === "undefined") return;
   if (!readLaunchEpoch()) return;
@@ -150,6 +169,8 @@ export function startLaunchIntroDiscovery(): void {
     void runLaunchIntroDiscovery("launch");
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void runLaunchIntroDiscovery("resume");
+    if (document.visibilityState !== "visible") return;
+    if (!launchIntroResumeDiscoveryDue(lastDiscoveryOkAt, Date.now())) return;
+    void runLaunchIntroDiscovery("resume");
   });
 }
