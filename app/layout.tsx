@@ -9,6 +9,11 @@ import { WindowsShellOAuthReturnListener } from "@/components/auth/WindowsShellO
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { NativeSystemBarsLightBootstrap } from "@/components/platform/NativeSystemBarsLightBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
+/**
+ * 로그아웃 표시 해제 부품은 루트 1곳(가입 단계·로그인·관리자 포함) — 서버 콜백 로그인이 가입 단계 화면에서 부팅을 끝내도
+ * 표시를 지워 로그인 사용자 값이 막히지 않게. SupabaseAuthSync 보다 먼저 붙인다 (signup-mypage-skeleton-fix-design-2026-11-27).
+ */
+import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import {
   DibayAppDialogImperativeBridge,
@@ -149,6 +154,7 @@ export default async function RootLayout({
             <AppBootProvider>
             <AppTitle />
             <KeyboardViewportRootProbe />
+            <PostLogoutBfcacheGuard />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
             <NativeSystemBarsLightBootstrap />

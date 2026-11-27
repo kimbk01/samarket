@@ -1,0 +1,42 @@
+// @vitest-environment jsdom
+/** 임시 재현(커밋 안 함) — 로그아웃 뒤 「로그인 필요」 창 로그인(pendingToken 분기)에서 표시·사용자 값 */
+import { describe, expect, it, vi } from "vitest";
+
+const UID = "user-sheet-login";
+vi.mock("@/lib/supabase/client", () => ({
+  getSupabaseClient: () => ({
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: UID, email: "a@b.c", user_metadata: {} } } } }),
+    },
+  }),
+}));
+vi.mock("@/lib/auth/await-client-supabase-session-ready", () => ({ awaitClientSupabaseSessionReady: async () => true }));
+vi.mock("@/lib/auth/dibay-session-manager", () => ({ markSessionAuthenticatedFromClient: () => {} }));
+vi.mock("@/lib/auth/guest-auth-boot-markers", () => ({ logGuestAuthBootMarker: () => {} }));
+const ensureAppBoot = vi.fn(async () => undefined); // run-app-boot.ts:523 — anonymous 는 「준비됨」이라 즉시 반환
+vi.mock("@/lib/app-boot/run-app-boot", () => ({ ensureAppBoot }));
+vi.mock("@/lib/auth/require-auth-action", async (orig) => ({ ...(await orig<object>()), consumePendingAuthAction: async () => true }));
+
+describe("repro P1: login-required sheet login after logout", () => {
+  it("guard stays, boot stays anonymous, user cache stays null", async () => {
+    sessionStorage.setItem("samarket:post_logout_guard", "1"); // 로그아웃
+    const boot = await import("@/lib/app-boot/app-boot-store");
+    boot.setAppBootAnonymous(); // 로그아웃 뒤 비회원 둘러보기
+    let readyEvents = 0;
+    window.addEventListener("dibay:app-boot-ready", () => (readyEvents += 1));
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+    await finishClientAuthLogin({ pendingToken: "tok-1" } as never);
+    const { getCurrentUser } = await import("@/lib/auth/get-current-user");
+    console.log(
+      "P1",
+      JSON.stringify({
+        guard: sessionStorage.getItem("samarket:post_logout_guard"),
+        user: getCurrentUser()?.id ?? null,
+        boot: boot.getAppBootSnapshot().status,
+        readyEvents,
+        ensureAppBootCalls: ensureAppBoot.mock.calls.length,
+      }),
+    );
+    expect(getCurrentUser()).toBeNull();
+  });
+});
