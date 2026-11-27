@@ -310,14 +310,19 @@ async function markCustomerMessageHandledForReplay(
   input: { messageId: string; caseId: string; reason: string }
 ): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await sb.from("admin_notification_outbox").insert({
-    source_key: `support_customer_replied:${input.messageId}`,
-    kind: "support_customer_replied",
-    payload: { handled: true, reason: "admin_work_done", caseStatus: input.reason, caseId: input.caseId },
-    status: "delivered",
-    delivered_at: now,
-  });
+  const insert = () =>
+    sb.from("admin_notification_outbox").insert({
+      source_key: `support_customer_replied:${input.messageId}`,
+      kind: "support_customer_replied",
+      payload: { handled: true, reason: "admin_work_done", caseStatus: input.reason, caseId: input.caseId },
+      status: "delivered",
+      delivered_at: now,
+    });
+  let { error } = await insert();
+  if (error && (error as { code?: string }).code !== "23505") ({ error } = await insert()); // 한 번 더
   if (error && (error as { code?: string }).code !== "23505") {
+    // 두 번 다 실패해도: 재생·재시도 발송은 보내기 직전에 문의 상태를 다시 보므로(어드민 일이 남았을 때만)
+    // 이미 답한 옛 글은 새 고객 글로 다시 WAITING_ADMIN 이 된 경우에만 알림이 될 수 있다 — 기록해 둔다.
     console.warn("[support] handled_marker_failed", { caseId: input.caseId, error: error.message });
   }
 }
@@ -1845,6 +1850,11 @@ export async function markSupportCaseNotificationsRead(
      * 목록을 읽은 뒤 도착한 답변의 알림은 남긴다(고객 미읽음 숫자와 같은 기준). 종료·재오픈 알림은 그대로 모두 읽음.
      */
     shownMessageIds?: readonly string[];
+    /**
+     * 남은 위험 5 (어드민): 화면에 보여 준 고객 글 id. 주면 어드민 알림은 이 글들의 고객 글 알림 + 담당 지정 알림만 읽음 —
+     * 목록을 읽은 뒤 온 고객 글 알림은 남긴다(admin_unread_count 와 같은 기준).
+     */
+    shownCustomerMessageIds?: readonly string[];
   }
 ): Promise<number> {
   const uid = input.userId.trim();
@@ -1885,10 +1895,23 @@ export async function markSupportCaseNotificationsRead(
   }
   if (!input.includeAdmin) return count;
   // R13: the admin's support reply notifications for this case (admin store).
-  const adminRead = await markAdminNotificationsRead(sb, {
-    adminUserId: uid,
-    workRef: { table: "support_cases", id: caseId },
-  });
+  const workRef = { table: "support_cases", id: caseId };
+  const adminRead = input.shownCustomerMessageIds
+    ? await (async () => {
+        const [replies, assigned] = await Promise.all([
+          markAdminNotificationsRead(sb, {
+            adminUserId: uid,
+            workRef,
+            dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`),
+          }),
+          markAdminNotificationsRead(sb, { adminUserId: uid, workRef, kinds: ["support_case_assigned"] }),
+        ]);
+        const updated = (replies.ok ? replies.updated : 0) + (assigned.ok ? assigned.updated : 0);
+        return replies.ok || assigned.ok
+          ? ({ ok: true as const, updated })
+          : ({ ok: false as const, error: (!replies.ok && replies.error) || "admin_read_failed" });
+      })()
+    : await markAdminNotificationsRead(sb, { adminUserId: uid, workRef });
   if (!adminRead.ok && adminRead.error !== "nothing_to_mark") {
     console.warn("[support] admin_notification_read_sync_failed", { caseId, error: adminRead.error });
   }

@@ -1141,6 +1141,13 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(supportShownListSeenAt([], "fallback-at")).toBe("fallback-at");
   });
 
+  it("남은 위험 5 (구조 확인): admin detail marks only the shown customer messages' admin notifications read", () => {
+    const route = src("app/api/admin/support/cases/[caseId]/route.ts");
+    expect(route).toContain("shownCustomerMessageIds: messages.messages");
+    const svc = src("lib/support/support-case-service.ts");
+    expect(svc).toContain("dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`)");
+  });
+
   it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {
     const svc = src("lib/support/support-case-service.ts");
     expect(svc).toContain('if (continued.ok || continued.error !== "case_closed") return continued;');

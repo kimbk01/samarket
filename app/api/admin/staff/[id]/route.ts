@@ -87,8 +87,6 @@ export async function PATCH(
       adminTier: uiRoleToAdminTier(body.role),
       grantedBy: actor.userId,
     });
-    // 고객 문의 남은 위험 ⑤: 등급(기본 권한)만 바뀌어도 고객지원 권한이 빠졌으면 담당 문의를 미배정으로
-    await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: staffId, changedBy: actor.userId });
   }
   if (body.disabled === true) {
     if (staffId === actor.userId) {
@@ -131,7 +129,10 @@ export async function PATCH(
 
   if (body.permissions && !isSuperAdminRole(effectiveRole)) {
     await replaceStaffPermissions(sb, staffId, body.permissions, actor.userId);
-    // 고객 문의 남은 위험 ⑤: 고객지원 권한이 빠졌으면 담당 문의를 미배정으로
+  }
+
+  // 고객 문의 남은 위험 ⑤ (5차 재감사 7): 등급·권한을 다 바꾼 **뒤** 한 번 — 새 권한으로 판정한다
+  if ((body.role || body.permissions) && !isSuperAdminRole(effectiveRole)) {
     await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: staffId, changedBy: actor.userId });
   }
 

@@ -53,6 +53,10 @@ export async function GET(
     userId: adminGate.actor.userId,
     caseId,
     includeAdmin: true,
+    // 남은 위험 5: 보여 준 고객 공개 글의 알림만 읽음
+    shownCustomerMessageIds: messages.messages
+      .filter((m) => (m.sender_type === "MEMBER" || m.sender_type === "OWNER") && m.message_type === "PUBLIC")
+      .map((m) => m.id),
   });
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.

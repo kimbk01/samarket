@@ -49,10 +49,15 @@ describe("support assignee permission sync", () => {
       const src = readFileSync(join(process.cwd(), f), "utf8");
       const writes = (src.match(/await replaceStaffPermissions\(/g) ?? []).length;
       const syncs = (src.match(/await releaseSupportAssignmentsIfNoSupportPermission\(/g) ?? []).length;
-      // 권한 쓰기마다 1번 + 등급만 바꾸는 경로(staff/[id] role) 1번
-      expect(syncs).toBe(writes + (f === "app/api/admin/staff/[id]/route.ts" ? 1 : 0));
+      // 권한 쓰기마다 1번 (staff/[id] 는 등급·권한을 다 바꾼 뒤 1번)
+      expect(syncs).toBe(writes);
       calls += syncs;
     }
-    expect(calls).toBe(5);
+    expect(calls).toBe(4);
+    const patch = readFileSync(join(process.cwd(), "app/api/admin/staff/[id]/route.ts"), "utf8");
+    expect(patch).toMatch(/if \(\(body\.role \|\| body\.permissions\) && !isSuperAdminRole\(effectiveRole\)\) \{\s*await releaseSupportAssignmentsIfNoSupportPermission/);
+    expect(patch.indexOf("await releaseSupportAssignmentsIfNoSupportPermission")).toBeGreaterThan(
+      patch.indexOf("await replaceStaffPermissions(")
+    );
   });
 });
