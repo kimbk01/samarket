@@ -22,6 +22,7 @@ import type {
   MoimScheduleParticipantDto,
   MoimViewerAreaDto,
   MoimStaffReportDto,
+  MoimTextLimitsDto,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -76,9 +77,10 @@ export function moimErrorKey(error: string | undefined | null): MessageKey {
 const enc = encodeURIComponent;
 
 export const moimApi = {
-  categories: () => call<{ categories: MoimCategoryDto[] }>("/api/moim/categories"),
+  categories: () => call<{ categories: MoimCategoryDto[]; limits?: MoimTextLimitsDto }>("/api/moim/categories"),
   /** 만들기 화면 — 카테고리 + 개설자 모임 동네(대표 주소 시/군)를 한 요청으로 */
-  categoriesWithArea: () => call<{ categories: MoimCategoryDto[]; viewerArea: MoimViewerAreaDto }>("/api/moim/categories?withArea=1"),
+  categoriesWithArea: () =>
+    call<{ categories: MoimCategoryDto[]; viewerArea: MoimViewerAreaDto; limits?: MoimTextLimitsDto }>("/api/moim/categories?withArea=1"),
   listMine: () => call<{ items: MoimCardDto[] }>("/api/moim?scope=mine"),
   listLocal: (q: { category?: string | null; q?: string | null; before?: string | null }) => {
     const sp = new URLSearchParams({ scope: "local" });
@@ -201,6 +203,9 @@ export const moimApi = {
     call<{ report_id: string }>(`/api/moim/${enc(moimId)}/reports`, { method: "POST", json: input }),
 
   // M4 — 일정·앨범·모임별 알림 설정
+  /** 모임 안 검색 (시안 U4 ⌕ · 감사 F11) — 멤버만 · 2~40자 */
+  search: (moimId: string, q: string) =>
+    call<{ posts: MoimPostDto[]; schedules: MoimScheduleDto[] }>(`/api/moim/${enc(moimId)}/search?q=${encodeURIComponent(q)}`),
   schedules: (moimId: string, scope: "upcoming" | "past" = "upcoming") =>
     call<{ items: MoimScheduleDto[] }>(`/api/moim/${enc(moimId)}/schedules?scope=${scope}`),
   createSchedule: (moimId: string, input: MoimScheduleClientInput) =>
@@ -264,6 +269,7 @@ export const moimRoutes = {
   write: (id: string, boardId?: string) => `/moim/${id}/write${boardId ? `?board=${boardId}` : ""}`,
   join: (id: string) => `/moim/${id}/join`,
   profile: (id: string) => `/moim/${id}/profile`,
+  searchIn: (id: string) => `/moim/${id}/search`,
   manage: (id: string) => `/moim/${id}/manage`,
   manageRequests: (id: string) => `/moim/${id}/manage/requests`,
   manageMembers: (id: string) => `/moim/${id}/manage/members`,

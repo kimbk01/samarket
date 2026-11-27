@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MoreVertical } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MoreVertical, Search } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayActionSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
@@ -11,13 +11,12 @@ import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MoimAction } from "@/lib/moim/moim-permission-contract";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
-import { useDibayShareSheet } from "@/components/share/use-dibay-share-sheet";
-import { buildShareUrl } from "@/lib/share/share-url";
 import { MoimMemberView } from "@/components/moim/MoimMemberView";
+import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
-import { canRequestMoimHostChange } from "@/components/moim/manage/MoimManageHub";
+import { canOpenMoimTransfer, canRequestMoimHostChange } from "@/components/moim/manage/MoimManageHub";
 
 /** 운영 관리 메뉴를 보여 줄 권한 (멤버 누구나 가진 권한은 제외) */
 const MANAGE_ACTIONS: readonly MoimAction[] = [
@@ -101,34 +100,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
    * 모임 상세 공유 = 초대 링크 (Owner 2026-11-14 §N-3 · G-7: 모임 상세는 비회원 비공개라 밖으로 보낼 수 있는 것은 초대 링크뿐).
    * 초대 링크 권한(manage_invite_link)이 있는 멤버에게만 머리글 공유를 그린다. 화면에 머무는 동안 만든 링크 1개를 다시 쓴다.
    */
-  const canShareInvite = !!moim && isMember && moim.can.manage_invite_link;
-  const { openShare, shareSheet } = useDibayShareSheet();
-  const inviteUrlRef = useRef<string | null>(null);
-  const shareBusyRef = useRef(false);
-  const shareInvite = useCallback(async () => {
-    if (!moim || shareBusyRef.current) return;
-    shareBusyRef.current = true;
-    try {
-      let url = inviteUrlRef.current;
-      if (!url) {
-        const r = await moimApi.createInviteLink(moim.id, null);
-        if (!r.ok) {
-          showToast(t(moimErrorKey(r.error)), "error");
-          return;
-        }
-        url = buildShareUrl({ kind: "moim_invite", token: r.token });
-        inviteUrlRef.current = url;
-      }
-      openShare({
-        url,
-        previewTitle: moim.name,
-        previewSubtitle: t("share_invite_kind_moim"),
-        previewImageUrl: moim.coverImageUrl,
-      });
-    } finally {
-      shareBusyRef.current = false;
-    }
-  }, [moim, openShare, t, showToast]);
+  const { canShareInvite, shareInvite, shareSheet } = useMoimInviteShare(moim, showToast);
   // 부모임장·운영진은 권한이 없어도 「모임장 변경 요청」(P8 미접속 위임) 때문에 운영 메뉴를 연다
   const canManage = !!moim && (MANAGE_ACTIONS.some((a) => moim.can[a]) || canRequestMoimHostChange(moim));
 
@@ -143,12 +115,23 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
               glyphClassName={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
             />
           ) : null}
+          {/* 시안 U4 머리글 ⌕ — 모임 안 검색 (감사 F11 · 멤버만) */}
+          {isMember ? (
+            <button
+              type="button"
+              className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+              aria-label={t("moim_search_in_title")}
+              onClick={() => router.push(moimRoutes.searchIn(moim.id))}
+            >
+              <Search className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
           <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
             <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
           </button>
         </div>
       ) : null,
-    [moim, t, canShareInvite, shareInvite]
+    [moim, t, canShareInvite, shareInvite, isMember, router]
   );
   const header = useMemo(
     () => ({ titleText: moim?.name ?? t("moim_tab"), backHref: moimRoutes.tab, rightSlot }),
@@ -202,7 +185,20 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   }
   if (isMember && canManage) items.push({ key: "manage", label: t("moim_menu_manage"), onClick: () => router.push(moimRoutes.manage(moim.id)) });
   if (moim.viewer.loggedIn) items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "moim", id: moim.id }) });
-  if (isMember) items.push({ key: "leave", label: t("moim_menu_leave"), danger: true, onClick: () => void leave() });
+  /**
+   * 모임장은 위임 전에는 나갈 수 없다(설계 P5 · 감사 D5) — 「나가기」 대신 위임·종료로 안내.
+   * 다른 역할은 그대로 「모임 나가기」.
+   */
+  if (isMember && moim.viewer.role === "host") {
+    if (canOpenMoimTransfer(moim)) {
+      items.push({ key: "transfer", label: t("moim_manage_transfer_title"), onClick: () => router.push(moimRoutes.manageTransfer(moim.id)) });
+    }
+    if (moim.can.close) {
+      items.push({ key: "close", label: t("moim_manage_close_title"), danger: true, onClick: () => router.push(moimRoutes.manageClose(moim.id)) });
+    }
+  } else if (isMember) {
+    items.push({ key: "leave", label: t("moim_menu_leave"), danger: true, onClick: () => void leave() });
+  }
 
   return (
     <>

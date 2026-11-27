@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
@@ -117,7 +117,7 @@ export function MoimTabHome() {
         {inviteCount > 0 ? (
           <Link href={moimRoutes.invites} className={`${moimCls.noticeInfo} mx-4 mt-3 flex items-center justify-between gap-2`}>
             <span>{t("moim_home_invites_banner", { count: inviteCount })}</span>
-            <span aria-hidden>›</span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
           </Link>
         ) : null}
 

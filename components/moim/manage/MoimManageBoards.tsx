@@ -8,6 +8,7 @@ import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimBoardDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { MOIM_ROLES, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import { MoimManageFrame, moimManageCardClass, moimManageInputClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
 
 const NAME_MAX = 30;
@@ -91,7 +92,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} rounded-ui-rect`}
+                  className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}
                   onClick={() => {
                     setRole(b.writeMinRole);
                     setSheet({ kind: "role", board: b });
@@ -103,7 +104,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
                   <>
                     <button
                       type="button"
-                      className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} rounded-ui-rect`}
+                      className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}
                       onClick={() => {
                         setName(b.name ?? "");
                         setSheet({ kind: "rename", board: b });
@@ -111,7 +112,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
                     >
                       {t("moim_manage_board_rename_btn")}
                     </button>
-                    <button type="button" className={`${Sam.btn.ghostCombo} ${Sam.btn.sm} rounded-ui-rect text-sam-danger`} onClick={() => setDeactivateTarget(b)}>
+                    <button type="button" className={`${moimCls.btnDanger} ${moimCls.btnSm}`} onClick={() => setDeactivateTarget(b)}>
                       {t("moim_manage_board_deactivate_btn")}
                     </button>
                   </>
@@ -124,7 +125,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
 
       <button
         type="button"
-        className={`${Sam.btn.outlinePrimaryCombo} ${Sam.btn.block} mt-4 rounded-ui-rect`}
+        className={`${moimCls.btnSecondary} ${moimCls.btnBlock} mt-4`}
         onClick={() => {
           setName("");
           setRole("member");

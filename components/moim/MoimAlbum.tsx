@@ -203,7 +203,11 @@ function MoimAlbumViewer({
   const canPin = moim.can.pin_notice;
   const canRemove = item.viewerIsUploader || moim.can.hide_post;
   const canReport = !item.viewerIsUploader && moim.viewer.loggedIn;
-  const actionBtn = "inline-flex min-h-[40px] flex-1 items-center justify-center rounded-ui-rect border border-white/30 px-3 text-[13px] font-bold text-white disabled:opacity-50";
+  /** 감사 F2 — 고정·신고 = 보조, 삭제·숨기기 = 위험 (버튼 역할 3종 · moimCls) */
+  const actionBtnLayout = "min-h-[40px] flex-1 px-3 text-[13px] font-bold";
+  /** 사진 위 겹침이라 반투명 바탕 유지 (설계 F2) — 보조 = 흰 테두리, 위험 = 빨강 반투명 */
+  const overlaySecondary = "border-white/40 bg-white/10 text-white";
+  const overlayDanger = "border-transparent bg-sam-danger/80 text-white";
 
   const node = (
     <div
@@ -255,17 +259,17 @@ function MoimAlbumViewer({
         {canPin || canRemove || canReport ? (
           <div className="flex gap-2">
             {canPin ? (
-              <button type="button" disabled={busy} className={actionBtn} onClick={togglePin}>
+              <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${actionBtnLayout} ${overlaySecondary}`} onClick={togglePin}>
                 {item.isPinned ? t("moim_album_unpin_btn") : t("moim_album_pin_btn")}
               </button>
             ) : null}
             {canRemove ? (
-              <button type="button" disabled={busy} className={actionBtn} onClick={remove}>
+              <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${actionBtnLayout} ${overlayDanger}`} onClick={remove}>
                 {item.viewerIsUploader ? t("common_delete") : t("moim_post_hide_btn")}
               </button>
             ) : null}
             {canReport ? (
-              <button type="button" disabled={busy} className={actionBtn} onClick={() => onReport({ type: "album", id: item.id })}>
+              <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${actionBtnLayout} ${overlaySecondary}`} onClick={() => onReport({ type: "album", id: item.id })}>
                 {t("moim_menu_report")}
               </button>
             ) : null}

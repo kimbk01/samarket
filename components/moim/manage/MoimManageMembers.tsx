@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { MoreVertical } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DibayActionSheet,
@@ -13,6 +16,7 @@ import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimBannedDto, MoimDetailDto, MoimMemberDto } from "@/lib/moim/moim-api-types";
 import { moimRoleRank, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import { canOpenMoimMembers } from "./MoimManageHub";
 import {
   MoimAvatar,
@@ -62,10 +66,42 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
     setDialog(null);
   }, []);
 
-  /** 자기 자신·같거나 높은 역할에는 아무 동작도 보이지 않는다 (설계 §5.2) */
+  const router = useRouter();
+  const [myId, setMyId] = useState<string | null>(null);
+  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
+  const [messaging, setMessaging] = useState(false);
+  /** 시안 U7 「✉ 대화하기」 (감사 F11) — 메신저 1:1 시작(연락처 시트와 같은 API). 가입 미완료는 전역 창이 안내한다 */
+  const openMessage = useCallback(
+    async (m: MoimMemberDto) => {
+      if (messaging) return;
+      setMessaging(true);
+      try {
+        const res = await fetch("/api/community-messenger/direct/start", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: m.userId }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; code?: string };
+        if (!res.ok || !j.ok || !j.roomId) {
+          if (j.code !== "signup_incomplete") toast.show(t("moim_manage_action_message_failed"), "error");
+          return;
+        }
+        setDialog(null);
+        router.push(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
+      } finally {
+        setMessaging(false);
+      }
+    },
+    [messaging, router, t, toast]
+  );
+
+  /** 자기 자신에게는 아무 동작도 없다. 같거나 높은 역할에는 운영 동작 없이 「대화하기」만 (설계 §5.2 · 시안 U7) */
   const actionsFor = useCallback(
     (m: MoimMemberDto): DibayActionSheetItem[] => {
-      if (moimRoleRank(m.role) >= viewerRank) return [];
+      if (myId && m.userId === myId) return [];
+      const message: DibayActionSheetItem = { key: "message", label: t("moim_manage_action_message"), onClick: () => void openMessage(m) };
+      if (moimRoleRank(m.role) >= viewerRank) return myId ? [message] : [];
       const items: DibayActionSheetItem[] = [];
       if (c.set_role)
         items.push({
@@ -85,6 +121,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
             setDialog("note");
           },
         });
+      if (myId) items.push(message);
       if (c.remove_member)
         items.push({
           key: "remove",
@@ -114,7 +151,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         });
       return items;
     },
-    [c.ban_member, c.remove_member, c.set_role, c.write_note, t, viewerRank]
+    [c.ban_member, c.remove_member, c.set_role, c.write_note, t, viewerRank, myId, openMessage]
   );
 
   const run = useCallback(
@@ -190,9 +227,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
                       }}
                     >
                       {body}
-                      <span aria-hidden className="shrink-0 text-sam-meta">
-                        ⋯
-                      </span>
+                      <MoreVertical aria-hidden className="h-4 w-4 shrink-0 text-sam-meta" />
                     </button>
                   ) : (
                     <div className="flex w-full items-center gap-3 px-4 py-3">{body}</div>
@@ -218,7 +253,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
                 <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
                 {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
               </span>
-              <button type="button" className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} shrink-0 rounded-ui-rect`} onClick={() => setUnbanTarget(b)}>
+              <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
                 {t("moim_manage_unban_btn")}
               </button>
             </li>

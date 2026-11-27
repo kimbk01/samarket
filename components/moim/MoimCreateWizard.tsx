@@ -9,11 +9,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimCategoryDto, MoimViewerAreaDto } from "@/lib/moim/moim-api-types";
+import { MOIM_TEXT_LIMITS_FALLBACK, type MoimTextLimitsDto } from "@/lib/moim/moim-api-types";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
-import { MoimErrorState, moimCls, useMoimToast } from "@/components/moim/moim-ui";
+import { MoimErrorState, moimCls, useMoimToast, MoimTextCount, moimTextWithin } from "@/components/moim/moim-ui";
 import { MoimCategoryField, isMoimCategoryInputValid, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
@@ -48,6 +49,8 @@ export function MoimCreateWizard() {
   const [categories, setCategories] = useState<MoimCategoryDto[] | null>(null);
   /** 개설자의 모임 동네 = 대표 주소의 시/군 (설계 P1 「활동 동네」) — 카테고리와 같은 요청 */
   const [area, setArea] = useState<MoimViewerAreaDto | null>(null);
+  /** 이름·소개 글자 수 (운영 정책 · 감사 B11) — 응답 전에는 서버 기본값 */
+  const [limits, setLimits] = useState<MoimTextLimitsDto>(MOIM_TEXT_LIMITS_FALLBACK);
   const [catError, setCatError] = useState(false);
   const [catReload, setCatReload] = useState(0);
   const [step, setStep] = useState(1);
@@ -82,6 +85,7 @@ export function MoimCreateWizard() {
       if (r.ok) {
         setCategories(r.categories);
         setArea(r.viewerArea ?? { status: "unavailable" });
+        if (r.limits) setLimits(r.limits);
       } else setCatError(true);
     });
     return () => {
@@ -101,7 +105,7 @@ export function MoimCreateWizard() {
     !areaOk
       ? false
       : step === 1
-      ? isMoimCategoryInputValid(categories, categoryId, topic) && name.trim().length > 0 && intro.trim().length > 0 && !uploading
+      ? isMoimCategoryInputValid(categories, categoryId, topic) && moimTextWithin(name, limits.nameMin, limits.nameMax) && moimTextWithin(intro, limits.introMin, limits.introMax) && !uploading
       : step === 2
         ? capValid
         : step === 3
@@ -200,11 +204,25 @@ export function MoimCreateWizard() {
             )}
             <label className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_name_label")}</span>
-              <input className={moimCls.input} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("moim_create_name_placeholder")} />
+              <input
+                className={moimCls.input}
+                value={name}
+                maxLength={limits.nameMax}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("moim_create_name_placeholder")}
+              />
+              <MoimTextCount value={name} min={limits.nameMin} max={limits.nameMax} />
             </label>
             <label className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_intro_label")}</span>
-              <textarea className={moimCls.textarea} value={intro} onChange={(e) => setIntro(e.target.value)} placeholder={t("moim_create_intro_placeholder")} />
+              <textarea
+                className={moimCls.textarea}
+                value={intro}
+                maxLength={limits.introMax}
+                onChange={(e) => setIntro(e.target.value)}
+                placeholder={t("moim_create_intro_placeholder")}
+              />
+              <MoimTextCount value={intro} min={limits.introMin} max={limits.introMax} />
             </label>
             <div className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_cover_label")}</span>

@@ -13,6 +13,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimStaffReportDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimManageEmpty,
   MoimManageError,
@@ -113,7 +114,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
               </p>
               <div className="mt-3 flex gap-2">
                 {href ? (
-                  <Link href={href} className={`${Sam.btn.secondaryCombo} flex-1 rounded-ui-rect text-center`}>
+                  <Link href={href} className={`${moimCls.btnSecondary} flex-1 text-center`}>
                     {t("moim_manage_reports_view_btn")}
                   </Link>
                 ) : null}
@@ -121,7 +122,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
                   <button
                     type="button"
                     disabled={busy}
-                    className={`${Sam.btn.primaryCombo} ${Sam.btn.disabledToken} flex-1 rounded-ui-rect`}
+                    className={`${moimCls.btnDanger} flex-1`}
                     onClick={() => setConfirm(item)}
                   >
                     {t("moim_manage_reports_hide_btn")}

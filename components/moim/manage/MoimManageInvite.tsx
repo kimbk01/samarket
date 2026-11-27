@@ -10,6 +10,8 @@ import { canUsePlatformShare, shareViaPlatform } from "@/lib/share/platform-shar
 import { buildShareUrl, isProductionShareContext } from "@/lib/share/share-url";
 import type { MoimDetailDto, MoimInviteLinkDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import {
   MoimAvatar,
   MoimManageEmpty,
@@ -122,7 +124,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
         <button
           type="button"
           disabled={busy}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} mt-3 rounded-ui-rect`}
+          className={`${moimCls.btnSecondary} ${moimCls.btnBlock} mt-3`}
           onClick={() => void create()}
         >
           {t("moim_manage_invite_create_btn")}
@@ -151,17 +153,17 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
                 <div className="mt-2 flex flex-wrap gap-2">
                   {!expired ? (
                     <>
-                      <button type="button" className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} rounded-ui-rect`} onClick={() => void copy(link)}>
+                      <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => void copy(link)}>
                         {t("moim_manage_invite_copy_btn")}
                       </button>
                       {canShare ? (
-                        <button type="button" className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} rounded-ui-rect`} onClick={() => void share(link)}>
+                        <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => void share(link)}>
                           {t("moim_manage_invite_share_btn")}
                         </button>
                       ) : null}
                     </>
                   ) : null}
-                  <button type="button" className={`${Sam.btn.ghostCombo} ${Sam.btn.sm} rounded-ui-rect text-sam-danger`} onClick={() => setRevokeTarget(link)}>
+                  <button type="button" className={`${moimCls.btnDanger} ${moimCls.btnSm}`} onClick={() => setRevokeTarget(link)}>
                     {t("moim_manage_invite_revoke_btn")}
                   </button>
                 </div>
@@ -289,16 +291,18 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
           })}
         </ul>
       ) : null}
-      <div className="px-4 pt-3">
-        <button
-          type="button"
-          disabled={sending || selected.size === 0}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} rounded-ui-rect`}
-          onClick={() => void send()}
-        >
-          {t("moim_manage_invite_send_btn", { count: selected.size })}
-        </button>
-      </div>
+      <MoimStickyFooter className="mt-3">
+        <div className={moimCls.column}>
+          <button
+            type="button"
+            disabled={sending || selected.size === 0}
+            className={`${moimCls.btnPrimary} w-full`}
+            onClick={() => void send()}
+          >
+            {t("moim_manage_invite_send_btn", { count: selected.size })}
+          </button>
+        </div>
+      </MoimStickyFooter>
     </section>
   );
 }
@@ -306,7 +310,7 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
 function InviteBody({ detail }: { detail: MoimDetailDto }) {
   const toast = useMoimManageToast();
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className={`flex flex-col gap-4 ${detail.can.send_invite ? "" : "pb-24"}`}>
       {detail.can.manage_invite_link ? <InviteLinks detail={detail} toast={toast} /> : null}
       {detail.can.send_invite ? <FriendInvite detail={detail} toast={toast} /> : null}
       {toast.node}
@@ -316,7 +320,7 @@ function InviteBody({ detail }: { detail: MoimDetailDto }) {
 
 export function MoimManageInvite({ moimId }: { moimId: string }) {
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_invite_title" allow={(d) => d.can.manage_invite_link || d.can.send_invite}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_invite_title" stickyFooter allow={(d) => d.can.manage_invite_link || d.can.send_invite}>
       {({ detail }) => <InviteBody detail={detail} />}
     </MoimManageFrame>
   );

@@ -20,9 +20,11 @@ export const moimCls = {
   sectionTitle: "text-[15px] font-bold text-sam-fg",
   sectionLink: "shrink-0 text-[12px] text-sam-muted",
   btnPrimary: `${Sam.btn.primaryCombo} ${Sam.btn.disabledToken} rounded-ui-rect`,
-  btnSecondary: `${Sam.btn.outlineCombo} rounded-ui-rect`,
-  btnDanger: `${Sam.btn.dangerCombo} rounded-ui-rect`,
-  btnSm: "sam-btn--sm",
+  /** 버튼 역할 3종 (모임 감사 6번 묶음): 기본 = 화면 핵심 동작 1개 · 보조 = 그 밖 · 위험 = 숨기기·삭제·내보내기·차단·회수·종료·취소·거절 */
+  btnSecondary: `${Sam.btn.outlineCombo} ${Sam.btn.disabledToken} rounded-ui-rect`,
+  btnDanger: `${Sam.btn.dangerCombo} ${Sam.btn.disabledToken} rounded-ui-rect`,
+  btnSm: Sam.btn.sm,
+  btnBlock: Sam.btn.block,
   input: `${Sam.input.base} rounded-ui-rect`,
   textarea: `${Sam.input.textarea} rounded-ui-rect`,
   label: "text-[13px] font-bold text-sam-fg",
@@ -178,8 +180,26 @@ export function useMoimToast(): {
   return { show, node };
 }
 
+/** 공백을 자른 글자 수(코드 포인트 · 서버 char_length 와 같은 셈)가 [min, max] 안인가 (감사 B11 · 서버 검사와 같은 경계) */
+export function moimTextWithin(value: string, min: number, max: number): boolean {
+  const n = Array.from(value.trim()).length;
+  return n >= Math.max(0, min) && n <= max;
+}
+
+/** 입력칸 아래 글자 수 안내 — 정보 수정 화면과 같은 문구 「{min}~{max}자 · 지금 {count}자」, 최소 미만이면 빨간 글씨 (감사 B11) */
+export function MoimTextCount({ value, min, max }: { value: string; min: number; max: number }) {
+  const { t, language } = useI18n();
+  const n = Array.from(value.trim()).length;
+  const short = n > 0 && n < min;
+  return (
+    <span className={`${moimCls.hint} ${short ? "text-sam-danger" : ""}`}>
+      {t("moim_manage_info_length_hint", { min, max: max.toLocaleString(language), count: n })}
+    </span>
+  );
+}
+
 export function formatMoimCount(memberCount: number, capacity: number | null, t: (k: MessageKey, v?: Record<string, string | number>) => string): string {
   return capacity
     ? t("moim_screen_member_count_cap", { count: memberCount, cap: capacity })
-    : t("moim_screen_member_count", { count: memberCount });
+    : t(memberCount === 1 ? "moim_screen_member_count_one" : "moim_screen_member_count", { count: memberCount });
 }

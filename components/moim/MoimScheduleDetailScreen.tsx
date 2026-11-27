@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageCircle, PenSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { MessageCircle, MoreVertical, PenSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibaySheetHeader, DibayUsableAreaSheet, dibayConfirm } from "@/components/ui/dibay-overlay";
+import { DibayActionSheet, DibaySheetHeader, DibayUsableAreaSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
+import { useRouter } from "next/navigation";
+import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS, samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
+import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
@@ -122,8 +126,13 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
   const { moim, error: moimError, reload: reloadMoim } = useMoimDetail(moimId);
   const { data, setData, error, reload } = useMoimSchedule(scheduleId);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
+  /** 시안 U5 머리글 ⤴ · ⋮ (감사 F11) — 일정·권한을 아는 본문이 정해 올려 준다 */
+  const [rightSlot, setRightSlot] = useState<ReactNode>(null);
 
-  const header = useMemo(() => ({ titleText: t("moim_schedule_title"), backHref: moimRoutes.schedules(moimId) }), [moimId, t]);
+  const header = useMemo(
+    () => ({ titleText: t("moim_schedule_title"), backHref: moimRoutes.schedules(moimId), rightSlot }),
+    [moimId, t, rightSlot]
+  );
   useRegisterMainTier1Header(header);
 
   const err = moimError ?? error;
@@ -169,6 +178,7 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
         onParticipants={(participants) => setData((d) => (d ? { ...d, participants } : d))}
         onReport={setReport}
         onToast={toast.show}
+        onHeaderRight={setRightSlot}
       />
       <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
@@ -184,6 +194,7 @@ function ScheduleBody({
   onParticipants,
   onReport,
   onToast,
+  onHeaderRight,
 }: {
   moim: MoimDetailDto;
   schedule: MoimScheduleDto;
@@ -192,6 +203,7 @@ function ScheduleBody({
   onParticipants: (p: MoimScheduleParticipantDto[]) => void;
   onReport: (target: MoimReportTarget) => void;
   onToast: Toast;
+  onHeaderRight: (node: ReactNode) => void;
 }) {
   const { t, language } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -316,7 +328,7 @@ function ScheduleBody({
     if (my === "confirmed") {
       cta = s.viewer.isHost ? (
         manage ? (
-          <button type="button" disabled={busy} className={`${moimCls.btnSecondary} w-full`} onClick={cancelSchedule}>
+          <button type="button" disabled={busy} className={`${moimCls.btnDanger} w-full`} onClick={cancelSchedule}>
             {t("moim_schedule_cancel_btn")}
           </button>
         ) : null
@@ -338,21 +350,21 @@ function ScheduleBody({
       cta = <p className="text-center text-[13px] text-sam-muted">{t("moim_schedule_removed_note")}</p>;
     } else if (started) {
       cta = (
-        <button type="button" disabled className={`${moimCls.btnPrimary} w-full`}>
+        <p role="status" className={`${moimCls.noticeInfo} text-center text-[13px]`}>
           {t("moim_schedule_started_btn")}
-        </button>
+        </p>
       );
     } else if (s.status === "full") {
       cta = (
-        <button type="button" disabled className={`${moimCls.btnPrimary} w-full`}>
+        <p role="status" className={`${moimCls.noticeWarn} text-center text-[13px]`}>
           {t("moim_schedule_full_btn")}
-        </button>
+        </p>
       );
     } else if (s.status === "closed") {
       cta = (
-        <button type="button" disabled className={`${moimCls.btnPrimary} w-full`}>
+        <p role="status" className={`${moimCls.noticeWarn} text-center text-[13px]`}>
           {t("moim_schedule_closed_btn")}
-        </button>
+        </p>
       );
     } else {
       cta = (
@@ -370,6 +382,72 @@ function ScheduleBody({
   const showAttendance =
     s.viewer.canManage && started && s.status !== "cancelled" && moim.status === "active" && moim.platformState !== "blocked";
   const canClose = manage && !started && (s.status === "recruiting" || s.status === "full" || s.status === "closed");
+
+  /**
+   * 시안 U5 머리글 ⋮ (감사 F11): 본문 「일정 관리」 칸의 수정·마감/다시 열기·일정 취소를 머리글 메뉴로 옮긴다.
+   * 보이는 조건은 예전 본문 칸과 같다. 모임장이 확정 참여 중이면 일정 취소는 하단 버튼에 있다(예전과 같음).
+   */
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const canEditMenu = manage && !started;
+  const canCancelMenu = manage && (!s.viewer.isHost || my !== "confirmed");
+  const hasMenu = canEditMenu || canClose || canCancelMenu;
+  const menuItems: DibayActionSheetItem[] = [];
+  if (canEditMenu) {
+    menuItems.push({ key: "edit", label: t("moim_schedule_edit_btn"), disabled: busy, onClick: () => router.push(moimRoutes.scheduleEdit(moim.id, s.id)) });
+  }
+  if (canClose) {
+    menuItems.push({
+      key: "close",
+      label: s.status === "closed" ? t("moim_schedule_reopen_btn") : t("moim_schedule_close_btn"),
+      disabled: busy,
+      onClick: () => {
+        if (!busy) void toggleClosed();
+      },
+    });
+  }
+  if (canCancelMenu) {
+    menuItems.push({
+      key: "cancel",
+      label: t("moim_schedule_cancel_btn"),
+      danger: true,
+      disabled: busy,
+      onClick: () => {
+        if (!busy) void cancelSchedule();
+      },
+    });
+  }
+  /** ⤴ = 초대 링크 공유 (모임·일정은 비회원 비공개 — Owner 2026-11-14 §N-3) */
+  const { canShareInvite, shareInvite, shareSheet } = useMoimInviteShare(moim, onToast);
+  const headerRight = useMemo(
+    () =>
+      canShareInvite || hasMenu ? (
+        <div className={samTier1HeaderIconCluster}>
+          {canShareInvite ? (
+            <DibayHeaderShareButton
+              onClick={() => void shareInvite()}
+              buttonClassName={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+              glyphClassName={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+            />
+          ) : null}
+          {hasMenu ? (
+            <button
+              type="button"
+              className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
+              aria-label={t("moim_schedule_manage_title")}
+              onClick={() => setMenuOpen(true)}
+            >
+              <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
+        </div>
+      ) : null,
+    [canShareInvite, hasMenu, shareInvite, t, setMenuOpen]
+  );
+  useEffect(() => {
+    onHeaderRight(headerRight);
+  }, [headerRight, onHeaderRight]);
+  useEffect(() => () => onHeaderRight(null), [onHeaderRight]);
 
   return (
     <div className={`${moimCls.page} flex flex-col`}>
@@ -519,30 +597,6 @@ function ScheduleBody({
           )}
         </section>
 
-        {manage ? (
-          <section>
-            <div className={moimCls.sectionHead}>
-              <h2 className={moimCls.sectionTitle}>{t("moim_schedule_manage_title")}</h2>
-            </div>
-            <div className="grid gap-2 px-4">
-              {!started ? (
-                <Link href={moimRoutes.scheduleEdit(moim.id, s.id)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`}>
-                  {t("moim_schedule_edit_btn")}
-                </Link>
-              ) : null}
-              {canClose ? (
-                <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={toggleClosed}>
-                  {s.status === "closed" ? t("moim_schedule_reopen_btn") : t("moim_schedule_close_btn")}
-                </button>
-              ) : null}
-              {!s.viewer.isHost || my !== "confirmed" ? (
-                <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} w-full`} onClick={cancelSchedule}>
-                  {t("moim_schedule_cancel_btn")}
-                </button>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
 
         {s.status === "done" ? (
           <MoimScheduleAlbumSection
@@ -555,6 +609,8 @@ function ScheduleBody({
         ) : null}
       </div>
 
+      <DibayActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} cancelLabel={t("common_cancel")} items={menuItems} />
+      {shareSheet}
       {cta ? (
         <MoimStickyFooter>
           <div className={moimCls.column}>{cta}</div>

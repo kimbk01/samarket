@@ -33,7 +33,8 @@ import {
 } from "@/components/moim/moim-ui";
 
 type MoimTab = "home" | "schedules" | "board" | "album" | "members";
-const MOIM_TABS: readonly MoimTab[] = ["home", "schedules", "board", "album", "members"];
+/** 설계 §9 · 시안 U4: 홈 · 게시판 · 일정 · 앨범 · 멤버 (감사 F5). 주소 `?tab=` 값은 그대로 */
+const MOIM_TABS: readonly MoimTab[] = ["home", "board", "schedules", "album", "members"];
 type MoimToast = (message: string, tone?: "default" | "success" | "error") => void;
 
 /** 보는 사람이 이 게시판에 글을 쓸 수 있는가 (화면 표시용 — 최종 판정은 서버) */
@@ -79,8 +80,8 @@ export function MoimMemberView({
 
   const tabs: { id: MoimTab; label: string }[] = [
     { id: "home", label: t("moim_home_home_tab") },
-    { id: "schedules", label: t("moim_home_schedules_tab") },
     { id: "board", label: t("moim_home_board_tab") },
+    { id: "schedules", label: t("moim_home_schedules_tab") },
     { id: "album", label: t("moim_home_album_tab") },
     { id: "members", label: t("moim_home_members_tab", { count: moim.memberCount }) },
   ];
@@ -244,7 +245,7 @@ function MoimSchedulesTab({ moim }: { moim: MoimDetailDto }) {
       </div>
       {canCreate ? (
         <div className="px-4 pt-3">
-          <Link href={moimRoutes.scheduleNew(moim.id)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full gap-1.5`}>
+          <Link href={moimRoutes.scheduleNew(moim.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>
             <CalendarPlus className="h-4 w-4" aria-hidden />
             {t("moim_schedule_create_btn")}
           </Link>
@@ -324,7 +325,7 @@ function MoimBoardTab({ moim, boardId, onBoard }: { moim: MoimDetailDto; boardId
       </div>
       {writeBoard ? (
         <div className="px-4 pt-3">
-          <Link href={moimRoutes.write(moim.id, writeBoard.id)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full gap-1.5`}>
+          <Link href={moimRoutes.write(moim.id, writeBoard.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>
             <PenSquare className="h-4 w-4" aria-hidden />
             {t("moim_board_write_btn")}
           </Link>

@@ -23,6 +23,14 @@ export type MoimViewerAreaDto =
   | { status: "city_unresolved" }
   | { status: "unavailable" };
 
+/**
+ * 모임 이름·소개 글자 수 (운영 `moim_policies` · 감사 B11). 만들기·정보 수정 화면이 입력 단계에서 바로 보여 주고 막는다.
+ * 값이 비어 있으면 서버 검사(`moim_create`·`moim_update_info`)와 같은 기본값: 이름 1~60 · 소개 0~2000.
+ */
+export type MoimTextLimitsDto = { nameMin: number; nameMax: number; introMin: number; introMax: number };
+
+export const MOIM_TEXT_LIMITS_FALLBACK: MoimTextLimitsDto = { nameMin: 1, nameMax: 60, introMin: 0, introMax: 2000 };
+
 export type MoimCardDto = {
   id: string;
   name: string;

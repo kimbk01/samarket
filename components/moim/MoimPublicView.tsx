@@ -111,9 +111,9 @@ export function MoimPublicView({
     );
   } else if (moim.viewer.banned || moim.viewer.status === "banned") {
     cta = (
-      <button type="button" disabled className={`${moimCls.btnPrimary} w-full`}>
+      <p role="status" className={`${moimCls.noticeBad} text-center text-[13px]`}>
         {t("moim_err_moim_join_not_allowed")}
-      </button>
+      </p>
     );
   } else if (pending) {
     cta = (
@@ -126,9 +126,9 @@ export function MoimPublicView({
     );
   } else if (full) {
     cta = (
-      <button type="button" disabled className={`${moimCls.btnPrimary} w-full`}>
+      <p role="status" className={`${moimCls.noticeWarn} text-center text-[13px]`}>
         {t("moim_join_full_btn")}
-      </button>
+      </p>
     );
   } else {
     cta = (

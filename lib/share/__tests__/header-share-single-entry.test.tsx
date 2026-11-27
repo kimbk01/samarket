@@ -144,9 +144,12 @@ describe("화면당 공유 1곳 = 머리글", () => {
 
   it("CREW: 초대 권한자만 머리글 [공유=초대 링크][⋮] · ⋮ 메뉴는 친구 초대만 · 초대 시트 없음", () => {
     const moim = read("components/moim/MoimDetailScreen.tsx");
-    expect(moim).toContain("canShareInvite = !!moim && isMember && moim.can.manage_invite_link");
+    /** 모임 감사 6번 묶음: 초대 링크 공유는 모임 상세·일정 상세(시안 U5 ⤴)가 같이 쓰는 훅 하나로 옮김 — 판정·링크는 그대로 */
+    const share = read("components/moim/use-moim-invite-share.ts");
+    expect(share).toContain('const canShareInvite = !!moim && moim.viewer.status === "active" && moim.can.manage_invite_link;');
+    expect(share).toContain('buildShareUrl({ kind: "moim_invite", token: r.token })');
+    expect(moim).toContain("useMoimInviteShare(moim, showToast)");
     expect(moim).toContain("{canShareInvite ? (");
-    expect(moim).toContain('buildShareUrl({ kind: "moim_invite", token: r.token })');
     expect(moim).toContain("moimRoutes.manageInvite(moim.id)");
     expect(moim).not.toContain("MoimInviteSheet");
     expect(moim).not.toContain('t("moim_menu_invite")');

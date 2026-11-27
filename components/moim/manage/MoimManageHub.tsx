@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
@@ -85,11 +86,9 @@ function HubBody({ detail }: { detail: MoimDetailDto }) {
                 <span className="mt-0.5 block text-[13px] text-sam-muted">{t(e.descKey)}</span>
               </span>
               {e.count ? (
-                <span className={`${Sam.badge.danger} shrink-0 whitespace-nowrap`}>{t("moim_manage_count_badge", { count: e.count })}</span>
+                <span className={`${Sam.badge.primary} shrink-0 whitespace-nowrap`}>{t("moim_manage_count_badge", { count: e.count })}</span>
               ) : null}
-              <span aria-hidden className="shrink-0 text-sam-meta">
-                ›
-              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sam-meta" />
             </Link>
           </li>
         ))}

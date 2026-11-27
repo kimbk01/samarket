@@ -5,7 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimMemberDto } from "@/lib/moim/moim-api-types";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { canOpenMoimTransfer } from "./MoimManageHub";
 import {
   MoimAvatar,
@@ -42,7 +43,7 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
   };
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pt-4">
       <div className={`${moimManageCardClass} p-4`}>
         <p className="text-[14px] text-sam-fg">{t("moim_manage_transfer_intro")}</p>
         <p className="mt-1.5 text-[13px] text-sam-muted">{t("moim_manage_transfer_after")}</p>
@@ -90,14 +91,18 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
         })()
       ) : null}
 
-      <button
-        type="button"
-        disabled={warned || !selected || busy || !detail.can.transfer_host}
-        className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} mt-4 rounded-ui-rect`}
-        onClick={() => setConfirmOpen(true)}
-      >
-        {t("moim_manage_transfer_request_btn")}
-      </button>
+      <MoimStickyFooter className="-mx-4 mt-4">
+        <div className={moimCls.column}>
+          <button
+            type="button"
+            disabled={warned || !selected || busy || !detail.can.transfer_host}
+            className={`${moimCls.btnPrimary} w-full`}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {t("moim_manage_transfer_request_btn")}
+          </button>
+        </div>
+      </MoimStickyFooter>
 
       <DibayConfirmDialog
         open={confirmOpen && selected != null}
@@ -116,7 +121,7 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
 
 export function MoimManageTransfer({ moimId }: { moimId: string }) {
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_transfer_title" allow={canOpenMoimTransfer}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_transfer_title" stickyFooter allow={canOpenMoimTransfer}>
       {({ detail }) => <TransferBody detail={detail} />}
     </MoimManageFrame>
   );
