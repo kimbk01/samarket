@@ -592,7 +592,14 @@ export async function runAdminNotificationDeliveryWorker(
         { fromOutbox: true }
       );
     }
-    if (input && supportGate === "send" && res.ok && res.created > 0 && input.workRef?.table === "support_cases") {
+    if (
+      input &&
+      input.kind === "support_customer_replied" && // 7차 재감사 N1: 고객 글 알림만 (담당 지정 알림은 정리하지 않는다)
+      supportGate === "send" &&
+      res.ok &&
+      res.created > 0 &&
+      input.workRef?.table === "support_cases"
+    ) {
       // 6차 재감사 3: 만든 사이 어드민이 답했으면 이 글 알림만 읽음
       await settleSupportCustomerMessageNotification(sb, { caseId: input.workRef.id, dedupeKey: input.dedupeKey });
     }

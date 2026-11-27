@@ -8,6 +8,7 @@ import {
   listAdminNotifications,
   loadAdminNotificationDeliveryHealth,
   runAdminNotificationDeliveryWorker,
+  settleSupportCustomerMessageNotification,
   markAdminNotificationsRead,
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
@@ -512,6 +513,45 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     expect(run).toMatchObject({ outboxDelivered: 1 });
     expect(healed.tables.admin_notifications ?? []).toHaveLength(0);
     expect(sendPush).not.toHaveBeenCalled();
+  });
+
+  it("7차 N1: a queued assignment notification on an answered case is created and stays unread (no support settle)", async () => {
+    const assigned = {
+      recipientAdminIds: ["admin-a"],
+      kind: "support_case_assigned",
+      title: "담당 문의 지정 · S-9",
+      workRef: { table: "support_cases", id: "case-9" },
+      dedupeKey: "support_case_assigned:case-9:admin-a:t1",
+      requiredPermission: "support" as const,
+      push: true,
+    };
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    await createAdminNotification(sb as never, assigned, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+    const healed = memoryDb({
+      admin_notification_outbox: sb.tables.admin_notification_outbox,
+      support_cases: [{ id: "case-9", status: "WAITING_USER", assigned_admin_id: "admin-a" }],
+    });
+    await runAdminNotificationDeliveryWorker(healed as never, { resolveAuthority: async () => SUPER, sendPush: vi.fn(async () => "sent" as const) });
+    expect(healed.tables.admin_notifications).toHaveLength(1);
+    expect(healed.tables.admin_notifications[0].read_at ?? null).toBeNull();
+  });
+
+  it("6차 3: settle marks only that message's notification read when the admin answered meanwhile (동작)", async () => {
+    const sb = memoryDb({
+      support_cases: [{ id: "case-7", status: "WAITING_USER" }],
+      support_messages: [
+        { id: "m1", case_id: "case-7", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null },
+        { id: "a1", case_id: "case-7", created_at: "2026-11-27T00:00:01.000Z", sender_type: "ADMIN", message_type: "PUBLIC", deleted_at: null },
+      ],
+      admin_notifications: [
+        { id: "n1", recipient_admin_id: "x", dedupe_key: "support_customer_replied:m1", read_at: null },
+        { id: "n2", recipient_admin_id: "y", dedupe_key: "support_customer_replied:m1", read_at: null },
+        { id: "n3", recipient_admin_id: "x", dedupe_key: "support_customer_replied:m2", read_at: null },
+      ],
+    });
+    await settleSupportCustomerMessageNotification(sb as never, { caseId: "case-7", dedupeKey: "support_customer_replied:m1" });
+    const unread = sb.tables.admin_notifications.filter((n) => n.read_at == null).map((n) => n.id);
+    expect(unread).toEqual(["n3"]);
   });
 
   it("push retry re-verifies authority: revoked before the retry → skipped, never sent", async () => {
