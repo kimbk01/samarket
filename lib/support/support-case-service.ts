@@ -17,8 +17,10 @@ import {
 } from "@/lib/admin/notifications/admin-notification-service";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
-  loadUnseenCustomerMessagesByReply,
+  loadSupportAdminReplySeenAt,
   supportCustomerMessageNeedsAdmin,
+  supportReplySawMessage,
+  type SupportReplyRow,
 } from "@/lib/support/support-admin-work-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -352,100 +354,71 @@ async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: stri
  */
 async function settleAdminWorkAfterSeenReply(
   sb: SupabaseClient,
-  input: { caseRow: SupportCaseRow; seenLastMessageAt: string; reply: { id: string; created_at: string } }
+  input: { caseRow: SupportCaseRow; seenLastMessageAt: string | null; reply: { id: string; created_at: string } }
 ): Promise<number> {
   const c = input.caseRow;
-  const seen = input.seenLastMessageAt;
   const replyAt = input.reply.created_at;
-  const msgs = (cols: string) => sb.from("support_messages").select(cols).eq("case_id", c.id).eq("message_type", "PUBLIC").is("deleted_at", null);
-  // 2차 재감사: 「이 답변이 못 본 글」 = 본 시각 뒤 · 이 답변 전 고객 글 중, **이전 답변이 본 적 없는** 글.
-  //   이전 답변이 그 글을 봤는지는 답변별 기록(`reply_message_id`)으로만 판정 — 작업 판정 함수와 같은 규칙.
-  const [seenRes, candRes, priorRes, laterReplyRes, unseenByReply] = await Promise.all([
-    msgs("id").in("sender_type", ["MEMBER", "OWNER"]).lte("created_at", seen).limit(SUPPORT_MESSAGES_LIST_LIMIT),
-    msgs("id, body, sender_user_id, created_at")
-      .in("sender_type", ["MEMBER", "OWNER"])
-      .gt("created_at", seen)
-      .lt("created_at", replyAt)
-      .order("created_at", { ascending: true })
-      .limit(50),
-    msgs("id, created_at").eq("sender_type", "ADMIN").neq("id", input.reply.id).gt("created_at", seen).lt("created_at", replyAt).limit(200),
-    msgs("id").eq("sender_type", "ADMIN").gt("created_at", replyAt).limit(1),
-    loadUnseenCustomerMessagesByReply(sb, c.id),
-  ]);
-  const readErr = seenRes.error ?? candRes.error ?? priorRes.error ?? laterReplyRes.error;
-  if (readErr || !unseenByReply) {
-    console.error("[support] reply_seen_settle_read_failed", { caseId: c.id, error: readErr?.message ?? "unseen_events" });
+  // 3차 재감사: 이 답변이 「무엇을 봤나」를 **맨 먼저** 남긴다 — 판정(`supportReplySawMessage`)은 이 기록만 본다.
+  // 본 시각이 없는 옛 호출 = 답변 시각까지 모두 봄(예전 「전원 읽음」과 같은 뜻).
+  const seenAt = input.seenLastMessageAt && Number.isFinite(Date.parse(input.seenLastMessageAt)) ? input.seenLastMessageAt : replyAt;
+  const seenRow = {
+    case_id: c.id,
+    event_type: "admin_reply_seen",
+    actor_user_id: null,
+    payload: { reply_message_id: input.reply.id, seen_at: seenAt },
+  };
+  let seenErr = (await sb.from("support_case_events").insert(seenRow)).error;
+  if (seenErr) seenErr = (await sb.from("support_case_events").insert(seenRow)).error;
+  if (seenErr) {
+    // 기록이 없으면 이 답변은 「안 봤음」으로 판정된다 — 알림을 읽음 처리하지 않는다(잃는 쪽으로 가지 않음).
+    console.error("[support] reply_seen_event_failed", { caseId: c.id, error: seenErr.message });
     return 0;
   }
-  type Cand = { id: string; body: string; sender_user_id: string | null; created_at: string };
-  const candidates = (candRes.data ?? []) as unknown as Cand[];
-  const prior = (priorRes.data ?? []) as unknown as { id: string; created_at: string }[];
-  const answeredBefore = (m: Cand) =>
-    prior.some(
-      (r) => Date.parse(r.created_at) >= Date.parse(m.created_at) && !(unseenByReply.get(String(r.id))?.has(String(m.id)) ?? false)
-    );
-  const later = candidates.filter((m) => !answeredBefore(m));
-  const seenIds = [
-    ...((seenRes.data ?? []) as unknown as { id: string }[]).map((m) => String(m.id)),
-    ...candidates.filter(answeredBefore).map((m) => String(m.id)),
-  ].filter(Boolean);
+  const msgs = (cols: string) => sb.from("support_messages").select(cols).eq("case_id", c.id).eq("message_type", "PUBLIC").is("deleted_at", null);
+  const [custRes, replyRes, seenMap] = await Promise.all([
+    msgs("id, body, sender_user_id, created_at")
+      .in("sender_type", ["MEMBER", "OWNER"])
+      .lt("created_at", replyAt)
+      .order("created_at", { ascending: false })
+      .limit(SUPPORT_MESSAGES_LIST_LIMIT),
+    msgs("id, created_at").eq("sender_type", "ADMIN").order("created_at", { ascending: false }).limit(SUPPORT_MESSAGES_LIST_LIMIT),
+    loadSupportAdminReplySeenAt(sb, c.id),
+  ]);
+  if (custRes.error || replyRes.error || !seenMap) {
+    console.error("[support] reply_seen_settle_read_failed", {
+      caseId: c.id,
+      error: custRes.error?.message ?? replyRes.error?.message ?? "seen_events",
+    });
+    return 0;
+  }
+  type Cust = { id: string; body: string; sender_user_id: string | null; created_at: string };
+  const customers = (custRes.data ?? []) as unknown as Cust[];
+  const replies = (replyRes.data ?? []) as unknown as SupportReplyRow[];
+  const answered = (m: Cust) =>
+    replies.some((r) => Date.parse(r.created_at) >= Date.parse(m.created_at) && supportReplySawMessage(r, seenMap, m.created_at));
+  const done = customers.filter(answered);
+  const unanswered = customers.filter((m) => !answered(m));
   const workRef = { table: "support_cases", id: c.id };
   await Promise.all([
     resolveAdminNotificationsForWork(sb, {
       workRef,
       kinds: ["support_customer_replied"],
-      dedupeKeys: seenIds.map((id) => `support_customer_replied:${id}`),
+      dedupeKeys: done.map((m) => `support_customer_replied:${m.id}`),
     }),
     resolveAdminNotificationsForWork(sb, { workRef, kinds: ["support_case_assigned"] }),
   ]);
-  if (later.length === 0) return 0;
-  // 판정 근거 기록 — 답변별. 1회 다시 시도.
-  const unseenRow = {
-    case_id: c.id,
-    event_type: "reply_left_unseen_customer_messages",
-    actor_user_id: null,
-    payload: { reply_message_id: input.reply.id, message_ids: later.map((m) => m.id) },
-  };
-  let unseenErr = (await sb.from("support_case_events").insert(unseenRow)).error;
-  if (unseenErr) unseenErr = (await sb.from("support_case_events").insert(unseenRow)).error;
-  if (unseenErr) console.error("[support] reply_unseen_event_failed", { caseId: c.id, error: unseenErr.message });
-  // 2차 재감사: 이 답변 뒤에 다른 어드민 답변이 이미 있으면 그 답변이 최신 판단이다 — 상태·알림을 되돌리지 않는다.
-  const supersededAtStart = ((laterReplyRes.data ?? []) as unknown[]).length > 0;
-  if (!supersededAtStart) {
-    // DB 함수가 이 답변으로 WAITING_USER 를 만들었다 → 못 본 글이 남았으니 「답변 필요」로.
-    // CAS: 상태 = WAITING_USER 그리고 마지막 글 = 이 답변(그사이 고객 글·다른 어드민 답변이 오면 건드리지 않음).
-    const { error: backErr } = await sb
-      .from("support_cases")
-      .update({ status: "WAITING_ADMIN", updated_at: new Date().toISOString() })
-      .eq("id", c.id)
-      .eq("status", "WAITING_USER")
-      .eq("last_message_at", replyAt);
-    if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
-    // 재감사 D1-a: 기록 전에 돈 정리 작업이 그 글 알림을 읽음으로 만들었을 수 있다 → 기록 **뒤** 안 읽음으로.
-    // 그 정리 작업의 쓰기가 더 늦게 닿는 좁은 창은 응답 뒤 한 번 더(1.5초 뒤) 맞춘다.
-    const laterKeys = later.map((m) => `support_customer_replied:${m.id}`);
-    const reUnread = async () => {
-      const superseded = await msgs("id").eq("sender_type", "ADMIN").gt("created_at", replyAt).limit(1);
-      if (superseded.error || ((superseded.data ?? []) as unknown[]).length > 0) return;
-      const unread = await sb
-        .from("admin_notifications")
-        .update({ read_at: null })
-        .eq("work_ref_table", "support_cases")
-        .eq("work_ref_id", c.id)
-        .eq("kind", "support_customer_replied")
-        .in("dedupe_key", laterKeys)
-        .not("read_at", "is", null)
-        .is("archived_at", null);
-      if (unread.error) console.error("[support] reply_unseen_unread_failed", { caseId: c.id, error: unread.error.message });
-    };
-    await reUnread();
-    keepAliveAfterResponse(
-      new Promise<void>((r) => setTimeout(r, 1500)).then(reUnread).catch((e: unknown) => {
-        console.error("[support] reply_unseen_unread_failed", { caseId: c.id, error: (e as Error).message });
-      })
-    );
-  }
-  for (const m of later) {
+  if (unanswered.length === 0) return 0;
+  // DB 함수가 이 답변으로 WAITING_USER 를 만들었다 → 아무도 안 본 고객 글이 남았으니 「답변 필요」로.
+  // CAS: 상태 = WAITING_USER 그리고 마지막 글 = 이 답변 (그 뒤 고객 글·다른 답변이 오면 그쪽이 최신 — 건드리지 않음).
+  const { error: backErr } = await sb
+    .from("support_cases")
+    .update({ status: "WAITING_ADMIN", updated_at: new Date().toISOString() })
+    .eq("id", c.id)
+    .eq("status", "WAITING_USER")
+    .eq("last_message_at", replyAt);
+  if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
+  // 남은 글 알림이 없으면 만든다(같은 dedupe 키 — 있으면 그대로). 판정은 같은 규칙이라 send.
+  for (const m of unanswered) {
     notifyAdminsAfterResponse(sb, {
       caseRow: c,
       messageId: m.id,
@@ -454,7 +427,7 @@ async function settleAdminWorkAfterSeenReply(
       isNewCase: false,
     });
   }
-  return later.length;
+  return unanswered.length;
 }
 
 /** 고객 글 목록 상한 (최종 감사 L11) — 한 문의 글이 이보다 많으면 **최신** 이만큼(재감사 L11-a) */
@@ -1558,17 +1531,13 @@ export async function adminReplySupportCase(
   let unseenCustomerMessages = 0;
   if (!input.internalNote) {
     const seen = typeof input.seenLastMessageAt === "string" ? input.seenLastMessageAt.trim() : "";
-    if (seen) {
-      // 최종 감사 D1: 본 글까지만 끝난 일 — 답을 쓰는 사이 온 고객 글은 남긴다
-      unseenCustomerMessages = await settleAdminWorkAfterSeenReply(sb, {
-        caseRow: gate.case,
-        seenLastMessageAt: seen,
-        reply: { id: res.message.id, created_at: res.message.created_at },
-      });
-    } else {
-      // 재감사 D3 (옛 호출): 답했다 = 그때까지 고객 글 알림은 어드민 전원에게 끝난 일
-      await resolveSupportAdminNotifications(sb, gate.case.id);
-    }
+    // 최종 감사 D1 (3차 재감사): 모든 공개 답변이 「본 시각」을 남기고, 본 글까지만 끝난 일로 한다.
+    // 본 시각 없는 호출 = 답변 시각까지 모두 봄.
+    unseenCustomerMessages = await settleAdminWorkAfterSeenReply(sb, {
+      caseRow: gate.case,
+      seenLastMessageAt: seen || null,
+      reply: { id: res.message.id, created_at: res.message.created_at },
+    });
     // 4절 문구 (docs/audit/notification-defect-fix-design-2026-10-28.md): 제목에 내부 문의번호를 넣지 않는다.
     // 최종 감사 L7: 고객 알림·푸시는 응답 뒤
     const c = gate.case;

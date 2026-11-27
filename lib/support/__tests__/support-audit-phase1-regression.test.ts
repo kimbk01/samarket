@@ -90,7 +90,11 @@ vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
   getCachedStoreIfOwner: vi.fn(async () => ({ ok: false })),
 }));
 
-import { supportCustomerMessageNeedsAdmin } from "@/lib/support/support-admin-work-check";
+import {
+  SUPPORT_REPLY_SEEN_RECORD_SINCE,
+  supportCustomerMessageNeedsAdmin,
+  supportReplySawMessage,
+} from "@/lib/support/support-admin-work-check";
 import {
   notifyAdminsOfCustomerMessage,
   supportShownListSeenAt,
@@ -1283,26 +1287,52 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     // 작업 판정도 같은 뜻: 답변보다 먼저 왔지만 못 본 글 = 아직 어드민 일
     expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: late.message.id })).toBe("send");
     // 첫 글은 답을 받았고 그 뒤 고객 글이 남은 일 → skip 은 아님(답변 뒤 고객 글 없음) — 본 글은 읽음 처리로 끝난다
-    expect(db.support_case_events.map((e) => e.event_type)).toContain("reply_left_unseen_customer_messages");
+    // 3차 재감사: 답변마다 「본 시각」 기록 1건 (판정의 유일한 근거)
+    const seenEv = db.support_case_events.filter((e) => e.event_type === "admin_reply_seen");
+    expect(seenEv).toHaveLength(1);
+    expect((seenEv[0].payload as { seen_at?: string }).seen_at).toBe(seen);
   });
 
-  it("D1-a: an alert already marked read by a racing settle is made unread again after the unseen record", async () => {
+  it("3차 재감사: a reply whose seen record is not in yet never counts as having seen (no false 「answered」)", () => {
+    const after = (min: number) => new Date(Date.parse(SUPPORT_REPLY_SEEN_RECORD_SINCE) + min * 60_000).toISOString();
+    const reply = { id: "r1", created_at: after(10) };
+    const msgAt = after(5);
+    // 기록 아직 없음 → 안 봤음 (두 어드민 동시 답변 경합에서 상대 기록이 늦어도 알림을 잃지 않는다)
+    expect(supportReplySawMessage(reply, new Map(), msgAt)).toBe(false);
+    // 기록 = 본 시각이 글보다 이르면 안 봤음 · 같거나 늦으면 봤음
+    expect(supportReplySawMessage(reply, new Map([["r1", Date.parse(after(4))]]), msgAt)).toBe(false);
+    expect(supportReplySawMessage(reply, new Map([["r1", Date.parse(after(5))]]), msgAt)).toBe(true);
+    // 규칙 시작 전 옛 답변(기록 없음) = 그때까지 모두 봄
+    const old = { id: "r0", created_at: "2026-11-01T00:00:00.000Z" };
+    expect(supportReplySawMessage(old, new Map(), "2026-10-31T00:00:00.000Z")).toBe(true);
+  });
+
+  it("3차 재감사: two stale admins answering at the same moment — the other's seen record arriving late does not lose the message", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
     if (!a.ok) throw new Error(a.error);
-    const seen = String(db.support_cases[0].last_message_at);
-    const late = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "그사이 추가" });
-    if (!late.ok) throw new Error(late.error);
+    const s0 = String(db.support_cases[0].last_message_at);
+    const m = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "M" });
+    if (!m.ok) throw new Error(m.error);
     await flush();
-    // 경합 재현: 그 글 알림이 이미 「답 받음」 판정으로 읽음 처리돼 있다
-    db.admin_notifications = [
-      {
-        id: randomUUID(), recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases",
-        work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${late.message.id}`, read_at: "2026-11-28T00:00:00.000Z", archived_at: null,
-      },
-    ];
-    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변", seenLastMessageAt: seen });
-    expect(db.admin_notifications[0].read_at).toBeNull();
+    // B 의 답변 R 은 저장됐지만 「본 시각」 기록은 아직(경합) — 규칙 시작 뒤 시각으로 직접 넣는다
+    const rAt = new Date(Date.parse(SUPPORT_REPLY_SEEN_RECORD_SINCE) + 60_000).toISOString();
+    db.support_messages.push({
+      id: randomUUID(), case_id: a.case.id, sender_type: "ADMIN", sender_admin_id: OTHER_ADMIN, message_type: "PUBLIC",
+      body: "B 답(기록 전)", created_at: rAt, deleted_at: null,
+    });
+    db.support_messages.forEach((x) => {
+      if (x.id === m.message.id) x.created_at = new Date(Date.parse(rAt) - 30_000).toISOString();
+    });
+    db.support_cases[0].status = "WAITING_ADMIN";
+    // 이 순간(B 기록 전) 도는 판정 = 어드민 일 남음 — 「답 받음」으로 읽음 처리되지 않는다
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m.message.id })).toBe("send");
+    // B 가 M 을 못 본 기록(본 시각 s0)이 들어와도 그대로
+    db.support_case_events.push({
+      id: randomUUID(), case_id: a.case.id, event_type: "admin_reply_seen", actor_user_id: null,
+      payload: { reply_message_id: db.support_messages[db.support_messages.length - 1].id, seen_at: s0 }, created_at: rAt,
+    });
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m.message.id })).toBe("send");
   });
 
   it("2차 재감사: two stale admins reply in turn — a message neither saw stays unseen (case 「답변 필요」, alert kept)", async () => {
@@ -1392,8 +1422,9 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     adminResolveInputs.length = 0;
     await adminReplySupportCase(legacy.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "답" });
     expect(legacy.db.support_cases[0].status).toBe("WAITING_USER");
-    expect(adminResolveInputs).toHaveLength(1);
-    expect(adminResolveInputs[0].dedupeKeys).toBeUndefined();
+    // 본 시각 없는 호출 = 답변 시각까지 모두 봄 → 그때까지 고객 글 알림 전부 읽음 (예전 「전원 읽음」과 같은 뜻)
+    const legacyKeys = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"))?.dedupeKeys ?? [];
+    expect([...legacyKeys].sort()).toEqual(customerMsgs(legacy.db).map((m) => `support_customer_replied:${m.id}`).sort());
   });
 
   it("D1 work check: an old message answered before a newer customer message is still skipped (6차 2 유지)", async () => {

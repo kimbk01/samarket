@@ -30,7 +30,7 @@
 | 접수 | 고객 | 없음 → OPEN (첫 글 = 시드, 어드민 미읽음 **증가 안 함** — F2) | `support-case-service.ts:394-403` · DB 함수 ELSE 분기 |
 | 같은 분야 진행 중 문의가 있을 때 접수 | 고객 | 기존 문의에 추가 → WAITING_ADMIN. 접수 완료 화면 = 「진행 중인 문의에 추가했어요」 + **기존 문의의** 분야·세부·번호 (F4) · 고객이 고른 세부는 어드민 대화에 표시(D8). 붙이려던 문의가 그사이 종료됐으면 새 문의로 접수(2차 F) | `:272-345` · 유일 인덱스 `uq_support_cases_one_active_per_key` |
 | 추가 문의 | 고객 | → WAITING_ADMIN, 어드민 미읽음 +1. **1분 5건 · 1시간 30건 초과 = 429 `rate_limited`**(접수 포함 · 최종 감사 D5) | `postRequesterSupportMessage` · `support-customer-rate-limit.ts` |
-| 답변 | 어드민 | → WAITING_USER, 고객 미읽음 +1. 화면이 본 마지막 글 시각(`seenLastMessageAt`) **뒤에 온 고객 글이 있으면 WAITING_ADMIN 으로 되돌리고** 그 글 알림은 남긴다(사건 `reply_left_unseen_customer_messages` · 최종 감사 D1) | `adminReplySupportCase` |
+| 답변 | 어드민 | → WAITING_USER, 고객 미읽음 +1. 화면이 본 마지막 글 시각(`seenLastMessageAt`) **뒤에 온 고객 글이 있으면 WAITING_ADMIN 으로 되돌리고** 그 글 알림은 남긴다(답변별 본 시각 `admin_reply_seen` · 최종 감사 D1 · §16-1) | `adminReplySupportCase` |
 | 확인했어요 | 고객 | **WAITING_USER 에서만**(그 밖 = `invalid_transition` · 최종 감사 L6) → RESOLVED (알림 없음). 화면이 본 마지막 글 시각(`seenLastMessageAt`)과 다르면 닫지 않고 `case_updated` → 화면이 다시 읽어 새 답변을 보여 줌 (2차 A) | `requesterCloseSupportCase` |
 | 상담 종료 | 어드민 | → RESOLVED, 고객 「종료」 알림 (F3) | `adminUpdateSupportCaseStatus` |
 | 재오픈 | **어드민만** (고객 API 의 reopen = 400, 재감사 D12) | RESOLVED/ARCHIVED → OPEN, 고객 알림 (보관 문의 화면에도 「재오픈」 · U-11) | `reopenSupportCase` |
@@ -73,7 +73,7 @@
 - 받는 사람 = 담당자(support 권한 필수) 또는 support 권한 전원. 보낸 사람 본인은 받지 않는다(D10).
 - 어드민이 그 문의를 열면 → 그 어드민 것만 읽음.
 - 그 문의의 어드민 일이 끝나면(공개 답변·종료·보관·고객 「확인했어요」·자동 종료) → **받은 어드민 전원** 읽음. 단 공개 답변은 **어드민이 본 글까지만**(`seenLastMessageAt` 이하 글 · 최종 감사 D1).
-- 「이 글에 어드민 일이 남았나」 = 이 글 뒤 어드민 공개 답변이 없거나, 뒤 답변이 이 글을 못 보고 나갔다고 기록됨(`reply_left_unseen_customer_messages`). 추측 판정 없음 (`support-admin-work-check.ts`).
+- 「이 글에 어드민 일이 남았나」 = 이 글 뒤 어드민 공개 답변 중 이 글을 **본**(본 시각 기록 ≥ 글 시각) 답변이 없음 (`support-admin-work-check.ts` · §16-1 D1).
 - 담당자 = 글쓴이(본인 제외로 받을 사람 0) → support 전원(L5). 담당자가 support 권한을 잃어 담당이 풀리면 → 남은 고객 글을 support 전원에게 다시(L2).
 - 발송(권한 확인·저장·푸시)은 고객 응답 뒤에 끝까지 진행(재감사 D6). 실패분은 outbox·5분 재생 함수가 다시 만든다.
 
@@ -312,9 +312,7 @@ UI 불일치 U1~U9(시안 5절)는 이 PR 에서 바꾸지 않았고, 이후 Own
 
 | # | 규칙 |
 |---|---|
-| D1-a | 「못 본 글」 기록을 남긴 **뒤** 그 글 알림을 다시 안 읽음으로 — 응답 뒤 정리 작업과의 경합으로 읽음이 된 경우 복구 |
-| D1-b (2차 재감사로 바꿈) | 「못 본 글」 = 본 시각 뒤 · 이 답변 전 고객 글 중 **이전 답변이 본 적 없는** 글. 「본 적 있음」 = 그 글 뒤 답변 중 하나라도 그 글을 자기 「못 본 글」 기록(`payload.reply_message_id` 답변별)에 넣지 않음. 작업 판정(`supportCustomerMessageNeedsAdmin`)도 같은 규칙 · 어드민 화면에 「답을 쓰는 사이 고객 글이 더 왔어요」 안내 |
-| 2차 재감사 | 이 답변 뒤 다른 어드민 답변이 이미 있으면 상태·알림을 되돌리지 않음 · 상태 되돌림 CAS = WAITING_USER **그리고** 마지막 글 = 이 답변 · 안 읽음 되돌림은 응답 뒤 1.5초에 한 번 더 |
+| D1 (3차 재감사로 확정) | **어드민 공개 답변마다 저장 직후 맨 먼저 「본 시각」 기록**(`admin_reply_seen` · `payload.reply_message_id`·`seen_at`, 본 시각 없는 호출 = 답변 시각). 고객 글 M 「답 받음」 ⇔ M 뒤 답변 중 본 시각 ≥ M 시각인 답변이 있음 (`supportReplySawMessage` — 작업 판정·답변 정리가 같은 함수). 기록이 아직 없는 답변 = **안 봤음**(규칙 시작 2026-11-28 전 옛 답변만 봤음) → 동시 답변 경합에서도 알림을 잃지 않는 쪽으로만 틀림. 아무도 안 본 글이 남으면 상태 CAS(WAITING_USER + 마지막 글 = 이 답변)로 WAITING_ADMIN · 어드민 화면 안내 「답을 쓰는 사이 고객 글이 더 왔어요」. 사후 「안 읽음 되돌림」 없음 |
 | D6-a·b·c·d | 목록 밖 문의 변경 = 30초에 1번 다시 읽기(탭 숫자) · 어드민 미읽음 숫자도 목록 표시값 · 문의 행 메아리는 보내는 중에만 건너뜀 · 권한 조회 실패 시 1회 다시 |
 | L2-a | 권한 회수 재알림은 응답 뒤 |
 | L11-a | 글 목록 상한은 최신 1000건 |
