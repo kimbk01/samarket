@@ -141,7 +141,18 @@ describe("참조 판정 함수 — 대상 글을 보는 모든 줄에 제외 조
       .sort()
       .filter((f) => readFileSync(`${dir}/${f}`, "utf8").includes("function public.community_post_image_unreferenced_excluding_posts"));
     const latest = readFileSync(`${dir}/${files[files.length - 1]!}`, "utf8");
-    expect(files[files.length - 1]).toBe("20271120091000_community_deleted_post_image_purge_view_fix.sql");
+    /** 보정 20271120091000 뒤 모임 6-A(20271128150000)가 모임 표 6줄을 더한 정의가 최신 — 글 제외 조건 줄은 그대로여야 한다 */
+    expect(files[files.length - 1]).toBe("20271128150000_moim_photo_gc_refs.sql");
+    for (const ref of [
+      "from public.moims",
+      "from public.moim_posts",
+      "from public.moim_schedules",
+      "from public.moim_album_items",
+      "from public.moim_members",
+      "from public.moim_member_profile_history",
+    ]) {
+      expect(latest, ref).toContain(ref);
+    }
     const lines = latest
       .split("\n")
       .filter((l) => /from public\.(community_posts|philife_posts|community_post_images|community_post_revisions)\b/.test(l));
