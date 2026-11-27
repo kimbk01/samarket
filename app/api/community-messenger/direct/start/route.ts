@@ -1,6 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import {
+  registrationGapResponse,
+  resolveRegistrationGapForAction,
+  type RegistrationGap,
+} from "@/lib/auth/require-registration-for-action.server";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import {
@@ -46,10 +51,26 @@ export async function POST(req: NextRequest) {
   const parsed = await parseJsonBody<{ publicId?: string; targetUserId?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
 
-  const result = await startCommunityMessengerDirectChat(auth.userId, {
-    publicId: parsed.value.publicId,
-    targetUserId: parsed.value.targetUserId,
-  });
+  /**
+   * F1 (Owner 2026-11-27 「승인, 구현 진행」) — 새 1:1 방 만들기만 가입(전화 + 대표 주소) 필요, 기존 방 다시 열기는 가입 없이.
+   * 규칙 표 `split` · 설계 `docs/audit/f1-registration-decisions-design-2026-11-27.md` §3-2.
+   */
+  let registrationGap: RegistrationGap | null = null;
+  const result = await startCommunityMessengerDirectChat(
+    auth.userId,
+    {
+      publicId: parsed.value.publicId,
+      targetUserId: parsed.value.targetUserId,
+    },
+    {
+      beforeCreate: async () => {
+        registrationGap = await resolveRegistrationGapForAction(auth.userId);
+        return registrationGap ? { error: "signup_incomplete" } : null;
+      },
+    },
+  );
+  const gap = registrationGap as RegistrationGap | null; // 콜백 안에서 채워짐 — TS 좁히기 방지
+  if (gap) return registrationGapResponse(gap);
 
   if (!result.ok || !result.roomId) {
     const err = result.error ?? "cannot_start_chat";

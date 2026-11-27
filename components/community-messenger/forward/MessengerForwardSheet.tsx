@@ -139,6 +139,8 @@ export function MessengerForwardSheet({
       let roomId = target.kind === "room" ? target.roomId ?? "" : friendRoomRef.current[target.id] ?? "";
       if (!roomId && target.kind === "friend" && target.userId) {
         const r = await postJson("/api/community-messenger/direct/start", { targetUserId: target.userId });
+        // F1 — 새 1:1 방은 가입 필요(전달도 가입 필요): 다시 시도가 아니라 보낼 수 없음
+        if (!r.ok && r.error === "signup_incomplete") return "not_allowed";
         if (!r.ok || !r.roomId) return r.error && NOT_ALLOWED_ERRORS.has(r.error) ? "not_allowed" : "retry";
         roomId = r.roomId;
         friendRoomRef.current[target.id] = roomId;

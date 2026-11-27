@@ -26,18 +26,35 @@ export function registrationIncompleteResponse(step: "phone" | "address"): NextR
   );
 }
 
-export async function requireRegistrationForAction(userId: string): Promise<NextResponse | null> {
+/**
+ * 판정만 — 가입이면 null, 아니면 빠진 단계 / 조회 실패. 응답을 만들 수 없는 곳(서비스 함수 콜백)용.
+ * F1 2026-11-27: 1:1 대화 시작은 새 방을 넣기 직전에만 이 판정을 부른다.
+ */
+export type RegistrationGap = { kind: "step"; step: "phone" | "address" } | { kind: "unavailable" };
+
+export async function resolveRegistrationGapForAction(userId: string): Promise<RegistrationGap | null> {
   const uid = String(userId ?? "").trim();
-  if (!uid) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  if (!uid) return { kind: "unavailable" };
   const snapshot = await loadMemberWriteGateSnapshot(uid);
   if (isPrivilegedAdminRole(snapshot?.consent?.adminRole ?? null)) return null;
   const registration = await resolveMemberRegistrationAuthority(uid, snapshot?.registration ?? null);
   if (registration.kind === "REGISTERED") return null;
-  if (registration.kind === "UNAVAILABLE") {
-    return NextResponse.json(
-      { ok: false, error: "consent_state_unavailable", code: "consent_state_unavailable", authenticated: true },
-      { status: 503 },
-    );
-  }
-  return registrationIncompleteResponse(registration.step);
+  if (registration.kind === "UNAVAILABLE") return { kind: "unavailable" };
+  return { kind: "step", step: registration.step };
+}
+
+/** 판정 결과 → 응답 (중앙 쓰기 게이트와 같은 모양) */
+export function registrationGapResponse(gap: RegistrationGap): NextResponse {
+  if (gap.kind === "step") return registrationIncompleteResponse(gap.step);
+  return NextResponse.json(
+    { ok: false, error: "consent_state_unavailable", code: "consent_state_unavailable", authenticated: true },
+    { status: 503 },
+  );
+}
+
+export async function requireRegistrationForAction(userId: string): Promise<NextResponse | null> {
+  const uid = String(userId ?? "").trim();
+  if (!uid) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const gap = await resolveRegistrationGapForAction(uid);
+  return gap ? registrationGapResponse(gap) : null;
 }

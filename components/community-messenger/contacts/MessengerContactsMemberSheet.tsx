@@ -93,8 +93,10 @@ export function MessengerContactsMemberSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetUserId: member.user_id }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; code?: string };
       if (!res.ok || !j.ok || !j.roomId) {
+        // F1 — 새 1:1 방은 가입 필요: 「가입 이어하기」 창이 이미 떴다 → 실패 스낵바를 겹쳐 띄우지 않는다
+        if (j.code === "signup_incomplete") return false;
         showMessengerSnackbar(t("cm_contacts_action_failed"), { variant: "error" });
         return false;
       }

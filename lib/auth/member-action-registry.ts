@@ -16,6 +16,10 @@
  * 둘 다 이 표만 읽는다. 새 회원 쓰기 경로가 이 표에 없으면 계약 테스트가 실패한다
  * (`lib/auth/__tests__/member-action-registry-contract.test.ts`).
  *
+ * F1·결정 (Owner 2026-11-27 「권장안대로 설계」→「승인, 구현 진행」, 설계 `docs/audit/f1-registration-decisions-design-2026-11-27.md`):
+ *   direct/start·모임장 넘기기 응답·입점 인증번호 발송 = split, 모임장 변경 요청 = new. 친구 즐겨찾기·매장 운영·거래→메신저 연결은 그대로.
+ *   1:1 방 만들기 `POST /rooms` 는 통화 경로라 그대로(전화 인증만).
+ *
  * 이 파일은 서버·클라이언트 공용 — 서버 전용 모듈을 가져오지 않는다.
  */
 
@@ -63,7 +67,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("DELETE", "/api/community-messenger/contacts/suppressions/[userId]", "manage"),
   W("POST", "/api/community-messenger/contacts/suppressions/[userId]", "manage"),
   W("POST", "/api/community-messenger/contacts/sync", "manage"),
-  W("POST", "/api/community-messenger/direct/start", "manage"),
+  W("POST", "/api/community-messenger/direct/start", "split"), // F1 2026-11-27: 새 1:1 방만 가입 필요, 기존 방 다시 열기는 가입 없이
   W("POST", "/api/community-messenger/friend-qr/add", "new"),
   W("POST", "/api/community-messenger/friend-qr/regenerate", "manage"),
   W("POST", "/api/community-messenger/friend-requests", "new"),
@@ -168,7 +172,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/me/store-coupons/campaigns", "manage"),
   W("POST", "/api/me/store-coupons/claim", "new"),
   W("POST", "/api/me/store-orders", "new"),
-  W("POST", "/api/me/store-phone-verification/send", "manage"),
+  W("POST", "/api/me/store-phone-verification/send", "split"), // 결정 4 2026-11-27: 새 입점 신청(store_apply·storeId 없음)만 가입 필요
   W("POST", "/api/me/store-phone-verification/verify", "manage"),
   W("POST", "/api/me/store-reviews", "new"),
   W("POST", "/api/me/store-reviews/upload-image", "new"),
@@ -208,7 +212,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/moim/[moimId]/album", "new"),
   W("POST", "/api/moim/[moimId]/boards", "new"),
   W("POST", "/api/moim/[moimId]/close", "manage"),
-  W("POST", "/api/moim/[moimId]/host-inactive-request", "manage"),
+  W("POST", "/api/moim/[moimId]/host-inactive-request", "new"), // 결정 2 2026-11-27: 관리자 큐에 새 요청 = 신청
   W("POST", "/api/moim/[moimId]/host-transfer", "manage"),
   W("POST", "/api/moim/[moimId]/invite-links", "new"),
   W("POST", "/api/moim/[moimId]/invites", "new"),
@@ -223,7 +227,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("PATCH", "/api/moim/[moimId]/profile", "manage"),
   W("POST", "/api/moim/[moimId]/schedules", "new"),
   W("POST", "/api/moim/album/[itemId]/pin", "manage"),
-  W("POST", "/api/moim/host-transfers/[transferId]", "manage"),
+  W("POST", "/api/moim/host-transfers/[transferId]", "split"), // 결정 1 2026-11-27: 수락(accept:true)만 가입 필요, 거절은 가입 없이
   W("DELETE", "/api/moim/invite-links/[inviteId]", "manage"),
   W("POST", "/api/moim/invites/[inviteId]", "split"),
   W("PATCH", "/api/moim/posts/[postId]", "manage"),

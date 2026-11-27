@@ -62,6 +62,8 @@ function HostTransferBanner({ transferId, onDone, onToast }: { transferId: strin
     const r = await moimApi.respondHostTransfer(transferId, accept);
     setBusy(false);
     if (!r.ok) {
+      // 결정 1 — 수락은 가입 필요: 「가입 이어하기」 창이 이미 떴다 → 토스트를 겹쳐 띄우지 않는다
+      if (r.code === "signup_incomplete") return;
       onToast(t(moimErrorKey(r.error)), "error");
       return;
     }

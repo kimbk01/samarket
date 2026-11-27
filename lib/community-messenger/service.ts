@@ -10232,13 +10232,15 @@ export async function resolveCommunityMessengerUserForSocial(
 
 export async function startCommunityMessengerDirectChat(
   userId: string,
-  input: { publicId?: string; targetUserId?: string }
+  input: { publicId?: string; targetUserId?: string },
+  opts?: { beforeCreate?: GeneralDirectRoomBeforeCreate }
 ): Promise<{
   ok: boolean;
   roomId?: string;
   created?: boolean;
   targetProfile?: CommunityMessengerProfileLite;
   error?: string;
+  step?: "phone" | "address";
 }> {
   const resolved = await resolveCommunityMessengerUserForSocial(userId, input);
   if (!resolved.ok || !resolved.profile) {
@@ -10267,10 +10269,10 @@ export async function startCommunityMessengerDirectChat(
     if (existing?.id) created = false;
   }
 
-  const roomOut = await ensureGeneralFriendDirectRoom(userId, targetId);
+  const roomOut = await ensureGeneralFriendDirectRoom(userId, targetId, opts);
   if (!roomOut.ok || !roomOut.roomId) {
     logSocialRelationEvent("direct_room_start_blocked", { reason: roomOut.error ?? "room_failed" });
-    return { ok: false, error: roomOut.error ?? "cannot_start_chat" };
+    return { ok: false, error: roomOut.error ?? "cannot_start_chat", ...(roomOut.step ? { step: roomOut.step } : {}) };
   }
 
   logSocialRelationEvent("direct_room_started_by_public_id", {
@@ -11074,11 +11076,18 @@ export async function readmitLeftGeneralDirectPeerForSend(input: {
   return ensureDirectMessengerRoomParticipantsForPair(input.supabase, input.roomId, input.senderUserId, peer);
 }
 
+/**
+ * F1 (2026-11-27) — 새 1:1 방을 넣기 직전에만 부르는 확인. null = 진행, 값 = 거절(새 방을 만들지 않음).
+ * 기존 방 다시 열기에는 부르지 않는다. 통화 경로(`POST /rooms`)는 넘기지 않는다 → 동작 동일.
+ */
+export type GeneralDirectRoomBeforeCreate = () => Promise<{ error: string; step?: "phone" | "address" } | null>;
+
 /** general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
 export async function ensureGeneralFriendDirectRoom(
   userId: string,
-  peerUserId: string
-): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  peerUserId: string,
+  opts?: { beforeCreate?: GeneralDirectRoomBeforeCreate }
+): Promise<{ ok: boolean; roomId?: string; error?: string; step?: "phone" | "address" }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
@@ -11113,6 +11122,11 @@ export async function ensureGeneralFriendDirectRoom(
       const admitted = await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
       if (!admitted.ok) return { ok: false, error: admitted.error };
       return { ok: true, roomId: existingId };
+    }
+
+    if (opts?.beforeCreate) {
+      const denied = await opts.beforeCreate();
+      if (denied) return { ok: false, error: denied.error, ...(denied.step ? { step: denied.step } : {}) };
     }
 
     const gdDomain = plannedColumnsForGeneralDirect(userId, peerId);
@@ -11169,6 +11183,11 @@ export async function ensureGeneralFriendDirectRoom(
     (room) => room.roomType === "direct" && room.directKey === basePairKey
   );
   if (existing) return { ok: true, roomId: existing.id };
+
+  if (opts?.beforeCreate) {
+    const denied = await opts.beforeCreate();
+    if (denied) return { ok: false, error: denied.error, ...(denied.step ? { step: denied.step } : {}) };
+  }
 
   const roomId = randomUUID();
   const createdAt = nowIso();

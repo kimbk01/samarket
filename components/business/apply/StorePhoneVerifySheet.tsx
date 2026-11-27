@@ -86,6 +86,11 @@ export function StorePhoneVerifySheet({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; code?: string; error?: string; retryAfterSec?: number; resendAvailableAt?: string };
       if (!res.ok || !json.ok) {
+        // 결정 4 — 새 입점 신청 인증번호는 가입 필요: 「가입 이어하기」 창이 이미 떴다 → 시트를 닫고 오류 문구는 없음
+        if (json.code === "signup_incomplete") {
+          onClose();
+          return;
+        }
         if (typeof json.retryAfterSec === "number") setCooldownUntil(Date.now() + json.retryAfterSec * 1000);
         setError(t(storePhoneVerifyErrorKey(json.code ?? json.error)));
         return;
