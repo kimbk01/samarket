@@ -10,7 +10,6 @@ import { usePathname } from "next/navigation";
 import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
-import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
 import { AuthSessionBoundary } from "@/components/auth/AuthSessionBoundary";
 import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
 import { LoginRequiredSheet } from "@/components/auth/LoginRequiredSheet";
@@ -208,7 +207,6 @@ export function MainAppProviderTree({
           <AppWideRuntimePerfHooks />
           <BottomNavBootIdlePrewarmHost />
           <SessionLostRedirect />
-          <PostLogoutBfcacheGuard />
           <DibaySignupGate />
           {/* 대표 주소 없는 로그인 회원 → 프로필 설정(주소)으로 유도 · 내정보 홈·주소/프로필 흐름 제외 (Owner 승인 2026-10-20) */}
           <MandatoryAddressGate />

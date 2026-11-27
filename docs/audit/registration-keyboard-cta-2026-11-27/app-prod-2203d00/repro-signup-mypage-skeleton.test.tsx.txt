@@ -1,0 +1,81 @@
+// @vitest-environment jsdom
+/**
+ * 임시 재현(커밋 안 함) — 로그아웃 → 웹 OAuth(서버 콜백) → 가입 단계 화면 → 앱 안 이동 → MY 스켈레톤 고착.
+ * 실제 모듈: supabase-profile-cache · get-current-user · PostLogoutBfcacheGuard · app-boot-store · use-mypage-home-model.
+ */
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase/client", () => ({ getSupabaseClient: () => null }));
+
+const fetchSpy = vi.fn(async (..._args: unknown[]) => new Response("{}", { status: 500 }));
+
+describe("repro: post-logout guard blocks profile cache after signup on auth route", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("guard set by logout survives; boot ready on /auth/onboarding cannot fill cache; MY model never fetches", async () => {
+    (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    // 1) 08:53:43 로그아웃 — reset-auth-state → wipeClientSessionState(user_logout, setPostLogoutGuard) 가 남기는 값
+    sessionStorage.setItem("samarket:post_logout_guard", "1");
+
+    // 2) 08:55:13 /auth/onboarding/terms 문서: 앱 부팅이 프로필을 넣는다(run-app-boot applyBootProfileEvidence 와 같은 호출)
+    const cache = await import("@/lib/auth/supabase-profile-cache");
+    const { getCurrentUser } = await import("@/lib/auth/get-current-user");
+    const bootStore = await import("@/lib/app-boot/app-boot-store");
+    const profileRow = { id: "0d08ec52-c77e-45b8-96fd-f8a778633e6e", nickname: "수현강" } as never;
+    cache.setSupabaseProfileCache({ id: "0d08ec52-c77e-45b8-96fd-f8a778633e6e", nickname: "수현강" } as never);
+    bootStore.setAppBootProfile(profileRow);
+    expect(bootStore.peekAppBootProfile()?.id).toBe("0d08ec52-c77e-45b8-96fd-f8a778633e6e"); // 하단 탭 사진은 이 값
+    expect(getCurrentUser()).toBeNull(); // ← 로그인 사용자 캐시는 막힘
+
+    // 3) 08:56:59 /home 으로 앱 안 이동 — (main) 트리의 PostLogoutBfcacheGuard 는 부팅 준비 「뒤」에 붙는다
+    const { PostLogoutBfcacheGuard } = await import("@/components/auth/PostLogoutBfcacheGuard");
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<PostLogoutBfcacheGuard />);
+    });
+    expect(sessionStorage.getItem("samarket:post_logout_guard")).toBe("1"); // 지워지지 않음
+    expect(getCurrentUser()).toBeNull();
+
+    // 4) 08:57:02 MY — 회원 판정은 member(enabled=true) 인데 로그인 사용자 id 가 비어 조회를 시작하지 않는다
+    const { useMypageHomeModel } = await import("@/hooks/use-mypage-home-model");
+    const seen: Array<{ projection: unknown; needsRelogin: boolean; loadFailed: boolean }> = [];
+    function Probe() {
+      const m = useMypageHomeModel(true);
+      seen.push({ projection: m.projection, needsRelogin: m.needsRelogin, loadFailed: m.loadFailed });
+      return null;
+    }
+    const host2 = document.createElement("div");
+    document.body.appendChild(host2);
+    const root2 = createRoot(host2);
+    fetchSpy.mockClear();
+    await act(async () => {
+      root2.render(<Probe />);
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 300));
+    });
+    const last = seen[seen.length - 1]!;
+    const urls = fetchSpy.mock.calls.map((c) => String(c[0]));
+    // eslint-disable-next-line no-console
+    console.log("REPRO last state", JSON.stringify(last), "fetch urls", JSON.stringify(urls));
+    expect(last.projection).toBeNull(); // 카드 = 스켈레톤
+    expect(last.needsRelogin).toBe(false);
+    expect(last.loadFailed).toBe(false);
+    expect(urls.filter((u) => u.includes("/api/me/profile") || u.includes("/api/me/address-defaults"))).toEqual([]);
+
+    // 대조: 같은 순서에서 표시가 없었다면(앱 재시작 = sessionStorage 비움) 캐시가 채워진다
+    sessionStorage.removeItem("samarket:post_logout_guard");
+    cache.setSupabaseProfileCache({ id: "0d08ec52-c77e-45b8-96fd-f8a778633e6e", nickname: "수현강" } as never);
+    expect(getCurrentUser()?.id).toBe("0d08ec52-c77e-45b8-96fd-f8a778633e6e");
+    root.unmount();
+    root2.unmount();
+  });
+});
