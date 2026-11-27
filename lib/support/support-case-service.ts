@@ -350,7 +350,8 @@ async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: stri
  * 최종 감사 D1 (2026-11-28 · 재감사 4회 반영) — 공개 답변 1건의 정리. 규칙은 `supportReplySawMessage` 하나:
  *  ① 이 답변의 「본 시각」을 맨 먼저 기록 ② 최신 어드민 답변 전 고객 글마다 「본 답변이 있나」 계산
  *  ③ 답 받은 글 알림만 전원 읽음 ④ 상태 = 아무도 안 본 글 있으면 WAITING_ADMIN, 없으면 WAITING_USER
- *     (CAS: 마지막 글 = 최신 어드민 답변 — 어느 답변의 정리가 마지막에 돌아도 같은 결론) ⑤ 남은 글 알림이 없으면 만든다.
+ *     (CAS: 마지막 글 = 최신 어드민 답변. 동시 정리에서 다른 답변의 본 시각 기록 전에 읽은 쪽이 마지막이면
+ *      WAITING_ADMIN 으로 남을 수 있다 — 남기는 쪽 오류(일이 숨지 않음), 다음 답변·종료 때 바로잡힘) ⑤ 남은 글 알림이 없으면 만든다.
  * 돌려준 값 = 아무도 안 본 고객 글 수.
  */
 export async function settleAdminWorkAfterSeenReply(
