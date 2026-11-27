@@ -2,6 +2,8 @@
 
 import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
+import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateMoimDetailCache, readMoimDetailCached } from "@/lib/moim/moim-detail-cache";
 import type {
   MoimApiResult,
   MoimBannedDto,
@@ -39,6 +41,11 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
       cache: "no-store",
     });
     const data = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    /**
+     * 쓰기 요청이 끝나면(성공·실패 모두) 화면 간 공유 상세를 비운다 — 내가 바꾼 내용, 또는 다른 사람이 먼저 바꿔
+     * 충돌(moim_conflict)난 최신 상태를 바로 다시 불러온다 (감사 E2 · 재감사 M2)
+     */
+    if ((init?.method ?? "GET").toUpperCase() !== "GET") invalidateMoimDetailCache();
     if (data && isPhoneVerificationRequiredApiPayload(data)) {
       openPhoneVerificationRequiredSheet({ next: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined });
       return { ok: false, error: "moim_phone_verification_required" };
@@ -53,6 +60,8 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
     const code = typeof data.code === "string" ? data.code : undefined;
     return { ok: false, error: code === "moim_rate_limited" ? code : error, code };
   } catch {
+    /** 쓰기 응답이 끊겨도(시간 초과 등) 서버에는 저장됐을 수 있다 — 공유 상세를 비운다 (재감사 2차 낮음 1) */
+    if ((init?.method ?? "GET").toUpperCase() !== "GET") invalidateMoimDetailCache();
     return { ok: false, error: "moim_unknown" };
   }
 }
@@ -94,7 +103,11 @@ export const moimApi = {
     bio?: string;
   }) => call<{ moim_id: string; room_id: string }>("/api/moim", { method: "POST", json: input }),
 
-  detail: (moimId: string) => call<{ moim: MoimDetailDto }>(`/api/moim/${enc(moimId)}`),
+  /** 모임 상세 — 화면끼리 60초 공유 · 동시 요청 1회 (감사 E2). `force` = 저장값 무시(다시 불러오기) */
+  detail: (moimId: string, opts?: { force?: boolean }) =>
+    readMoimDetailCached(getHydrationSafeCurrentUser()?.id ?? null, moimId, () => call<{ moim: MoimDetailDto }>(`/api/moim/${enc(moimId)}`), {
+      force: opts?.force,
+    }),
   updateInfo: (
     moimId: string,
     patch: Partial<{

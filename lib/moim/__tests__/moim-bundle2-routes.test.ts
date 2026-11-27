@@ -30,6 +30,10 @@ const moimInviteSend = vi.fn(async () => ({ ok: true as const, invite_target_id:
 const moimClose = vi.fn(async () => ({ ok: true as const }));
 const moimAccountCleanup = vi.fn();
 const notifyMoimMany = vi.fn(async () => undefined);
+const pendingAfter: Promise<unknown>[] = [];
+const flushAfter = async () => {
+  await Promise.all(pendingAfter.splice(0));
+};
 
 vi.mock("@/lib/moim/server/moim-route-guard.server", async () => {
   const actual = await vi.importActual<typeof import("@/lib/moim/server/moim-route-guard.server")>("@/lib/moim/server/moim-route-guard.server");
@@ -43,6 +47,8 @@ vi.mock("@/lib/moim/server/moim-rpc.server", () => ({
 }));
 vi.mock("@/lib/moim/server/moim-notify.server", () => ({
   notifyMoimMany: (...a: unknown[]) => notifyMoimMany(...(a as [])),
+  /** 응답 뒤 발송(3번 묶음 E1) — 시험에서는 바로 실행해 결과를 본다 */
+  notifyMoimAfterResponse: (work: () => Promise<unknown>) => pendingAfter.push(work()),
   moimPaths: { invites: () => "/moim/invites", home: (id: string) => `/moim/${id}`, schedule: (m: string, s: string) => `/moim/${m}/schedules/${s}` },
 }));
 vi.mock("@/lib/moim/server/moim-queries.server", async () => {
@@ -98,6 +104,7 @@ describe("B13 모임 종료 — 취소된 일정의 확정·신청자에게 일�
     });
     const res = await closePost(req({ confirmName: "Moim" }), { params: Promise.resolve({ moimId: MOIM }) });
     expect(res.status).toBe(200);
+    await flushAfter();
     const kinds = notifyMoimMany.mock.calls.map((c) => [(c as unknown[])[1], ((c as unknown[])[2] as { kind: string }).kind]);
     expect(kinds).toEqual([
       [["u-a", "u-b"], "moim_closed"],

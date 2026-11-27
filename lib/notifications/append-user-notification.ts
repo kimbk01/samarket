@@ -143,6 +143,11 @@ export async function appendUserNotification(
      * message types such as `group_message`. Omitted → unchanged legacy behavior.
      */
     room_identity?: { roomId: string; chatDomain: string; domainIdentityKey: string } | null;
+    /**
+     * true = 알림함(벨)에만 저장 — 푸시·소리 없음(`item_policy`). 알림 항목 계약이 「푸시 X」인 경우만.
+     * 생략 = 지금과 같음(다른 호출처 영향 없음).
+     */
+    bell_only?: boolean;
   }
 ): Promise<boolean> {
   const uid = row.user_id.trim();
@@ -195,6 +200,7 @@ export async function appendUserNotification(
         },
         unread: true,
         appState: "background",
+        ...(row.bell_only ? { pushSuppressedReason: "item_policy" as const, soundSuppressedReason: "item_policy" as const } : {}),
         ...(row.room_identity
           ? {
               roomId: row.room_identity.roomId,

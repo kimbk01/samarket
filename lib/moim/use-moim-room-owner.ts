@@ -11,14 +11,17 @@ export type MoimRoomOwner = { moimId: string; kind: "moim" | "schedule"; moimNam
 const cache = new Map<string, MoimRoomOwner | null>();
 const listeners = new Set<() => void>();
 let pending = new Set<string>();
+/** 응답을 기다리는 방 — 그 사이 같은 방을 다시 요청하지 않는다 (감사 E8). 실패하면 빼서 다음 표시 때 다시 묻는다 */
+const inFlight = new Set<string>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function flush() {
   timer = null;
-  const ids = [...pending].filter((id) => !cache.has(id));
+  const ids = [...pending].filter((id) => !cache.has(id) && !inFlight.has(id));
   pending = new Set();
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
+    for (const id of chunk) inFlight.add(id);
     void fetch(`/api/moim/rooms?ids=${chunk.join(",")}`, { credentials: "same-origin", cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { ok?: boolean; owners?: Record<string, MoimRoomOwner> } | null) => {
@@ -26,14 +29,18 @@ function flush() {
         for (const id of chunk) cache.set(id, data.owners?.[id] ?? null);
         listeners.forEach((l) => l());
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        for (const id of chunk) inFlight.delete(id);
+      });
   }
 }
 
-function request(ids: string[]) {
+/** 방들을 모아 120ms 뒤 한 번에 묻는다 (훅이 부름 · 시험용으로도 내보냄) */
+export function requestMoimRoomOwners(ids: string[]) {
   let added = false;
   for (const id of ids) {
-    if (id && !cache.has(id) && !pending.has(id)) {
+    if (id && !cache.has(id) && !pending.has(id) && !inFlight.has(id)) {
       pending.add(id);
       added = true;
     }
@@ -51,7 +58,7 @@ export function useMoimRoomOwners(roomIds: readonly string[]): Record<string, Mo
   useEffect(() => {
     const l = () => setTick((n) => n + 1);
     listeners.add(l);
-    request(key ? key.split(",") : []);
+    requestMoimRoomOwners(key ? key.split(",") : []);
     return () => {
       listeners.delete(l);
     };

@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimClose } from "@/lib/moim/server/moim-rpc.server";
 import { listActiveMoimMemberIds, loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,24 +34,27 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     : [];
   const result = await moimClose(g.userId, moimId, body.confirmName, g.sb);
   if (result.ok) {
-    await notifyMoimMany(g.sb, members.filter((id) => id !== g.userId), {
-      kind: "moim_closed",
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: moimId,
-      vars: { moim },
-    });
-    for (const s of schedules) {
-      const to = participants.filter((p) => p.schedule_id === s.id && p.user_id !== g.userId).map((p) => p.user_id);
-      if (!to.length) continue;
-      await notifyMoimMany(g.sb, to, {
-        kind: "moim_schedule_cancelled",
+    /** 발송은 응답 뒤(감사 E1) — 받는 사람은 종료 전에 읽어 둔 값 */
+    notifyMoimAfterResponse(async () => {
+      await notifyMoimMany(g.sb, members.filter((id) => id !== g.userId), {
+        kind: "moim_closed",
         moimId,
-        linkUrl: moimPaths.schedule(moimId, s.id),
-        dedupeRef: s.id,
-        vars: { title: s.title },
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: moimId,
+        vars: { moim },
       });
-    }
+      for (const s of schedules) {
+        const to = participants.filter((p) => p.schedule_id === s.id && p.user_id !== g.userId).map((p) => p.user_id);
+        if (!to.length) continue;
+        await notifyMoimMany(g.sb, to, {
+          kind: "moim_schedule_cancelled",
+          moimId,
+          linkUrl: moimPaths.schedule(moimId, s.id),
+          dedupeRef: s.id,
+          vars: { title: s.title },
+        });
+      }
+    });
   }
   return moimRpcResponse(result);
 }

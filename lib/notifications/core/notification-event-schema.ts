@@ -9,6 +9,8 @@ export const PUSH_SUPPRESS_REASONS = [
   "same_room_foreground",
   "sender_self",
   "user_settings",
+  /** 알림 항목 계약상 「벨(알림함)만」 — 예: 모임 설계 §7 「푸시 X」 항목 (2026-11-28 모임 3번 묶음 N1) */
+  "item_policy",
 ] as const;
 
 export type PushSuppressReason = (typeof PUSH_SUPPRESS_REASONS)[number];
@@ -18,6 +20,8 @@ export const SOUND_SUPPRESS_REASONS = [
   "same_room_foreground",
   "user_settings",
   "foreground_native_dup_guard",
+  /** 알림 항목 계약상 「벨(알림함)만」 — 소리도 내지 않는다 */
+  "item_policy",
 ] as const;
 
 export type SoundSuppressReason = (typeof SOUND_SUPPRESS_REASONS)[number];

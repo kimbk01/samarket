@@ -3,7 +3,7 @@ import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoim
 import { moimHostTransferRespond } from "@/lib/moim/server/moim-rpc.server";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import { listActiveMoimMemberIds, loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,14 +25,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const result = await moimHostTransferRespond(g.userId, transferId, body.accept, g.sb);
   if (result.ok && result.accepted && result.moim_id) {
     const moimId = result.moim_id;
-    const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
-    const { data: me } = await g.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", g.userId).maybeSingle();
-    await notifyMoimMany(g.sb, members.filter((id) => id !== g.userId), {
-      kind: "moim_host_changed",
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: transferId,
-      vars: { moim, name: ((me as { nickname?: string } | null)?.nickname ?? "").trim() },
+    /** 전체 멤버 발송은 응답 뒤(감사 E1) */
+    notifyMoimAfterResponse(async () => {
+      const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
+      const { data: me } = await g.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", g.userId).maybeSingle();
+      await notifyMoimMany(g.sb, members.filter((id) => id !== g.userId), {
+        kind: "moim_host_changed",
+        moimId,
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: transferId,
+        vars: { moim, name: ((me as { nickname?: string } | null)?.nickname ?? "").trim() },
+      });
     });
   }
   return moimRpcResponse(result);

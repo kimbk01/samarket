@@ -33,6 +33,7 @@ const MANAGE_ACTIONS: readonly MoimAction[] = [
   "close",
 ];
 
+/** 모임 상세 — 화면끼리 공유(60초·쓰기 성공 시 비움, 감사 E2). reload() = 저장값 무시하고 다시 */
 export function useMoimDetail(moimId: string) {
   const [moim, setMoim] = useState<MoimDetailDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function useMoimDetail(moimId: string) {
   useEffect(() => {
     let alive = true;
     setError(null);
-    void moimApi.detail(moimId).then((r) => {
+    void moimApi.detail(moimId, { force: key > 0 }).then((r) => {
       if (!alive) return;
       if (r.ok) setMoim(r.moim);
       else setError(r.error);

@@ -179,4 +179,18 @@ describe("appendUserNotification SSOT bridge", () => {
     expect(ok).toBe(false);
     expect(insert).not.toHaveBeenCalled();
   });
+
+  it("bell_only → 알림함에만 (push·sound 끄기 이유 item_policy) · 생략하면 지금과 같음 (모임 3번 묶음 N1)", async () => {
+    createAndDispatchNotificationEvent.mockResolvedValue({ ok: true, row: { id: "evt-bell", user_id: "u1" } });
+    const sb = { from: vi.fn(() => ({ insert: vi.fn() })) } as unknown as Parameters<
+      (typeof import("@/lib/notifications/append-user-notification"))["appendUserNotification"]
+    >[0];
+    const { appendUserNotification } = await import("@/lib/notifications/append-user-notification");
+    await appendUserNotification(sb, { user_id: "u1", notification_type: "status", title: "t", push_kind: "community", bell_only: true });
+    await appendUserNotification(sb, { user_id: "u1", notification_type: "status", title: "t", push_kind: "community" });
+    const [bell, normal] = createAndDispatchNotificationEvent.mock.calls.map((c) => c[1] as Record<string, unknown>);
+    expect(bell).toMatchObject({ pushSuppressedReason: "item_policy", soundSuppressedReason: "item_policy" });
+    expect(normal).not.toHaveProperty("pushSuppressedReason");
+    expect(normal).not.toHaveProperty("soundSuppressedReason");
+  });
 });

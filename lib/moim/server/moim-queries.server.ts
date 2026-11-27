@@ -268,11 +268,22 @@ function imagesOf(value: unknown): string[] {
 }
 
 async function toPosts(sb: SupabaseServer, moimId: string, rows: PostRow[], viewerId: string | null): Promise<MoimPostDto[]> {
+  if (!rows.length) return [];
   const [authors, boards] = await Promise.all([
     authorMap(sb, moimId, rows.map((r) => r.author_id)),
     sb.from("moim_boards").select("id, kind").eq("moim_id", moimId),
   ]);
   const kindById = new Map(((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"] }[]).map((b) => [b.id, b.kind]));
+  return postsFrom(rows, viewerId, authors, kindById);
+}
+
+/** 글 행 → 화면 값 (작성자·게시판 종류는 미리 읽은 값 — 상세 API 가 다시 읽지 않게, 감사 E3) */
+function postsFrom(
+  rows: PostRow[],
+  viewerId: string | null,
+  authors: Map<string, MoimAuthorDto>,
+  kindById: Map<string, MoimBoardDto["kind"]>
+): MoimPostDto[] {
   return rows.map((r) => ({
     id: r.id,
     moimId: r.moim_id,
@@ -372,6 +383,18 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     role === "host" ? loadMoimClosedRetentionDays(sb) : Promise.resolve(null),
   ]);
 
+  /**
+   * 감사 E3: 게시판은 위에서 한 번만 읽고(글 종류에 재사용), 고정 글·최근 글 작성자는 한 번에, 다가오는 일정은 같이 —
+   * 게시판 재조회 2회·작성자 조회 1회·순차 단계 2개를 줄인다.
+   */
+  const pinnedRows = (pinned.data ?? []) as PostRow[];
+  const recentRows = (recent.data ?? []) as PostRow[];
+  const kindById = new Map(((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"] }[]).map((b) => [b.id, b.kind]));
+  const [postAuthors, upcoming] = await Promise.all([
+    authorMap(sb, moim.id, [...pinnedRows, ...recentRows].map((r) => r.author_id)),
+    moim.status === "active" ? listUpcomingScheduleTeasers(sb, moim.id, 3) : Promise.resolve([]),
+  ]);
+
   const boardRows = ((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"]; name: string | null; write_min_role: MoimRole; sort_order: number; is_active: boolean }[]).map(
     (b) => ({ id: b.id, kind: b.kind, name: b.name, writeMinRole: b.write_min_role, sortOrder: b.sort_order, isActive: b.is_active })
   );
@@ -397,9 +420,9 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     host: moim.host_user_id ? host.get(moim.host_user_id) ?? null : null,
     joinQuestions: ((questions.data ?? []) as { question: string }[]).map((q) => q.question),
     boards: isMember ? boardRows.filter((b) => b.isActive) : [],
-    pinnedNotices: await toPosts(sb, moim.id, (pinned.data ?? []) as PostRow[], viewerId),
-    recentPosts: await toPosts(sb, moim.id, (recent.data ?? []) as PostRow[], viewerId),
-    upcomingSchedules: moim.status === "active" ? await listUpcomingScheduleTeasers(sb, moim.id, 3) : [],
+    pinnedNotices: postsFrom(pinnedRows, viewerId, postAuthors, kindById),
+    recentPosts: postsFrom(recentRows, viewerId, postAuthors, kindById),
+    upcomingSchedules: upcoming,
     closedRetentionDays,
     viewer: {
       loggedIn: !!viewerId,
@@ -595,13 +618,24 @@ export async function listReceivedMoimInvites(sb: SupabaseServer, userId: string
   const rows = (data ?? []) as { id: string; moim_id: string; inviter_id: string; created_at: string }[];
   if (!rows.length) return [];
   const { data: moims } = await sb.from("moims").select(MOIM_COLS).in("id", rows.map((r) => r.moim_id)).eq("status", "active");
-  const cards = new Map((await toCards(sb, (moims ?? []) as MoimRow[], userId)).map((c) => [c.id, c]));
+  /** 감사 E4: 초대한 사람의 모임별 닉네임을 한 번에 (초대 N건이면 N회 → 1회) */
+  const [cardList, { data: inviters }] = await Promise.all([
+    toCards(sb, (moims ?? []) as MoimRow[], userId),
+    sb
+      .from("moim_members")
+      .select("moim_id, user_id, nickname")
+      .in("moim_id", [...new Set(rows.map((r) => r.moim_id))])
+      .in("user_id", [...new Set(rows.map((r) => r.inviter_id))]),
+  ]);
+  const cards = new Map(cardList.map((c) => [c.id, c]));
+  const nickByPair = new Map(
+    ((inviters ?? []) as { moim_id: string; user_id: string; nickname: string }[]).map((m) => [`${m.moim_id}:${m.user_id}`, m.nickname])
+  );
   const out: MoimReceivedInviteDto[] = [];
   for (const r of rows) {
     const card = cards.get(r.moim_id);
     if (!card) continue;
-    const inviter = (await authorMap(sb, r.moim_id, [r.inviter_id])).get(r.inviter_id);
-    out.push({ id: r.id, moim: card, inviterNickname: inviter?.nickname ?? "", createdAt: r.created_at });
+    out.push({ id: r.id, moim: card, inviterNickname: nickByPair.get(`${r.moim_id}:${r.inviter_id}`) ?? "", createdAt: r.created_at });
   }
   return out;
 }

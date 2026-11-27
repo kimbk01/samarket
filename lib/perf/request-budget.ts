@@ -47,6 +47,13 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/platform-popup/resolve": 2.4,
   "/api/me/settings": 1.9,
   "/api/moim": 2.6,
+  /**
+   * 2026-11-28 모임 3번 묶음 E3·E6(설계 승인값) — 모임 상세. 코드 계산(멤버): 접근 3 + 병렬 9 + 글 작성자·다가오는 일정 병렬 2 = 14
+   * (모임장 +1 · 인증 확인 0~1 은 경보 여유 ×1.2 안). E3 전 15~18: 게시판 재조회 2회·작성자 1회 제거. 운영 측정 전 — 7일 뒤 Vercel 값으로 내리기만.
+   */
+  "/api/moim/[moimId]": 14.0,
+  /** 2026-11-28 모임 E6 — 카테고리 1 + 만들기 화면만 대표 주소 1(`?withArea=1`). 코드 계산, 7일 뒤 내리기만 */
+  "/api/moim/categories": 2.0,
   "/api/favorites/list": 2.9,
   "/api/me/stores": 2.4,
   "/api/platform-promotion/reconcile-guest": 2.1,
@@ -73,7 +80,11 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/home/store-menus": 2.2,
   "/api/cron/admin-notification-delivery": 4.0,
   "/api/community-messenger/friends": 5.8,
-  "/api/cron/moim-schedules": 7.0,
+  /**
+   * 2026-11-28 모임 E6·E9 — 2026-11-19 예약 작업 2번에서 DB 단계 7개를 `moim_cron_tick` 1회로 합친 뒤 내리지 않았던 값(7.0).
+   * 할 일 없음 = 1. 후기·리마인드 알림이 있을 때만 받는 사람 수에 비례(언어 일괄 2 + 받는 사람당 저장). 하루 144회 중 대부분이 0건 → 4.0. 7일 뒤 실측으로 내리기만
+   */
+  "/api/cron/moim-schedules": 4.0,
   "/api/admin/inbox": 4.5,
   "/api/me/address-defaults": 1.1,
   /**
