@@ -38,7 +38,12 @@ export async function GET(
     if (!closedMessages.ok) {
       return NextResponse.json({ ok: false, error: closedMessages.error }, { status: 500 });
     }
-    await markSupportCaseReadForRequester(sb, { userId: auth.userId, caseId });
+    await markSupportCaseReadForRequester(sb, {
+    userId: auth.userId,
+    caseId,
+    // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 답변이 왔으면 읽음 0 으로 만들지 않는다
+    seenLastMessageAt: gate.case.last_message_at,
+  });
     const notificationsRead = await markSupportCaseNotificationsRead(sb, { userId: auth.userId, caseId });
     return NextResponse.json({
       ok: true,
@@ -59,7 +64,12 @@ export async function GET(
   if (!messages.ok) {
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
-  await markSupportCaseReadForRequester(sb, { userId: auth.userId, caseId });
+  await markSupportCaseReadForRequester(sb, {
+    userId: auth.userId,
+    caseId,
+    // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 답변이 왔으면 읽음 0 으로 만들지 않는다
+    seenLastMessageAt: gate.case.last_message_at,
+  });
   // Phase 3 A3 — reading the case also clears its bell rows for this requester.
   const notificationsRead = await markSupportCaseNotificationsRead(sb, {
     userId: auth.userId,
@@ -88,18 +98,24 @@ export async function POST(
   const body = (await req.json().catch(() => ({}))) as {
     body?: string;
     action?: string;
+    /** 2차 재감사 A: 「확인했어요」 때 화면이 본 문의 last_message_at */
+    seenLastMessageAt?: string | null;
   };
 
   // 접수형 문의 — 고객이 답변 확인 후 「확인했어요」 = 종료(알림 없음)
   if (body.action === "close") {
-    const res = await requesterCloseSupportCase(sb, { userId: auth.userId, caseId });
+    const res = await requesterCloseSupportCase(sb, {
+      userId: auth.userId,
+      caseId,
+      seenLastMessageAt: typeof body.seenLastMessageAt === "string" ? body.seenLastMessageAt : null,
+    });
     if (!res.ok) {
       const status =
         res.error === "not_found"
           ? 404
           : res.error === "forbidden"
             ? 403
-            : res.error === "status_conflict"
+            : res.error === "status_conflict" || res.error === "case_updated"
               ? 409
               : 400;
       return NextResponse.json({ ok: false, error: res.error }, { status });

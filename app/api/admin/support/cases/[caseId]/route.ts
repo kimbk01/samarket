@@ -44,7 +44,8 @@ export async function GET(
   if (!messages.ok) {
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
-  await markSupportCaseReadForAdmin(sb, caseId);
+  // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다
+  await markSupportCaseReadForAdmin(sb, caseId, gate.case.last_message_at);
   // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
   // 재감사 D15: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번).
   await markSupportCaseNotificationsRead(sb, {

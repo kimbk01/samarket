@@ -1003,11 +1003,14 @@ export function SupportTicketDetail({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "close" }),
+        // 2차 재감사 A: 화면이 본 마지막 글 시각 — 그 뒤 새 답변이 왔으면 서버가 닫지 않는다(case_updated)
+        body: JSON.stringify({ action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         setActionError(json.error ?? "update_failed");
+        // 새 답변이 와서 닫지 않았다 → 다시 읽어 새 답변을 보여 준다(안내 문구는 그대로 둔다)
+        if (json.error === "case_updated") void load();
         return;
       }
       onClosedByRequester();

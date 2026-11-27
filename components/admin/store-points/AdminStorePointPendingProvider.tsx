@@ -1295,9 +1295,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             const row = rowAsRecord(payload.new);
             const id = String(row?.id ?? "").trim();
             const caseId = String(row?.case_id ?? "").trim();
+            // 고객 문의 2차 재감사 I: 어드민 계정이 고객으로 쓴 글은 그 어드민에게 토스트·소리를 내지 않는다(본인 행동 0)
+            const selfId = getCurrentUser()?.id?.trim() ?? "";
+            const fromSelf = Boolean(selfId) && String(row?.sender_user_id ?? "").trim() === selfId;
             if (
               id &&
               caseId &&
+              !fromSelf &&
               shouldPlayAdminOpsSound({
                 eventType: "INSERT",
                 sourceTable: "support_messages",
