@@ -63,3 +63,45 @@ async function readRecentDeviceAppLanguage(sb: SupabaseClient, uid: string): Pro
     return null;
   }
 }
+
+/**
+ * 여러 받는 사람의 알림 언어를 한 번에 — user_settings 1회 + user_devices 1회 (단건 `loadNotificationUserLanguage` 와 같은 판정).
+ * 여러 명에게 같은 알림을 보낼 때 받는 사람마다 2회씩 읽지 않게 한다 (2026-11-28 모임 3번 묶음 E1).
+ * 조회가 실패한 사람은 단건과 같이 기본값(en)으로 간다.
+ */
+export async function loadNotificationUserLanguages(sb: SupabaseClient, userIds: string[]): Promise<Map<string, AppLanguageCode>> {
+  const ids = [...new Set(userIds.map((id) => String(id ?? "").trim()).filter(Boolean))];
+  const out = new Map<string, AppLanguageCode>();
+  if (!ids.length) return out;
+  const settings = new Map<string, AppLanguageCode | null>();
+  const devices = new Map<string, AppLanguageCode | null>();
+  /** 기기 행이 사람당 여러 개라 한 번에 적게 묻는다(응답 최대 행 수 1000 안) — 그래도 상한에 닿으면 기기 값을 못 받은 사람만 단건으로 (재감사 L2) */
+  const CHUNK = 50;
+  const ROW_CAP = 1000;
+  const needSingle: string[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const part = ids.slice(i, i + CHUNK);
+    const [s, d] = await Promise.all([
+      sb.from("user_settings").select("user_id, preferred_language").in("user_id", part),
+      sb
+        .from("user_devices")
+        .select("user_id, app_language, last_seen_at")
+        .in("user_id", part)
+        .eq("is_active", true)
+        .not("app_language", "is", null)
+        .order("last_seen_at", { ascending: false, nullsFirst: false }),
+    ]);
+    for (const r of ((s.error ? [] : s.data) ?? []) as { user_id: string; preferred_language?: unknown }[]) {
+      settings.set(r.user_id, parseExplicitAppLanguage(r.preferred_language));
+    }
+    // 최근 기기 먼저 정렬돼 있으므로 사람마다 처음 본 행 = 단건의 limit(1) 과 같은 행
+    const deviceRows = ((d.error ? [] : d.data) ?? []) as { user_id: string; app_language?: unknown }[];
+    for (const r of deviceRows) {
+      if (!devices.has(r.user_id)) devices.set(r.user_id, parseExplicitAppLanguage(r.app_language));
+    }
+    if (deviceRows.length >= ROW_CAP) for (const id of part) if (!devices.has(id)) needSingle.push(id);
+  }
+  for (const id of needSingle) devices.set(id, await readRecentDeviceAppLanguage(sb, id));
+  for (const id of ids) out.set(id, resolveNotificationLanguage(settings.get(id) ?? null, devices.get(id) ?? null));
+  return out;
+}

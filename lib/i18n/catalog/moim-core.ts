@@ -164,6 +164,8 @@ export const moimCoreMessages = {
     notify_moim_report_result_dismissed_title: "신고 처리 결과",
     notify_moim_report_result_dismissed_body: "{moim} 모임 신고를 검토했지만 운영 정책 위반을 찾지 못했어요",
 
+    notify_moim_member_joined_title: "새 멤버가 들어왔어요",
+    notify_moim_member_joined_body: "{name}님이 {moim}에 가입했어요",
     notify_moim_join_requested_title: "새 가입 신청",
     notify_moim_join_requested_body: "{name}님이 {moim}에 가입을 신청했어요",
     notify_moim_join_approved_title: "가입 승인",
@@ -362,6 +364,8 @@ export const moimCoreMessages = {
     notify_moim_report_result_dismissed_title: "Report result",
     notify_moim_report_result_dismissed_body: "We reviewed your report about {moim} and found no policy violation",
 
+    notify_moim_member_joined_title: "New member",
+    notify_moim_member_joined_body: "{name} joined {moim}",
     notify_moim_join_requested_title: "New join request",
     notify_moim_join_requested_body: "{name} asked to join {moim}",
     notify_moim_join_approved_title: "Request approved",

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimInviteRespond } from "@/lib/moim/server/moim-rpc.server";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { notifyMoimAfterResponse, notifyMoimJoinRequested, notifyMoimMemberJoined } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,17 +21,27 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const registrationGate = await requireRegistrationForAction(g.userId);
     if (registrationGate) return registrationGate;
   }
-  return moimRpcResponse(
-    await moimInviteRespond(
-      g.userId,
-      inviteId,
-      body.accept,
-      {
-        nickname: typeof body.nickname === "string" ? body.nickname : undefined,
-        avatarUrl: typeof body.avatarUrl === "string" ? body.avatarUrl : undefined,
-        bio: typeof body.bio === "string" ? body.bio : undefined,
-      },
-      g.sb
-    )
+  const result = await moimInviteRespond(
+    g.userId,
+    inviteId,
+    body.accept,
+    {
+      nickname: typeof body.nickname === "string" ? body.nickname : undefined,
+      avatarUrl: typeof body.avatarUrl === "string" ? body.avatarUrl : undefined,
+      bio: typeof body.bio === "string" ? body.bio : undefined,
+    },
+    g.sb
   );
+  /** 수락 뒤 알림 (설계 §7): 승인제·멤버 초대 → 가입 신청을 승인권자에게(감사 B3) · 바로 가입·운영진 초대 → 새 멤버를 모임장에게(B2) */
+  if (result.ok && body.accept === true && typeof result.moim_id === "string") {
+    const moimId = result.moim_id;
+    const name = typeof body.nickname === "string" ? body.nickname.trim() : "";
+    if (result.status === "pending" && typeof result.request_id === "string") {
+      const requestId = result.request_id;
+      notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, name));
+    } else if (result.status === "active") {
+      notifyMoimAfterResponse(() => notifyMoimMemberJoined(g.sb, moimId, g.userId, name));
+    }
+  }
+  return moimRpcResponse(result);
 }

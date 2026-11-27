@@ -1,8 +1,7 @@
 import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimJoin, moimJoinCancel } from "@/lib/moim/server/moim-rpc.server";
-import { listMoimActorsFor, loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { notifyMoimAfterResponse, notifyMoimJoinRequested, notifyMoimMemberJoined } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,15 +28,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     },
     g.sb
   );
+  const name = typeof body.nickname === "string" ? body.nickname.trim() : "";
   if (result.ok && result.status === "pending" && result.request_id) {
-    const [deciders, moim] = await Promise.all([listMoimActorsFor(g.sb, moimId, "decide_join"), loadMoimName(g.sb, moimId)]);
-    await notifyMoimMany(g.sb, deciders, {
-      kind: "moim_join_requested",
-      moimId,
-      linkUrl: moimPaths.joinRequests(moimId),
-      dedupeRef: result.request_id,
-      vars: { moim, name: typeof body.nickname === "string" && body.nickname.trim() ? body.nickname.trim() : "" },
-    });
+    const requestId = result.request_id;
+    notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, name));
+  }
+  /** 바로 가입 → 모임장에게 벨만 (설계 §7 moim_member_joined · 감사 B2) */
+  if (result.ok && result.status === "active") {
+    notifyMoimAfterResponse(() => notifyMoimMemberJoined(g.sb, moimId, g.userId, name));
   }
   return moimRpcResponse(result);
 }

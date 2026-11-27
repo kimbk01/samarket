@@ -60,7 +60,13 @@ export function MoimManageFrame({
     [backHref, moimId, titleKey]
   );
   useRegisterMainTier1Header(tier1);
-  const load = useCallback(() => moimApi.detail(moimId), [moimId]);
+  /** 처음 열 때는 화면 간 공유 상세를 쓰고, 다시 불러오기(재시도·충돌 뒤)는 저장값을 무시한다 (감사 E2 · 재감사 M2) */
+  const loadedOnce = useRef(false);
+  const load = useCallback(() => {
+    const force = loadedOnce.current;
+    loadedOnce.current = true;
+    return moimApi.detail(moimId, { force });
+  }, [moimId]);
   const { state, reload } = useMoimResource(load);
 
   return (

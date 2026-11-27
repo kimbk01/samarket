@@ -265,7 +265,7 @@ export function moimInviteRespond(
   profile?: MoimMemberProfileInput,
   sb?: SupabaseServer
 ) {
-  return callMoimRpc<{ status: "active" | "pending" | "declined"; moim_id?: string }>(
+  return callMoimRpc<{ status: "active" | "pending" | "declined"; moim_id?: string; request_id?: string }>(
     "moim_invite_respond",
     { p_actor: actorId, p_invite_target: inviteTargetId, p_accept: accept, p: profilePayload(profile) },
     sb

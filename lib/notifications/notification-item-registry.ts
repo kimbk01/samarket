@@ -284,6 +284,7 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
     match: {
       eventTypes: ["community_activity"],
       kinds: [
+        "moim_member_joined",
         "moim_join_requested",
         "moim_join_approved",
         "moim_join_rejected",

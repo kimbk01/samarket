@@ -4,7 +4,7 @@ import { guardMoimRead, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcRes
 import { listActiveMoimMemberIds, loadMoimAccess, loadMoimName } from "@/lib/moim/server/moim-queries.server";
 import { listMoimSchedules } from "@/lib/moim/server/moim-schedule-queries.server";
 import { moimScheduleCreate } from "@/lib/moim/server/moim-rpc.server";
-import { filterMoimRecipientsByPref, moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { filterMoimRecipientsByPref, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 import { readMoimScheduleInput } from "@/lib/moim/server/moim-schedule-input.server";
 
 export const runtime = "nodejs";
@@ -34,14 +34,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!input || !input.title || !input.startsAt) return moimBadRequest();
   const result = await moimScheduleCreate(g.userId, moimId, input, g.sb);
   if (result.ok) {
-    const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
-    const recipients = await filterMoimRecipientsByPref(g.sb, moimId, members.filter((id) => id !== g.userId), "schedules");
-    await notifyMoimMany(g.sb, recipients, {
-      kind: "moim_schedule_created",
-      moimId,
-      linkUrl: moimPaths.schedule(moimId, result.schedule_id),
-      dedupeRef: result.schedule_id,
-      vars: { moim, title: input.title },
+    /** 발송은 응답 뒤(감사 E1) */
+    const scheduleId = result.schedule_id;
+    const scheduleTitle = input.title;
+    notifyMoimAfterResponse(async () => {
+      const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
+      const recipients = await filterMoimRecipientsByPref(g.sb, moimId, members.filter((id) => id !== g.userId), "schedules");
+      await notifyMoimMany(g.sb, recipients, {
+        kind: "moim_schedule_created",
+        moimId,
+        linkUrl: moimPaths.schedule(moimId, scheduleId),
+        dedupeRef: scheduleId,
+        vars: { moim, title: scheduleTitle },
+      });
     });
   }
   return moimRpcResponse(result);

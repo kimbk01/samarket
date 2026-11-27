@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { guardMoimRead, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { listActiveMoimMemberIds, listMoimPosts, loadMoimAccess, loadMoimName } from "@/lib/moim/server/moim-queries.server";
 import { moimPostCreate } from "@/lib/moim/server/moim-rpc.server";
-import { filterMoimRecipientsByPref, moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { filterMoimRecipientsByPref, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 import { isUuidString } from "@/lib/shared/uuid-string";
 
 export const runtime = "nodejs";
@@ -50,16 +50,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     g.sb
   );
   if (result.ok) {
-    /** 공지 → 「공지」 켠 멤버(기본 켜짐) · 그 외 글 → 「새 글」 켠 멤버(기본 꺼짐) — 모임별 알림 설정(설계 §7) */
+    /** 공지 → 「공지」 켠 멤버(기본 켜짐) · 그 외 글 → 「새 글」 켠 멤버(기본 꺼짐) — 모임별 알림 설정(설계 §7). 발송은 응답 뒤(감사 E1) */
     const isNotice = result.board_kind === "notice";
-    const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
-    const recipients = await filterMoimRecipientsByPref(g.sb, moimId, members.filter((id) => id !== g.userId), isNotice ? "notice" : "posts");
-    await notifyMoimMany(g.sb, recipients, {
-      kind: isNotice ? "moim_notice_posted" : "moim_post_new",
-      moimId,
-      linkUrl: moimPaths.post(moimId, result.post_id),
-      dedupeRef: result.post_id,
-      vars: { moim, title: (title || body.body).slice(0, 60) },
+    const postId = result.post_id;
+    const notifyTitle = (title || body.body).slice(0, 60);
+    notifyMoimAfterResponse(async () => {
+      const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
+      const recipients = await filterMoimRecipientsByPref(g.sb, moimId, members.filter((id) => id !== g.userId), isNotice ? "notice" : "posts");
+      await notifyMoimMany(g.sb, recipients, {
+        kind: isNotice ? "moim_notice_posted" : "moim_post_new",
+        moimId,
+        linkUrl: moimPaths.post(moimId, postId),
+        dedupeRef: postId,
+        vars: { moim, title: notifyTitle },
+      });
     });
   }
   return moimRpcResponse(result);
