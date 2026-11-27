@@ -650,10 +650,25 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       .slice(-24)
       .map((m) => m.id);
   }, [vm.displayRoomMessages, vm.isPrivateGroupRoom]);
+  /** 다른 멤버 마지막 메시지·멤버 수 — 답장한 멤버는 읽음 사건 없이 읽음 위치가 옮겨진다 */
+  const groupPeerActivityKey = useMemo(() => {
+    if (!vm.isPrivateGroupRoom) return "";
+    let peerTail = "";
+    for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
+      const m = vm.displayRoomMessages[i]!;
+      if (!m.isMine && !m.pending && m.messageType !== "system") {
+        peerTail = m.id;
+        break;
+      }
+    }
+    return `${peerTail}|${vm.snapshot.room.memberCount ?? ""}`;
+  }, [vm.displayRoomMessages, vm.isPrivateGroupRoom, vm.snapshot.room.memberCount]);
+  /** 다시 조회 = 내 메시지 id 변경·다른 멤버 읽음 사건·다른 멤버 새 메시지·멤버 수·재연결 (방 상태 객체 교체로는 다시 묻지 않는다 — 2026-11-27) */
   const { counts: groupReadCounts } = useGroupMessageReadCounts(
     vm.streamRoomId,
     groupMineMessageIds,
-    vm.isPrivateGroupRoom ? vm.snapshot : null
+    vm.isPrivateGroupRoom,
+    groupPeerActivityKey
   );
   /**
    * P1 (Owner 2026-11-18): 그룹 「읽음 N」 라벨은 말풍선 옆에서 빠지고(상태 아이콘으로 대체),

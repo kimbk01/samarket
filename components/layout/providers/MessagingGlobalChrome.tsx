@@ -91,12 +91,18 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
   const idleDeferFriendRequest = shouldIdleDeferGlobalIncomingFriendRequestHost(pathname);
   const [friendRequestHostReady, setFriendRequestHostReady] = useState(!idleDeferFriendRequest);
 
+  /**
+   * BN12-B1 idle defer 는 **처음 붙일 때만** 미룬다 — 한 번 붙은 호스트는 화면을 옮겨도 내리지 않는다.
+   * 2026-11-27 운영: 이전에는 `pathname` 이 바뀔 때마다 준비 상태를 false 로 되돌려 `/mypage`·`/philife` 안에서
+   * 화면을 옮길 때마다 호스트가 내려갔다 다시 붙었다 → 친구 요청 전체 조회 최대 2번(시작·구독) + 실시간 채널 떠남·가입.
+   * 한 기기 45분 화면 이동 153번 → 친구 요청 조회 140번(실제 요청 변경 12건). 설계: docs/audit/supabase-request-surge-2026-11-18/messenger-refetch-amplification-2026-11-27.md
+   */
   useEffect(() => {
+    if (friendRequestHostReady) return;
     if (!idleDeferFriendRequest) {
       setFriendRequestHostReady(true);
       return;
     }
-    setFriendRequestHostReady(false);
     if (typeof requestIdleCallback === "function") {
       const id = requestIdleCallback(() => setFriendRequestHostReady(true), {
         timeout: GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
@@ -108,7 +114,7 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
       GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS
     );
     return () => window.clearTimeout(t);
-  }, [idleDeferFriendRequest, pathname]);
+  }, [idleDeferFriendRequest, friendRequestHostReady]);
 
   if (
     !p.mountNotificationSoundPrime &&

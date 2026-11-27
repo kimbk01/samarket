@@ -105,7 +105,30 @@ export function useGlobalFriendRequestFeed(args: {
     /** 마지막으로 알린 요청 목록 지문 — 계정이 바뀌면 비운다 */
     let lastSignature: string | null = null;
     let everSubscribed = false;
+    /**
+     * 마지막으로 받은 목록과 실시간 채널 연결 여부 — 연결된 동안은 요청 변경이 실시간으로 와서(`realtime` 조회) 목록이 최신이다.
+     * 홈이 열릴 때마다 보내는 동기화 요청(`request`)은 이 목록을 다시 알리고 서버를 다시 묻지 않는다(2026-11-27 운영:
+     * 메신저 홈 열기마다 전체 조회 — `docs/audit/supabase-request-surge-2026-11-18/messenger-refetch-amplification-2026-11-27.md`).
+     */
+    let lastRequests: CommunityMessengerFriendRequest[] | null = null;
+    /** 마지막 채널 상태 */
+    let lastStatus = "";
+    /**
+     * 받은 목록을 그대로 다시 알려도 되는지 — 채널이 연결된 상태에서 조회가 **성공한 뒤**에만 true.
+     * 연결이 끊기거나·다시 연결(재연결 동기화 조회 전)·조회 실패면 false → 서버를 다시 묻는다.
+     */
+    let cacheFresh = false;
     const resumeSignals = createResumeSignalCoalescer();
+
+    const announce = (requests: CommunityMessengerFriendRequest[], relationRecheck: boolean) => {
+      if (typeof window !== "undefined" && subscribedUserId) {
+        window.dispatchEvent(
+          new CustomEvent<CmFriendRequestsSyncedDetail>(CM_FRIEND_REQUESTS_SYNCED_EVENT, {
+            detail: { viewerUserId: subscribedUserId, requests, relationRecheck },
+          })
+        );
+      }
+    };
 
     const syncPending = (reason: FriendRequestFeedSyncReason): Promise<void> => {
       if (friendRequestFeedReasonForcesRelationRecheck(reason)) pendingForceRelation = true;
@@ -119,6 +142,7 @@ export function useGlobalFriendRequestFeed(args: {
           const forced = pendingForceRelation;
           pendingForceRelation = false;
           const requests = await fetchPendingFriendRequests();
+          if (!requests) cacheFresh = false;
           if (cancelled || !requests) continue;
           const nextSignature = friendRequestsSignature(requests);
           const relationRecheck = friendRequestFeedRelationRecheck({
@@ -127,13 +151,9 @@ export function useGlobalFriendRequestFeed(args: {
             forced,
           });
           lastSignature = nextSignature;
-          if (typeof window !== "undefined" && subscribedUserId) {
-            window.dispatchEvent(
-              new CustomEvent<CmFriendRequestsSyncedDetail>(CM_FRIEND_REQUESTS_SYNCED_EVENT, {
-                detail: { viewerUserId: subscribedUserId, requests, relationRecheck },
-              })
-            );
-          }
+          lastRequests = requests;
+          if (lastStatus === "SUBSCRIBED" && !rerun) cacheFresh = true;
+          announce(requests, relationRecheck);
           const store = useIncomingFriendRequestPopupStore.getState();
           const incoming = requests.filter((r) => r.status === "pending" && r.direction === "incoming");
           const pendingIds = new Set(incoming.map((r) => r.id));
@@ -166,6 +186,9 @@ export function useGlobalFriendRequestFeed(args: {
       channel?.stop();
       channel = null;
       subscribedUserId = "";
+      lastRequests = null;
+      lastStatus = "";
+      cacheFresh = false;
     };
 
     const offResync = onMessengerRealtimeResynced(() => {
@@ -177,6 +200,9 @@ export function useGlobalFriendRequestFeed(args: {
       stop();
       subscribedUserId = uid;
       lastSignature = null;
+      lastRequests = null;
+      lastStatus = "";
+      cacheFresh = false;
       everSubscribed = false;
       resumeSignals.reset();
       /**
@@ -191,6 +217,9 @@ export function useGlobalFriendRequestFeed(args: {
         channelOptions: messengerPrivateBroadcastChannelOptions(),
         isCancelled: () => cancelled || subscribedUserId !== uid,
         onStatus: (status) => {
+          lastStatus = status;
+          /** 끊김·다시 연결은 놓친 변경이 있을 수 있다 — 다음 성공 조회(구독·재연결 동기화)까지 받은 목록을 쓰지 않는다 */
+          cacheFresh = false;
           /** 최초 연결·재연결 모두 — 연결이 끊긴 동안의 변경을 목록 조회로 맞춘다. */
           if (status === "SUBSCRIBED" && !cancelled) {
             /** D2 R2(2026-11-26): 재연결 조회는 재동기화 묶음마다 1번(아래 onMessengerRealtimeResynced) */
@@ -258,6 +287,13 @@ export function useGlobalFriendRequestFeed(args: {
     window.addEventListener("focus", onVisible);
     const onSyncRequest = () => {
       if (cancelled || !subscribedUserId) return;
+      /** 조회 중이면 그 결과가 곧 알려진다 */
+      if (inflight) return;
+      /** 채널이 연결돼 있고 받은 목록이 있으면 그대로 다시 알린다 — 연결 중의 변경은 실시간 조회가 이미 반영했다 */
+      if (cacheFresh && lastStatus === "SUBSCRIBED" && lastRequests) {
+        announce(lastRequests, false);
+        return;
+      }
       void syncPending("request");
     };
     window.addEventListener(CM_FRIEND_REQUESTS_SYNC_REQUEST_EVENT, onSyncRequest);
