@@ -316,9 +316,11 @@ function makeDb(seed: Record<string, Row[]> = {}) {
   function appendRpc(a: Record<string, unknown>) {
     const c = db.support_cases.find((x) => x.id === a.p_case_id);
     if (!c) return { data: null, error: { message: "support_case_not_found" } };
+    // 운영 함수(20271127250000)와 같이 글 시각 = 문의 last_message_at (잠금 뒤 clock_timestamp 1회)
+    const t = now();
     const msg: Row = {
       id: randomUUID(),
-      created_at: now(),
+      created_at: t,
       case_id: a.p_case_id,
       sender_type: a.p_sender_type,
       sender_user_id: a.p_sender_user_id,
@@ -327,7 +329,6 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       body: a.p_body,
     };
     db.support_messages.push(msg);
-    const t = now();
     if (a.p_sender_type === "ADMIN" && a.p_message_type === "PUBLIC") {
       Object.assign(c, {
         status: "WAITING_USER",
@@ -1302,6 +1303,58 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     ];
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변", seenLastMessageAt: seen });
     expect(db.admin_notifications[0].read_at).toBeNull();
+  });
+
+  it("2차 재감사: two stale admins reply in turn — a message neither saw stays unseen (case 「답변 필요」, alert kept)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    const s0 = String(db.support_cases[0].last_message_at); // 두 어드민 모두 이 화면
+    const m1 = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "M1" });
+    if (!m1.ok) throw new Error(m1.error);
+    await flush();
+    await adminReplySupportCase(sb, { adminUserId: OTHER_ADMIN, caseId: a.case.id, body: "B 답", seenLastMessageAt: s0 });
+    await flush();
+    adminResolveInputs.length = 0;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "A 답", seenLastMessageAt: s0 });
+    await flush();
+    expect(r.ok && r.unseenCustomerMessages).toBe(1);
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+    const replies = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"));
+    expect(replies?.dedupeKeys ?? []).not.toContain(`support_customer_replied:${m1.message.id}`);
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m1.message.id })).toBe("send");
+  });
+
+  it("2차 재감사: a later reply by another admin who saw the message wins — no revert, no re-unread", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    const s0 = String(db.support_cases[0].last_message_at);
+    const m = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "M" });
+    if (!m.ok) throw new Error(m.error);
+    await flush();
+    // A 의 답변 저장 직후(정리 작업 전) B 가 M 을 보고 답한 상황을 만든다
+    const origRpc = (sb as { rpc: (n: string, args?: Record<string, unknown>) => Promise<unknown> }).rpc;
+    let injected = false;
+    (sb as { rpc: unknown }).rpc = async (n: string, args: Record<string, unknown> = {}) => {
+      const out = await origRpc(n, args);
+      if (n === "support_append_message" && !injected && args.p_sender_admin_id === ADMIN) {
+        injected = true;
+        await origRpc(n, { ...args, p_sender_admin_id: OTHER_ADMIN, p_body: "B 가 M 보고 답" });
+      }
+      return out;
+    };
+    db.admin_notifications = [
+      {
+        id: randomUUID(), recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases",
+        work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${m.message.id}`, read_at: "2026-11-28T00:00:00.000Z", archived_at: null,
+      },
+    ];
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "A 답(오래된 화면)", seenLastMessageAt: s0 });
+    await flush();
+    expect(db.support_cases[0].status).toBe("WAITING_USER");
+    expect(db.admin_notifications[0].read_at).not.toBeNull();
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: m.message.id })).toBe("skip");
   });
 
   it("D1-b: a message another admin already answered after my stale view is not counted as unseen", async () => {
