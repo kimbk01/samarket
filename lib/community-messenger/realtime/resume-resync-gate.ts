@@ -15,7 +15,15 @@
  *      그 경우 변경을 놓쳤을 수 있으므로 조회한다.
  */
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { messengerRealtimeAllSupervisedChannelsLive } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
+import {
+  messengerRealtimeAllSupervisedChannelsLive,
+  messengerRealtimeReconnectExpected,
+} from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
+import {
+  MESSENGER_RESYNC_ALL_LIVE_MAX_WAIT_MS,
+  messengerRealtimeResyncPending,
+  onMessengerRealtimeResynced,
+} from "@/lib/community-messenger/realtime/messenger-realtime-resync";
 
 /** realtime-js 2.99.2 `CONNECTION_TIMEOUTS.HEARTBEAT_INTERVAL` 과 같은 값 */
 export const RESUME_RESYNC_SKIP_MAX_HIDDEN_MS = 25_000;
@@ -112,7 +120,96 @@ function realtimeSocketConnected(): boolean {
   }
 }
 
-/** 지금 다시 열기 조회가 필요한가 (친구요청·알림 배지·사장님 배지 공용) */
+/**
+ * 다시 열기 조회를 재연결 따라잡기로 대신할 때 기다리는 시간 — 재동기화 최대 대기(8초) + 1초 (Owner 승인 값).
+ * 설계 docs/audit/supabase-request-surge-2026-11-18/resume-reconnect-wait-design-2026-11-27.md §3-1
+ */
+export const RESUME_REFETCH_WAIT_FOR_RESYNC_MS = MESSENGER_RESYNC_ALL_LIVE_MAX_WAIT_MS + 1_000;
+
+export type ResumeRefetchPlan = "skip" | "now" | "wait_resync";
+
+/**
+ * 순수 판정 — 다시 열기 조회를 어떻게 할까.
+ * - skip: 모든 채널 연결·소켓 열림·짧게 숨김 (놓친 것 없음)
+ * - now: 연결은 살아 보이는데 오래 숨김(겉으로만 열린 소켓일 수 있음) · 재연결을 기대할 수 없음(차단·오프라인·감독 꺼짐)
+ * - wait_resync: 연결이 끊겼거나 채널이 다시 붙는 중이고 감독이 가입을 허용 — 곧 올 재동기화로 대신, 안 오면 조회
+ *   (Samsung 실기: 백그라운드 약 2초 뒤 소켓 1006 종료 → 다시 열 때마다 재연결)
+ */
+export function resumeRefetchPlan(inputs: ResumeResyncInputs & { reconnectExpected: boolean }): ResumeRefetchPlan {
+  const connected = inputs.allChannelsLive && inputs.socketConnected;
+  if (connected) return inputs.hiddenSpanMs >= RESUME_RESYNC_SKIP_MAX_HIDDEN_MS ? "now" : "skip";
+  return inputs.reconnectExpected ? "wait_resync" : "now";
+}
+
+export type ResumeRefetchSchedulerDeps = {
+  plan: () => ResumeRefetchPlan;
+  onResynced: (cb: () => void) => () => void;
+  /** 실행을 기다리는 재동기화 묶음이 있는가 */
+  resyncPending: () => boolean;
+  setTimer: (fn: () => void, ms: number) => unknown;
+  clearTimer: (t: unknown) => void;
+};
+
+/**
+ * 다시 열기 조회 예약. 반환 = 취소(아직 기다리는 중이면 기다림을 끝내고 조회하지 않는다).
+ * wait_resync: 기다림 안에 재동기화가 오면 조회 0(재동기화 받는 쪽이 이미 다시 받는다), 끝까지 안 오면 1번 조회.
+ * 9초가 끝날 때 재동기화 묶음이 이미 시작돼 기다리는 중이면(첫 재가입이 신호보다 늦게 와 상한 8초가 신호 +9초를 넘는 경우)
+ * 조회하지 않고 그 묶음을 기다린다 — 묶음은 상한 안에 반드시 1번 실행되고 그것이 받는다(독립 재감사 2026-11-27: 이 경우 2번 조회가 남던 빈틈).
+ */
+export function createResumeRefetchScheduler(deps: ResumeRefetchSchedulerDeps) {
+  return (refetch: () => void): (() => void) => {
+    const plan = deps.plan();
+    if (plan === "skip") return () => undefined;
+    if (plan === "now") {
+      refetch();
+      return () => undefined;
+    }
+    let done = false;
+    let timer: unknown = null;
+    let off: (() => void) | null = null;
+    const finish = () => {
+      done = true;
+      if (timer != null) deps.clearTimer(timer);
+      timer = null;
+      off?.();
+      off = null;
+    };
+    off = deps.onResynced(() => {
+      if (!done) finish();
+    });
+    timer = deps.setTimer(() => {
+      timer = null;
+      if (done) return;
+      if (deps.resyncPending()) return; // 묶음이 실행되면 onResynced 가 finish 한다
+      finish();
+      refetch();
+    }, RESUME_REFETCH_WAIT_FOR_RESYNC_MS);
+    return () => {
+      if (!done) finish();
+    };
+  };
+}
+
+const scheduleResumeRefetchDefault = createResumeRefetchScheduler({
+  plan: () =>
+    resumeRefetchPlan({
+      allChannelsLive: messengerRealtimeAllSupervisedChannelsLive(),
+      socketConnected: realtimeSocketConnected(),
+      hiddenSpanMs: lastHiddenSpanMs(),
+      reconnectExpected: messengerRealtimeReconnectExpected(),
+    }),
+  onResynced: onMessengerRealtimeResynced,
+  resyncPending: messengerRealtimeResyncPending,
+  setTimer: (fn, ms) => setTimeout(fn, ms),
+  clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+});
+
+/** 친구요청 피드·알림 배지의 다시 열기 조회 — skip / 바로 / 재동기화 기다림. 반환 = 취소 */
+export function scheduleResumeRefetch(refetch: () => void): () => void {
+  return scheduleResumeRefetchDefault(refetch);
+}
+
+/** 지금 다시 열기 조회가 필요한가 (판정만 — 기다림 없이 쓰는 곳용) */
 export function shouldRefetchOnAppResume(): boolean {
   /** 네이티브 `appStateChange(isActive)` 가 visibilitychange 보다 먼저 와도 숨김 시작 시각으로 잰다 */
   return resumeRefetchNeeded({

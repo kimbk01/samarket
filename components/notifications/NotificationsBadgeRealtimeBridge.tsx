@@ -14,7 +14,11 @@ import {
   pushMessengerMissedCallBannerFromRealtimeRow,
 } from "@/lib/community-messenger/notifications/missed-call-event-banner";
 import { createResumeSignalCoalescer } from "@/lib/community-messenger/realtime/friend-request-feed-sync-policy";
-import { ensureResumeVisibilityClock, shouldRefetchOnAppResume } from "@/lib/community-messenger/realtime/resume-resync-gate";
+import {
+  ensureResumeVisibilityClock,
+  scheduleResumeRefetch,
+  shouldRefetchOnAppResume,
+} from "@/lib/community-messenger/realtime/resume-resync-gate";
 import { Capacitor } from "@capacitor/core";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
@@ -58,13 +62,21 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     if (!enabled) return;
     let cancelled = false;
     const resumeSignals = createResumeSignalCoalescer();
+    let cancelPendingResume: (() => void) | null = null;
     const onResume = () => {
       if (cancelled) return;
       /** 실시간이 끊기지 않았으면 조회하지 않는다 — 끊겼다 붙으면 재연결 RESYNC 가 배지를 1번 다시 받는다(`resume-resync-gate.ts`) */
       if (!shouldRefetchOnAppResume()) return;
       if (!resumeSignals.accept(Date.now())) return;
-      // 숫자만 다시 받는다. 목록은 화면별 기존 복귀 조회(알림센터 visibility·종 팝업 열 때)가 맡는다 — 중복 조회 방지.
-      requestNotificationBadgeCountResync("app_resume");
+      cancelPendingResume?.();
+      /**
+       * 재연결이 곧 오면 그 RESYNC 로 대신하고, 9초 안에 안 오면 1번 조회(R5 개정 · 설계 resume-reconnect-wait-design-2026-11-27 §3-1).
+       * 숫자만 다시 받는다. 목록은 화면별 기존 복귀 조회(알림센터 visibility·종 팝업 열 때)가 맡는다 — 중복 조회 방지.
+       */
+      cancelPendingResume = scheduleResumeRefetch(() => {
+        cancelPendingResume = null;
+        if (!cancelled) requestNotificationBadgeCountResync("app_resume");
+      });
     };
     const onVisible = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -91,6 +103,8 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     }
     return () => {
       cancelled = true;
+      cancelPendingResume?.();
+      cancelPendingResume = null;
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
       appStateHandle?.remove();

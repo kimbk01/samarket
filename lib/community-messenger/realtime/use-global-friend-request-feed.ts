@@ -19,7 +19,11 @@
  * 허용 토픽이어야 하므로 기존 규칙 `cm-room-friendship:<본인 uuid>:…` 를 쓴다(DB 변경 없음).
  * 메신저 홈 채널의 같은 테이블 구독과 채널 이름이 달라 충돌하지 않는다.
  */
-import { ensureResumeVisibilityClock, shouldRefetchOnAppResume } from "@/lib/community-messenger/realtime/resume-resync-gate";
+import {
+  ensureResumeVisibilityClock,
+  scheduleResumeRefetch,
+  shouldRefetchOnAppResume,
+} from "@/lib/community-messenger/realtime/resume-resync-gate";
 import { useEffect, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -233,11 +237,17 @@ export function useGlobalFriendRequestFeed(args: {
      * 실시간이 끊기지 않았으면(짧게 숨김·모든 채널 연결) 조회하지 않는다 — 끊겼다 붙으면 재연결 따라잡기가 받는다
      * (`resume-resync-gate.ts`, 설계 resume-fixed-cost-design-2026-11-27 §4).
      */
+    /** 재연결이 곧 오면 재동기화(`syncPending("reconnect")`)로 대신, 9초 안에 안 오면 1번 조회 (R5 개정 · 설계 resume-reconnect-wait-design-2026-11-27 §3-1) */
+    let cancelPendingResume: (() => void) | null = null;
     const onResume = () => {
       if (cancelled || !subscribedUserId) return;
       if (!shouldRefetchOnAppResume()) return;
       if (!resumeSignals.accept(Date.now())) return;
-      void syncPending("resume");
+      cancelPendingResume?.();
+      cancelPendingResume = scheduleResumeRefetch(() => {
+        cancelPendingResume = null;
+        if (!cancelled && subscribedUserId) void syncPending("resume");
+      });
     };
     const onVisible = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -288,6 +298,8 @@ export function useGlobalFriendRequestFeed(args: {
 
     return () => {
       cancelled = true;
+      cancelPendingResume?.();
+      cancelPendingResume = null;
       offResync();
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);

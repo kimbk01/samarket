@@ -90,6 +90,11 @@ export type RtSupervisor = {
    * 앱 다시 열기 때 「실시간이 이미 따라잡는 값」을 또 조회할지 판정하는 데 쓴다(resume-resync-gate.ts).
    */
   allChannelsLive: () => boolean;
+  /**
+   * 감독하는 채널이 모두 SUBSCRIBED 가 되는 순간마다 불린다(읽기 전용 알림 · 상태 전이 무변경).
+   * 재동기화 묶음(R2)이 「흩어져 다시 붙는 채널」을 기다렸다가 1번 실행하는 데 쓴다. 반환 = 등록 해제.
+   */
+  onAllChannelsLive: (cb: () => void) => () => void;
   /** 자체 재시도 루프(presence·read-ack)의 가입 실패 — 같은 창에 센다(2차 감사 F-E) */
   noteSelfLoopFailure: () => void;
   /** 차단이 열릴 때 — 자체 루프가 가입된 채널을 놓는다(2차 감사 F-E). 반환 = 등록 해제 */
@@ -184,6 +189,24 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     }
   };
 
+  const allLiveListeners = new Set<() => void>();
+  const allLiveNow = (): boolean => {
+    if (state !== "closed" || offlinePaused) return false;
+    const live = [...entries].filter((x) => !x.stopped);
+    if (!live.length) return false;
+    return live.every((x) => x.inner != null && !x.parked && x.lastStatus === "SUBSCRIBED");
+  };
+  const notifyIfAllLive = () => {
+    if (!allLiveListeners.size || !allLiveNow()) return;
+    for (const cb of [...allLiveListeners]) {
+      try {
+        cb();
+      } catch {
+        /* 받는 쪽 오류가 감독을 멈추지 않게 */
+      }
+    }
+  };
+
   const start = (e: Entry) => {
     if (e.stopped || e.inner || offlinePaused) return;
     e.lastStatus = null;
@@ -194,6 +217,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
         /** 호출부 먼저 — 이 실패로 차단·쉼이 되면 호출부가 마지막에 받는 상태가 감독의 CLOSED 가 되게(2차 감사 F-D) */
         e.args.onStatus?.(status);
         onEntryStatus(e, status);
+        if (status === "SUBSCRIBED") notifyIfAllLive();
       },
     });
     e.inner = inner;
@@ -382,6 +406,8 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
           e.stopped = true;
           entries.delete(e);
           stopInner(e, false);
+          /** 마지막으로 붙지 않던 채널이 사라지면 나머지가 모두 연결일 수 있다 */
+          notifyIfAllLive();
           if (e === probeEntry && state === "half_open") {
             if (probeTimer != null) deps.clearTimer(probeTimer);
             probeTimer = null;
@@ -426,11 +452,12 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     },
     state: () => state,
     isJoinAllowed: () => state === "closed" && !offlinePaused,
-    allChannelsLive() {
-      if (state !== "closed" || offlinePaused) return false;
-      const live = [...entries].filter((e) => !e.stopped);
-      if (!live.length) return false;
-      return live.every((e) => e.inner != null && !e.parked && e.lastStatus === "SUBSCRIBED");
+    allChannelsLive: () => allLiveNow(),
+    onAllChannelsLive(cb) {
+      allLiveListeners.add(cb);
+      return () => {
+        allLiveListeners.delete(cb);
+      };
     },
     noteSelfLoopFailure() {
       if (state === "closed" && !isOnline()) {
@@ -522,6 +549,19 @@ export function messengerRealtimeSupervisorAllowsJoin(): boolean {
 export function messengerRealtimeAllSupervisedChannelsLive(): boolean {
   if (!supervisorEnabled()) return false;
   return getDefaultSupervisor().allChannelsLive();
+}
+
+/** 감독하는 채널이 모두 연결되는 순간마다 — 감독을 끈 경우 불리지 않는다(받는 쪽은 상한 시간으로 끝낸다) */
+export function onMessengerRealtimeAllChannelsLive(cb: () => void): () => void {
+  if (!supervisorEnabled()) return () => undefined;
+  return getDefaultSupervisor().onAllChannelsLive(cb);
+}
+
+/** 감독이 켜져 있고 지금 가입을 허용하는가(닫힘·오프라인 일시정지 아님) — 끊긴 연결이 곧 다시 붙을 상태 */
+export function messengerRealtimeReconnectExpected(): boolean {
+  if (!supervisorEnabled()) return false;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
+  return getDefaultSupervisor().isJoinAllowed();
 }
 
 /** 자체 재시도 루프용 — 상한·차단으로 멈춘 뒤 다시 가입해도 될 때 1번 */
