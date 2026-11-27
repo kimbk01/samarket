@@ -376,6 +376,13 @@
 
 /* 머리줄 — 시안 v2 §2: 로고 │ 주소 칩 ··· 검색 · 종 (태블릿: 로고 │ 주소 칩 │ 넓은 검색창 ··· 종) · 바탕 = 홈 바탕 */
 .home-r3-hdr {
+  /* 머리줄 고정 (Owner 「구현 진행」 2026-11-27 · docs/audit/home-header-fixed-2026-11-27): 홈은 셸 1단을 끄고 머리줄을
+     본문 스크롤(.main-hub-scroll-body) 안에 그리므로 그 스크롤 맨 위에 붙인다 — 승인 시안 R4 `.hdr` 와 같음.
+     z-index 10 = 홈 본문 안 최고값(2) 위 · 시트·팝업(문서 바깥 층) 아래. 바탕은 불투명(아래 글 비침 없음).
+     당겨서 새로고침은 scrollTop 0 에서만 시작하므로 영향 없음 — 당김 슬롯은 이 머리줄 안에서 지금처럼 늘어난다. */
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: #f6f6f6;
 }
 @container homer3 (min-width: 600px) {
