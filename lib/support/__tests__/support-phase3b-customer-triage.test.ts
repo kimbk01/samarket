@@ -304,7 +304,8 @@ describe("PHASE 3-B support customer triage", () => {
   it("T20 추가 문의·확인했어요 = 같은 문의 POST", () => {
     const views = read("components/support/SupportTicketViews.tsx");
     expect(views).toContain('method: "POST"');
-    expect(views).toContain('JSON.stringify({ action: "close" })');
+    // 2차 재감사 A: 「확인했어요」는 화면이 본 마지막 글 시각을 함께 보낸다
+    expect(views).toContain('JSON.stringify({ action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null })');
     expect(views).toMatch(/\/api\/support\/cases\/\$\{encodeURIComponent\(caseId\)\}/);
   });
 

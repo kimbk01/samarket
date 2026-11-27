@@ -68,6 +68,14 @@ function isMissingSupportTable(message: string): boolean {
   return m.includes("support_cases") && m.includes("does not exist");
 }
 
+/** 같은 시각인지 (DB `timestamptz` 문자열 표기 차이 무시). 둘 중 하나라도 해석 못 하면 문자열 비교. */
+function sameInstant(a: string | null | undefined, b: string | null | undefined): boolean {
+  const ta = Date.parse(String(a ?? ""));
+  const tb = Date.parse(String(b ?? ""));
+  if (Number.isFinite(ta) && Number.isFinite(tb)) return ta === tb;
+  return String(a ?? "") === String(b ?? "");
+}
+
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value.trim()
@@ -163,6 +171,16 @@ async function notifyAdminsOfCustomerMessage(
   }
 ): Promise<void> {
   const c = input.caseRow;
+  // 2차 재감사 E: 발송은 응답 뒤라 그사이 어드민이 답했거나 문의가 끝났을 수 있다 → 어드민 일이 남았을 때만 보낸다
+  // (끝난 문의에 미읽음 알림이 새로 생기지 않게 — 답변·종료 때의 전원 읽음 처리보다 늦게 만들어지는 것 방지).
+  const { data: live, error: liveErr } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
+  if (liveErr) {
+    // 3차 재감사 1: 상태를 못 읽으면 조용히 버리지 않는다 — 기록하고 보낸다(놓치는 쪽보다 한 번 더 아는 쪽)
+    console.warn("[support] admin_notify_status_read_failed", { caseId: c.id, error: liveErr.message });
+  } else {
+    const liveStatus = String((live as { status?: unknown } | null)?.status ?? "");
+    if (liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN") return;
+  }
   const title = translateBy(
     "ko",
     input.isNewCase ? "admin_support_notify_new_title" : "admin_support_notify_followup_title",
@@ -310,6 +328,12 @@ async function notifySupportEvent(
   }
 }
 
+/** 2차 재감사 G — 방금 만든 문의가 접수에 실패했다 → 행을 지운다(세션·글·사건은 ON DELETE CASCADE). 실패는 기록. */
+async function discardFailedNewCase(sb: SupabaseClient, caseId: string): Promise<void> {
+  const { error } = await sb.from("support_cases").delete().eq("id", caseId);
+  if (error) console.error("[support] discard_failed_case_failed", { caseId, error: error.message });
+}
+
 export async function openSupportCaseFromContext(
   sb: SupabaseClient,
   input: OpenSupportCaseInput
@@ -418,13 +442,9 @@ export async function openSupportCaseFromContext(
     | { ok: true; case: SupportCaseRow; sessionId: string; created: boolean }
     | { ok: false; error: string }
   > => {
-    const session = await ensureOpenSupportSession(sb, {
-      caseId: existing.id,
-      requesterUserId: input.userId,
-    });
-    if (!session.ok) return { ok: false, error: session.error };
     // DEF-01: dedupe reuses the active case, but the customer's newly typed text must be
     // kept — append it through the canonical requester write path (→ WAITING_ADMIN).
+    // 2차 재감사 F: 글을 먼저 붙이고(종료됐으면 case_closed) 그다음 세션 — 종료 문의에 세션을 다시 열지 않는다.
     const followUpText = (initialSummary ?? input.initialBody ?? "").trim();
     let reusedCase = existing;
     if (followUpText) {
@@ -449,6 +469,11 @@ export async function openSupportCaseFromContext(
       });
       if (reread.ok) reusedCase = reread.case;
     }
+    const session = await ensureOpenSupportSession(sb, {
+      caseId: existing.id,
+      requesterUserId: input.userId,
+    });
+    if (!session.ok) return { ok: false, error: session.error };
     return {
       ok: true,
       case: reusedCase,
@@ -457,7 +482,11 @@ export async function openSupportCaseFromContext(
     };
   };
 
-  if (existing) return continueActiveCase(existing as SupportCaseRow);
+  if (existing) {
+    const continued = await continueActiveCase(existing as SupportCaseRow);
+    // 2차 재감사 F: 붙이려던 문의가 그사이 종료됐다 → 오류(500) 대신 새 문의로 접수한다.
+    if (continued.ok || continued.error !== "case_closed") return continued;
+  }
 
   const now = new Date().toISOString();
   const publicCaseNo = await allocatePublicCaseNo(sb);
@@ -513,7 +542,11 @@ export async function openSupportCaseFromContext(
     caseId: created.id,
     requesterUserId: input.userId,
   });
-  if (!session.ok) return { ok: false, error: session.error };
+  // 2차 재감사 G: 세션 실패도 접수 실패 — 빈 문의를 남기지 않는다(진행 중 키를 막는다)
+  if (!session.ok) {
+    await discardFailedNewCase(sb, created.id);
+    return { ok: false, error: session.error };
+  }
 
   let firstMessage: { ok: true; message: SupportMessageRow } | { ok: false; error: string };
   if (hasStructuredSummary) {
@@ -547,8 +580,7 @@ export async function openSupportCaseFromContext(
 
   // 재감사 D9: 첫 글 저장 실패 = 접수 실패 (내용 없는 문의를 남기지 않는다)
   if (!firstMessage.ok) {
-    await sb.from("support_sessions").delete().eq("case_id", created.id);
-    await sb.from("support_cases").delete().eq("id", created.id);
+    await discardFailedNewCase(sb, created.id);
     return { ok: false, error: "first_message_failed" };
   }
 
@@ -841,32 +873,47 @@ export async function adminDeleteSupportMessage(
   // Never leave the deleted text visible in the customer's notification list.
   // 언어 재감사 2026-11-27 §4-3: 문장 대신 문구 키 — 알림함이 보는 사람 언어로 그린다(키 문자열 번역 계약).
   await syncReplyNotificationBody(sb, input.messageId, "support_message_deleted");
-  // 재감사 D16: 지운 공개 답변은 고객이 읽을 것이 아니다 — 고객 미읽음 1 감소(CAS) + 그 답변 알림 읽음.
+  // 2차 재감사 B: 지운 공개 답변의 알림이 **아직 안 읽힌 상태였을 때만** 고객 미읽음 −1 (이미 읽은 답변을 지워도 숫자는 그대로).
   const patch: Record<string, unknown> = { updated_at: now };
   let casUnread: number | null = null;
   if (own.message.message_type === "PUBLIC") {
-    const { data: c } = await sb
-      .from("support_cases")
-      .select("requester_unread_count, requester_user_id")
-      .eq("id", input.caseId)
-      .maybeSingle();
-    const caseRow = c as { requester_unread_count?: unknown; requester_user_id?: unknown } | null;
-    const unread = Number(caseRow?.requester_unread_count ?? 0);
-    if (Number.isFinite(unread) && unread > 0) {
-      patch.requester_unread_count = unread - 1;
-      casUnread = unread;
-    }
-    await sb
+    const { data: clearedRows } = await sb
       .from("notification_events")
       .update({ unread: false, read_at: now })
       .eq("dedupe_key", `support_admin_replied:${input.messageId}`)
-      .eq("unread", true);
-    const requester = String(caseRow?.requester_user_id ?? "").trim();
-    if (requester) invalidateNotificationBadgeCache(requester);
+      .eq("unread", true)
+      .select("id, user_id");
+    const cleared = (clearedRows ?? []) as { id?: unknown; user_id?: unknown }[];
+    if (cleared.length > 0) {
+      const { data: c } = await sb
+        .from("support_cases")
+        .select("requester_unread_count")
+        .eq("id", input.caseId)
+        .maybeSingle();
+      const unread = Number((c as { requester_unread_count?: unknown } | null)?.requester_unread_count ?? 0);
+      if (Number.isFinite(unread) && unread > 0) {
+        patch.requester_unread_count = unread - 1;
+        casUnread = unread;
+      }
+      const requester = String(cleared[0]?.user_id ?? "").trim();
+      if (requester) invalidateNotificationBadgeCache(requester);
+    }
   }
   let q = sb.from("support_cases").update(patch).eq("id", input.caseId);
   if (casUnread != null) q = q.eq("requester_unread_count", casUnread);
-  await q;
+  const { data: patched } = await q.select("id");
+  if (casUnread != null && (!patched || patched.length === 0)) {
+    // 3차 재감사 2: 그사이 숫자가 바뀌었다(새 답변·고객 열람) — 최신 값으로 한 번 더 −1 (0 아래로는 안 내림)
+    const { data: c2 } = await sb.from("support_cases").select("requester_unread_count").eq("id", input.caseId).maybeSingle();
+    const now2 = Number((c2 as { requester_unread_count?: unknown } | null)?.requester_unread_count ?? 0);
+    if (Number.isFinite(now2) && now2 > 0) {
+      await sb
+        .from("support_cases")
+        .update({ requester_unread_count: now2 - 1, updated_at: now })
+        .eq("id", input.caseId)
+        .eq("requester_unread_count", now2);
+    }
+  }
   return { ok: true };
 }
 
@@ -1412,6 +1459,8 @@ export async function adminAssignSupportCase(
     const notified = await createAdminNotification(sb, {
       recipientAdminIds: [assignee],
       kind: "support_case_assigned",
+      // 2차 재감사 I: 지정 알림도 support 권한이 있어야 읽기·푸시
+      requiredPermission: "support",
       title: translateBy("ko", "admin_support_notify_assigned_title", { no: c.public_case_no }),
       body: translateBy("ko", "admin_support_notify_assigned_body"),
       linkUrl: buildAdminSupportCaseRoute(c.id),
@@ -1456,11 +1505,10 @@ export async function adminSetSupportCasePriority(
 
 export async function reopenSupportCase(
   sb: SupabaseClient,
+  /** 고객 문의 SSOT §2 (2차 재감사 J): 재오픈은 어드민만. `isAdmin` 은 옛 호출 호환용 — 값과 무관하게 어드민 판정. */
   input: { userId: string; caseId: string; isAdmin?: boolean }
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
-  const gate = input.isAdmin
-    ? await getSupportCaseForAdmin(sb, input.caseId)
-    : await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
+  const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
   if (gate.case.status !== "RESOLVED" && gate.case.status !== "ARCHIVED") {
     return { ok: false, error: "not_closed" };
@@ -1530,12 +1578,24 @@ export async function reopenSupportCase(
  */
 export async function requesterCloseSupportCase(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string }
+  input: {
+    userId: string;
+    caseId: string;
+    /**
+     * 2차 재감사 A: 고객 화면이 본 문의의 `last_message_at`. 그 뒤에 새 글(어드민 답변)이 왔으면 닫지 않는다
+     * (`case_updated` → 화면이 다시 읽어 새 답변을 보여 준다). 없으면(옛 호출) 서버가 읽은 값으로만 비교한다.
+     */
+    seenLastMessageAt?: string | null;
+  }
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
   if (!gate.ok) return gate;
   if (gate.case.status === "RESOLVED" || gate.case.status === "ARCHIVED") {
     return { ok: true, case: gate.case };
+  }
+  const seen = typeof input.seenLastMessageAt === "string" ? input.seenLastMessageAt.trim() : "";
+  if (seen && !sameInstant(seen, gate.case.last_message_at)) {
+    return { ok: false, error: "case_updated" };
   }
   const now = new Date().toISOString();
   const { data, error } = await sb
@@ -1550,7 +1610,7 @@ export async function requesterCloseSupportCase(
     })
     .eq("id", input.caseId)
     .eq("status", gate.case.status)
-    // 재감사 D5: 고객이 본 뒤 새 글(어드민 답변)이 왔으면 닫지 않는다 → 다시 읽게
+    // 2차 재감사 A: 읽은 상태 그대로일 때만(위 비교와 쓰기 사이에 새 글이 와도 닫지 않는다)
     .eq("last_message_at", gate.case.last_message_at)
     .select("*")
     .maybeSingle();
@@ -1560,7 +1620,7 @@ export async function requesterCloseSupportCase(
     if (latest.ok && (latest.case.status === "RESOLVED" || latest.case.status === "ARCHIVED")) {
       return { ok: true, case: latest.case };
     }
-    return { ok: false, error: "status_conflict" };
+    return { ok: false, error: "case_updated" };
   }
   await sb
     .from("support_sessions")
@@ -1650,7 +1710,12 @@ export async function autoCloseStaleAnsweredSupportCases(
  */
 export async function markSupportCaseReadForRequester(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string }
+  input: {
+    userId: string;
+    caseId: string;
+    /** 2차 재감사 E: 화면에 돌려준 글 목록의 기준 시각(문의 `last_message_at`). 그 뒤 새 글이 왔으면 읽음 0 으로 만들지 않는다 */
+    seenLastMessageAt?: string | null;
+  }
 ): Promise<{ ok: true; wrote: boolean } | { ok: false; error: string }> {
   const gate = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
   if (!gate.ok) return gate;
@@ -1658,10 +1723,13 @@ export async function markSupportCaseReadForRequester(
   if (!Number.isFinite(unread) || unread <= 0) {
     return { ok: true, wrote: false };
   }
+  const seen = input.seenLastMessageAt?.trim() || "";
+  if (seen && !sameInstant(seen, gate.case.last_message_at)) return { ok: true, wrote: false };
   const { error } = await sb
     .from("support_cases")
     .update({ requester_unread_count: 0, updated_at: new Date().toISOString() })
-    .eq("id", input.caseId);
+    .eq("id", input.caseId)
+    .eq("last_message_at", gate.case.last_message_at);
   if (error) return { ok: false, error: error.message };
   return { ok: true, wrote: true };
 }
@@ -1694,27 +1762,54 @@ export async function listSupportFollowupIssueSelections(
 
 export async function markSupportCaseNotificationsRead(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string; /** 재감사 D15: 어드민 상세에서만 어드민 알림도 읽음 */ includeAdmin?: boolean }
+  input: {
+    userId: string;
+    caseId: string;
+    /** 재감사 D15: 어드민 상세에서만 어드민 알림도 읽음 */
+    includeAdmin?: boolean;
+    /**
+     * 3차 재감사 2: 화면에 돌려준 글 id. 주면 답변 알림(`support_admin_replied:<글 id>`)은 이 글들 것만 읽음 —
+     * 목록을 읽은 뒤 도착한 답변의 알림은 남긴다(고객 미읽음 숫자와 같은 기준). 종료·재오픈 알림은 그대로 모두 읽음.
+     */
+    shownMessageIds?: readonly string[];
+  }
 ): Promise<number> {
   const uid = input.userId.trim();
   const caseId = input.caseId.trim();
   if (!uid || !caseId) return 0;
   const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from("notification_events")
-    .update({ unread: false, read_at: now, opened_at: now })
-    .eq("user_id", uid)
-    .eq("unread", true)
-    .is("read_at", null)
-    .like("type", "support_%")
-    .eq("display_payload->>supportCaseId", caseId)
-    .select("id");
-  if (error) {
-    console.warn("[support] notification_read_sync_failed", { caseId, error: error.message });
-    return 0;
+  const base = () =>
+    sb
+      .from("notification_events")
+      .update({ unread: false, read_at: now, opened_at: now })
+      .eq("user_id", uid)
+      .eq("unread", true)
+      .is("read_at", null)
+      .eq("display_payload->>supportCaseId", caseId);
+  let data: { id: string }[] | null = null;
+  let error: { message: string } | null = null;
+  if (input.shownMessageIds) {
+    const replyKeys = input.shownMessageIds.map((id) => `support_admin_replied:${id}`);
+    const [others, replies] = await Promise.all([
+      base().like("type", "support_%").neq("type", "support_admin_replied").select("id"),
+      replyKeys.length > 0
+        ? base().eq("type", "support_admin_replied").in("dedupe_key", replyKeys).select("id")
+        : Promise.resolve({ data: [] as { id: string }[], error: null }),
+    ]);
+    error = others.error ?? replies.error ?? null;
+    data = [...((others.data ?? []) as { id: string }[]), ...((replies.data ?? []) as { id: string }[])];
+  } else {
+    const r = await base().like("type", "support_%").select("id");
+    error = r.error;
+    data = (r.data ?? []) as { id: string }[];
   }
   const count = data?.length ?? 0;
+  // 4차 재감사 2: 두 갱신 중 하나만 실패해도 바뀐 행이 있으면 배지 캐시를 비운다
   if (count > 0) invalidateNotificationBadgeCache(uid);
+  if (error) {
+    console.warn("[support] notification_read_sync_failed", { caseId, error: error.message });
+    return count;
+  }
   if (!input.includeAdmin) return count;
   // R13: the admin's support reply notifications for this case (admin store).
   const adminRead = await markAdminNotificationsRead(sb, {
@@ -1733,7 +1828,9 @@ export async function markSupportCaseNotificationsRead(
  */
 export async function markSupportCaseReadForAdmin(
   sb: SupabaseClient,
-  caseId: string
+  caseId: string,
+  /** 2차 재감사 E: 화면에 돌려준 글 목록의 기준 시각. 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다 */
+  seenLastMessageAt?: string | null
 ): Promise<{ ok: true; wrote: boolean } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, caseId);
   if (!gate.ok) return gate;
@@ -1741,10 +1838,13 @@ export async function markSupportCaseReadForAdmin(
   if (!Number.isFinite(unread) || unread <= 0) {
     return { ok: true, wrote: false };
   }
+  const seen = seenLastMessageAt?.trim() || "";
+  if (seen && !sameInstant(seen, gate.case.last_message_at)) return { ok: true, wrote: false };
   const { error } = await sb
     .from("support_cases")
     .update({ admin_unread_count: 0, updated_at: new Date().toISOString() })
-    .eq("id", caseId);
+    .eq("id", caseId)
+    .eq("last_message_at", gate.case.last_message_at);
   if (error) return { ok: false, error: error.message };
   return { ok: true, wrote: true };
 }

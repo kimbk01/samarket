@@ -28,10 +28,10 @@
 | 동작 | 누가 | 전이 | 근거 |
 |---|---|---|---|
 | 접수 | 고객 | 없음 → OPEN (첫 글 = 시드, 어드민 미읽음 **증가 안 함** — F2) | `support-case-service.ts:394-403` · DB 함수 ELSE 분기 |
-| 같은 분야 진행 중 문의가 있을 때 접수 | 고객 | 기존 문의에 추가 → WAITING_ADMIN (세부 무시 · 접수 완료 화면은 **새로 고른 분야·세부 + 기존 번호**를 보여 줌 — F4) | `:272-345` · 유일 인덱스 `uq_support_cases_one_active_per_key` |
+| 같은 분야 진행 중 문의가 있을 때 접수 | 고객 | 기존 문의에 추가 → WAITING_ADMIN. 접수 완료 화면 = 「진행 중인 문의에 추가했어요」 + **기존 문의의** 분야·세부·번호 (F4) · 고객이 고른 세부는 어드민 대화에 표시(D8). 붙이려던 문의가 그사이 종료됐으면 새 문의로 접수(2차 F) | `:272-345` · 유일 인덱스 `uq_support_cases_one_active_per_key` |
 | 추가 문의 | 고객 | → WAITING_ADMIN, 어드민 미읽음 +1 | `postRequesterSupportMessage` |
 | 답변 | 어드민 | → WAITING_USER, 고객 미읽음 +1 | `adminReplySupportCase` |
-| 확인했어요 | 고객 | → RESOLVED (알림 없음) | `requesterCloseSupportCase` |
+| 확인했어요 | 고객 | → RESOLVED (알림 없음). 화면이 본 마지막 글 시각(`seenLastMessageAt`)과 다르면 닫지 않고 `case_updated` → 화면이 다시 읽어 새 답변을 보여 줌 (2차 A) | `requesterCloseSupportCase` |
 | 상담 종료 | 어드민 | → RESOLVED, 고객 「종료」 알림 (F3) | `adminUpdateSupportCaseStatus` |
 | 재오픈 | **어드민만** (고객 API 의 reopen = 400, 재감사 D12) | RESOLVED/ARCHIVED → OPEN, 고객 알림 | `reopenSupportCase` |
 | 보관 / 보관 해제 | 어드민 | RESOLVED ↔ ARCHIVED (알림 없음) | 같은 함수 |
@@ -197,3 +197,32 @@
 | D16 | 안 읽은 공개 답변 삭제 시 고객 미읽음 −1·그 알림 읽음 | 없음 |
 
 시험: `support-audit-phase1-regression.test.ts` 「post-fix reaudit D1~D16」 8건.
+
+## 13. 2차 재감사 기록 (2026-11-27, `fix/support-inquiry-reaudit3`)
+
+근거 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/final-reaudit-2.md` · 시안 `ui-mockup.html`. Owner 「수정 진행」.
+
+| # | 수정 | DB |
+|---|---|---|
+| A | 「확인했어요」: 화면이 본 `last_message_at` 을 보내고 서버가 그 값과 비교(다르면 `case_updated` → 화면 다시 읽기) + 쓰기 CAS. §12 D5 는 효과 없던 수정이라 이것으로 대체 | 없음 |
+| B | 답변 삭제: 그 답변 알림이 **아직 안 읽힌 상태였을 때만**(UPDATE 결과로 확인) 고객 미읽음 −1. §12 D16 대체 | 없음 |
+| C | 담당자 없는 문의도 5분 재생 함수가 support 권한 전원으로 다시 만든다 | **DB 함수 `20271127240000` 적용 승인 필요** |
+| D | §12 D15 의 「작업 직후 1.5초 목록 신호 무시」 철회(남의 변경을 버렸다) — 작업 뒤 목록 1번 더 읽기는 감수 | 없음 |
+| E | 읽음 0 은 화면에 준 글 목록 기준 시각과 같을 때만(고객·어드민) · 응답 뒤 어드민 알림은 어드민 일이 남았을 때만 생성 | 없음 |
+| F | 붙이려던 문의가 그사이 종료 → 새 문의로 접수 · 접수 API 에 `case_closed` 409 · 종료 문의에 세션을 다시 열지 않음(글 먼저, 세션 나중) | 없음 |
+| G | 세션 생성 실패도 빈 문의 삭제(`discardFailedNewCase`, 실패 기록) | 없음 |
+| H | 어드민 화면 전용 오류 문구 `adminSupportErrorLabel` (ko/en 키) · 고객 `case_updated` 문구 | 없음 |
+| I | 지정 알림 support 권한 필수 · 콘솔 토스트·소리 본인 글 제외 · 재생 함수 본인 제외·권한(C 와 같은 파일) | C 와 같음 |
+| J | 재오픈 서비스는 항상 어드민 판정(고객 분기 제거) | 없음 |
+
+UI 불일치 U1~U9(시안 5절)는 **Owner 결정 전** — 이 PR 에서 바꾸지 않음.
+3차 독립 재감사(같은 PR, 병합 전)에서 추가로 고친 것:
+- 재생 함수도 앱과 같은 조건(OPEN·WAITING_ADMIN 만, 담당자 유무 무관) — 이미 답한 문의에 미읽음 알림이 다시 생기던 경로 차단 · 첫 고객 글 제목 「새 고객 문의」. 적용 시 밀린 재생 = 0건(운영 조회).
+- 응답 뒤 발송 때 상태를 못 읽으면 버리지 않고 기록 후 발송.
+- 고객이 문의를 열 때 알림은 **보여 준 답변 것만** 읽음(`shownMessageIds`) — 목록 뒤에 온 답변의 알림·숫자가 남아 그 답변 삭제 시 숫자가 바르게 줄어든다. 삭제의 숫자 CAS 가 빗나가면 최신 값으로 1번 더.
+- 문구: `case_updated` 「문의 내용이 바뀌어 다시 불러왔어요」(새 답변만이 아니므로) · 어드민 `not_closed` 일반 문구 · `invalid_message`.
+
+시험: `support-audit-phase1-regression.test.ts` 「second reaudit A~J」 — **동작 재현**: A·B·B+E·E·I(지정 알림 권한·본인 제외) / **구조 확인(코드 위치)**: E2·F/G·H·J (가짜 DB 로 경합·삭제 실패를 끼워 넣을 수 없어 이름에 「구조 확인」 표시).
+
+4차 독립 재감사(병합 직전, `8c926e73b`) 판정: **코드에 중간 이상 결함 없음**(DB 미적용분 제외). 같은 PR 에서 고친 것: 읽음 처리 답변 id = 보여 준 어드민 공개 답변만(요청 주소 길이) · 부분 실패에도 배지 캐시 비움.
+남은 낮은 결함(알고 둠, 재지시 때): ① 고객 미읽음 숫자는 「본 목록 이후 새 글」이면 통째로 남아 알림 행과 1 차이가 날 수 있음(다음 열람 때 맞춰짐) ② 삭제 숫자 재시도가 몇 ms 경합에서 1 낮게 될 수 있음 ③ 상태 읽기 실패 시 보내는 알림은 끝난 문의일 수 있음 ④ (DB 파일) 같은 문의 고객 새 글 때 앱이 건너뛴 옛 글이 재생될 수 있음 ⑤ (DB 파일) support 권한 없는 담당자 재생은 0명 발송 — 앱 경로에는 전원 대체가 있음.

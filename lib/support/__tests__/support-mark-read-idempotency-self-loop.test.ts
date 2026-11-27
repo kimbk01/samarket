@@ -45,14 +45,16 @@ function makeSb(opts: {
           maybeSingle,
         })),
       })),
+      // 2차 재감사 E: update().eq(id).eq(last_message_at) — 마지막 await 1번 = UPDATE 1번
       update: (patch: Record<string, unknown>) => {
-        const chain = {
-          eq: vi.fn(async () => {
-            await update(patch);
-            return { data: null, error: null };
-          }),
-        };
-        return chain;
+        const link = (): { eq: () => unknown; then: PromiseLike<unknown>["then"] } => ({
+          eq: vi.fn(() => link()),
+          then: (onFulfilled, onRejected) =>
+            update(patch)
+              .then(() => ({ data: null, error: null }))
+              .then(onFulfilled, onRejected),
+        });
+        return link();
       },
     };
   });

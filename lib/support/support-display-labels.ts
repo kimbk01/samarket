@@ -78,6 +78,47 @@ export function supportErrorLabel(safeT: SafeT, code: string | null | undefined)
       return safeT("support_enter_missing_context");
     case "network_error":
       return safeT("common_network_error");
+    case "case_updated":
+      // 2차 재감사 A: 「확인했어요」 사이에 새 답변이 왔다 — 화면을 다시 읽어 보여 준다
+      return safeT("support_error_case_updated");
+    default:
+      return safeT("common_error");
+  }
+}
+
+/**
+ * 2차 재감사 H — 어드민 고객지원 화면 전용 오류 문구 (고객용 문구표를 쓰지 않는다). 코드는 보이지 않는다.
+ */
+export function adminSupportErrorLabel(safeT: SafeT, code: string | null | undefined): string {
+  switch (String(code ?? "").trim()) {
+    case "invalid_transition":
+      return safeT("admin_support_error_invalid_transition");
+    case "not_closed":
+      return safeT("admin_support_error_not_closed");
+    case "status_conflict":
+      return safeT("admin_support_error_status_conflict");
+    case "active_case_exists":
+      return safeT("admin_support_error_active_case_exists");
+    case "case_closed":
+      return safeT("admin_support_error_case_closed");
+    case "assignee_not_active_admin":
+    case "assignee_not_support_admin":
+      return safeT("admin_support_error_assignee_not_allowed");
+    case "not_own_message":
+      return safeT("admin_support_error_not_own_message");
+    case "message_deleted":
+      return safeT("admin_support_error_message_deleted");
+    case "invalid_message":
+      return safeT("admin_support_error_message_missing");
+    case "empty_body":
+      return safeT("admin_support_error_empty_body");
+    case "reason_required":
+      return safeT("admin_support_error_reason_required");
+    case "not_found":
+    case "http_404":
+      return safeT("admin_support_error_not_found");
+    case "network_error":
+      return safeT("common_network_error");
     default:
       return safeT("common_error");
   }

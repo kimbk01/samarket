@@ -27,7 +27,7 @@ import {
 } from "@/lib/support/support-status-label";
 import {
   supportCategoryLabel,
-  supportErrorLabel,
+  adminSupportErrorLabel,
   supportIssueLabel,
   supportReferenceLabel,
 } from "@/lib/support/support-display-labels";
@@ -416,8 +416,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
    * coalesced). The conversation reloads only for the open case.
    */
   const activeIdRef = useRef<string | null>(activeId);
-  /** 재감사 D15: 내 작업 직후 목록을 이미 다시 읽었으면, 같은 작업의 Realtime 신호로 또 읽지 않는다 */
-  const manualListLoadAtRef = useRef(0);
   const loadListRef = useRef(loadList);
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -431,7 +429,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (listTimer != null) window.clearTimeout(listTimer);
       listTimer = window.setTimeout(() => {
         listTimer = null;
-        if (Date.now() - manualListLoadAtRef.current < 1500) return;
         void loadListRef.current();
       }, 300);
     };
@@ -472,7 +469,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         return false;
       }
       await loadDetail(activeId);
-      manualListLoadAtRef.current = Date.now();
       await loadList();
       return true;
     } catch {
@@ -833,7 +829,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             <AdminLoadingState ko={ko} />
           ) : detailPane === "error" || !activeCase ? (
             <div className="space-y-2 p-4" role="alert">
-              <p className="text-sm text-sam-danger">{supportErrorLabel(safeT, error)}</p>
+              <p className="text-sm text-sam-danger">{adminSupportErrorLabel(safeT, error)}</p>
               <AdminActionButton variant="secondary" size="sm" onClick={() => activeId && void loadDetail(activeId)}>
                 {adminCta("refresh", ko)}
               </AdminActionButton>
@@ -1005,7 +1001,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                 </div>
                 {error ? (
                   <p className="text-xs text-sam-danger" role="alert">
-                    {supportErrorLabel(safeT, error)}
+                    {adminSupportErrorLabel(safeT, error)}
                   </p>
                 ) : null}
               </div>

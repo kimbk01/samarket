@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
           ? 403
           : res.error === "missing_table" || res.error === "missing_guidance_table"
             ? 503
-            : 500;
+            : // 2차 재감사 F: 동시 접수 경합 끝에 붙을 문의가 종료됐다 — 화면이 아는 코드(다시 누르면 새 문의)
+              res.error === "case_closed"
+              ? 409
+              : 500;
     return NextResponse.json({ ok: false, error: res.error }, { status });
   }
 
