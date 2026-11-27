@@ -25,14 +25,25 @@ export function communityRestrictionScopesFor(kind: CommunityWriteKind): Array<"
 /**
  * 유효한 제한 1건 또는 null.
  * 조회 오류 시: 일시 장애로 전체 회원 쓰기가 막히지 않도록 로그만 남기고 null(허용) — 의도된 선택.
+ * (모임은 계약상 거부 — `assertCommunityWriteAllowed(..., { failClosed: true })`)
  */
 export async function loadActiveCommunityRestriction(
   sb: SupabaseClient,
   userId: string,
   kind: CommunityWriteKind
 ): Promise<ActiveCommunityRestriction | null> {
+  const r = await lookupActiveCommunityRestriction(sb, userId, kind);
+  return r.ok ? r.restriction : null;
+}
+
+/** 조회 결과를 「제한 없음」과 「조회 실패」로 구분해 돌려준다 */
+export async function lookupActiveCommunityRestriction(
+  sb: SupabaseClient,
+  userId: string,
+  kind: CommunityWriteKind
+): Promise<{ ok: true; restriction: ActiveCommunityRestriction | null } | { ok: false }> {
   const uid = String(userId ?? "").trim();
-  if (!uid) return null;
+  if (!uid) return { ok: true, restriction: null };
   try {
     const nowIso = new Date().toISOString();
     const { data, error } = await sb
@@ -47,15 +58,19 @@ export async function loadActiveCommunityRestriction(
       .order("end_at", { ascending: false, nullsFirst: true })
       .limit(1);
     if (error) {
-      console.error("[community-write-restriction] lookup failed (allowing)", error.message);
-      return null;
+      console.error("[community-write-restriction] lookup failed", error.message);
+      return { ok: false };
     }
     const row = Array.isArray(data) ? (data[0] as ActiveCommunityRestriction | undefined) : undefined;
-    return row ?? null;
+    return { ok: true, restriction: row ?? null };
   } catch (e) {
-    console.error("[community-write-restriction] lookup threw (allowing)", e instanceof Error ? e.message : e);
-    return null;
+    console.error("[community-write-restriction] lookup threw", e instanceof Error ? e.message : e);
+    return { ok: false };
   }
+}
+
+function restrictionUnavailableResponse(): NextResponse {
+  return NextResponse.json({ ok: false, error: "community_restriction_unavailable" }, { status: 503 });
 }
 
 function formatUntilKo(endAt: string | null): string {
@@ -80,14 +95,18 @@ export function communityRestrictedResponse(r: ActiveCommunityRestriction): Next
 
 /**
  * 라우트용: 제한이면 403 응답, 아니면 null.
- * sanctions 는 회원 RLS 로 읽을 수 없으므로 서비스 클라이언트로 조회한다 (미설정 시 허용).
+ * sanctions 는 회원 RLS 로 읽을 수 없으므로 서비스 클라이언트로 조회한다.
+ * 조회 실패·서비스 클라이언트 없음: 기본은 허용(null). `failClosed` 이면 503 으로 거부한다
+ * — 모임 계약(설계 P1 「조회 실패 시 거부」 · 2026-11-27 감사 B5). 다른 호출처는 동작 그대로.
  */
 export async function assertCommunityWriteAllowed(
   userId: string,
-  kind: CommunityWriteKind
+  kind: CommunityWriteKind,
+  opts?: { failClosed?: boolean }
 ): Promise<NextResponse | null> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return null;
-  const r = await loadActiveCommunityRestriction(sb, userId, kind);
-  return r ? communityRestrictedResponse(r) : null;
+  if (!sb) return opts?.failClosed ? restrictionUnavailableResponse() : null;
+  const r = await lookupActiveCommunityRestriction(sb, userId, kind);
+  if (!r.ok) return opts?.failClosed ? restrictionUnavailableResponse() : null;
+  return r.restriction ? communityRestrictedResponse(r.restriction) : null;
 }

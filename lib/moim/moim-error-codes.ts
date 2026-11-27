@@ -93,6 +93,7 @@ export const MOIM_ERROR_CODES = [
   "moim_schedule_too_long",
   "moim_target_not_member",
   "moim_transfer_blocked_by_warning",
+  "moim_transfer_co_host_full",
   "moim_topic_length",
   "moim_topic_matches_category",
   "moim_topic_required",
@@ -103,7 +104,13 @@ export const MOIM_ERROR_CODES = [
   "moim_visibility_invalid",
 ] as const;
 
-export type MoimErrorCode = (typeof MOIM_ERROR_CODES)[number] | "moim_unknown";
+/**
+ * DB 함수가 아니라 모임 API 라우트가 직접 내는 코드 (계약 시험은 SQL 코드 = MOIM_ERROR_CODES 만 대조).
+ * - moim_invite_not_allowed: 받는 사람이 나를 메신저에서 차단함 (설계 P4 · 2026-11-27 감사 B4) — 차단 사실은 문구에 드러내지 않는다
+ */
+export const MOIM_ROUTE_ERROR_CODES = ["moim_invite_not_allowed"] as const;
+
+export type MoimErrorCode = (typeof MOIM_ERROR_CODES)[number] | (typeof MOIM_ROUTE_ERROR_CODES)[number] | "moim_unknown";
 
 const CODE_SET: ReadonlySet<string> = new Set(MOIM_ERROR_CODES);
 

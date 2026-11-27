@@ -40,7 +40,8 @@ export async function guardMoimWrite(
   }
   const kind = opts.writeKind ?? "post";
   if (kind !== "none") {
-    const restricted = await assertCommunityWriteAllowed(auth.userId, kind);
+    /** 설계 P1 「조회 실패 시 거부」 — 모임만 실패 시 거부 (감사 B5) */
+    const restricted = await assertCommunityWriteAllowed(auth.userId, kind, { failClosed: true });
     if (restricted) return { ok: false, response: restricted };
   }
   if (opts.phone) {

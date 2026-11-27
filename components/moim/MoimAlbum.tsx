@@ -249,7 +249,8 @@ function MoimAlbumViewer({
       <div className="grid gap-2 px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2 text-white">
         <div className="flex items-center gap-2 text-[12px]">
           <MoimAvatar url={item.uploader.avatarUrl} name={item.uploader.nickname} size={24} />
-          <span className="min-w-0 break-words">{item.uploader.nickname}</span>
+          {/* 나간 멤버·계정 삭제 = 「나간 멤버」 (설계 P5 · 글·댓글과 같은 규칙) */}
+          <span className="min-w-0 break-words">{item.uploader.isActiveMember ? item.uploader.nickname : t("moim_screen_left_member")}</span>
         </div>
         {canPin || canRemove || canReport ? (
           <div className="flex gap-2">

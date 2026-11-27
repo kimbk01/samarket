@@ -3,6 +3,7 @@ import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoim
 import { moimInviteSend } from "@/lib/moim/server/moim-rpc.server";
 import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
 import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { isBlockedByOther } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const body = await readMoimJson<{ userId?: unknown }>(req);
   const invitee = requireUuid(typeof body?.userId === "string" ? body.userId : null);
   if (!invitee) return moimBadRequest();
+  /** 설계 P4 「메신저에서 나를 차단한 사람에게는 보낼 수 없다」 — 메신저 차단 단일 정의. 차단 사실은 드러내지 않는다 (감사 B4) */
+  if (await isBlockedByOther(g.userId, invitee)) return moimRpcResponse({ ok: false, error: "moim_invite_not_allowed" });
   const result = await moimInviteSend(g.userId, moimId, invitee, g.sb);
   if (result.ok) {
     const { data: me } = await g.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", g.userId).maybeSingle();

@@ -24,6 +24,7 @@ import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } fr
 import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
+import { runMoimAccountCleanup } from "@/lib/moim/server/moim-account-cleanup.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,11 +120,24 @@ export async function POST(
     if (!prepared.ok) {
       return NextResponse.json({ ok: false, error: "purge_prepare_failed", message: prepared.error }, { status: 500 });
     }
+    /**
+     * 모임 정리 — Auth 삭제 바로 앞(모임 기록 FK 에 막히지 않게 · 모임장은 자동 위임, 모임 설계 P8 · 감사 B8).
+     * 정리는 되돌릴 수 없는 동작이라 점검·준비가 모두 끝난 뒤에 한다. 정리가 실패하면 삭제를 멈춘다.
+     */
+    const moimCleanup = await runMoimAccountCleanup(sb, userId);
+    if (!moimCleanup.ok) {
+      return NextResponse.json({ ok: false, error: "moim_cleanup_failed" }, { status: 500 });
+    }
   }
 
   const alreadyWithdrawn = isDeletedStoreMember(targetProfile as { status?: string; deleted_at?: string | null });
 
   if (mode === "withdraw") {
+    /** 모임 정리 — 탈퇴한 모임장이 모임장으로 남지 않게 자동 위임·모든 모임 퇴장 (모임 설계 P8 · 감사 B8). 실패하면 탈퇴를 멈춘다 */
+    const moimCleanup = await runMoimAccountCleanup(sb, userId);
+    if (!moimCleanup.ok) {
+      return NextResponse.json({ ok: false, error: "moim_cleanup_failed" }, { status: 500 });
+    }
     if (!alreadyWithdrawn) {
       const { error: updateErr } = await sb
         .from("profiles")

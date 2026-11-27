@@ -19,7 +19,8 @@ import type { MoimAccess } from "@/lib/moim/server/moim-queries.server";
 type ScheduleRow = {
   id: string;
   moim_id: string;
-  host_user_id: string;
+  /** 호스트 계정이 영구 삭제되면 null (감사 B8) */
+  host_user_id: string | null;
   title: string;
   starts_at: string;
   ends_at: string | null;
@@ -38,8 +39,11 @@ type ScheduleRow = {
 const SCHEDULE_COLS =
   "id, moim_id, host_user_id, title, starts_at, ends_at, place_text, description, images, capacity, join_mode, ask_motivation, status, room_id, confirmed_count, created_at, updated_at";
 
-async function members(sb: SupabaseServer, moimId: string, ids: string[]): Promise<Map<string, MoimAuthorDto & { status: string }>> {
-  const uniq = [...new Set(ids)].filter(Boolean);
+/** 계정이 영구 삭제된 호스트·올린 사람(id null) = 「나간 멤버」 (감사 B8) */
+const FORMER_PERSON: MoimAuthorDto & { status: string } = { userId: "", nickname: "", avatarUrl: null, role: null, isActiveMember: false, status: "" };
+
+async function members(sb: SupabaseServer, moimId: string, ids: (string | null)[]): Promise<Map<string, MoimAuthorDto & { status: string }>> {
+  const uniq = [...new Set(ids)].filter((x): x is string => Boolean(x));
   const out = new Map<string, MoimAuthorDto & { status: string }>();
   if (!uniq.length) return out;
   const { data } = await sb.from("moim_members").select("user_id, nickname, avatar_url, role, status").eq("moim_id", moimId).in("user_id", uniq);
@@ -75,7 +79,7 @@ async function toSchedules(sb: SupabaseServer, access: MoimAccess, viewerId: str
   const myStatus = new Map(((mine.data ?? []) as { schedule_id: string; status: MoimScheduleParticipantStatus }[]).map((r) => [r.schedule_id, r.status]));
   const roleManage = moimRoleRank(access.role) >= moimRoleRank("co_host");
   return rows.map((r) => {
-    const host = hosts.get(r.host_user_id)!;
+    const host = (r.host_user_id ? hosts.get(r.host_user_id) : undefined) ?? FORMER_PERSON;
     const status = myStatus.get(r.id) ?? null;
     const isHost = !!viewerId && viewerId === r.host_user_id;
     return {
@@ -200,12 +204,12 @@ export async function listMoimAlbum(
   if (opts.scheduleId) q = q.eq("schedule_id", opts.scheduleId);
   if (opts.before) q = q.lt("created_at", opts.before);
   const { data } = await q.order("created_at", { ascending: false }).limit(limit + 1);
-  const rows = (data ?? []) as { id: string; url: string; is_pinned: boolean; schedule_id: string | null; uploader_id: string; created_at: string }[];
+  const rows = (data ?? []) as { id: string; url: string; is_pinned: boolean; schedule_id: string | null; uploader_id: string | null; created_at: string }[];
   const page = rows.slice(0, limit);
   const people = await members(sb, access.moim.id, page.map((r) => r.uploader_id));
   return {
     items: page.map((r) => {
-      const m = people.get(r.uploader_id)!;
+      const m = (r.uploader_id ? people.get(r.uploader_id) : undefined) ?? FORMER_PERSON;
       return {
         id: r.id,
         url: r.url,

@@ -392,7 +392,8 @@ function ScheduleBody({
             <InfoRow label={t("moim_schedule_people_label")}>{formatMoimScheduleCount(s.confirmedCount, s.capacity, t)}</InfoRow>
             <InfoRow label={t("moim_schedule_host_label")}>
               <span className="inline-flex flex-wrap items-center gap-1.5">
-                {s.host.nickname}
+                {/* 나간 멤버·계정 삭제 호스트 = 「나간 멤버」 (설계 P5 · 글·댓글과 같은 규칙) */}
+                {s.host.isActiveMember ? s.host.nickname : t("moim_screen_left_member")}
                 <MoimRoleBadge role={s.host.role} />
               </span>
             </InfoRow>
