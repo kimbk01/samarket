@@ -32,6 +32,7 @@ vi.mock("@/lib/auth/client-instance-id", async (orig) => ({
 }));
 vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({
   recordPromotionContentVisitClient: () => {},
+  notePromotionDeviceStateWrite: () => {},
 }));
 vi.mock("@/lib/platform-popup/fetch-platform-popup-resolve-client", () => ({
   fetchPlatformPopupResolveDeduped: vi.fn(async () => ({ json: { ok: true, winner: h.winner, impression: false } })),

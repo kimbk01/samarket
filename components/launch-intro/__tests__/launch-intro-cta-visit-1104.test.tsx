@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace, push
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
 vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({
   recordPromotionContentVisitClient: h.record,
+  notePromotionDeviceStateWrite: () => {},
 }));
 vi.mock("@/lib/launch-intro/discovery", () => ({ startLaunchIntroDiscovery: () => {} }));
 vi.mock("@/lib/launch-intro/frequency", () => ({ recordLaunchIntroShown: () => {} }));

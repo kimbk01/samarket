@@ -13,6 +13,7 @@ import {
   getOrCreatePlatformPopupAppSessionId,
 } from "@/lib/platform-popup/popup-app-session";
 import type { PtrRevealAd } from "@/lib/platform-popup/ptr-reveal-payload";
+import { notePromotionDeviceStateWrite } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import { frequencyModeToDismissSuppressMode, isFrequencySuppressMode } from "@/lib/platform-popup/dismiss-ssot";
 import {
   isPlatformPopupAdvertisingSurface,
@@ -264,6 +265,8 @@ export function finishPtrRevealExposure(pathname: string | null | undefined, ad:
     emit();
   };
   try {
+    /** 손님 → 회원 정리가 이 기록을 다음 로그인에 옮기도록 기기 기록 순번을 올린다 */
+    notePromotionDeviceStateWrite();
     void fetch("/api/platform-popup/suppress", {
       method: "POST",
       credentials: "same-origin",

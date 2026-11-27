@@ -18,7 +18,10 @@ import {
   isPlatformPopupSessionBlockedCampaign,
   listPlatformPopupSessionBlockedCampaigns,
 } from "@/lib/platform-popup/popup-app-session";
-import { recordPromotionContentVisitClient } from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
+import {
+  notePromotionDeviceStateWrite,
+  recordPromotionContentVisitClient,
+} from "@/lib/platform-promotion-lifecycle/client-record-content-visit";
 import {
   readPlatformPopupCallRuntimeSnapshot,
   subscribePlatformPopupCallRuntime,
@@ -587,6 +590,8 @@ export function GlobalPopupHost() {
   const persistSuppression = useCallback(
     async (target: ResolveWinner, mode: PlatformPopupSuppressionMode) => {
       if (mode === "CLOSE") return;
+      /** 손님 → 회원 정리가 이 기록을 다음 로그인에 옮기도록 기기 기록 순번을 올린다 */
+      notePromotionDeviceStateWrite();
       // 기록 실패(429 요청 제한 포함)는 화면 동작에 영향 없음 — 이미 닫혔고 세션 숨김은 메모리에 있다
       const res = await fetch("/api/platform-popup/suppress", {
         method: "POST",
