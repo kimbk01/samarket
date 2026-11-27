@@ -237,7 +237,7 @@ UI 불일치 U1~U9(시안 5절)는 이 PR 에서 바꾸지 않았고, 이후 Own
 |---|---|---|
 | U1·U2 | 고객 상태 알약 색 = **상태**: 답변 완료·새 답변 = 초록(`bg-sam-primary-soft text-sam-primary`), 답변 대기 = 노랑(`bg-sam-warning-soft text-sam-fg`), 종료 = 회색(`bg-sam-surface-muted text-sam-muted`). 종료+안 읽은 답변 = 「새 답변」. 문의 상세 상태 줄·쓰기 화면 「진행 중인 문의」·내 문의 목록 모두 같음 | `supportRequesterStatusPill` (`lib/support/support-status-label.ts`) |
 | U3 | 목록의 시각 = **마지막 글 시각**(`last_message_at`) | 내 문의 행 · 진행 중 행 |
-| U4·U5 | 사장님 쪽 문의 버튼 = **갈색**(FAB·「문의 접수」와 같음) · 사장님 「내 문의」 = 회원과 같은 카드 · 빈 목록에 「문의하기」 | `OWNER_SUPPORT_CTA_CLASS` (`lib/support/support-owner-cta.ts`) |
+| U4·U5 | 사장님 쪽 문의 버튼 = **갈색**(FAB·「문의 접수」와 같음) · 사장님 「내 문의」 = 회원과 같은 카드 · 빈 목록은 안내만(목록 위 「문의하기」 1개 — Owner 「아래 것 빼기」 2026-11-27) | `OWNER_SUPPORT_CTA_CLASS` (`lib/support/support-owner-cta.ts`) |
 | U6·U9 | 문의 창 모든 버튼 = **높이 44px · 모서리 4px**(문의 창은 전체 화면 → 「화면에 붙은 버튼 4px」 계약) | `SUPPORT_BTN` (`SupportTicketViews.tsx`) |
 | U7 | 어드민 WAITING_USER 이름 = 「고객 확인 대기」 하나(탭·알약) · 고객 화면 = 「답변 완료」 | `admin_waiting_customer` · `support_admin_status_waiting_user` |
 | U8 | 사장님 고객센터 화면에 FAB 없음 — 현행 유지(회원 허브와 같은 규칙) | — |

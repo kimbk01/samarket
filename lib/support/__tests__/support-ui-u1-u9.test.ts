@@ -42,12 +42,13 @@ describe("UI U3~U9", () => {
     expect(hist).not.toContain("formatMypageDate(c.created_at");
   });
 
-  it("(구조 확인) U4·U5 사장님 문의 CTA = 갈색 단일 정의 · 사장님 목록 카드·빈 목록 CTA", () => {
+  it("(구조 확인) U4·U5 사장님 문의 CTA = 갈색 단일 정의 · 사장님 목록 카드 · 빈 목록은 안내만", () => {
     expect(src("lib/support/support-owner-cta.ts")).toContain("bg-[var(--dibay-brown)]");
     expect(src("components/business/owner/OwnerCustomerCenterView.tsx")).toContain("buttonClassName={OWNER_SUPPORT_CTA_CLASS}");
     const hist = src("components/support/SupportCasesHistoryList.tsx");
     expect(hist).toContain('data-support-cases-history-empty="1"');
-    expect(hist).toContain("buttonClassName={OWNER_SUPPORT_CTA_CLASS}");
+    // Owner 「아래 것 빼기」(2026-11-27): 사장님 빈 목록에는 버튼 없음 — 위쪽 「문의하기」 1개만
+    expect(hist).not.toContain("OWNER_SUPPORT_CTA_CLASS");
     expect(hist.match(/rounded-ui-rect border border-sam-border-soft bg-sam-surface/g)?.length).toBe(2);
   });
 

@@ -9,7 +9,6 @@ import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
 import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
-import { OWNER_SUPPORT_CTA_CLASS } from "@/lib/support/support-owner-cta";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
@@ -169,21 +168,11 @@ function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWN
     );
   }
   if (cases.length === 0) {
-    // UI U5: 빈 목록도 회원과 같은 구성 — 안내 + 「문의하기」(사장님 = 갈색, 매장이 있을 때만)
+    // UI U5 (Owner 「아래 것 빼기」 2026-11-27): 사장님 화면은 목록 위에 「문의하기」가 이미 있다 — 빈 목록에는 안내만(버튼 1개)
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-6" data-support-cases-history-empty="1">
-        <p className="text-sm text-sam-muted">{safeT("support_history_empty")}</p>
-        {audience === "OWNER" && storeId ? (
-          <SupportGenericHubInquireGate
-            audience="OWNER"
-            sourceSurface="owner_customer_center"
-            storeId={storeId}
-            className="w-full max-w-[240px]"
-            buttonClassName={OWNER_SUPPORT_CTA_CLASS}
-            inquireDataAttr="data-owner-support-inquire"
-          />
-        ) : null}
-      </div>
+      <p className="px-4 py-6 text-center text-sm text-sam-muted" data-support-cases-history-empty="1">
+        {safeT("support_history_empty")}
+      </p>
     );
   }
 
