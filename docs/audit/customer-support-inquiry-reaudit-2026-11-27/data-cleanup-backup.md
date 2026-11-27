@@ -22,3 +22,20 @@
 - 2차 실행: support_cases 6행 `admin_unread_count → 0`, notification_events 19행 `unread=false · read_at · opened_at = 19:44 PHT`. 건수 일치 시에만 커밋(6·19 일치).
 - 실행 후 대조: 6행 모두 admin_unread 0, 상태·requester_unread 그대로 / 19행 unread 0·read_at 19건 / 남은 고객지원 미읽음 알림 1건 = SC-100035(진행 중, 정상).
 - 새로 확인한 영향: SC-100001·05·06 은 종료 + `requester_unread_count=1`(9월 문의). F3 배포 후 그 고객 3명의 내 문의 목록·FAB 숫자에 1번 다시 보인다(열면 사라짐).
+
+## 2차 정리 — Owner 「문의는 모두 테스트, 모두 0 으로 승인」 (2026-11-27)
+정정: 위 「새로 확인한 영향」의 3건은 틀렸다 — 종료 + requester_unread 1 은 **5건**(SC-100001·05·06·31·34, 앞 표는 admin_unread>0 행만 본 것).
+
+백업(실행 직전):
+| id | 번호 | 상태 | requester_unread(전) | admin_unread |
+|---|---|---|---|---|
+| c01ffd4d-f2b4-4e6e-93e0-034fc69fe96f | SC-100035 | WAITING_USER | 2 | 0 |
+| 3f5fd010-fdc3-4692-b2ca-1951d16d31a4 | SC-100006 | RESOLVED | 1 | 0 |
+| d2f01db1-b34b-4472-a194-d148753979c8 | SC-100005 | RESOLVED | 1 | 0 |
+| 79ec2180-e722-455f-969a-b322ed981485 | SC-100001 | RESOLVED | 1 | 0 |
+| e7ecaa68-b992-48b4-ac95-818305c4dce4 | SC-100034 | RESOLVED | 1 | 0 |
+| b2c28d74-bd09-4488-9384-ea19228e9922 | SC-100031 | RESOLVED | 1 | 0 |
+notification_events 699b27e8-d698-48cc-a1be-d22a5d8934bc (support_admin_replied, SC-100035) unread=true · read_at null · opened_at null.
+
+실행 (19:47 PHT): support_cases 6행 requester_unread_count → 0 · notification_events 1행 읽음. 건수 일치(6·1) 시에만 커밋.
+실행 후 대조: 고객 미읽음 문의 0 · 어드민 미읽음 문의 0 · 고객지원 미읽음 알림 0. SC-100035 상태는 WAITING_USER 그대로 — 마지막 글이 7일 넘게 지나, PR #671 배포 뒤 F7 자동 종료가 처음 도는 매시 정각대(UTC 분 0~4)에 종료된다.
