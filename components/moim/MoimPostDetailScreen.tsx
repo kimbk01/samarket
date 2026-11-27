@@ -207,7 +207,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
                   <p className="mt-1.5 whitespace-pre-wrap break-words pl-10 text-[14px] text-sam-fg">{c.body}</p>
                 </div>
                 {moim?.viewer.loggedIn ? (
-                  <button type="button" className="grid h-8 w-8 shrink-0 place-items-center text-sam-muted" aria-label={t("moim_comment_menu_aria")} onClick={() => setCommentMenu(c)}>
+                  <button type="button" className="-my-2 -mr-2 grid h-11 w-11 shrink-0 place-items-center text-sam-muted" aria-label={t("moim_comment_menu_aria")} onClick={() => setCommentMenu(c)}>
                     <MoreVertical className="h-4 w-4" aria-hidden />
                   </button>
                 ) : null}

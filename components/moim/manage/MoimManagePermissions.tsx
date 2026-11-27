@@ -14,6 +14,8 @@ import {
   type MoimRole,
 } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { MoimManageFrame, moimManageCardClass, moimManageSectionTitleClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
 
 /** 낮은 역할부터 (멤버 → 모임장) */
@@ -53,7 +55,7 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
   };
 
   return (
-    <div className="pb-6">
+    <div>
       <p className="px-4 pt-4 text-[13px] text-sam-muted">{t("moim_manage_perm_intro")}</p>
 
       <h2 className={moimManageSectionTitleClass}>{t("moim_manage_perm_adjustable_title")}</h2>
@@ -97,16 +99,18 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
         ))}
       </ul>
 
-      <div className="px-4 pt-5">
-        <button
-          type="button"
-          disabled={busy || changed.length === 0}
-          className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} rounded-ui-rect`}
-          onClick={() => void save()}
-        >
-          {t("moim_manage_save_btn")}
-        </button>
-      </div>
+      <MoimStickyFooter className="mt-5">
+        <div className={moimCls.column}>
+          <button
+            type="button"
+            disabled={busy || changed.length === 0}
+            className={`${moimCls.btnPrimary} w-full`}
+            onClick={() => void save()}
+          >
+            {t("moim_manage_save_btn")}
+          </button>
+        </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );
@@ -114,7 +118,7 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
 
 export function MoimManagePermissions({ moimId }: { moimId: string }) {
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_permissions_title" allow={(d) => d.can.edit_info}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_permissions_title" stickyFooter allow={(d) => d.can.edit_info}>
       {({ detail, reload }) => <PermissionsBody key={detail.updatedAt + JSON.stringify(detail.permissionOverrides)} detail={detail} reload={reload} />}
     </MoimManageFrame>
   );

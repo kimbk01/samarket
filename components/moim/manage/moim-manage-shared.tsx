@@ -9,6 +9,7 @@ import type { MainTier1Partial } from "@/contexts/MainTier1ExtrasContext";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimApiResult, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MoimRole } from "@/lib/moim/moim-permission-contract";
@@ -48,12 +49,15 @@ export function MoimManageFrame({
   backHref,
   allow,
   children,
+  stickyFooter = false,
 }: {
   moimId: string;
   titleKey: MessageKey;
   backHref?: string;
   allow: (detail: MoimDetailDto) => boolean;
   children: (ctx: MoimManageCtx) => ReactNode;
+  /** 본문 끝에 MoimStickyFooter(하단 고정 저장 줄)가 있으면 아래 여백을 두지 않는다 — 줄이 화면 아래에 붙게 (감사 F9) */
+  stickyFooter?: boolean;
 }) {
   const tier1 = useMemo<MainTier1Partial>(
     () => ({ titleText: titleKey, backHref: backHref ?? moimRoutes.manage(moimId) }),
@@ -70,7 +74,7 @@ export function MoimManageFrame({
   const { state, reload } = useMoimResource(load);
 
   return (
-    <div className="min-h-[60vh] bg-sam-app pb-24">
+    <div className={`min-h-[60vh] bg-sam-app ${stickyFooter ? "" : "pb-24"}`}>
       {state.status === "loading" ? <MoimManageLoading /> : null}
       {state.status === "error" ? <MoimManageError errorKey={state.errorKey} onRetry={reload} /> : null}
       {state.status === "ready" ? (
@@ -98,7 +102,7 @@ export function MoimManageError({ errorKey, onRetry }: { errorKey: MessageKey; o
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
       <p className="text-[14px] text-sam-fg">{t(errorKey)}</p>
-      <button type="button" className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} rounded-ui-rect`} onClick={onRetry}>
+      <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={onRetry}>
         {t("moim_manage_retry_btn")}
       </button>
     </div>
@@ -111,7 +115,7 @@ export function MoimManageForbidden({ moimId }: { moimId: string }) {
     <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
       <p className="text-[16px] font-semibold text-sam-fg">{t("moim_manage_forbidden_title")}</p>
       <p className="text-[14px] text-sam-muted">{t("moim_manage_forbidden_body")}</p>
-      <Link href={moimRoutes.home(moimId)} className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} mt-2 rounded-ui-rect`}>
+      <Link href={moimRoutes.home(moimId)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} mt-2`}>
         {t("moim_manage_back_to_group_btn")}
       </Link>
     </div>

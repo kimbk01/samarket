@@ -29,6 +29,8 @@ import type {
   MoimReceivedInviteDto,
   MoimViewerAreaDto,
 } from "@/lib/moim/moim-api-types";
+import { MOIM_TEXT_LIMITS_FALLBACK, type MoimTextLimitsDto } from "@/lib/moim/moim-api-types";
+import { normalizeMoimSearchQuery } from "@/lib/moim/moim-search-query";
 
 /**
  * 모임 읽기 (서버 전용, service_role). 보이는 범위는 여기서 정한다:
@@ -172,6 +174,40 @@ export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<M
   const { data } = await sb.from("moims").select(MOIM_COLS).in("id", ids).eq("status", "active");
   const rows = ((data ?? []) as MoimRow[]).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   return toCards(sb, rows, userId);
+}
+
+/** 정책 1행 · 프로세스 5분 캐시 — categories 요청 수를 늘리지 않는다(요청 예산 2.0 유지). 최종 판정은 서버 RPC */
+let moimTextLimitsCache: { at: number; value: MoimTextLimitsDto } | null = null;
+const MOIM_TEXT_LIMITS_TTL_MS = 5 * 60_000;
+
+function positiveIntOr(v: unknown, fallback: number): number {
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : fallback;
+}
+
+export async function loadMoimTextLimits(sb: SupabaseServer): Promise<MoimTextLimitsDto> {
+  const now = Date.now();
+  if (moimTextLimitsCache && now - moimTextLimitsCache.at < MOIM_TEXT_LIMITS_TTL_MS) return moimTextLimitsCache.value;
+  const { data, error } = await sb
+    .from("moim_policies")
+    .select("name_min_len, name_max_len, intro_min_len, intro_max_len")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) return MOIM_TEXT_LIMITS_FALLBACK;
+  const row = (data ?? {}) as Record<string, unknown>;
+  const f = MOIM_TEXT_LIMITS_FALLBACK;
+  const value: MoimTextLimitsDto = {
+    nameMin: positiveIntOr(row.name_min_len, f.nameMin),
+    nameMax: positiveIntOr(row.name_max_len, f.nameMax),
+    introMin: positiveIntOr(row.intro_min_len, f.introMin),
+    introMax: positiveIntOr(row.intro_max_len, f.introMax),
+  };
+  moimTextLimitsCache = { at: now, value };
+  return value;
+}
+
+/** 시험 전용 */
+export function __resetMoimTextLimitsCacheForTests() {
+  moimTextLimitsCache = null;
 }
 
 async function loadMoimClosedRetentionDays(sb: SupabaseServer): Promise<number | null> {
@@ -577,6 +613,35 @@ export async function listMoimPosts(
     nextBefore: rows.length > limit ? page[page.length - 1]?.created_at ?? null : null,
     ...(opts.pinnedNotice ? { noticeBoardId } : {}),
   };
+}
+
+/**
+ * 모임 안 검색어 → ilike 패턴 (시안 U4 ⌕ · 감사 F11). 공백을 자른 뒤 2~40자.
+ * PostgREST 필터 문법을 깨는 글자(쉼표·괄호·따옴표·역슬래시·별표)와 ilike 와일드카드(%·_)는 지운다. 안 되면 null.
+ */
+export function moimSearchPattern(raw: string | null | undefined): string | null {
+  const q = normalizeMoimSearchQuery(raw);
+  return q ? `%${q}%` : null;
+}
+
+/** 모임 안 검색 — 멤버만, 숨김·삭제 글 제외(글 목록과 같은 규칙), 제목·본문에 검색어, 최신순 */
+export async function searchMoimPosts(
+  sb: SupabaseServer,
+  access: MoimAccess,
+  viewerId: string | null,
+  pattern: string,
+  limit = 20
+): Promise<MoimPostDto[] | null> {
+  if (!access.role) return null;
+  const { data } = await sb
+    .from("moim_posts")
+    .select(POST_COLS)
+    .eq("moim_id", access.moim.id)
+    .eq("status", "active")
+    .or(`title.ilike.${pattern},body.ilike.${pattern}`)
+    .order("created_at", { ascending: false })
+    .limit(Math.min(Math.max(limit, 1), 20));
+  return toPosts(sb, access.moim.id, (data ?? []) as PostRow[], viewerId);
 }
 
 /** 글 1개 — 볼 수 있는 경우만 (멤버 전용 글은 멤버만) */

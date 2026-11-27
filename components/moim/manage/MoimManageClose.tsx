@@ -6,7 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { MoimManageFrame, moimManageCardClass, moimManageInputClass, useMoimManageToast } from "./moim-manage-shared";
 
 const POINTS: MessageKey[] = [
@@ -43,7 +44,7 @@ function CloseBody({ detail }: { detail: MoimDetailDto }) {
   };
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pt-4">
       <div className={`${moimManageCardClass} border-sam-danger p-4`}>
         <p className="text-[15px] font-semibold text-sam-fg">{t("moim_manage_close_heading")}</p>
         <ul className="mt-2 flex list-disc flex-col gap-1.5 pl-5 text-[14px] text-sam-fg">
@@ -63,14 +64,18 @@ function CloseBody({ detail }: { detail: MoimDetailDto }) {
         placeholder={detail.name}
         onChange={(e) => setTyped(e.target.value)}
       />
-      <button
-        type="button"
-        disabled={!matches || busy}
-        className={`${Sam.btn.dangerCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} mt-4 rounded-ui-rect`}
-        onClick={() => void close()}
-      >
-        {t("moim_manage_close_btn")}
-      </button>
+      <MoimStickyFooter className="-mx-4 mt-4">
+        <div className={moimCls.column}>
+          <button
+            type="button"
+            disabled={!matches || busy}
+            className={`${moimCls.btnDanger} w-full`}
+            onClick={() => void close()}
+          >
+            {t("moim_manage_close_btn")}
+          </button>
+        </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );
@@ -78,7 +83,7 @@ function CloseBody({ detail }: { detail: MoimDetailDto }) {
 
 export function MoimManageClose({ moimId }: { moimId: string }) {
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_close_title" allow={(d) => d.can.close}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_close_title" stickyFooter allow={(d) => d.can.close}>
       {({ detail }) => <CloseBody detail={detail} />}
     </MoimManageFrame>
   );

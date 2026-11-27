@@ -127,6 +127,25 @@ export async function listMoimSchedules(
   return toSchedules(sb, access, viewerId, (data ?? []) as ScheduleRow[]);
 }
 
+/** 모임 안 검색 (시안 U4 ⌕ · 감사 F11) — 멤버만, 제목에 검색어가 있는 일정, 최근 시작 순. `pattern` 은 `moimSearchPattern` 결과 */
+export async function searchMoimSchedules(
+  sb: SupabaseServer,
+  access: MoimAccess,
+  viewerId: string | null,
+  pattern: string,
+  limit = 20
+): Promise<MoimScheduleDto[] | null> {
+  if (!access.role) return null;
+  const { data } = await sb
+    .from("moim_schedules")
+    .select(SCHEDULE_COLS)
+    .eq("moim_id", access.moim.id)
+    .ilike("title", pattern)
+    .order("starts_at", { ascending: false })
+    .limit(Math.min(Math.max(limit, 1), 20));
+  return toSchedules(sb, access, viewerId, (data ?? []) as ScheduleRow[]);
+}
+
 /** 공개 페이지용: 다가오는 일정 제목·시간만 (비멤버도) */
 export async function listUpcomingScheduleTeasers(sb: SupabaseServer, moimId: string, limit = 3) {
   const { data } = await sb

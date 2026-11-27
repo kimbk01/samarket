@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { guardMoimRead } from "@/lib/moim/server/moim-route-guard.server";
-import { listMoimCategories, loadViewerMoimArea } from "@/lib/moim/server/moim-queries.server";
+import { listMoimCategories, loadMoimTextLimits, loadViewerMoimArea } from "@/lib/moim/server/moim-queries.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,9 +14,16 @@ export async function GET(req: NextRequest) {
   const g = await guardMoimRead(req, { rateKey: "categories" });
   if (!g.ok) return g.response;
   const withArea = req.nextUrl.searchParams.get("withArea") === "1";
-  const [categories, area] = await Promise.all([
+  /** 이름·소개 글자 수(감사 B11) — 만들기·정보 수정 화면이 같은 응답으로 받는다. 정책은 5분 캐시라 요청 수가 늘지 않는다 */
+  const [categories, area, limits] = await Promise.all([
     listMoimCategories(g.sb),
     withArea ? loadViewerMoimArea(g.sb, g.userId) : Promise.resolve(null),
+    loadMoimTextLimits(g.sb),
   ]);
-  return NextResponse.json({ ok: true, categories, ...(withArea ? { viewerArea: area?.dto ?? { status: "no_address" } } : {}) });
+  return NextResponse.json({
+    ok: true,
+    categories,
+    limits,
+    ...(withArea ? { viewerArea: area?.dto ?? { status: "no_address" } } : {}),
+  });
 }

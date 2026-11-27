@@ -6,6 +6,7 @@ import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-ove
 import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimJoinRequestDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimAvatar,
   MoimManageEmpty,
@@ -84,7 +85,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
               <button
                 type="button"
                 disabled={busyId === req.id}
-                className={`${Sam.btn.secondaryCombo} ${Sam.btn.disabledToken} flex-1 rounded-ui-rect`}
+                className={`${moimCls.btnDanger} flex-1`}
                 onClick={() => {
                   setReason("");
                   setRejectTarget(req);
@@ -95,7 +96,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
               <button
                 type="button"
                 disabled={busyId === req.id}
-                className={`${Sam.btn.primaryCombo} ${Sam.btn.disabledToken} flex-1 rounded-ui-rect`}
+                className={`${moimCls.btnPrimary} flex-1`}
                 onClick={() => void decide(req, true)}
               >
                 {t("moim_manage_approve_btn")}

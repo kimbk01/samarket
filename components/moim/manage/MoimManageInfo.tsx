@@ -6,8 +6,11 @@ import { philifeUploadImageUrl } from "@/lib/philife/api";
 import { uploadCommunityImageFile } from "@/lib/philife/client-image-resize";
 import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
+import { MOIM_TEXT_LIMITS_FALLBACK } from "@/lib/moim/moim-api-types";
 import { MOIM_TOPIC_MAX, MOIM_TOPIC_MIN, MoimCategoryField, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls, moimTextWithin } from "@/components/moim/moim-ui";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import {
   MoimManageFrame,
   moimManageCardClass,
@@ -17,10 +20,6 @@ import {
   useMoimResource,
 } from "./moim-manage-shared";
 
-const NAME_MIN = 2;
-const NAME_MAX = 30;
-const INTRO_MIN = 10;
-const INTRO_MAX = 1000;
 const QUESTIONS_MAX = 3;
 const QUESTION_MAX_LEN = 200;
 
@@ -43,6 +42,8 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
   const toast = useMoimManageToast();
   const loadCategories = useCallback(() => moimApi.categories(), []);
   const categories = useMoimResource(loadCategories);
+  /** 이름·소개 글자 수 = 운영 정책(categories 응답 · 감사 B11). 응답 전에는 서버 기본값 */
+  const limits = (categories.state.status === "ready" ? categories.state.data.limits : null) ?? MOIM_TEXT_LIMITS_FALLBACK;
 
   const [name, setName] = useState(detail.name);
   const [intro, setIntro] = useState(detail.intro);
@@ -76,8 +77,8 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
   const save = async () => {
     const nameT = name.trim();
     const introT = intro.trim();
-    if (nameT.length < NAME_MIN || nameT.length > NAME_MAX) return toast.showError("moim_name_length");
-    if (introT.length < INTRO_MIN || introT.length > INTRO_MAX) return toast.showError("moim_intro_length");
+    if (!moimTextWithin(nameT, limits.nameMin, limits.nameMax)) return toast.showError("moim_name_length");
+    if (!moimTextWithin(introT, limits.introMin, limits.introMax)) return toast.showError("moim_intro_length");
     const cap = parseOptionalInt(capacity);
     if (cap === "invalid" || (cap != null && cap < 2)) return toast.showError("moim_capacity_invalid");
     const from = parseOptionalInt(ageFrom);
@@ -140,13 +141,13 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
           <button
             type="button"
             disabled={uploading}
-            className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.btn.disabledToken} rounded-ui-rect`}
+            className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}
             onClick={() => fileRef.current?.click()}
           >
             {uploading ? t("moim_manage_info_cover_uploading") : t("moim_manage_info_cover_change_btn")}
           </button>
           {cover ? (
-            <button type="button" className={`${Sam.btn.ghostCombo} ${Sam.btn.sm} rounded-ui-rect`} onClick={() => setCover(null)}>
+            <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => setCover(null)}>
               {t("moim_manage_info_cover_remove_btn")}
             </button>
           ) : null}
@@ -158,8 +159,8 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
         <label className={label} htmlFor="moim-info-name">
           {t("moim_manage_info_name_label")}
         </label>
-        <input id="moim-info-name" className={`${moimManageInputClass} mt-2`} maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
-        <p className={hint}>{t("moim_manage_info_length_hint", { min: NAME_MIN, max: NAME_MAX, count: name.trim().length })}</p>
+        <input id="moim-info-name" className={`${moimManageInputClass} mt-2`} maxLength={limits.nameMax} value={name} onChange={(e) => setName(e.target.value)} />
+        <p className={hint}>{t("moim_manage_info_length_hint", { min: limits.nameMin, max: limits.nameMax, count: Array.from(name.trim()).length })}</p>
       </section>
 
       <section>
@@ -169,11 +170,11 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
         <textarea
           id="moim-info-intro"
           className={`${moimManageTextareaClass} mt-2 min-h-[140px]`}
-          maxLength={INTRO_MAX}
+          maxLength={limits.introMax}
           value={intro}
           onChange={(e) => setIntro(e.target.value)}
         />
-        <p className={hint}>{t("moim_manage_info_length_hint", { min: INTRO_MIN, max: INTRO_MAX.toLocaleString(language), count: intro.trim().length })}</p>
+        <p className={hint}>{t("moim_manage_info_length_hint", { min: limits.introMin, max: limits.introMax.toLocaleString(language), count: Array.from(intro.trim()).length })}</p>
       </section>
 
       <section>
@@ -245,7 +246,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
               />
               <button
                 type="button"
-                className={`${Sam.btn.ghostCombo} ${Sam.btn.sm} shrink-0 rounded-ui-rect`}
+                className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`}
                 onClick={() => setQuestions((prev) => prev.filter((_, j) => j !== i))}
               >
                 {t("moim_manage_info_question_remove_btn")}
@@ -255,7 +256,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
           {questions.length < QUESTIONS_MAX ? (
             <button
               type="button"
-              className={`${Sam.btn.outlineCombo} ${Sam.btn.sm} self-start rounded-ui-rect`}
+              className={`${moimCls.btnSecondary} ${moimCls.btnSm} self-start`}
               onClick={() => setQuestions((prev) => [...prev, ""])}
             >
               {t("moim_manage_info_question_add_btn")}
@@ -291,14 +292,18 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
         <p className={hint}>{t("moim_manage_info_age_hint")}</p>
       </section>
 
-      <button
-        type="button"
-        disabled={busy || uploading}
-        className={`${Sam.btn.primaryCombo} ${Sam.btn.block} ${Sam.btn.disabledToken} rounded-ui-rect`}
-        onClick={() => void save()}
-      >
-        {t("moim_manage_save_btn")}
-      </button>
+      <MoimStickyFooter className="-mx-4">
+        <div className={moimCls.column}>
+          <button
+            type="button"
+            disabled={busy || uploading}
+            className={`${moimCls.btnPrimary} w-full`}
+            onClick={() => void save()}
+          >
+            {t("moim_manage_save_btn")}
+          </button>
+        </div>
+      </MoimStickyFooter>
       {toast.node}
     </div>
   );
@@ -306,7 +311,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
 
 export function MoimManageInfo({ moimId }: { moimId: string }) {
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_info_title" allow={(d) => d.can.edit_info}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_info_title" stickyFooter allow={(d) => d.can.edit_info}>
       {({ detail, reload }) => <InfoForm key={detail.updatedAt} detail={detail} reload={reload} />}
     </MoimManageFrame>
   );
