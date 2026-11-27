@@ -20,8 +20,9 @@ vi.mock("@/lib/profile/fetch-me-profile-deduped", () => ({
   fetchMeProfileDeduped,
 }));
 
+const clearPostLogoutBfcacheGuard = vi.fn();
 vi.mock("@/lib/auth/client-session-wipe", () => ({
-  clearPostLogoutBfcacheGuard: vi.fn(),
+  clearPostLogoutBfcacheGuard,
   invalidateGuestCachesForFreshLogin,
 }));
 
@@ -49,9 +50,15 @@ describe("finishClientAuthLogin", () => {
     vi.unstubAllGlobals();
   });
 
-  it("primes session and consumes pending action without boot when token succeeds", async () => {
+  /**
+   * 「로그인 필요」 창 로그인도 공통 준비(손님 캐시·부팅 갱신 → 로그아웃 표시 삭제 → 세션 준비)를 거친다.
+   * 예전 단언(`invalidateGuestCachesForFreshLogin` 미호출)은 로그아웃 뒤 표시가 남고 부팅이 「익명」에 남는 결함을 고정하고 있었다
+   * (docs/audit/signup-mypage-skeleton-fix-design-2026-11-27.md §8).
+   */
+  it("pending token: common prepare (guest cache + boot upgrade, guard clear, prime) then consumes action without navigation", async () => {
     const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
     const onCloseModal = vi.fn();
+    const replace = vi.fn();
 
     vi.stubGlobal("window", {
       location: { replace: vi.fn(), origin: "https://example.com", pathname: "/" },
@@ -60,14 +67,76 @@ describe("finishClientAuthLogin", () => {
     await finishClientAuthLogin({
       pendingToken: "tok-1",
       onCloseModal,
+      router: { replace },
     });
 
+    expect(invalidateGuestCachesForFreshLogin).toHaveBeenCalledTimes(1);
+    expect(clearPostLogoutBfcacheGuard).toHaveBeenCalledTimes(1);
     expect(primeClientAuthSessionFromSupabase).toHaveBeenCalledTimes(1);
+    expect(invalidateGuestCachesForFreshLogin.mock.invocationCallOrder[0]).toBeLessThan(
+      primeClientAuthSessionFromSupabase.mock.invocationCallOrder[0]!,
+    );
+    expect(clearPostLogoutBfcacheGuard.mock.invocationCallOrder[0]).toBeLessThan(
+      primeClientAuthSessionFromSupabase.mock.invocationCallOrder[0]!,
+    );
     expect(consumePendingAuthAction).toHaveBeenCalledWith("tok-1");
+    expect(primeClientAuthSessionFromSupabase.mock.invocationCallOrder[0]).toBeLessThan(
+      consumePendingAuthAction.mock.invocationCallOrder[0]!,
+    );
     expect(onCloseModal).toHaveBeenCalledTimes(1);
     expect(clearStoredLoginRequiredDetail).toHaveBeenCalled();
-    expect(invalidateGuestCachesForFreshLogin).not.toHaveBeenCalled();
-    expect(ensureAppBoot).toHaveBeenCalledTimes(1);
+    expect(replace).not.toHaveBeenCalled();
+    // 부팅 재시작은 대기 동작보다 먼저 (대기 동작이 오래 걸리거나 실패해도 부팅이 「갱신 대기」에 머물지 않게)
+    expect(ensureAppBoot.mock.invocationCallOrder[0]).toBeLessThan(
+      consumePendingAuthAction.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("pending action that throws still leaves the boot restarted", async () => {
+    consumePendingAuthAction.mockRejectedValueOnce(new Error("action_failed"));
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/" },
+    });
+    await expect(finishClientAuthLogin({ pendingToken: "tok-3" })).rejects.toThrow("action_failed");
+    expect(ensureAppBoot).toHaveBeenCalled();
+  });
+
+  it("pending token not consumed: falls through to navigation without preparing twice", async () => {
+    consumePendingAuthAction.mockResolvedValueOnce(false);
+    const replace = vi.fn();
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/login" },
+    });
+
+    await finishClientAuthLogin({
+      pendingToken: "tok-gone",
+      redirectTo: "/market",
+      needsTermsAgreement: false,
+      signupComplete: true,
+      router: { replace },
+    });
+
+    expect(invalidateGuestCachesForFreshLogin).toHaveBeenCalledTimes(1);
+    expect(clearPostLogoutBfcacheGuard).toHaveBeenCalledTimes(1);
+    expect(primeClientAuthSessionFromSupabase).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/market");
+  });
+
+  it("pending token with native exchange sync failure throws and does not run the action", async () => {
+    syncCommonClientSessionAfterAuth.mockResolvedValueOnce(false);
+    const { finishClientAuthLogin, CommonClientSessionSyncError } = await import(
+      "@/lib/auth/finish-client-auth-login.client"
+    );
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/" },
+    });
+    await expect(
+      finishClientAuthLogin({ pendingToken: "tok-2", syncFromNativeExchangeCookies: true }),
+    ).rejects.toBeInstanceOf(CommonClientSessionSyncError);
+    expect(consumePendingAuthAction).not.toHaveBeenCalled();
   });
 
   it("uses exchange redirect without signup fetch when terms are already complete", async () => {

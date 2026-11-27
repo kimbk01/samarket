@@ -118,3 +118,41 @@ V1~V3 신규 가입에는 DIBAY 미가입 Google·카카오·Apple 계정이 각
 ## 7. 반영 절차·롤백
 Owner 설계 승인 → 구현(위 2파일 + 시험) → 로컬 검증 → PR → 보고 → Owner 「병합」 뒤 병합·운영 SHA 확인 → 실기.
 롤백: PR 되돌리기 1커밋 · 장애 시 Instant Rollback → `2203d00`.
+
+## 8. 최종 재감사 (2026-11-27 · PR #644 병합 전 · 병합 보류)
+독립 검토(코드만 받은 별도 에이전트) + 직접 재현.
+
+| 항목 | 결과 | 근거 |
+|---|---|---|
+| 원인 | 확인 | 표시가 있으면 값 저장 무시(`supabase-profile-cache.ts:23-27`) · 부품 `(main)` 전용 · 가입 단계 문서에서 부팅 끝 → 홈 앱 안 이동 때 `ensureAppBoot` 즉시 반환(`run-app-boot.ts:523`)이라 준비 신호 재발생 없음 |
+| 순서 | 확인 | 부품이 `AppBootProvider` 의 직계·`LaunchIntroRoot` 밖·`SupabaseAuthSync` 앞 → 부팅 시작 전에 리스너 등록. 부팅 준비 신호는 `setAppBootProfile` 안에서 동기, 두 부팅 분기 모두 값 저장보다 먼저(`run-app-boot.ts:196→199`, `484→487`) → 표시 삭제 직후 값 저장 성공(다른 재시도에 기대지 않음) |
+| 서버 콜백 로그인 전부 · 앱 안 완료 · 계정 전환 · 강제 로그아웃 | 수정됨/정상 | 위 순서 |
+| 중복 | 없음 | 루트 레이아웃 1개(`app/layout.tsx`)·마운트 1회 |
+| 누수·새로고침 반복 | 없음 | 리스너 2개 해제 정리 · 새로고침 뒤 `persisted=false` |
+| 병목·요청 | 0 증가 | 네트워크 호출 없음 |
+| 부수 동작 | 낮음 | `clearPostLogoutBfcacheGuard` 안 `resetAuthExitNavigateGuard()` 가 메인 밖 인증 준비 때도 실행 — 같은 경합이 메인에 이미 있었음(이동은 하드 이동) |
+| **P1 누락** | **FAIL (이번 PR 로 안 고쳐짐 · 설계 v2 §2-3 의 「정상」 판정은 내 오류)** | 「로그인 필요」 창 로그인(`finishClientAuthLogin` pendingToken 분기 `finish-client-auth-login.client.ts:128-137`)은 표시 삭제·부팅 갱신(`invalidateGuestCachesForFreshLogin`)을 둘 다 거치지 않음. 로그아웃 뒤 부팅은 「익명=준비됨」이라 `ensureAppBoot` 즉시 반환 → 준비 신호 0 → 표시 유지 → 값 저장 막힘. 실제 모듈 재현: `{"guard":"1","user":null,"boot":"anonymous","readyEvents":0}` (`app-prod-2203d00/repro-pending-token-after-logout.test.tsx.txt`). 로그아웃 없는 비회원도 이 분기에서는 부팅이 「익명」에 남는다(하단 사진 등 부팅 프로필 화면) — 값 저장은 됨 |
+| 시험 약함 | 보완 필요 | 옛 코드에서 실패하는 것은 T1(글자 검사)뿐. T2~T5 는 부품·함수를 직접 불러 수정 전후 모두 통과. T6 은 이번 원인과 무관(범위 밖) |
+
+### 8-1. 추가 수정안 (같은 원인 — 「로그인 완료인데 표시·부팅 갱신을 안 거치는 경로」)
+- `lib/auth/finish-client-auth-login.client.ts` pendingToken 분기: `runCommonAuthClientCompletion` 의 이동 전 단계(손님 캐시·부팅 갱신 `invalidateGuestCachesForFreshLogin` → 표시 삭제 `clearPostLogoutBfcacheGuard` → 앱 안 SDK 쿠키 동기화 `syncFromNativeExchangeCookies`)를 같은 순서로 거친 뒤 대기 동작 실행. 공통 단계는 `run-common-auth-client-completion.client.ts` 에 「이동 없는 준비」 함수로 빼서 두 곳이 같은 함수를 쓴다(복제 금지). Auth 소유 계약상 Completion 모듈 안 변경.
+- 시험 교체: T2~T5 를 실제 부팅(`ensureAppBoot` + 가짜 응답)으로 「가입 단계 문서 부팅 → 표시 삭제 → `getCurrentUser()` 값」을 확인하고 **옛 위치(메인 전용)에서는 실패**하게. P1 재현을 회귀 시험으로(수정 전 실패·후 통과). T6 삭제.
+- 실기 V7 은 이 수정 뒤 의미가 있다(지금은 FAIL 예상).
+
+## 9. §8-1 구현·2차 독립 재감사 (2026-11-27)
+구현(같은 PR #644):
+- `run-common-auth-client-completion.client.ts`: 공통 준비 `prepareCommonAuthClientSession`(손님 캐시·부팅 갱신 → 표시 삭제 → 세션 동기화/준비 → Android 쿠키 저장)을 빼고 일반 완료가 그대로 사용(순서·실패 반환·기록 동일). `prepared` 를 받으면 다시 준비하지 않음.
+- `finish-client-auth-login.client.ts` 대기 동작 분기: 같은 공통 준비 → **부팅 재시작(대기 동작보다 먼저)** → 대기 동작. 동작이 없으면 이미 한 준비를 넘겨 이동(준비 1회).
+- 시험: 루트 위치(T1) · 실제 부팅 R1(부품 있음 → 값 채움)·R2(부품 없음 → 빈 값 = 예전 상태) · 내정보 훅 T3 · 익명 유지 T4 · 「로그인 필요」 창 회귀(수정 빼면 실패 확인) · 준비 순서·1회·동기화 실패 시 동작 미실행·동작 실패에도 부팅 재시작. T6(범위 밖) 삭제.
+
+2차 독립 재감사(코드만 받은 별도 에이전트):
+| 항목 | 결과 |
+|---|---|
+| 일반 완료 추출 전후 동작 | 같음 (아이디·Google/카카오/Apple 앱 안·QR·Windows) |
+| Auth 소유 계약 6종 검사 | PASS |
+| 남은 「로그인됐는데 표시 남음」 경로 | 없음 (부팅이 `error` 로 끝나 준비가 안 되는 경우만 예전부터 같음) |
+| 너무 일찍 지움(뒤로 복원 보호 약화) | 없음 — 익명 준비에서는 유지 |
+| 중간 위험: 대기 동작 동안 부팅이 「갱신 대기」 | **수정함** — 대기 동작 전에 부팅 재시작 + 시험 2건 |
+| 낮음: 창 로그인 1회당 부팅 1회 추가 | 고치려는 동작 그 자체(예전엔 부팅이 「익명」에 남아 갱신 안 됨) — 일반 로그인 완료와 같은 횟수 |
+| 낮음: 창 로그인에도 통화 권한 안내 표시·가입/주소 문 재판정·앱 안 SDK 쿠키 동기화 | 일반 로그인과 같아짐(의도) · 동기화 실패 시 동작 미실행·재시도 가능 |
+| 낮음: 동기화 실패 전에 표시 삭제 | 일반 완료와 같은 기존 순서 |

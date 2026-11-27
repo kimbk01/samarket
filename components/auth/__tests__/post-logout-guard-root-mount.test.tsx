@@ -4,7 +4,10 @@
  * Android Apple·웹)이 가입 단계 화면(`/auth/onboarding/*`, 루트 레이아웃만)에서 부팅을 끝내도 표시를 지운다.
  * 예전: `(main)` 에만 있어 표시가 실행 끝까지 남고 `getCurrentUser()` 가 비어 내정보 카드 스켈레톤 고착·채팅·하트·신고 등이
  * 비회원처럼 동작(Owner iPhone 2026-11-27 08:57, 재시작하면 정상).
- * 근거 `docs/audit/signup-mypage-skeleton-root-cause-2026-11-27.md` · 설계 v2 `signup-mypage-skeleton-fix-design-2026-11-27.md` §6 T1~T6.
+ * 근거 `docs/audit/signup-mypage-skeleton-root-cause-2026-11-27.md` · 설계 `signup-mypage-skeleton-fix-design-2026-11-27.md` §6·§8.
+ *
+ * R1·R2 는 실제 앱 시작(`ensureAppBoot` → `run-app-boot` 프로필 적용)을 돌린다 — 부품이 있으면 값이 채워지고(수정 뒤),
+ * 없으면 비어 있다(가입 단계 화면의 예전 상태). T1 이 부품이 루트에 있음을 고정한다.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -12,12 +15,33 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/supabase/client", () => ({ getSupabaseClient: () => null }));
+const UID = "0d08ec52-c77e-45b8-96fd-f8a778633e6e";
+const GUARD = "samarket:post_logout_guard";
+const PROFILE = { id: UID, nickname: "가입회원", phone_verified: true };
+
+vi.mock("@/lib/supabase/client", () => ({
+  getSupabaseClient: () => ({
+    auth: {
+      getUser: async () => ({ data: { user: { id: UID, email: "new@member.test", user_metadata: {} } }, error: null }),
+      getSession: async () => ({ data: { session: { user: { id: UID } } } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    },
+  }),
+}));
+
+const fetchSpy = vi.fn(async (input: unknown) => {
+  const url = String(input);
+  if (url.includes("/api/me/profile")) {
+    return new Response(JSON.stringify({ ok: true, profile: PROFILE }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+});
 
 const ROOT = path.resolve(__dirname, "../../..");
 const read = (rel: string) => readFileSync(path.join(ROOT, rel), "utf8");
-const GUARD = "samarket:post_logout_guard";
-const UID = "user-after-signup";
 
 const mounted: Array<ReturnType<typeof createRoot>> = [];
 async function render(node: React.ReactNode) {
@@ -44,52 +68,61 @@ describe("T1 PostLogoutBfcacheGuard mount location", () => {
   });
 });
 
-describe("after logout (guard set)", () => {
+describe("after logout (guard set) — real app boot on the onboarding document", () => {
   beforeEach(() => {
     vi.resetModules();
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    fetchSpy.mockClear();
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
     sessionStorage.clear();
     sessionStorage.setItem(GUARD, "1");
   });
 
-  it("T2 server-callback signup: root guard clears on authenticated boot ready → user cache can be filled", async () => {
+  it("R1 guard mounted before boot (root layout) → boot ready clears it and fills the logged-in user", async () => {
     const { PostLogoutBfcacheGuard } = await import("@/components/auth/PostLogoutBfcacheGuard");
-    const cache = await import("@/lib/auth/supabase-profile-cache");
-    const boot = await import("@/lib/app-boot/app-boot-store");
+    await render(<PostLogoutBfcacheGuard />);
+    const { ensureAppBoot } = await import("@/lib/app-boot/run-app-boot");
+    await act(async () => {
+      await ensureAppBoot();
+    });
     const { getCurrentUser } = await import("@/lib/auth/get-current-user");
-    await render(<PostLogoutBfcacheGuard />); // 루트 — 가입 단계 문서에서도 부팅 전에 붙음
-    cache.setSupabaseProfileCache({ id: UID } as never); // 부팅 첫 시도 — 막힘
-    expect(getCurrentUser()).toBeNull();
-    await act(async () => boot.setAppBootProfile({ id: UID } as never));
+    const { getAppBootSnapshot } = await import("@/lib/app-boot/app-boot-store");
+    expect(getAppBootSnapshot().status).toBe("ready");
     expect(sessionStorage.getItem(GUARD)).toBeNull();
-    cache.setSupabaseProfileCache({ id: UID } as never); // SupabaseAuthSync 준비 신호 처리(사용자 확인 뒤)
     expect(getCurrentUser()?.id).toBe(UID);
   });
 
-  it("T3 MY home model mounted first (empty user) starts profile/address fetch once the user cache is filled + auth-changed", async () => {
-    const fetchSpy = vi.fn(async (..._a: unknown[]) => new Response("{}", { status: 500 }));
-    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+  it("R2 control — no guard component on the page (old /auth/onboarding state) → user stays empty", async () => {
+    const { ensureAppBoot } = await import("@/lib/app-boot/run-app-boot");
+    await act(async () => {
+      await ensureAppBoot();
+    });
+    const { getCurrentUser } = await import("@/lib/auth/get-current-user");
+    const { getAppBootSnapshot } = await import("@/lib/app-boot/app-boot-store");
+    expect(getAppBootSnapshot().status).toBe("ready");
+    expect(sessionStorage.getItem(GUARD)).toBe("1");
+    expect(getCurrentUser()).toBeNull();
+  });
+
+  it("T3 MY home model after that boot shows the profile card (no skeleton) and fetches nothing extra for profile", async () => {
     const { PostLogoutBfcacheGuard } = await import("@/components/auth/PostLogoutBfcacheGuard");
-    const cache = await import("@/lib/auth/supabase-profile-cache");
-    const boot = await import("@/lib/app-boot/app-boot-store");
-    const { dispatchTestAuthChanged } = await import("@/lib/auth/test-auth-store");
-    const { useMypageHomeModel } = await import("@/hooks/use-mypage-home-model");
     await render(<PostLogoutBfcacheGuard />);
+    const { ensureAppBoot } = await import("@/lib/app-boot/run-app-boot");
+    await act(async () => {
+      await ensureAppBoot();
+    });
+    const { useMypageHomeModel } = await import("@/hooks/use-mypage-home-model");
+    const seen: Array<{ id: string | null; failed: boolean }> = [];
     function Probe() {
-      useMypageHomeModel(true);
+      const m = useMypageHomeModel(true);
+      seen.push({ id: m.projection?.viewerId ?? null, failed: m.loadFailed || m.needsRelogin });
       return null;
     }
     await render(<Probe />);
-    await act(async () => new Promise((r) => setTimeout(r, 50)));
-    const urls = () => fetchSpy.mock.calls.map((c) => String(c[0]));
-    expect(urls().filter((u) => /api\/me\/(profile|address-defaults)/.test(u))).toEqual([]); // 값 없음 → 대기
-    await act(async () => boot.setAppBootProfile({ id: UID } as never)); // 부팅 준비 → 표시 삭제
-    await act(async () => {
-      cache.setSupabaseProfileCache({ id: UID } as never);
-      dispatchTestAuthChanged(); // SupabaseAuthSync 가 값을 넣은 뒤 보내는 신호
-      await new Promise((r) => setTimeout(r, 300));
-    });
-    expect(urls().some((u) => u.includes("/api/me/address-defaults"))).toBe(true);
+    await act(async () => new Promise((r) => setTimeout(r, 300)));
+    const last = seen[seen.length - 1]!;
+    expect(last.id).toBe(UID);
+    expect(last.failed).toBe(false);
   });
 
   it("T4 anonymous boot ready (logout → login screen) keeps the guard", async () => {
@@ -98,50 +131,5 @@ describe("after logout (guard set)", () => {
     await render(<PostLogoutBfcacheGuard />);
     await act(async () => boot.setAppBootAnonymous());
     expect(sessionStorage.getItem(GUARD)).toBe("1");
-  });
-
-  it("T5 in-app login completion path (clearPostLogoutBfcacheGuard) still lets the cache fill", async () => {
-    const wipe = await import("@/lib/auth/client-session-wipe");
-    const cache = await import("@/lib/auth/supabase-profile-cache");
-    const { getCurrentUser } = await import("@/lib/auth/get-current-user");
-    wipe.clearPostLogoutBfcacheGuard();
-    cache.setSupabaseProfileCache({ id: UID } as never);
-    expect(getCurrentUser()?.id).toBe(UID);
-  });
-});
-
-describe("T6 post detail ⋯ hide author runs once when the user value exists", () => {
-  it("calls blockUser once without re-entering the login gate", async () => {
-    vi.resetModules();
-    sessionStorage.clear();
-    const blockUser = vi.fn(async () => undefined);
-    const requireAction = vi.fn(async () => true);
-    vi.doMock("@/lib/reports/user-blocks-client", () => ({ blockUser }));
-    vi.doMock("@/hooks/use-require-auth-action", () => ({ useRequireAuthAction: () => requireAction }));
-    vi.doMock("@/components/i18n/AppLanguageProvider", () => ({
-      useI18n: () => ({ t: (k: string) => k, safeT: (k: string) => k }),
-    }));
-    vi.doMock("@/components/ui/dibay-overlay", () => ({
-      dibayAlert: vi.fn(async () => undefined),
-      DibayBottomSheet: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      DibayOverlayButton: ({ children, onClick }: { children: React.ReactNode; onClick: () => void }) => (
-        <button type="button" onClick={onClick}>
-          {children}
-        </button>
-      ),
-    }));
-    const cache = await import("@/lib/auth/supabase-profile-cache");
-    cache.setSupabaseProfileCache({ id: UID } as never);
-    const { PostDetailMoreBottomSheet } = await import("@/components/post/PostDetailMoreBottomSheet");
-    const { host } = await render(
-      <PostDetailMoreBottomSheet open onClose={() => {}} onSelectReport={() => {}} authorUserId="author-1" />,
-    );
-    const hide = Array.from(host.querySelectorAll("button")).find((b) => b.textContent?.includes("popup_menu_hide_author_posts"));
-    await act(async () => {
-      hide!.click();
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    expect(blockUser).toHaveBeenCalledTimes(1);
-    expect(requireAction).not.toHaveBeenCalled();
   });
 });

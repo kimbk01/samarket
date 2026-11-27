@@ -1,8 +1,11 @@
 "use client";
 
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
-import { primeClientAuthSessionFromSupabase } from "@/lib/auth/auth-session-immediate.client";
-import { runCommonAuthClientCompletion } from "@/lib/auth/completion/run-common-auth-client-completion.client";
+import {
+  prepareCommonAuthClientSession,
+  runCommonAuthClientCompletion,
+  type PrepareCommonAuthClientSessionResult,
+} from "@/lib/auth/completion/run-common-auth-client-completion.client";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import {
   clearStoredLoginRequiredDetail,
@@ -125,8 +128,26 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   if (typeof window === "undefined") return;
   bumpAuthLifecycleCounter("finishClientAuthLogin");
 
+  let prepared: Extract<PrepareCommonAuthClientSessionResult, { ok: true }> | undefined;
   if (pendingToken?.trim()) {
-    await primeClientAuthSessionFromSupabase();
+    /**
+     * 「로그인 필요」 창 로그인 — 다른 앱 안 로그인과 같은 공통 준비(손님 캐시·부팅 갱신 → 로그아웃 표시 삭제 → 세션 동기화).
+     * 예전에는 세션 준비만 해서 로그아웃 뒤 표시가 남아 로그인 사용자 값이 막히고 부팅이 「익명」에 남았다
+     * (docs/audit/signup-mypage-skeleton-fix-design-2026-11-27.md §8).
+     */
+    const result = await prepareCommonAuthClientSession({
+      syncFromNativeExchangeCookies: input.syncFromNativeExchangeCookies === true,
+    });
+    if (!result.ok) {
+      if (result.reason === "client_session_sync_failed") throw new CommonClientSessionSyncError();
+      throw new CommonAuthCompletionError(result.reason);
+    }
+    prepared = result;
+    /**
+     * 준비가 부팅을 「갱신 대기」로 돌렸다 — 대기 동작(권한 창·프로필 완성 등 오래 걸리거나 실패할 수 있음)보다 먼저 부팅을 다시 시작해
+     * 부팅이 대기 상태에 머물지 않게 한다(일반 완료의 `scheduleNonBlockingPostLoginWork` 와 같은 위치 · 진행 중이면 합류).
+     */
+    void ensureAppBoot();
     const consumed = await consumePendingAuthAction(pendingToken);
     clearStoredLoginRequiredDetail();
     onCloseModal?.();
@@ -155,6 +176,7 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
     router,
     onCloseModal,
     syncFromNativeExchangeCookies: input.syncFromNativeExchangeCookies === true,
+    prepared,
   });
   if (!completion.ok && completion.reason === "client_session_sync_failed") {
     throw new CommonClientSessionSyncError();
