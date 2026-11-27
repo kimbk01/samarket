@@ -1,0 +1,944 @@
+raw-error	app/(main)/mypage/ads/feed-request/page.tsx	578	setErr(j.error ? t(feedAdMemberErrorKey(j.error)) : unknownMsg);	FALSE_POSITIVE	j.error 코드를 feedAdMemberErrorKey 로 키 변환 후 t()	
+raw-error	app/(main)/mypage/ads/feed-request/page.tsx	581	const code = j.error ?? "failed";	FALSE_POSITIVE	code→feedAdMemberErrorKey→t() (page.tsx:583)	
+raw-error	app/(main)/mypage/points/page.tsx	304	setLoadError(json?.error ?? "points_load_failed");	FALSE_POSITIVE	loadError 는 존재 여부만 사용, 화면은 t("mypage_oa_points_load_failed") (page.tsx:551-555)	
+hangul	app/(main)/mypage/points/page.tsx	448	시작일이 종료일보다 늦습니다	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (page.tsx:448) — SSOT 신규금지 형태지만 노출 없음	
+hangul	app/(main)/mypage/points/page.tsx	449	시작일과 종료일을 모두 고르세요	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (page.tsx:449)	
+hangul	app/(main)/mypage/points/page.tsx	566	기간 내 신청	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (page.tsx:566)	
+hangul	app/(main)/mypage/points/page.tsx	567	입금 신청 ${pendingCharges}	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (page.tsx:567)	
+hangul	app/(main)/mypage/points/page.tsx	587	기간과 관계없이 취소할 수 있는 입금 신청입니다.	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (page.tsx:587)	
+hangul	app/(main)/mypage/points/promotions/page.tsx	341	시작일이 종료일보다 늦습니다	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (promotions/page.tsx:341)	
+hangul	app/(main)/mypage/points/promotions/page.tsx	342	시작일과 종료일을 모두 고르세요	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (promotions/page.tsx:342)	
+raw-error	app/(main)/stores/owner/apply/page.tsx	247	const code = String(json?.error ?? (res.status === 401 ? "unauthorized" : ""));	FALSE_POSITIVE	code→storeApplicationErrorKey→t() (apply/page.tsx:248)	
+hangul	app/api/ads/active/route.ts	134	서버 설정(Supabase)이 없어 광고를 조회하지 못했습니다.	HARMLESS_CODE_USED	meta.hint — 호출 화면(CommunityFeed.tsx:1191·CommunityInlineAdCard.tsx:34)이 ads 만 읽음	
+hangul	app/api/ads/apply/route.ts	86	${product.name} 광고 구매	STORED	point_ledger.description 저장 → 내 포인트 내역 부제(PointFinancialHistoryList.tsx:29-32) ko 표시, en 은 한글 부제 숨김(빈칸)	description 대신 related_type·상품 id 저장, 부제는 키+값으로 그림
+hangul	app/api/ads/apply/route.ts	121	${product.name} 신청 실패 환불	STORED	point_ledger.description 저장 → 내 포인트 내역 부제(PointFinancialHistoryList.tsx:29-32) ko 표시, en 은 한글 부제 숨김(빈칸)	description 대신 related_type·상품 id 저장, 부제는 키+값으로 그림
+hangul	app/api/me/gift-certificates/friends/eligible/route.ts	17	친구 목록 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	429 문장 — WalletGiftFriendPicker.tsx:58-63 이 friends 만 읽고 error 무시	
+hangul	app/api/me/rider/location/route.ts	22	위치 업데이트가 너무 잦습니다. 잠시 후 다시 시도해 주세요.	HARMLESS_CODE_USED	429 문장 — RiderOrderDetailClient.tsx:140 응답을 읽지 않음(fire-and-forget)	
+hangul	app/api/me/rider/orders/[orderId]/pod-upload/route.ts	94	delivery-proofs 버킷 및 마이그레이션(20260519120000, 20260520120000) 적용 여부를 확인하세요.	HARMLESS_CODE_USED	hint 필드 — RiderOrderDetailClient.tsx:84 는 error 코드만 읽음(코드 노출은 158·159 행 참고)	
+hangul	app/api/me/stores/[storeId]/order-chats/route.ts	75	매장	EXPOSED	매장명 없을 때 「매장」 → headline → 메신저 방 머리 deliveryHeadline (CommunityMessengerRoomPhase2Header.tsx:144)	서버는 storeName 빈 값, 화면에서 키 store_owner_store_fallback
+hangul	app/api/me/stores/[storeId]/order-chats/route.ts	163	${storeName} · 주문 ${o.order_no}	EXPOSED	「{매장} · 주문 {번호}」 headline → 메신저 방 머리 (CommunityMessengerRoomPhase2Header.tsx:144)	headline 비우고 orderNo 만 전달, 화면 키 store_messenger_order_fallback(번호 치환)
+hangul	app/api/me/stores/[storeId]/order-chats/route.ts	183	주문 채팅	EXPOSED	last_message_preview 대체 문구 → 사장님 주문 채팅 목록 (OwnerStoreOrderChatsView.tsx:173)	서버는 빈 값, 화면에서 키로 대체
+hangul	app/api/posts/[postId]/owner-delete/route.ts	28	서버 설정이 필요합니다.	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-delete/route.ts	34	postId 필요	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-delete/route.ts	58	글 조회 오류: ${postErr.message}	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-delete/route.ts	63	상품을 찾을 수 없습니다.	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-delete/route.ts	69	본인 글만 삭제할 수 있습니다.	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-delete/route.ts	99	이 상태에서는 삭제할 수 없습니다. 숨김 처리를 이용해 주세요.	HARMLESS_CODE_USED	lockKey 동반 — 화면은 t(lockKey) 우선 (PostCard.tsx:711·PostDetailView.tsx:978·MyProductsView.tsx:234)	
+hangul	app/api/posts/[postId]/owner-delete/route.ts	117	삭제에 실패했습니다.	EXPOSED	owner-delete error 문장 → 판매자 삭제 실패 팝업 description (PostCard.tsx:712·PostDetailView.tsx:979)	서버 code(예 post_not_found·not_owner·server_unconfigured·delete_failed) + 화면 키 표
+hangul	app/api/posts/[postId]/owner-edit/route.ts	32	서버 설정이 필요합니다.	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-edit/route.ts	38	postId 필요	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-edit/route.ts	47	글을 찾을 수 없습니다.	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-edit/route.ts	52	본인 글만 수정할 수 있습니다.	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-edit/route.ts	61	이 글은 지금 수정할 수 없습니다.	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-edit/route.ts	68	카테고리 정보가 없습니다.	EXPOSED	owner-edit GET error 문장 → 상품 수정 화면 오류 본문 (ProductTradeEditPageClient.tsx:61-73 → :151)	서버 code + 화면 키 표(ui_product_edit_*)
+hangul	app/api/posts/[postId]/owner-status/route.ts	37	서버 설정이 필요합니다.	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 은 code 있을 때만 error 표시, PostDetailView.tsx:949·메신저 :307 은 키만	
+hangul	app/api/posts/[postId]/owner-status/route.ts	49	postId 필요	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-status/route.ts	59	판매완료한 글은 판매중으로 되돌릴 수 없습니다.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	70	예약 기능은 제공하지 않습니다. 판매완료만 할 수 있습니다.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	80	거래완료는 채팅의 판매완료(seller-complete)로만 처리할 수 있습니다.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	88	postId, status(active|hidden) 필요	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트, 다른 호출처도 키만	
+hangul	app/api/posts/[postId]/owner-status/route.ts	101	글 조회 오류: ${postErr.message}	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트, 다른 호출처도 키만	
+hangul	app/api/posts/[postId]/owner-status/route.ts	106	상품을 찾을 수 없습니다.	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트, 다른 호출처도 키만	
+hangul	app/api/posts/[postId]/owner-status/route.ts	115	판매자만 변경할 수 있습니다.	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트, 다른 호출처도 키만	
+hangul	app/api/posts/[postId]/owner-status/route.ts	128	운영 정책에 따라 숨김 처리된 글입니다. 고객센터로 문의해 주세요.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210) (code admin_hidden)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	138	삭제한 글은 다시 보이게 할 수 없습니다.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210) (code owner_deleted)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	160	저장 실패	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-status/route.ts	191	글 조회 오류: ${postErr.message}	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-status/route.ts	193	상품을 찾을 수 없습니다.	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-status/route.ts	203	판매자만 변경할 수 있습니다.	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-status/route.ts	208	운영 정책에 따라 숨김 처리된 글입니다. 고객센터로 문의해 주세요.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210) (code admin_hidden)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	214	삭제한 글입니다.	EXPOSED	code 동반 error 문장 → 내 상품 토스트 그대로 표시 (MyProductsView.tsx:208-210) (code owner_deleted)	화면에서 code(sold_is_final 등)→키 표, 서버 문장 제거
+hangul	app/api/posts/[postId]/owner-status/route.ts	235	저장 실패	HARMLESS_CODE_USED	code 없음 — MyProductsView.tsx:208-210 키 토스트	
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	71	서버 설정이 필요합니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	81	postId 필요	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	93	JSON 본문이 필요합니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	121	글을 찾을 수 없습니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	126	본인 글만 수정할 수 있습니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	137	이 상태에서는 수정할 수 없습니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	237	이 상태에서는 수정할 수 없습니다.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	252	사진을 1장 이상 올려 주세요.	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	app/api/posts/[postId]/owner-trade-update/route.ts	320	저장 실패	EXPOSED	owner-trade-update error → updateTradePost.ts:65 그대로 → 글 수정 제출 오류 (TradeWriteForm.tsx:1992·:3266)	서버 code + updateTradePost 에서 키 변환, 화면 t()
+hangul	components/business/OwnerStoreProfileForm.tsx	312	휴무	HARMLESS_DATA	business_hours_json 에서 지울 옛 키 이름(데이터 키)	
+raw-error	components/business/OwnerStoreProfileForm.tsx	750	setError(res.message);	FALSE_POSITIVE	res.message 는 DeliveryServiceAreaEditorCore.tsx:486-494 에서 t(serviceAreaErrorKey()) 로 만든 문구	
+raw-error	components/business/owner/OwnerCareAdminNotesList.tsx	77	setError(j.error ?? "load_failed");	RAW_ERROR_EXPOSED	j.error 코드(invalid_id·forbidden 등)를 그대로 표시 (OwnerCareAdminNotesList.tsx:107)	resolveOwnerApiErrorMessage 또는 키 표로
+raw-error	components/business/owner/OwnerCareAdminNotesThread.tsx	45	setError(j.error ?? "load_failed");	RAW_ERROR_EXPOSED	j.error 코드 그대로 표시 (OwnerCareAdminNotesThread.tsx:71)	resolveOwnerApiErrorMessage 또는 키 표로
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	46	지금은 Coin 전환이 중지되어 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	49	전환할 Coin을 입력해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	51	한 번에 최소 ${min ?? "-"} Coin부터 전환할 수 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	53	${unit ?? "-"} Coin 단위로만 전환할 수 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	55	오늘 전환 가능 횟수를 모두 사용했습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	57	이번 주 전환 가능 횟수를 모두 사용했습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	59	이번 달 전환 가능 횟수를 모두 사용했습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	61	오늘 전환 가능한 Coin 한도를 넘습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	63	이번 달 전환 가능한 Coin 한도를 넘습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	65	직전 전환 후 정해진 시간이 지나야 다시 전환할 수 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	69	보유 Coin이 부족합니다${have == null ? "" : 	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	74	이 수량으로는 받을 Cash가 ₱0.00 입니다. 수량을 늘려 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	76	전환율이 바뀌었습니다. 새 전환율로 다시 미리보기한 뒤 확인해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	79	전환 정책을 확인할 수 없어 지금은 전환할 수 없습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	82	매장 사장님만 전환할 수 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	84	요청이 겹쳤습니다. 새로고침한 뒤 다시 시도해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinConvertSection.tsx:43) — SSOT 인라인 {ko,en} 금지 형태	
+raw-error	components/business/owner/OwnerCoinConvertSection.tsx	127	if (!res.ok || !json.ok || !json.quote) return { ok: false, error: json.error ?? "quote_unavailable" };	FALSE_POSITIVE	코드 → reason() = ownerCoinConvertReason‖resolveOwnerApiErrorMessage (OwnerCoinConvertSection.tsx:108-111); API 는 코드만	
+raw-error	components/business/owner/OwnerCoinConvertSection.tsx	143	setPolicyError(r.error);	FALSE_POSITIVE	policyError 코드 → reason(policyError) (OwnerCoinConvertSection.tsx:261)	
+raw-error	components/business/owner/OwnerCoinConvertSection.tsx	207	reason(json.error ?? "convert_failed", {	FALSE_POSITIVE	reason(json.error) 로 언어별 문구 (OwnerCoinConvertSection.tsx:207)	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	235	최소 ${p.minimumCoin.toLocaleString(locale)} Coin	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	236	${p.conversionUnit} Coin 단위	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	239	하루 ${L.maximumConversionsPerDay}회 (오늘 ${p.usage.dayCount}회)	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	241	주 ${L.maximumConversionsPerWeek}회 (이번 주 ${p.usage.weekCount}회)	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	243	월 ${L.maximumConversionsPerMonth}회 (이번 달 ${p.usage.monthCount}회)	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	245	하루 ${L.dailyLimitCoin.toLocaleString(locale)} Coin (오늘 ${p.usage.dayCoin.toLocaleString(lo	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	247	월 ${L.monthlyLimitCoin.toLocaleString(locale)} Coin (이번 달 ${p.usage.monthCoin.toLocaleStri	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	249	전환 간격 ${L.minimumIntervalHours}시간	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinConvertSection.tsx	368	${COIN_TO_CASH_LABEL_KO}(Coin→Cash)과 ${COIN_WITHDRAWAL_LABEL_KO}(Coin 지급)은 다른 기능입니다. 미리보기는	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	58	출금할 Coin을 1 이상으로 입력해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	62	출금 가능한 Coin보다 많습니다${available == null ? "" : 	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	66	Coin 잔액을 확인할 수 없어 지금은 신청할 수 없습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	68	GCash 번호와 예금주 이름을 입력해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	70	은행명·계좌번호·예금주 이름을 입력해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	72	지급 방법을 선택해 주세요.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+hangul	components/business/owner/OwnerCoinWithdrawalPanel.tsx	75	매장 사장님만 출금을 신청할 수 있습니다.	FALSE_POSITIVE	ownerUiCopy(language,ko,en) 언어별 분기 (OwnerCoinWithdrawalPanel.tsx:54)	
+raw-error	components/business/owner/OwnerProductForm.tsx	447	setError(json?.error ?? t("business_phase7_352"));	FALSE_POSITIVE	error 코드는 화면에서 resolveOwnerApiErrorMessage 로 그림 (OwnerProductForm.tsx:883); API(products/[productId]) 는 코드만	
+raw-error	components/business/owner/OwnerProductForm.tsx	468	setError(json?.error ?? t("business_phase7_353"));	FALSE_POSITIVE	같은 경로 (OwnerProductForm.tsx:883)	
+raw-error	components/business/owner/OwnerStoreCouponCreatePanel.tsx	124	const raw = String(json.error ?? "");	RAW_ERROR_EXPOSED	밑줄 없는 코드(unauthorized 등)는 looksLikeRawOperatorToken 이 못 걸러 그대로 표시 (OwnerStoreCouponCreatePanel.tsx:125)	ownerCouponErrorMessage(json.error,t) 로 통일
+raw-error	components/business/owner/OwnerStoreCouponsView.tsx	172	setActionError(ownerCouponErrorMessage(json?.error ?? null, t));	FALSE_POSITIVE	ownerCouponErrorMessage → 키 또는 resolveOwnerApiErrorMessage (owner-coupon-feedback.ts:19-23); API 는 코드만	
+raw-error	components/business/owner/OwnerStoreOrderChatsView.tsx	82	message: payload.json.error ?? t("store_owner_err_load_list"),	RAW_ERROR_EXPOSED	json.error 코드(missing_store_id·gate 코드 등) 그대로 표시 (OwnerStoreOrderChatsView.tsx:126)	resolveOwnerApiErrorMessage(json.error,t)
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	일	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	월	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	화	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	수	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	목	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	금	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreOrdersMobileBody.tsx	50	토	FALSE_POSITIVE	language==='ko' 일 때만 한글 요일, 아니면 영어 (OwnerStoreOrdersMobileBody.tsx:50)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	105	일별은 최대 ${STORE_SALES_DAY_MAX_DAYS}일까지 볼 수 있습니다. 기간을 줄이거나 월별로 보세요.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	201	환불 ${totals.refundedCount}건 ${formatMoneyPhp(totals.refundedPhp)} 차감	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	208	${totals.completedCount}건	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	209	들어온 주문 ${totals.createdCount}건	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	214	매출 ÷ 완료 ${totals.completedCount}건	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	235	날짜	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerStoreSalesView.tsx	235	월	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (OwnerStoreSalesView.tsx)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	일	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	월	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	화	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	수	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	목	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	금	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+hangul	components/business/owner/OwnerWalletHistory.tsx	28	토	FALSE_POSITIVE	WEEKDAY_KO/WEEKDAY_EN 를 ko 여부로 고름 (OwnerWalletHistory.tsx:28-29)	
+raw-error	components/business/owner/ads/OwnerBannerCreateView.tsx	403	setError(prepared.error);	FALSE_POSITIVE	prepared.error 는 코드(file_too_large) → 화면 키 (OwnerBannerCreateView.tsx:626-633)	
+raw-error	components/business/owner/ads/OwnerBannerCreateView.tsx	593	: actionJson.quoteError || actionJson.error || "generic"	FALSE_POSITIVE	코드 → t(ownerAdErrorKey()) (OwnerBannerCreateView.tsx:633)	
+raw-error	components/business/owner/ads/OwnerDeliveryAdDetailView.tsx	233	setError(json.error || "forbidden");	FALSE_POSITIVE	코드 → t(ownerAdErrorKey()) (OwnerDeliveryAdDetailView.tsx:565)	
+raw-error	components/business/owner/ads/OwnerDeliveryAdDetailView.tsx	439	setError(json.error || "generic");	FALSE_POSITIVE	코드 → t(ownerAdErrorKey()) (OwnerDeliveryAdDetailView.tsx:565)	
+raw-error	components/business/owner/ads/OwnerDeliveryAdPartnerView.tsx	97	setError(json.error ?? "load_failed");	RAW_ERROR_EXPOSED	일반 문구 뒤에 「(코드)」 그대로 붙여 표시 (OwnerDeliveryAdPartnerView.tsx:263)	괄호 코드 제거, ownerAdErrorKey 로 키
+raw-error	components/business/owner/ads/OwnerDeliveryAdPartnerView.tsx	162	setError(json.error ?? "action_failed");	RAW_ERROR_EXPOSED	같은 표시 (OwnerDeliveryAdPartnerView.tsx:263)	괄호 코드 제거, ownerAdErrorKey 로 키
+raw-error	components/business/owner/ads/OwnerDeliveryAdsHubView.tsx	140	setError(json.error || "load_failed");	FALSE_POSITIVE	error 여부만 보고 owner_ads_error_generic 표시 (OwnerDeliveryAdsHubView.tsx:375-377)	
+raw-error	components/business/owner/ads/OwnerDeliveryAdsHubView.tsx	227	setActionError(json.error || "delete_failed");	FALSE_POSITIVE	actionError 여부만 보고 일반 문구 (OwnerDeliveryAdsHubView.tsx:381-383)	
+raw-error	components/business/owner/ads/OwnerEventPromotionDetailClient.tsx	45	setError(json.error || "load_failed");	RAW_ERROR_EXPOSED	json.error 코드(load_failed 등) 그대로 표시 (OwnerEventPromotionDetailClient.tsx:162·172)	코드→키 표(ownerAdErrorKey 류) 로
+raw-error	components/business/owner/ads/OwnerEventPromotionDetailClient.tsx	87	setError(json.error || "save_failed");	RAW_ERROR_EXPOSED	json.error 코드(load_failed 등) 그대로 표시 (OwnerEventPromotionDetailClient.tsx:172)	코드→키 표
+raw-error	components/business/owner/ads/OwnerEventPromotionDetailClient.tsx	112	setError(json.error || "submit_failed");	RAW_ERROR_EXPOSED	json.error 코드(load_failed 등) 그대로 표시 (OwnerEventPromotionDetailClient.tsx:172)	코드→키 표
+raw-error	components/business/owner/ads/OwnerEventPromotionDetailClient.tsx	148	setError(json.error === "file_too_large" ? tooLarge() : json.error || "upload_failed");	RAW_ERROR_EXPOSED	file_too_large 외 코드 그대로 (OwnerEventPromotionDetailClient.tsx:172)	코드→키 표
+raw-error	components/business/owner/ads/OwnerEventPromotionListClient.tsx	30	setError(json.error || "load_failed");	RAW_ERROR_EXPOSED	json.error 코드(load_failed 등) 그대로 표시 (OwnerEventPromotionListClient.tsx:83)	코드→키 표
+raw-error	components/business/owner/ads/OwnerEventPromotionListClient.tsx	59	setError(json.error || "create_failed");	RAW_ERROR_EXPOSED	json.error 코드(load_failed 등) 그대로 표시 (OwnerEventPromotionListClient.tsx:83)	코드→키 표
+raw-error	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	228	setError(json.error || "create_failed");	FALSE_POSITIVE	코드 → safeT(ownerPopupErrorKey()) (OwnerPlatformPopupApplyView.tsx:495)	
+raw-error	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	243	setError(cta.error);	FALSE_POSITIVE	코드 → safeT(ownerPopupErrorKey()) (OwnerPlatformPopupApplyView.tsx:495)	
+raw-error	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	265	setError(json.error || "save_failed");	FALSE_POSITIVE	코드 → safeT(ownerPopupErrorKey()) (OwnerPlatformPopupApplyView.tsx:495)	
+raw-error	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	315	setError(json.error || "upload_failed");	FALSE_POSITIVE	코드 → safeT(ownerPopupErrorKey()) (OwnerPlatformPopupApplyView.tsx:495)	
+raw-error	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	362	setError(json.error || "submit_failed");	FALSE_POSITIVE	코드 → safeT(ownerPopupErrorKey()) (OwnerPlatformPopupApplyView.tsx:495)	
+raw-error	components/business/owner/ads/OwnerPlatformPopupRequestDetailView.tsx	49	setError(json.error || "load_failed");	RAW_ERROR_EXPOSED	error 코드 그대로·없으면 「not_found」 (OwnerPlatformPopupRequestDetailView.tsx:90)	ownerPopupErrorKey 로 키
+raw-error	components/business/owner/ads/OwnerPlatformPopupRequestDetailView.tsx	76	setError(json.error || "cancel_failed");	RAW_ERROR_EXPOSED	error 코드 그대로 (OwnerPlatformPopupRequestDetailView.tsx:119)	ownerPopupErrorKey 로 키
+raw-error	components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx	562	: actionJson.quoteError || actionJson.error || "generic"	FALSE_POSITIVE	코드 → t(ownerAdErrorKey()) (OwnerStoreSponsoredCreateView.tsx:575-576)	
+raw-error	components/business/owner/use-owner-store-order-review-load.ts	58	setLoadErr(result.error ?? "load_failed");	FALSE_POSITIVE	loadErr → resolveOwnerApiErrorMessage (OwnerStoreOrderReviewBlock.tsx:161)	
+hangul	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	67	시작일이 종료일보다 늦습니다	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (CustomerGiftWalletBody.tsx:67)	
+hangul	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	68	시작일과 종료일을 모두 고르세요	FALSE_POSITIVE	pick(ko,en) 언어별 분기 (CustomerGiftWalletBody.tsx:68)	
+hangul	components/points/PointPeriodSummary.tsx	22	전체 ${total.toLocaleString("en-US")}건 중 ${n.toLocaleString("en-US")}건 표시	FALSE_POSITIVE	pick(lang,ko,en) 언어별 분기 (PointPeriodSummary.tsx)	
+hangul	components/points/PointPeriodSummary.tsx	100	이 기간 내역이 ${summary.rowCount.toLocaleString("en-US")}건이라 합계는 최근 ${summary.cap.toLocaleStrin	FALSE_POSITIVE	pick(lang,ko,en) 언어별 분기 (PointPeriodSummary.tsx)	
+hangul	components/points/PointPeriodSummary.tsx	116	${v.count}건 ${formatMoneyPhp(v.paymentAmount)} (${formatMypageNumber(v.pointAmount)}P)	FALSE_POSITIVE	pick(lang,ko,en) 언어별 분기 (PointPeriodSummary.tsx)	
+hangul	components/points/PointPeriodSummary.tsx	166	신청이 많아 합계는 최근 ${(summary.cap ?? 50_000).toLocaleString("en-US")}건만 반영했습니다.	FALSE_POSITIVE	pick(lang,ko,en) 언어별 분기 (PointPeriodSummary.tsx)	
+hangul	components/points/PointPromotionOrderList.tsx	102	${formatMypageNumber(n, { lang: language })}건	FALSE_POSITIVE	pick(lang,ko,en) 언어별 분기 (PointPromotionOrderList.tsx:102)	
+raw-error	components/rider/RiderHomeClient.tsx	39	setErr(j.error ?? t("ui_rider_load_failed"));	RAW_ERROR_EXPOSED	rider API 코드(supabase_unconfigured·delivery_not_found·rider_not_assigned_to_order 등) 그대로 표시 (RiderHomeClient.tsx:106)	코드→키 표(ui_rider_*)
+raw-error	components/rider/RiderHomeClient.tsx	69	setErr(j.error ?? t("ui_rider_status_change_failed"));	RAW_ERROR_EXPOSED	rider API 코드(supabase_unconfigured·delivery_not_found·rider_not_assigned_to_order 등) 그대로 표시 (RiderHomeClient.tsx:106)	코드→키 표
+raw-error	components/rider/RiderOrderDetailClient.tsx	42	setErr(j.error ?? t("ui_rider_load_failed"));	RAW_ERROR_EXPOSED	rider API 코드(supabase_unconfigured·delivery_not_found·rider_not_assigned_to_order 등) 그대로 표시 (RiderOrderDetailClient.tsx:169)	코드→키 표
+raw-error	components/rider/RiderOrderDetailClient.tsx	70	setErr(j.error ?? t("ui_rider_request_failed"));	RAW_ERROR_EXPOSED	rider API 코드(supabase_unconfigured·delivery_not_found·rider_not_assigned_to_order 등) 그대로 표시 (RiderOrderDetailClient.tsx:249)	코드→키 표
+raw-error	components/rider/RiderOrdersClient.tsx	41	setErr(j.error ?? t("ui_rider_list_failed"));	RAW_ERROR_EXPOSED	rider API 코드(supabase_unconfigured·delivery_not_found·rider_not_assigned_to_order 등) 그대로 표시 (RiderOrdersClient.tsx:157)	코드→키 표
+hangul	components/stores/StoreDetailInfoPublic.tsx	199	토요일	HARMLESS_DATA	business_hours_json 에서 읽을 옛 키 이름 (StoreDetailInfoPublic.tsx:198-207)	
+hangul	components/stores/StoreDetailInfoPublic.tsx	203	일요일	HARMLESS_DATA	business_hours_json 에서 읽을 옛 키 이름 (StoreDetailInfoPublic.tsx:198-207)	
+hangul	components/stores/StoreDetailInfoPublic.tsx	207	휴무	HARMLESS_DATA	business_hours_json 에서 읽을 옛 키 이름 (StoreDetailInfoPublic.tsx:198-207)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	171	${summary.count}건 · 기준액 ${formatMoneyPhp(summary.commissionBasePhp)}	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	360	기간 시작 잔액	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	360	기간 시작 잔액(원장)	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	363	기간 종료 잔액	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	363	기간 종료 잔액(원장)	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	370	내역 합계와 현재 잔액이 다릅니다 — 과거에 내역 밖에서 잔액이 바뀐 기록이 있습니다. 운영팀 확인 전까지 기간 잔액은 내역 기준 값입니다.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	371	원장 합계와 현재 잔액이 다른 매장 ${page.ledgerMismatchStoreIds.length}곳 — 과거에 원장 밖에서 잔액이 변경된 이력이 있습니다. 	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	441	전체 ${total.toLocaleString()}건 중 ${total === 0 ? 0 : offset + 1}–${offset + shown} (이 페이지 $	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	560	기간별 합계 (${BREAKDOWN_GROUP_LABEL[group].ko} · ${rows.length}개 구간) — 펼치기	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	625	상품권 순액 ${formatMoneyPhp(summary.giftRailNetPhp)} + 쿠폰 Coin ${formatMoneyPhp(summary.coinDu	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	634	${summary.giftRailOrders}건 · 사용 ${formatMoneyPhp(summary.giftRailPhp)} − 상품권 수수료 ${formatM	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	642	${summary.payableOrders}건	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	661	완료 주문 ${summary.orders}건 기준. 과거 정산 스냅샷 ${summary.legacyOpenSettlementCount}건 (${formatMone	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	667	 지급 기준을 초과해 적립된 코인 ${summary.coinOverCredit}.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerParts.tsx	674	 변경 전 적립 ${summary.legacyPreservedOrders}건은 기록 그대로 보존합니다.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerParts.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	172	수수료 내역 표	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	172	수수료 원장 표	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	318	수수료 부과 (${commissionOrderStatusLabel(row.chargeStage, row.fulfillmentType, lang)} 단계)	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	321	부과 ${formatCashMinor(row.feeChargedMinor)} — Cash에서 자동 차감, 부족분은 미납	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	348	승인 ${formatCashMinor(d.approvedMinor)} = Cash 환급 ${formatCashMinor(d.cashRefundMinor)} + 미	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	430	내역은 수정할 수 없습니다. 정정은 처리 기록으로만 남습니다.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	components/stores/commission/StoreCommissionLedgerTable.tsx	431	원장은 수정할 수 없습니다. 정정은 결정 기록으로만 남습니다.	FALSE_POSITIVE	pickCommissionCopy(lang,ko,en) 언어별 분기 (StoreCommissionLedgerTable.tsx)	
+hangul	lib/addresses/address-book-line.ts	13	필리핀	HARMLESS_DATA	주소 끝 나라 이름 제거용 비교값 (address-book-line.ts:13)	
+hangul	lib/addresses/address-defaults-snapshot-resolvers.ts	21	주소 미입력	HARMLESS_DATA	placeholder 비교값 (address-defaults-snapshot-resolvers.ts:21)	
+hangul	lib/addresses/canonical-address-display.ts	28	집	HARMLESS_DATA	userLabel 기본값 — 표시 줄(resolveAddressBookTitle·FullLine)에 userLabel 안 씀 (canonical-address-display.ts:26-30)	
+hangul	lib/addresses/canonical-address-display.ts	29	회사	HARMLESS_DATA	userLabel 기본값 — 표시 줄(resolveAddressBookTitle·FullLine)에 userLabel 안 씀 (canonical-address-display.ts:26-30)	
+hangul	lib/addresses/canonical-address-display.ts	30	매장	HARMLESS_DATA	userLabel 기본값 — 표시 줄(resolveAddressBookTitle·FullLine)에 userLabel 안 씀 (canonical-address-display.ts:26-30)	
+hangul	lib/addresses/community-public-region-label.ts	27	동네	STORED	커뮤니티 글 region_label 기본값으로 저장(app/api/community/posts/route.ts:157·neighborhood-posts:258) → 글 카드 표시(CommunityPostCard.tsx:71)	region_label 빈 값 저장, 화면에서 키(동네)로
+hangul	lib/addresses/delivery-home-header-address.ts	93	주소 미입력	HARMLESS_DATA	placeholder 비교값 (delivery-home-header-address.ts:93)	
+hangul	lib/addresses/shop-address-nickname.ts	2	매장:	HARMLESS_DATA	DB nickname 접두 코드 「매장:uuid」 — 디코드용 (shop-address-nickname.ts:2)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	105	로그인이 필요합니다.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	106	주소 이름을 입력 하세요	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	107	예약된 주소 이름 형식입니다. 다른 이름을 입력해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	108	이미 같은 이름의 주소가 있어요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	109	주소를 찾을 수 없습니다.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	110	생활·거래·배달 중 최소 한 가지 용도를 선택해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	111	매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	113	마지막 주소는 삭제할 수 없습니다. 새 주소를 추가한 뒤 삭제해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	116	주소 추가시 문제가 발생했습니다	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	117	매장을 선택해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	118	승인된 매장 오너만 Store Address를 등록할 수 있습니다.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-api-error-i18n.ts	119	검색 결과에서 매장 주소를 선택해 주세요.	HARMLESS_DATA	구버전 서버 한국어 문장 → 키 변환 표(입력 비교값) (user-address-api-error-i18n.ts:104)	
+hangul	lib/addresses/user-address-display-ssot.ts	17	주소 미입력	HARMLESS_DATA	placeholder 비교값 (user-address-display-ssot.ts:17)	
+hangul	lib/addresses/user-address-format.ts	48	필리핀	HARMLESS_DATA	나라 이름 제거용 비교값 (user-address-format.ts:48)	
+hangul	lib/addresses/user-address-format.ts	110	주소 미입력	EXPOSED	비PH 주소·내용·좌표 없을 때 반환 → 주소 목록 한 줄 (format-user-address-list-line.ts:33-35)	빈 값 반환, 화면에서 키
+hangul	lib/addresses/user-address-format.ts	230	주소 미입력	HARMLESS_DATA	반환값 비교 (user-address-format.ts:230)	
+hangul	lib/admin-banners/admin-banner-utils.ts	8	전체	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-banners/admin-banner-utils.ts	9	초안	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-banners/admin-banner-utils.ts	10	활성	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-banners/admin-banner-utils.ts	11	일시중지	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-banners/admin-banner-utils.ts	12	만료	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-banners/admin-banner-utils.ts	13	숨김	HARMLESS_ADMIN	lib/admin-banners/admin-banner-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/sample-store-delete-model.ts	278	이미 없는 매장	HARMLESS_ADMIN	lib/admin-business/sample-store-delete-model.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/sample-store-delete-model.ts	279	샘플 매장이 아님 (실제·테스트 매장 보호)	HARMLESS_ADMIN	lib/admin-business/sample-store-delete-model.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/sample-store-delete-model.ts	280	주문·정산·캐시 등 보존 데이터가 연결됨	HARMLESS_ADMIN	lib/admin-business/sample-store-delete-model.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/sample-store-delete-model.ts	281	진행 중인 광고 캠페인 — 먼저 종료 필요	HARMLESS_ADMIN	lib/admin-business/sample-store-delete-model.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/sample-store-delete-model.ts	282	유료 광고 이력이 함께 지워짐 — 삭제 불가	HARMLESS_ADMIN	lib/admin-business/sample-store-delete-model.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	15	심사 시작	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	16	심사 시작	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	17	입점 승인	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	18	입점 반려	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	19	보완 요청	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	20	운영 중지	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	21	운영 재개	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	22	판매 승인	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	23	판매 반려	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	24	판매 중지	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	25	노출 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	26	매장명 수정 권한 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	27	관리자 메모 저장	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	28	매장명 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	29	업종 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	30	연락처 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	31	위치 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	32	영업시간 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	33	영업·배달 설정 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	34	배달 반경 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	35	배달 반경·거리 정책 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	36	사장님 보완 재제출	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	37	사장님에게 알림 보내기	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	38	회원 제재로 판매 중지	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/store-audit-action-labels.ts	39	서비스 지역 변경	HARMLESS_ADMIN	lib/admin-business/store-audit-action-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-business/suspend-owner-store-sales-on-member-sanction.ts	11	[회원 제재 자동 판매 중지]	HARMLESS_ADMIN	store_sales_permissions.suspension_reason 접두 — 사장님·고객 화면에서 이 칸을 읽는 곳 없음(관리자만)	
+hangul	lib/admin-chat-reports/list-chat-report-queue.ts	186	회원 ${id.replace(/-/g, "").slice(0, 8)}	HARMLESS_ADMIN	lib/admin-chat-reports/list-chat-report-queue.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	11	전체 상태	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	12	활성	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	13	차단	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	14	보관	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	18	전체 타입	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	19	TRADE 채팅	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	20	일반(레거시)	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	21	커뮤니티	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	22	모임·게시판	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/admin-chat-utils.ts	23	비즈·상점	HARMLESS_ADMIN	lib/admin-chats/admin-chat-utils.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/getAdminChatRoomsFromDb.ts	126	(제목 없음)	HARMLESS_ADMIN	lib/admin-chats/getAdminChatRoomsFromDb.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-chats/getAdminChatRoomsFromDb.ts	184	(제목 없음)	HARMLESS_ADMIN	lib/admin-chats/getAdminChatRoomsFromDb.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-community/member-identity.ts	22	알 수 없는 회원	HARMLESS_ADMIN	lib/admin-community/member-identity.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/load-admin-recent-activity.ts	181	(제목 없음)	HARMLESS_ADMIN	lib/admin-dashboard/load-admin-recent-activity.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	5	스팸	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	6	부적절한 내용	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	7	사기	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	8	사기	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	9	괴롭힘	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	10	허위 게시	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	11	기타	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	12	거래 금지 물품	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	13	전문판매업자 의심	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	14	잘못된 서비스 게시	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-dashboard/report-reason-labels.ts	15	부적절한 행위	HARMLESS_ADMIN	lib/admin-dashboard/report-reason-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-delivery-orders/list-admin-store-order-chats.ts	69	회원 ${customerUserId.replace(/-/g, "").slice(0, 8)}	HARMLESS_ADMIN	lib/admin-delivery-orders/list-admin-store-order-chats.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-docs/readAdminGuideMd.ts	23	# 문서를 불러올 수 없습니다\n\n파일을 찾을 수 없습니다: \`docs/${filename}\`\n	HARMLESS_ADMIN	lib/admin-docs/readAdminGuideMd.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	83	카테고리 미해석 (${String(catId).slice(0, 8)}…)	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	143	(에러 없음)	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	375	[admin posts-management] 카테고리 메타: ${resolved}/${categoryIds.length}개 id만 해석됨. 나머지는 DB에 행이 	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	648	posts 응답이 배열이 아님	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	675	[admin posts-management] posts 조회 실패 — 모든 SELECT 단계에서 오류.\n	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	676	→ Supabase Table Editor에서 public.posts 존재 여부, service_role/sb_secret 키, URL(프로젝트 ref) 일치를 	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	677	→ 마지막 오류: ${lastErrText || "(내용 없음 — 키·URL 오타 또는 네트워크 차단 가능)"}	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	682	posts 조회 실패(모든 SELECT 단계 오류)	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-products/admin-posts-management-data.ts	725	posts 조회 실패(모든 SELECT 단계 오류)	HARMLESS_ADMIN	lib/admin-products/admin-posts-management-data.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/admin-reports-read.server.ts	55	광고 · ${n}	HARMLESS_ADMIN	lib/admin-reports/admin-reports-read.server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/admin-reports-read.server.ts	55	광고	HARMLESS_ADMIN	lib/admin-reports/admin-reports-read.server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/admin-reports-read.server.ts	168	채팅 ${r.target_id}	HARMLESS_ADMIN	lib/admin-reports/admin-reports-read.server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/admin-reports-read.server.ts	247	${post.title ?? pid} (댓글 신고)	HARMLESS_ADMIN	lib/admin-reports/admin-reports-read.server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/admin-reports-read.server.ts	253	채팅 ${r.target_id}	HARMLESS_ADMIN	lib/admin-reports/admin-reports-read.server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	5	스팸	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	6	사기	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	7	욕설·비방	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	8	부적절한 내용	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	9	괴롭힘	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	10	기타	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-reports/map-community-reports.ts	11	기타	HARMLESS_ADMIN	lib/admin-reports/map-community-reports.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/admin-settings-utils.ts	10	필리핀	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	11	한국	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	16	페소	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	17	원화	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	53	일반 설정	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	54	상품 정책	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	55	채팅 정책	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	56	신고 정책	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	57	CREW REP 정책	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	58	지역/노출 정책	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/admin-settings-utils.ts	59	카테고리 관리	HARMLESS_ADMIN	로케일·통화 옵션·설정 섹션 이름 — 관리자 설정 화면만 (외부는 DEFAULT_APP_SETTINGS 만 가져감)	
+hangul	lib/admin-settings/app-settings-db.ts	77	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 설정 저장 오류 — 관리자 API 만	
+hangul	lib/admin-settings/service-categories-db.ts	66	admin_settings 테이블이 없습니다.	HARMLESS_ADMIN	관리자 설정 저장 오류 — 관리자 API 만	
+hangul	lib/admin-settings/service-categories-state.ts	27	전체	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	38	중고거래	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	49	커뮤니티	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	60	중고차	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	71	부동산	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	82	알바	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	97	디지털기기	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	98	가구/인테리어	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	99	생활가전	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	100	남성의류	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	101	여성의류	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-settings/service-categories-state.ts	102	구인구직	HARMLESS_ADMIN	lib/admin-settings/service-categories-state.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/admin-role-labels.ts	4	운영자	HARMLESS_ADMIN	lib/admin-users/admin-role-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/admin-role-labels.ts	5	총괄	HARMLESS_ADMIN	lib/admin-users/admin-role-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/admin-role-labels.ts	6	최고 관리자	HARMLESS_ADMIN	lib/admin-users/admin-role-labels.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/admin-users-list-server.ts	147	이메일 없음	HARMLESS_ADMIN	lib/admin-users/admin-users-list-server.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	83	탈퇴 처리	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	84	영구 삭제	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	133	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	134	최고 관리자는 제재할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	135	본인 계정에는 적용할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	163	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	165	차단된 회원은 정보 수정을 할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	189	다른 최고 관리자 비밀번호는 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	193	일반 관리자 비밀번호는 관리자 설정에서 변경합니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	194	최고 관리자 본인만 이 계정의 비밀번호를 변경할 수 있습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	196	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	198	차단된 회원은 비밀번호 관리를 할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	219	관리자 권한 해제	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	219	관리자 권한 부여	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	221	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	223	자신의 권한은 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	225	권한을 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	274	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-action-policy.ts	280	권한이 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-action-policy.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-copy-ssot.ts	95	profiles에 반영	HARMLESS_ADMIN	lib/admin-users/member-admin-copy-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-copy-ssot.ts	115	표시만	HARMLESS_ADMIN	lib/admin-users/member-admin-copy-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-copy-ssot.ts	119	회원 구분	HARMLESS_ADMIN	lib/admin-users/member-admin-copy-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	46	관리자 권한 부여	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	47	관리자 권한 해제	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	48	관리자 권한 부여	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	49	관리자 권한 해제	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	50	선택한 회원에게 관리자 권한을 부여합니다. 계정 상태·매장 관계·인증은 변경되지 않습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	51	선택한 회원의 관리자 권한만 해제합니다. 계정 상태·매장 관계·인증은 변경되지 않습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	52	권한 부여	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	53	권한 해제	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	54	현재 권한	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	55	변경 후 권한	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	56	대상 회원	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	57	권한을 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	58	자신의 권한은 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	59	최고 관리자 권한은 이 화면에서 변경할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	60	부여 후 관리자 메뉴·API에 접근할 수 있습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	61	해제 후 관리자 메뉴·API에 접근할 수 없습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	168	이미 관리자 권한이 있습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	170	관리자 권한이 없는 회원입니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	173	권한이 없습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-admin-privilege-ssot.ts	175	회원을 찾을 수 없습니다.	HARMLESS_ADMIN	lib/admin-users/member-admin-privilege-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	66	회원 기본 정보	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	67	계정 / 인증	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	68	매장	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	69	관리 권한	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	70	최근 활동	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	71	최근 운영 조치	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	90	이용 제한 (되돌릴 수 있음)	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	91	계정 종료 (되돌리기 어려움)	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	123	제재 워크플로에서 실행	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	127	Support 워크플로에서 제공 (R8)	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-detail-control-center-ia.ts	365	표시만	HARMLESS_ADMIN	lib/admin-users/member-detail-control-center-ia.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	133	${ok}명 처리 완료	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	137	${r.userId.slice(0, 8)}…: ${r.message ?? r.error ?? "실패"}	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	139	성공 ${ok} / 실패 ${fail}\n${errs}	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	150	매장	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	152	이 회원이 운영하는 매장의 판매를 자동 중지했습니다: ${names(r.suspended)}	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-management-actions-client.ts	155	회원 제재로 중지된 매장 판매는 자동 재개되지 않습니다. 매장 상세에서 「판매 승인」하세요: ${names(r.still_suspended)}	HARMLESS_ADMIN	lib/admin-users/member-management-actions-client.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	57	탈퇴 처리(익명화)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	58	영구 삭제	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	59	탈퇴 처리(익명화)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	60	영구 삭제	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	61	회원 삭제 요청	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	62	삭제 요청 반려	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	63	관리자 권한 부여	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	64	관리자 권한 해제	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	65	관리자 계정 생성	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	66	경고	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	67	정지	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	68	차단	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	69	복구	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	70	금칙어로 등록 차단	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	71	금칙어 반복 위반 — 관리자 검토 필요	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	72	삭제 요청(대기)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	73	삭제 요청(처리중)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	74	삭제 요청(완료)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	75	삭제 요청(반려)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	76	삭제 요청(취소)	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-ops-history.ts	82	삭제 요청 · ${action}	HARMLESS_ADMIN	lib/admin-users/member-ops-history.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	83	로그인 ${account.manualLoginId}	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	86	카카오 ${account.providerUserId}	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	86	카카오	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	92	Apple · 이메일 가리기${sub}	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	97	네이버	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	113	관리자 생성 계정	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	114	카카오 이메일 미동의	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-sns-account.ts	115	Apple 이메일 가리기	HARMLESS_ADMIN	lib/admin-users/member-sns-account.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	59	매장 #${id.slice(0, 8)}	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	87	신청 대기	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	89	심사 중	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	91	보완 요청	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	93	승인됨	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	95	반려됨	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	97	운영 정지	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	104	관계 관리	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	105	매장 운영 관계	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	107	한 회원 계정은 최대 1개 매장만 운영할 수 있습니다. 운영 관계는 매장 신청·승인 흐름으로만 성립합니다.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	108	매장 없음	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	109	등록된 매장 운영 관계가 없습니다. 회원이 매장 신청을 하면 여기에 표시됩니다.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	110	현재 매장	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	111	매장명	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	112	매장 ID	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	113	매장 상태	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	114	매장 운영 관계	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	115	매장 운영자	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	116	매장 상세 보기	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	117	연결할 수 없음	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	119	관리자가 임의로 다른 매장을 연결할 수 없습니다. 매장 운영 관계는 회원의 매장 신청으로만 생성됩니다.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	120	이미 다른 매장을 운영 중입니다	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	121	한 계정은 매장을 하나만 운영할 수 있어 추가 연결·이전은 허용되지 않습니다.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	122	매장 운영자 이전은 이 화면에서 할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	124	정산·주문·권한에 영향을 주는 이전은 별도 정책 없이 진행하지 않습니다.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	125	매장 운영 관계 해제는 이 화면에서 할 수 없습니다	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	126	닫기	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/member-store-relation-ssot.ts	128	매장 운영 관계 데이터가 비정상입니다. 새로고침 후에도 계속되면 개발팀에 알려 주세요.	HARMLESS_ADMIN	lib/admin-users/member-store-relation-ssot.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/resolve-admin-user-display.ts	207	이메일 없음	HARMLESS_ADMIN	lib/admin-users/resolve-admin-user-display.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/resolve-admin-user-display.ts	225	이메일 없음	HARMLESS_ADMIN	lib/admin-users/resolve-admin-user-display.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/resolve-admin-user-display.ts	253	이메일 없음	HARMLESS_ADMIN	lib/admin-users/resolve-admin-user-display.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/admin-users/resolve-admin-user-display.ts	294	이메일 없음	HARMLESS_ADMIN	lib/admin-users/resolve-admin-user-display.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	137	진행 중인 배너가 아니라 멈출 수 없습니다.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	138	멈춘 배너가 아니라 다시 시작할 수 없습니다.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	139	배너를 찾지 못했습니다.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	140	귀책(운영·회원·없음)을 골라 주세요.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	141	이미 종료된 배너입니다.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	142	공개 사유는 ${FEED_AD_PUBLIC_REASON_MAX}자 이하로 써 주세요.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/admin-feed-ad-lifecycle.ts	143	처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	lib/ads/admin-feed-ad-lifecycle.ts — 관리자 화면·관리자 API 에서만 import	
+hangul	lib/ads/feed-ad-error-copy.ts	8	자리가 없어 처리하지 못했습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	11	자리가 차서 승인되지 않았습니다. 신청은 검토 중으로 남고, 보류된 포인트는 그대로입니다. 자리가 나면 다시 승인할 수 있습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	22	남은 자리를 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	23	목적지를 꼭 넣어 주세요. 목적지가 없는 배너는 만들 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	24	목적지 대상을 골라 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	25	매장을 찾지 못했습니다. 매장을 다시 골라 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	26	매장을 확인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	27	외부 주소를 넣어 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	28	외부 주소는 https 로 시작해야 합니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	29	주소 형식이 올바르지 않습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	30	쓸 수 없는 주소입니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	31	앱 안 화면 주소(/ 로 시작)를 넣어 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	32	회원이 열 수 없는 화면 주소입니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	33	목적지 종류가 올바르지 않습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	34	종료된 배너는 고칠 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	35	회원이 신청한 배너는 소재만 고칠 수 있습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	36	종료 시각이 시작 시각보다 늦어야 합니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	37	우선순위는 숫자로 넣어 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	38	그 사이 상태가 바뀌었습니다. 새로 불러와 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	39	이 주제에는 배너를 걸 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	40	배너를 찾지 못했습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	41	지금 상태에서는 연장할 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	42	종료 시각이 없어 연장할 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	43	사유를 넣어 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	44	연장 일수는 1~90일입니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	45	진행 중인 배너가 아니라 처리할 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	46	멈춘 배너가 아니라 다시 시작할 수 없습니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	47	이미 종료된 배너입니다.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	48	귀책(운영·회원·없음)을 골라 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	49	공개 사유는 120자 이하로 써 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	50	서비스에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-error-copy.ts	56	처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.	HARMLESS_ADMIN	feed-ad-error-copy — 관리자 피드광고 API·화면만 import(app/api/admin/feed-ads·AdminFeedAdEditPage·admin 처리)	
+hangul	lib/ads/feed-ad-member-presentation.ts	222	${days}일 ${hours}시간 남음	FALSE_POSITIVE	lang==='en' 분기 뒤 한국어 (feed-ad-member-presentation.ts:217·313)	
+hangul	lib/ads/feed-ad-member-presentation.ts	223	${hours}시간 남음	FALSE_POSITIVE	lang==='en' 분기 뒤 한국어 (feed-ad-member-presentation.ts:217·313)	
+hangul	lib/ads/feed-ad-member-presentation.ts	224	${Math.max(1, totalMin)}분 남음	FALSE_POSITIVE	lang==='en' 분기 뒤 한국어 (feed-ad-member-presentation.ts:217·313)	
+hangul	lib/ads/feed-ad-member-presentation.ts	314	운영자가 멈췄습니다	FALSE_POSITIVE	lang==='en' 분기 뒤 한국어 (feed-ad-member-presentation.ts:217·313)	
+hangul	lib/ads/feed-ad-member-presentation.ts	314	운영자가 종료했습니다	FALSE_POSITIVE	lang==='en' 분기 뒤 한국어 (feed-ad-member-presentation.ts:217·313)	
+hangul	lib/ads/feed-ad-ops-presentation.ts	152	포인트 확정(CAPTURE)	FALSE_POSITIVE	labelKo/labelEn 쌍 (feed-ad-ops-presentation.ts:150-158)	
+hangul	lib/ads/feed-ad-ops-presentation.ts	154	포인트 반환(RELEASE)	FALSE_POSITIVE	labelKo/labelEn 쌍 (feed-ad-ops-presentation.ts:150-158)	
+hangul	lib/ads/feed-ad-ops-presentation.ts	155	포인트 보류(HOLD)	FALSE_POSITIVE	labelKo/labelEn 쌍 (feed-ad-ops-presentation.ts:150-158)	
+hangul	lib/ads/feed-ad-placement.ts	315	거래 홈 피드	FALSE_POSITIVE	ko/en 표, 호출처가 en?"en":"ko" 전달 (MyAdsPageClient.tsx:745·feed-request/page.tsx:1294)	
+hangul	lib/ads/feed-ad-placement.ts	316	거래 카테고리 피드	FALSE_POSITIVE	ko/en 표, 호출처가 en?"en":"ko" 전달 (MyAdsPageClient.tsx:745·feed-request/page.tsx:1294)	
+hangul	lib/ads/feed-ad-placement.ts	317	커뮤니티 홈 피드	FALSE_POSITIVE	ko/en 표, 호출처가 en?"en":"ko" 전달 (MyAdsPageClient.tsx:745·feed-request/page.tsx:1294)	
+hangul	lib/ads/feed-ad-placement.ts	318	커뮤니티 주제 피드	FALSE_POSITIVE	ko/en 표, 호출처가 en?"en":"ko" 전달 (MyAdsPageClient.tsx:745·feed-request/page.tsx:1294)	
+hangul	lib/ads/feed-ad-request-point-flow.ts	37	피드 광고 신청 — 포인트 보류	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/feed-ad-request-point-flow.ts	65	피드 광고 신청 — 보류 행 생성 실패 환급	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/feed-ad-request-point-flow.ts	105	피드 광고 거절/취소 — 보류 해제	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/feed-ad-request-point-flow.ts	155	피드 광고 승인 — ${cost}P 확정	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/feed-ad-request-point-flow.ts	201	피드 광고 승인 실패 보상 — 확정 포인트 환급	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/feed-ad-request-point-flow.ts	202	피드 광고 승인 실패 보상 — 보류 해제	STORED	point_ledger.description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 한글 부제 숨김(빈칸)	description 대신 종류 코드+값, 화면에서 키
+hangul	lib/ads/post-ad-application-adapter.ts	109	(제목 없음)	HARMLESS_ADMIN	post-ad-application-adapter — app/api/admin/ad-applications 만	
+hangul	lib/ads/post-ad-application-adapter.ts	134	(제목 없음)	HARMLESS_ADMIN	같은 파일 — 관리자 API 만	
+hangul	lib/ads/post-ad-application-adapter.ts	164	관리자	HARMLESS_ADMIN	같은 파일 — 관리자 API 만	
+hangul	lib/ads/post-ads-supabase.ts	24	(제목 없음)	HARMLESS_ADMIN	postAdToAdminRow — 관리자 행 변환	
+hangul	lib/ads/post-ads-supabase.ts	77	(제목 없음)	EXPOSED	mapJoinedPostAdRow 를 회원 GET /api/me/post-ads 도 씀(post-ads-supabase.ts:413) → 내 광고 목록 제목 (MyAdsPageClient.tsx:655)	서버는 빈 제목, 화면에서 community_no_title 키
+hangul	lib/ads/post-ads-supabase.ts	221	(제목 없음)	HARMLESS_CODE_USED	/api/ads/active 는 legacy 행에서 postId 만 씀(app/api/ads/active/route.ts:74)	
+hangul	lib/ads/post-ads-supabase.ts	241	회원	HARMLESS_CODE_USED	advertiserName 은 /api/ads/active 응답에 안 실림(route.ts:117-121)	
+hangul	lib/auth/admin-set-password-policy.ts	45	${MEMBER_PASSWORD_MIN_LENGTH}자 이상 · 숫자만으로도 가능	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	46	비밀번호는 ${MEMBER_PASSWORD_MIN_LENGTH}자 이상 입력하세요. 숫자만으로도 됩니다.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	47	${STAFF_PASSWORD_MIN_LENGTH}자 이상 · 영문과 숫자 포함	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	48	관리자 비밀번호는 ${STAFF_PASSWORD_MIN_LENGTH}자 이상이며 영문과 숫자를 모두 포함해야 합니다.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	49	비밀번호는 ${ADMIN_SET_PASSWORD_MAX_LENGTH}자 이하로 입력하세요.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	50	유출된 비밀번호 목록에 있는 비밀번호라 Supabase 보안 설정이 거절했습니다. 다른 비밀번호를 입력하세요.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	51	Supabase 최소 길이 설정보다 짧아 거절되었습니다. 더 길게 입력하세요.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	52	Supabase 필수 문자 설정(영문 대·소문자·숫자·기호)에 맞지 않아 거절되었습니다.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/admin-set-password-policy.ts	53	Supabase 비밀번호 보안 설정이 이 비밀번호를 거절했습니다. 다른 비밀번호를 입력하세요.	HARMLESS_ADMIN	admin-set-password-policy — 관리자 비밀번호 설정 API·화면만	
+hangul	lib/auth/store-member-policy.ts	5	전화번호 인증 후 이용할 수 있습니다.	SERVER_TEXT	표시 경로 미확인: requirePhoneVerified 403 error 문장(server-guards.ts:401, code PHONE_VERIFICATION_REQUIRED) — 호출 화면 다수, 일부는 phone-verification-required-detect.ts:11 로 문장 비교·이동	서버는 code 만, 화면은 code 로 키
+hangul	lib/auth/store-member-policy.ts	6	동일 아이디가 다른 기기에서 접속 중입니다.	HARMLESS_DATA	DUPLICATE_LOGIN_MESSAGE — 정의만 있고 사용처 없음	
+hangul	lib/business/build-owner-orders-view-initial-state.ts	56	내 매장	EXPOSED	store_name 없을 때 「내 매장」 → storeName → 주문 채팅 패널 메신저 머리(OwnerStoreOrderChatSlidePanel → buildOwnerStoreOrderMessengerContext)	빈 값 + 화면 t(nav_store_name_fallback) (OwnerStoreOrdersView.tsx:331 처럼)
+hangul	lib/business/owner-store-order-list-row-bridge.ts	121	품목	EXPOSED	품목 제목 스냅샷 없을 때 「품목」 → 사장님 주문 카드 (OwnerStoreOrderMockCard.tsx:509)	빈 값 + 화면 키
+hangul	lib/business/owner-store-settlement-labels.ts	3	지급 예정	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	4	처리 중	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	5	지급 완료	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	6	보류	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	7	취소	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	22	전체	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	23	지급 예정	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	24	처리 중	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	25	지급 완료	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	26	보류	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/business/owner-store-settlement-labels.ts	27	취소	HARMLESS_DATA	OWNER_STORE_SETTLEMENT_STATUS_* — 화면 사용처 없음(테스트만 import)	
+hangul	lib/categories/admin/category-admin-api.ts	13	글이나 하위 카테고리가 있어 삭제할 수 없습니다. 비활성으로 바꾸거나 글을 옮긴 뒤 삭제해 주세요.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/category-admin-api.ts	14	저장되지 않았습니다. 새로고침 후 다시 시도해 주세요.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/category-admin-api.ts	15	카테고리를 찾을 수 없습니다.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/category-admin-api.ts	16	입력 항목 구성이 올바르지 않습니다.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/category-admin-api.ts	17	이름과 주소(slug)를 입력해 주세요.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/category-admin-api.ts	19	권한이 없습니다.	HARMLESS_ADMIN	category-admin-api — 관리자 카테고리 화면(useCategoryAdmin·AdminMenusPage)만	
+hangul	lib/categories/admin/checkSlugAvailable.ts	16	slug를 입력해 주세요.	HARMLESS_ADMIN	checkSlugAvailable — 관리자 카테고리 화면만	
+hangul	lib/categories/admin/checkSlugAvailable.ts	24	categories 테이블이 없습니다. Supabase에서 마이그레이션을 실행해 주세요.	HARMLESS_ADMIN	checkSlugAvailable — 관리자 카테고리 화면만	
+hangul	lib/categories/admin/checkSlugAvailable.ts	28	이미 사용 중인 slug입니다.	HARMLESS_ADMIN	checkSlugAvailable — 관리자 카테고리 화면만	
+hangul	lib/categories/admin/checkSlugAvailable.ts	31	확인에 실패했습니다.	HARMLESS_ADMIN	checkSlugAvailable — 관리자 카테고리 화면만	
+hangul	lib/chats/store-order-match-ack-text.ts	5	주문 내용이 일치합니다.	STORED	한국어 고정 문장을 채팅 메시지로 전송·저장 (CommunityMessengerRoomPhase2StoreOrderChrome.tsx:145·ChatDetailView.tsx:1478) → 상대 화면·목록 미리보기에 한국어	getStoreOrderMatchAckMessage 대신 메시지 kind 코드 저장, 화면에서 키(store_order_match_ack)
+hangul	lib/chats/surfaces/order-chat-surface.ts	24	주문 채팅	HARMLESS_CODE_USED	ORDER_CHAT_SURFACE 의 한국어 칸 — 호출처는 *Key 칸만 씀(hubTabLabel·listEmptyMessage·emptyCtaLabel 직접 사용 없음)	
+hangul	lib/chats/surfaces/order-chat-surface.ts	33	주문 채팅	HARMLESS_CODE_USED	ORDER_CHAT_SURFACE 의 한국어 칸 — 호출처는 *Key 칸만 씀(hubTabLabel·listEmptyMessage·emptyCtaLabel 직접 사용 없음)	
+hangul	lib/chats/surfaces/order-chat-surface.ts	35	주문 채팅이 없어요.	HARMLESS_CODE_USED	ORDER_CHAT_SURFACE 의 한국어 칸 — 호출처는 *Key 칸만 씀(hubTabLabel·listEmptyMessage·emptyCtaLabel 직접 사용 없음)	
+hangul	lib/chats/surfaces/order-chat-surface.ts	38	내 배달 주문으로	HARMLESS_CODE_USED	ORDER_CHAT_SURFACE 의 한국어 칸 — 호출처는 *Key 칸만 씀(hubTabLabel·listEmptyMessage·emptyCtaLabel 직접 사용 없음)	
+hangul	lib/community-feed/admin-community-reports.ts	193	관리자	HARMLESS_ADMIN	admin-community-reports — 관리자 신고 화면만	
+hangul	lib/community-feed/admin-community-reports.ts	280	관리자	HARMLESS_ADMIN	admin-community-reports — 관리자 신고 화면만	
+hangul	lib/community-operator-import/adapters/html.ts	106	입력한 페이지 (메인 목록)	HARMLESS_ADMIN	외부 글 수집 게시판 이름 — app/api/admin/community/external-import 만	
+hangul	lib/community-operator-import/adapters/rss.ts	113	전체 피드	HARMLESS_ADMIN	외부 글 수집 게시판 이름 — app/api/admin/community/external-import 만	
+hangul	lib/community-operator-import/adapters/wordpress.ts	58	최신 전체	HARMLESS_ADMIN	외부 글 수집 게시판 이름 — app/api/admin/community/external-import 만	
+hangul	lib/community-operator-import/adapters/wordpress.ts	97	(제목 없음 ${post.id})	HARMLESS_ADMIN	수집함 목록 제목 대체값 — 관리자 수집함만, 게시 글은 detail 재수집(collect.ts:119-134)	
+hangul	lib/delivery/delivery-list-oor-policy.ts	14	배달 가능 지역 아님	HARMLESS_DATA	DELIVERY_OOR_PRIMARY_COPY_KO — 정의만, 사용처 없음	
+hangul	lib/delivery/load-delivery-bottom-nav-items-server.ts	24	내매장	HARMLESS_DATA	load-delivery-bottom-nav-items-server 의 라벨 — 내보낸 로더·항목을 쓰는 곳 없음(캐시 태그만 관리자 API 가 사용)	
+hangul	lib/delivery/load-delivery-bottom-nav-items-server.ts	45	내주문	HARMLESS_DATA	load-delivery-bottom-nav-items-server 의 라벨 — 내보낸 로더·항목을 쓰는 곳 없음(캐시 태그만 관리자 API 가 사용)	
+hangul	lib/delivery/load-delivery-bottom-nav-items-server.ts	56	장바구니	HARMLESS_DATA	load-delivery-bottom-nav-items-server 의 라벨 — 내보낸 로더·항목을 쓰는 곳 없음(캐시 태그만 관리자 API 가 사용)	
+hangul	lib/delivery/load-delivery-bottom-nav-items-server.ts	67	홈	HARMLESS_DATA	load-delivery-bottom-nav-items-server 의 라벨 — 내보낸 로더·항목을 쓰는 곳 없음(캐시 태그만 관리자 API 가 사용)	
+hangul	lib/delivery/load-delivery-bottom-nav-items-server.ts	78	내정보	HARMLESS_DATA	load-delivery-bottom-nav-items-server 의 라벨 — 내보낸 로더·항목을 쓰는 곳 없음(캐시 태그만 관리자 API 가 사용)	
+hangul	lib/finance/order-money-chain/load-order-money-chain.ts	143	주문 완료	HARMLESS_ADMIN	order-money-chain label — 표시는 OrderMoneyChainView.tsx:116(관리자 AdminFinanceOrderDetailView 만); 사장님 transparent API 응답 label 은 사장님 화면에서 안 씀	
+hangul	lib/finance/order-money-chain/load-order-money-chain.ts	159	정산 스냅샷	HARMLESS_ADMIN	order-money-chain label — 표시는 OrderMoneyChainView.tsx:116(관리자 AdminFinanceOrderDetailView 만); 사장님 transparent API 응답 label 은 사장님 화면에서 안 씀	
+hangul	lib/finance/order-money-chain/load-order-money-chain.ts	200	미납 수수료	HARMLESS_ADMIN	order-money-chain label — 표시는 OrderMoneyChainView.tsx:116(관리자 AdminFinanceOrderDetailView 만); 사장님 transparent API 응답 label 은 사장님 화면에서 안 씀	
+hangul	lib/finance/presentation.ts	205	관리	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/presentation.ts	206	처리	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/presentation.ts	207	확인	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/presentation.ts	208	보기	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/presentation.ts	209	실행	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/presentation.ts	210	이동	HARMLESS_DATA	FINANCE_FORBIDDEN_CTA_LABELS — 금지어 검사용 목록	
+hangul	lib/finance/product-decision-lock.ts	34	Coin을 Cash로 전환	FALSE_POSITIVE	ownerUiCopy(language, KO, EN) 안에서만 사용 (OwnerCoinConvertSection.tsx:363·368)	
+hangul	lib/finance/product-decision-lock.ts	35	Coin 출금 신청	FALSE_POSITIVE	ownerUiCopy(language, KO, EN) 안에서만 사용 (OwnerCoinConvertSection.tsx:368)	
+hangul	lib/gift-certificate/format-gift-certificate-expiration.ts	17	${until.replace(/-/g, ".")}까지	EXPOSED	유효기간 「YYYY.MM.DD까지」 한국어 고정 → 선물 친구 고르기 카드 (WalletGiftFriendPicker.tsx:141)	키 gift_valid_until {date} 로
+hangul	lib/gift-certificate/format-gift-certificate-expiration.ts	34	${until.replace(/-/g, ".")}까지	EXPOSED	유효기간 「YYYY.MM.DD까지」 한국어 고정 → 상품권몰 카드·상세·사장님 상품권 (GiftMallProductCard.tsx:20·BuyerGiftDetailView.tsx:209·OwnerGiftCertificatesView.tsx:403)	키 gift_valid_until {date} 로
+hangul	lib/gift-certificate/gift-certificate-visual-model.ts	91	DIBAY 상품권	HARMLESS_CODE_USED	대체값 — 유일한 호출처 GiftVisualCard.tsx:119 가 safeT 키 값을 넘김	
+hangul	lib/gift-certificate/gift-certificate-visual-model.ts	92	매장 상품권	HARMLESS_CODE_USED	대체값 — GiftVisualCard.tsx:120 가 safeT 키 값을 넘김	
+hangul	lib/platform-event-owner-requests/admin-review.ts	127	자세히 보기	STORED	사장님 이벤트 신청 승인 시 platform_events.cta_label 에 저장 → 고객 이벤트 상세 버튼 (PlatformEventDetailContent.tsx:184)	cta_label 비우고 화면에서 키(자세히 보기), 또는 cta 종류 코드
+hangul	lib/platform-events/admin-validation.ts	145	이벤트 제목을 입력해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	146	이동 유형을 선택해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	147	이벤트 CTA는 다른 이벤트 상세로 연결할 수 없습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	148	이동할 대상을 설정해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	149	외부 URL을 입력해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	150	이동할 앱 내부 경로(/로 시작)를 입력해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	151	관리자·사장님 화면으로는 연결할 수 없습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	152	앱 내부 경로 형식이 올바르지 않습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	153	URL 형식이 올바르지 않습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	154	허용되지 않는 URL입니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	155	외부 링크는 https:// 로 시작해야 합니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	156	이동할 대상을 설정해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	157	썸네일 이미지는 https:// 주소여야 합니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	158	정렬 순서는 정수로 입력해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	159	상단 고정 값이 올바르지 않습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	160	카테고리는 ${PLATFORM_EVENT_CATEGORY_MAX}자 이내로 입력해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	161	노출 종료는 노출 시작 이후여야 합니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	162	노출 시작 일시가 올바르지 않습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	163	노출 종료 일시가 올바르지 않습니다.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	170	입력값을 확인해 주세요.	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-events/admin-validation.ts	171	섹션 버튼: ${msg}	HARMLESS_ADMIN	platform-events/admin-validation — 관리자 이벤트 API·화면만 import	
+hangul	lib/platform-popup/admin-surface-target-mode.ts	37	위 다섯 영역에 동일 팝업 1개가 노출됩니다. 배달 오너·어드민 화면에는 나오지 않습니다(직접 선택한 경우만). 결제·통화·위험 작업 화면은 시스템이 잠시 가립니	FALSE_POSITIVE	helpKo/helpEn 쌍, 사장님 화면이 lang 으로 고름 (OwnerPlatformPopupApplyView.tsx:556)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	85	매장으로 이동	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	86	매장 메뉴 영역으로 이동	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	87	매장 프로모션 영역으로 이동	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	120	매장 · ${storeLabel}	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	122	매장 메뉴 영역 · ${storeLabel}	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-cta-destination-ux.ts	123	매장 프로모션 영역 · ${storeLabel}	FALSE_POSITIVE	lang==='en' 분기 (popup-cta-destination-ux.ts:80·113)	
+hangul	lib/platform-popup/popup-product-labels.ts	17	작성 중	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	18	검토 대기	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	19	검토 중	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	20	수정 요청	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	21	승인	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	22	반려	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	23	취소됨	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	42	미결제	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	43	Cash 결제됨	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	44	환불됨	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	45	결제 실패	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	61	작성 중	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	62	검토 대기	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	63	승인	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	64	예약	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	65	노출 중	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	66	일시중지	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	67	종료	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/platform-popup/popup-product-labels.ts	68	반려	FALSE_POSITIVE	ko/en 표를 lang 으로 고름 (popup-product-labels.ts:34·53·…)	
+hangul	lib/point-executions/execute-point-reward-server.ts	117	원장 조회 실패	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	128	정책 없음 또는 비활성	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	148	쿨다운 ${cooldownSeconds}초 미경과	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	176	무상 한도 도달	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	176	보상 0	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	189	확인 금액 초과 (계산 ${sim.rewardPoint}P > 확인 ${input.confirmedMaxPoint}P)	HARMLESS_ADMIN	관리자 수동 보상 차단 사유 — app/api/admin/point-executions/reward 만	
+hangul	lib/point-executions/execute-point-reward-server.ts	195	글쓰기	STORED	community_reward 원장 description 저장 → 내 포인트 내역 부제 ko 표시(PointFinancialHistoryList.tsx:29-32), en 은 숨김	description 대신 action 코드·게시판 id, 화면에서 키
+hangul	lib/point-executions/execute-point-reward-server.ts	195	댓글	STORED	같은 description (execute-point-reward-server.ts:195)	description 대신 action 코드, 화면에서 키
+hangul	lib/point-executions/execute-point-reward-server.ts	196	 · 관리자 지급 사유: ${input.reason.trim()}	STORED	관리자 지급 사유 포함 description → 회원 내역 ko 부제	사유는 별도 칸, 문구는 키
+hangul	lib/point-executions/execute-point-reward-server.ts	241	관리자	HARMLESS_ADMIN	point action log actorNickname — 관리자 로그	
+hangul	lib/point-executions/execute-point-reward-server.ts	245	${input.actionType === "write" ? "글쓰기" : "댓글"} 관리자 실지급 +${sim.rewardPoint}P	HARMLESS_ADMIN	point action log note — 관리자 로그	
+hangul	lib/point-executions/point-execution-utils.ts	26	글쓰기	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	27	댓글	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	34	지급완료	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	35	차단	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	36	회수됨	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	43	삭제	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	44	관리자삭제	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	45	신고적중	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	46	적격 상실	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	50	전액	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	51	일부	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	58	지급	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	59	회수	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	66	전체	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	67	지급완료	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	68	차단	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-executions/point-execution-utils.ts	69	회수됨	HARMLESS_ADMIN	point-execution-utils — 관리자 포인트 실행 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	6	고정 포인트	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	7	확률형 포인트	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	11	글쓰기	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	12	댓글	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	16	비입금 회원	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	17	유료 회원	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	21	자유게시판	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/point-policies/point-policy-utils.ts	23	거래 팁	HARMLESS_ADMIN	point-policy-utils — 관리자 포인트 정책 화면만	
+hangul	lib/points/point-expire-utils.ts	46	매일	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	47	매주	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	48	매월	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	55	시뮬레이션	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	56	실행완료	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	57	스킵	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	58	실패	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	65	미리보기	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	66	만료	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/point-expire-utils.ts	67	롤백	HARMLESS_ADMIN	POINT_EXPIRE_*_LABELS — AdminPointExpireTable 만 사용(회원 화면은 groupExpiringEntriesByMonth 만)	
+hangul	lib/points/project-point-financial-history.ts	41	삭제된 게시물	HARMLESS_CODE_USED	삭제 글 — 화면은 relatedObject.missing 이면 키 points_deleted_post (PointFinancialHistoryList.tsx:28), en 쌍 DELETED_POST_EN	
+hangul	lib/points/project-point-financial-history.ts	59	댓글	HARMLESS_DATA	description 포함 비교값	
+hangul	lib/points/project-point-financial-history.ts	60	질문	HARMLESS_DATA	description 포함 비교값	
+hangul	lib/points/project-point-financial-history.ts	269	삭제된 게시글	HARMLESS_CODE_USED	삭제 글 — missing 이면 화면 키 (PointFinancialHistoryList.tsx:28)	
+hangul	lib/points/project-point-financial-history.ts	465	포인트 충전	HARMLESS_CODE_USED	relatedObject.label — 회원 화면에서 읽지 않음	
+hangul	lib/points/project-point-financial-history.ts	527	보류 해제됨	FALSE_POSITIVE	subtitleEn 「Hold released」 쌍 (project-point-financial-history.ts:528)	
+hangul	lib/points/refund-points-after-failed-purchase.ts	53	시스템	HARMLESS_ADMIN	환급 대기 action log — 관리자 로그	
+hangul	lib/points/refund-points-after-failed-purchase.ts	57	포인트 환급 대기 ${input.amount}P · ${input.description} · 원인 ${lastError} · 같은 키로 재시도 시 1회만 환급	HARMLESS_ADMIN	환급 대기 action log note — 관리자 로그	
+hangul	lib/posts/owner-edit-select-post-row.ts	43	postId 필요	EXPOSED	owner-edit route 가 error 로 반환(route.ts:43-44) → 상품 수정 화면 (ProductTradeEditPageClient.tsx:73 → :151)	서버 code + 화면 키
+hangul	lib/posts/owner-edit-select-post-row.ts	70	글을 불러오지 못했습니다.	EXPOSED	같은 경로 (ProductTradeEditPageClient.tsx:73 → :151)	서버 code + 화면 키
+hangul	lib/promotion/apply-community-paid-exposure.ts	148	커뮤니티 게시물 상위노출 신청 (${product.durationDays}일)	HARMLESS_CODE_USED	hold 원장 description — 회원 내역은 상위노출 주문이면 부제를 글 제목으로 바꿈(project-point-financial-history.ts:442); DB 문장 저장은 규정 위반	
+hangul	lib/promotion/apply-trade-paid-exposure.ts	105	거래 상위노출 신청 (${product.durationDays}일)	HARMLESS_CODE_USED	같은 경우 (p_hold_label → 원장 description, 회원 부제는 글 제목)	
+hangul	lib/promotion/community-paid-exposure-feed.ts	140	(제목 없음)	HARMLESS_DATA	fetchActiveCommunityPaidExposureFeedPosts — 호출처 없음	
+hangul	lib/promotion/community-paid-exposure-feed.ts	158	회원	HARMLESS_DATA	같은 함수 — 호출처 없음	
+hangul	lib/promotion/promotion-point-hold-flow.ts	35	게시물 상위노출 신청 — 포인트 보류	HARMLESS_CODE_USED	상위노출 hold/release/capture description — 회원 부제는 글 제목으로 대체(project-point-financial-history.ts:442)	
+hangul	lib/promotion/promotion-point-hold-flow.ts	86	게시물 상위노출 반려/취소 — 보류 해제	HARMLESS_CODE_USED	상위노출 hold/release/capture description — 회원 부제는 글 제목으로 대체(project-point-financial-history.ts:442)	
+hangul	lib/promotion/promotion-point-hold-flow.ts	138	게시물 상위노출 승인 — ${cost}P 확정	HARMLESS_CODE_USED	상위노출 hold/release/capture description — 회원 부제는 글 제목으로 대체(project-point-financial-history.ts:442)	
+hangul	lib/store-order-chat/build-store-order-chat-card-view.ts	111	상품	EXPOSED	상품명 스냅샷 없을 때 「상품」 → 메신저 주문 영수증 카드 (StoreOrderReceiptCard.tsx:78)	빈 값 + 화면 키
+hangul	lib/store-order-chat/build-store-order-chat-card-view.ts	135	매장	EXPOSED	매장명 없을 때 「매장」 → 영수증 카드 (StoreOrderReceiptCard.tsx:42)	빈 값 + 화면 키
+hangul	lib/store-order-chat/build-store-order-chat-card-view.ts	139	배달	HARMLESS_CODE_USED	fulfillmentLabel — 카드 컴포넌트에서 읽지 않음	
+hangul	lib/store-order-chat/build-store-order-chat-card-view.ts	139	포장·픽업	HARMLESS_CODE_USED	fulfillmentLabel — 카드 컴포넌트에서 읽지 않음	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	5	📋 [주문 요약]	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	5	📋 [매장] 주문 내용 전달	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	5	📋 주문 요약	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	5	[매장] 주문 내용 전달	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	11	주문번호:	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	11	주문번호	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/collapse-duplicate-order-summaries.ts	17	— 품목 —	HARMLESS_DATA	옛 주문 요약 메시지 판별 비교값 (collapse-duplicate-order-summaries.ts)	
+hangul	lib/store-order-chat/use-delivery-room-message-sender-label.ts	32	매장	EXPOSED	매장명 없을 때 「매장」 → 배달 방 메시지 보낸이 이름 (CommunityMessengerRoomPhase2MessageTimeline.tsx:603)	빈 값이면 화면 키
+hangul	lib/store-order-chat/use-delivery-room-message-sender-label.ts	35	주문자	EXPOSED	구매자 이름 없을 때 「주문자」 → 보낸이 이름 (MessageTimeline.tsx:603)	화면 키
+hangul	lib/store-order-chat/use-store-order-room-snapshot.ts	184	매장	EXPOSED	store_name 없을 때 「매장」 → 주문 방 스냅샷 store_name (use-store-order-room-snapshot.ts:184-185)	빈 값 + 화면 키
+hangul	lib/store-owner/map-api-order-to-owner.ts	120	구매 회원	EXPOSED	buyer_public_label 없는 행(실시간 매핑 등)에서 「구매 회원」 → 사장님 주문 카드 (owner-store-order-list-row-bridge.ts:264 → OwnerStoreOrderMockCard.tsx:109-110)	빈 값 + 화면 store_buyer_public_label_fallback
+hangul	lib/stores/adjust-store-settlement-on-refund.ts	122	환불 발생(지급 완료 후): ${note}	HARMLESS_CODE_USED	store_settlements.hold_reason 저장 — 화면(components)에서 hold_reason 을 읽는 곳 없음; DB 문장 저장은 규정 위반	
+hangul	lib/stores/adjust-store-settlement-on-refund.ts	230	환불 발생(지급 완료 후): ${note}	HARMLESS_CODE_USED	같은 칸 (adjust-store-settlement-on-refund.ts:230)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	28	한식	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	29	중식	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	30	양식	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	31	분식	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	32	치킨	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	33	피자	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	34	디저트	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	35	한인마트	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	36	로컬마트	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	37	정육	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	38	수산	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	39	반찬	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	40	과일	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	41	전동공구	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	42	수공구	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	43	철물	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	44	안전용품	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	45	건축자재	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	46	사료	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	47	간식	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	48	미용	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	49	병원연계	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	50	용품	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	51	커피	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	52	베이커리	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	53	브런치	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	54	헤어	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	55	네일	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	56	스킨케어	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	57	어학	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	58	음악	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	59	운동	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	60	청소	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	61	세탁	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/admin-store-taxonomy-seed-catalog.ts	62	수리	HARMLESS_DATA	업종 시드 nameKo/nameEn 쌍 — 화면은 resolveTaxonomyIndustryLabel·resolveStoreTopicLabel 로 언어별(en 이 없으면 slug)	
+hangul	lib/stores/advertising/delivery-ad-open-event-commercial.ts	113	${guide.ratioLabel} · 권장 ${rec} · 최소 ${min}	FALSE_POSITIVE	lang==='en' 분기 (delivery-ad-open-event-commercial.ts:110)	
+hangul	lib/stores/advertising/delivery-ad-stage2-surface-contract.ts	147	배달 홈 상단 배너	HARMLESS_DATA	STAGE2_HUMAN_LABELS_KO — 정의만, 사용처 없음	
+hangul	lib/stores/advertising/delivery-ad-stage2-surface-contract.ts	148	배달 홈 매장 목록 위 배너	HARMLESS_DATA	STAGE2_HUMAN_LABELS_KO — 정의만, 사용처 없음	
+hangul	lib/stores/advertising/delivery-ad-stage2-surface-contract.ts	149	업종 페이지 상단 배너	HARMLESS_DATA	STAGE2_HUMAN_LABELS_KO — 정의만, 사용처 없음	
+hangul	lib/stores/advertising/delivery-ad-stage2-surface-contract.ts	150	배달 홈 매장 홍보	HARMLESS_DATA	STAGE2_HUMAN_LABELS_KO — 정의만, 사용처 없음	
+hangul	lib/stores/advertising/delivery-ad-stage2-surface-contract.ts	151	업종 매장 홍보	HARMLESS_DATA	STAGE2_HUMAN_LABELS_KO — 정의만, 사용처 없음	
+hangul	lib/stores/advertising/validate-banner-creative-geometry.ts	91	이 이미지는 ${input.placementLabel} 최소 규격보다 작습니다. 최소 ${g.minWidth}×${g.minHeight}px (${g.ratioL	FALSE_POSITIVE	en 분기 뒤 한국어 (validate-banner-creative-geometry.ts:84-89)	
+hangul	lib/stores/advertising/validate-banner-creative-geometry.ts	94	이 이미지는 ${input.placementLabel} 규격과 맞지 않습니다. ${g.ratioLabel} 비율의 이미지를 사용해 주세요. 권장 크기 ${g.re	FALSE_POSITIVE	en 분기 뒤 한국어 (validate-banner-creative-geometry.ts:84-89)	
+hangul	lib/stores/advertising/validate-banner-creative-geometry.ts	96	이 이미지는 ${input.placementLabel} 배너 규격과 맞지 않습니다.	FALSE_POSITIVE	en 분기 뒤 한국어 (validate-banner-creative-geometry.ts:84-89)	
+hangul	lib/stores/apply-completed-order-to-commerce-cart.ts	57	매장 정보를 찾을 수 없어 다시 주문할 수 없습니다.	EXPOSED	error 문장 → 다시 주문 실패 팝업 (StoreOrderReorderAgainButton.tsx:43)	error code + 화면 키
+hangul	lib/stores/apply-completed-order-to-commerce-cart.ts	60	담을 메뉴가 없습니다.	EXPOSED	같은 팝업 (StoreOrderReorderAgainButton.tsx:43)	error code + 화면 키
+hangul	lib/stores/apply-completed-order-to-commerce-cart.ts	93	메뉴	EXPOSED	상품명 스냅샷 없을 때 「메뉴」 → 장바구니 줄 제목	빈 값 + 화면 키
+hangul	lib/stores/buyer-public-label.ts	10	사마켓 회원	EXPOSED	BUYER_PUBLIC_LABEL_FALLBACK 「사마켓 회원」(옛 브랜드) → 사장님 주문 채팅 목록 (order-chats route.ts:158 → OwnerStoreOrderChatsView.tsx:162)	서버 빈 값, 화면 store_buyer_public_label_fallback
+hangul	lib/stores/db-store-mapper.ts	132	관리자 보완 요청	HARMLESS_ADMIN	Store.adminMemo — 사장님·고객 화면에서 읽는 곳 없음	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	60	상품권몰	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	61	상품권몰 · DIBAY 상품권	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	62	상품권몰 · 매장 상품권	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	63	선물함	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	64	받은 선물	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	65	보낸 선물	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	66	쿠폰함	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	67	포인트	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	68	이벤트	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/delivery-menus/delivery-menu-types.ts	69	회원 혜택	HARMLESS_DATA	DELIVERY_MENU_LINK_TARGET_LABEL_KO — 사용처 없음(관리자는 *_KEYS 사용)	
+hangul	lib/stores/dibay-menu-board-tokens.ts	20	사장님 추천	HARMLESS_DATA	메뉴판 스타일 토큰 text — 화면은 t() 키 사용(SoldOutOverlay.tsx:22·ProductBadgeRow.tsx:47)	
+hangul	lib/stores/dibay-menu-board-tokens.ts	31	인기	HARMLESS_DATA	메뉴판 스타일 토큰 text — 화면은 t() 키 사용(SoldOutOverlay.tsx:22·ProductBadgeRow.tsx:47)	
+hangul	lib/stores/dibay-menu-board-tokens.ts	41	대표	HARMLESS_DATA	메뉴판 스타일 토큰 text — 화면은 t() 키 사용(SoldOutOverlay.tsx:22·ProductBadgeRow.tsx:47)	
+hangul	lib/stores/dibay-menu-board-tokens.ts	51	품절	HARMLESS_DATA	메뉴판 스타일 토큰 text — 화면은 t() 키 사용(SoldOutOverlay.tsx:22·ProductBadgeRow.tsx:47)	
+hangul	lib/stores/dibay-menu-board-tokens.ts	60	할인	HARMLESS_DATA	메뉴판 스타일 토큰 text — 화면은 t() 키 사용(SoldOutOverlay.tsx:22·ProductBadgeRow.tsx:47)	
+hangul	lib/stores/format-store-order-chat-summary.ts	7	📋 주문 요약	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	46	매장: ${order.store_name}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	47	주문번호: ${order.order_no}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	50	주문	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	50	배달	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	50	조리	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	53	상태: ${labeled}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	60	배달 주소: ${deliveryAddr}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	63	연락처: ${order.buyer_phone.trim()}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	66	— 품목 —	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	75	할인: -${formatMoneyPhp(order.discount_amount)}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	78	배달비: ${formatMoneyPhp(order.delivery_fee_amount)}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	81	합계: ${formatMoneyPhp(order.payment_amount)}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-chat-summary.ts	84	요청사항: ${order.buyer_note.trim()}	STORED	주문 요약 한국어 문장 — 사장님 패널 직접 표시(StoreOrderSellerOrderPanel.tsx:283·297)·채팅 전송(:190), 서버 자동 요약 메시지 content 저장(store-order-chat-service.ts:340)	content 는 kind+값(metadata)만 저장, 화면에서 키로 그림
+hangul	lib/stores/format-store-order-checkout-display.ts	16	예상 배달 약 ${Math.round(eta)}분 · 경로 ${dist}	EXPOSED	「예상 배달 약 N분 · 경로」 한국어 → 고객 내 주문 목록 (MyStoreOrdersView.tsx:478-484)	formatStoreOrderCheckoutEtaSummaryI18n(store-order-detail-i18n.ts:171) 로
+hangul	lib/stores/format-store-order-checkout-display.ts	17	예상 배달 약 ${Math.round(eta)}분	EXPOSED	「예상 배달 약 N분 · 경로」 한국어 → 고객 내 주문 목록 (MyStoreOrdersView.tsx:478-484)	formatStoreOrderCheckoutEtaSummaryI18n(store-order-detail-i18n.ts:171) 로
+hangul	lib/stores/format-store-order-checkout-display.ts	18	경로 ${dist}	EXPOSED	「예상 배달 약 N분 · 경로」 한국어 → 고객 내 주문 목록 (MyStoreOrdersView.tsx:478-484)	formatStoreOrderCheckoutEtaSummaryI18n(store-order-detail-i18n.ts:171) 로
+hangul	lib/stores/group-store-products-by-menu.ts	207	기타 메뉴	FALSE_POSITIVE	「기타 메뉴」는 화면에서 localizeMenuSectionHeadings 로 키 변환 (StoreDetailPublic.tsx:1373)	
+hangul	lib/stores/load-store-seo-metadata.ts	29	매장	EXPOSED	매장 SEO title 대체 「매장」 → 페이지 메타 제목(공유 미리보기)	요청 언어 키로
+hangul	lib/stores/load-store-seo-metadata.ts	32	${region} · 동네 매장	EXPOSED	메타 description 「{지역} · 동네 매장」 → 공유 미리보기	요청 언어 키로
+hangul	lib/stores/load-store-seo-metadata.ts	32	동네 매장	EXPOSED	메타 description 「동네 매장」 → 공유 미리보기	요청 언어 키로
+hangul	lib/stores/localize-menu-section-headings.ts	6	기타 메뉴	HARMLESS_DATA	옛 한국어 구역명 비교값 (localize-menu-section-headings.ts:5)	
+hangul	lib/stores/modifiers/parse-json.ts	37	옵션 ${gi + 1}	EXPOSED	옵션 그룹 이름 없을 때 「옵션 N」 → 상품 옵션 시트·주문 줄	빈 값 + 화면 키(번호 치환)
+hangul	lib/stores/open-store-product-sheet-from-cart.ts	64	준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.	EXPOSED	영업 외 안내 hint → 장바구니에서 메뉴 다시 열 때 상품 시트 (StoreCommerceCartPageClient.tsx:1652 → openStoreProductSheet)	키로
+hangul	lib/stores/open-store-product-sheet-from-cart.ts	65	지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다.	EXPOSED	같은 hint (open-store-product-sheet-from-cart.ts:65)	키로
+hangul	lib/stores/owner-catalog/products-core.server.ts	213	할인가는 판매가보다 낮아야 합니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	353	사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	434	사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	601	할인가는 판매가보다 낮아야 합니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	823	사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	896	할인가는 판매가보다 낮아야 합니다.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/products-core.server.ts	909	다른 곳에서 상품이 변경되었습니다. 새로 불러온 뒤 다시 저장해 주세요.	EXPOSED	API message 문장 → 사장님 상품 저장 오류 팝업 (owner-product-register-error.ts:48·111 apiMessage 우선 → OwnerProductForm.tsx:670·712)	message 빼고 화면이 error code 로 키
+hangul	lib/stores/owner-catalog/store-profile-core.server.ts	625	매장 주소·위치 변경 재검증 · ${storeName || sid}	HARMLESS_ADMIN	관리자 알림 제목 — createAdminNotification(관리자용)	
+hangul	lib/stores/owner-catalog/store-profile-core.server.ts	626	변경 항목: ${coreChangedFields.join(", ")}	HARMLESS_ADMIN	관리자 알림 본문	
+hangul	lib/stores/owner-catalog/upload-image-core.server.ts	19	이미지 가로·세로는 각 8192px 이하여야 합니다. 512×512 이상의 고해상도도 업로드할 수 있습니다.	EXPOSED	업로드 API message → uploadStoreOwnerProductImage 가 Error(message)(upload-store-product-image-client.ts:53-58) → OwnerProductForm.tsx:729 → resolveOwnerProductRegisterError 가 문장 그대로	message 빼고 code→키
+hangul	lib/stores/owner-catalog/upload-image-core.server.ts	20	이미지 크기를 확인할 수 없습니다. 다른 파일로 시도해 주세요.	EXPOSED	업로드 API message → uploadStoreOwnerProductImage 가 Error(message)(upload-store-product-image-client.ts:53-58) → OwnerProductForm.tsx:729 → resolveOwnerProductRegisterError 가 문장 그대로	message 빼고 code→키
+hangul	lib/stores/owner-catalog/upload-image-core.server.ts	111	Supabase Storage에 버킷 store-product-images가 없습니다. SQL Editor에서 storage.buckets에 추가하거나, 마이그레	EXPOSED	업로드 API message → uploadStoreOwnerProductImage 가 Error(message)(upload-store-product-image-client.ts:53-58) → OwnerProductForm.tsx:729 → resolveOwnerProductRegisterError 가 문장 그대로 (개발 안내 문장까지 노출)	message 빼고 code storage_bucket_missing→키
+hangul	lib/stores/owner-product-images.ts	94	상세 이미지에 대표 이미지와 같은 파일을 넣을 수 없습니다.	EXPOSED	detail_image_overlaps_thumbnail apiMessage 그대로 (owner-product-register-error.ts:96-100)	code→키
+hangul	lib/stores/owner-product-images.ts	151	이미지 파일을 선택해 주세요.	EXPOSED	validateOwnerProductImageFileForUpload message → onClientError(OwnerProductImagesBlock.tsx:365) → OwnerProductForm.tsx:902 → 문장 그대로	code 반환 + 화면 키
+hangul	lib/stores/owner-product-images.ts	154	이미지는 20MB 이하여야 합니다.	EXPOSED	validateOwnerProductImageFileForUpload message → onClientError(OwnerProductImagesBlock.tsx:365) → OwnerProductForm.tsx:902 → 문장 그대로	code 반환 + 화면 키
+hangul	lib/stores/owner-product-images.ts	157	이미지는 JPG, PNG 또는 WebP만 사용할 수 있습니다.	EXPOSED	validateOwnerProductImageFileForUpload message → onClientError(OwnerProductImagesBlock.tsx:365) → OwnerProductForm.tsx:902 → 문장 그대로	code 반환 + 화면 키
+hangul	lib/stores/payment-methods-config.ts	37	현금(착불·만나서)	HARMLESS_DATA	FORBIDDEN_LEGACY_COD_DISPLAY_STRINGS — 회귀 검사용 금지 문자열	
+hangul	lib/stores/payment-methods-config.ts	38	현금 (착불·만나서)	HARMLESS_DATA	FORBIDDEN_LEGACY_COD_DISPLAY_STRINGS — 회귀 검사용 금지 문자열	
+hangul	lib/stores/payment-methods-config.ts	39	현금 (착불 만나서)	HARMLESS_DATA	FORBIDDEN_LEGACY_COD_DISPLAY_STRINGS — 회귀 검사용 금지 문자열	
+hangul	lib/stores/payment-methods-config.ts	40	만나서 현금	HARMLESS_DATA	FORBIDDEN_LEGACY_COD_DISPLAY_STRINGS — 회귀 검사용 금지 문자열	
+hangul	lib/stores/presentation/stores-home-presentation-map.ts	99	A-VIS §8 신규 badge is CATEGORY context — not HOME food rail	HARMLESS_DATA	설계 증거 메모(matchEvidence·notes) — 화면 미사용	
+hangul	lib/stores/presentation/stores-home-presentation-map.ts	103	Preserve store teaser; no invented 신규 HOME card.	HARMLESS_DATA	설계 증거 메모(matchEvidence·notes) — 화면 미사용	
+hangul	lib/stores/presentation/stores-home-presentation-map.ts	129	OBSERVED 평점 4.9점 shelf + large landscape food cards (owner-stepA-home-scroll-03)	HARMLESS_DATA	설계 증거 메모(matchEvidence·notes) — 화면 미사용	
+hangul	lib/stores/product/stores-home-shelf-product-catalog.ts	76	CUT 2 — main_stores 런타임 제거. 나머지는 rest_stores 책임으로 수렴합니다.	HARMLESS_ADMIN	unavailableReasonKo — AdminStoresHomeShelvesPage.tsx:879 만, ko/en 쌍	
+hangul	lib/stores/product/stores-home-shelf-product-catalog.ts	133	deliveryFeeStrikePhp evidence only — NOT zero-tip authority. Rename to 배달팁 0원 only when ze	HARMLESS_DATA	dataAuthorityNote 개발 메모	
+hangul	lib/stores/product/stores-home-shelf-product-catalog.ts	164	CUT 2 — TARGET v1 코어 섹션이 아닙니다 (DEFERRED). 후속 복구 가능.	HARMLESS_ADMIN	unavailableReasonKo — 관리자 선반 화면, ko/en 쌍	
+hangul	lib/stores/product-line-options.ts	125	${base} · 메모: ${ln}	EXPOSED	「· 메모:」 한국어 → 사장님 주문 카드 옵션 줄 (OwnerStoreOrderMockCard.tsx:517)	lang 받아 키로
+hangul	lib/stores/product-line-options.ts	126	메모: ${ln}	EXPOSED	「메모:」 → 같은 줄 (OwnerStoreOrderMockCard.tsx:517)	lang 받아 키로
+hangul	lib/stores/sales/store-sales-period.ts	106	일	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	월	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	화	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	수	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	목	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	금	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/sales/store-sales-period.ts	106	토	FALSE_POSITIVE	lang==='ko' 일 때만 한글 요일 (store-sales-period.ts:106)	
+hangul	lib/stores/serialize-store-business-hours-json.ts	78	매일 ${open}–${close} (${tz})	STORED	business_hours_json.weekdays 에 「매일 …」 저장 → 고객 매장 정보 영업시간 (StoreDetailInfoPublic.tsx:394)	weekdays 문장 대신 구조값 저장, 화면에서 키
+hangul	lib/stores/serialize-store-business-hours-json.ts	135	매일 ${open}–${close} (${tz})	STORED	같은 저장 (serialize-store-business-hours-json.ts:135)	구조값 저장, 화면에서 키
+hangul	lib/stores/store-address-form-ui.ts	9	거래 글 등록과 동일한 지역·동네 목록에서 선택합니다. PhilPost ZIP으로 지역을 맞출 수 있습니다.	HARMLESS_DATA	STORE_LOCATION_SECTION_HINT_APPLY — 사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	12	공개 매장 페이지 상단 위치·주소에 반영됩니다.	EXPOSED	사장님 기본정보 위치 블록 안내 (OwnerStoreBasicInfoForm.tsx:1125)	키로
+hangul	lib/stores/store-address-form-ui.ts	15	실제 매장은 기본 정보 화면과 동일하게 지역·동네·ZIP·지번·동·호를 입력합니다.	HARMLESS_DATA	사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	17	주소	HARMLESS_DATA	사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	19	위치	HARMLESS_DATA	사용처 없음(@deprecated)	
+hangul	lib/stores/store-address-form-ui.ts	21	Google 지도에서 핀으로 위치를 고르면 역지오코딩 주소·우편번호가 함께 저장됩니다. 생활·거래·배달 기본지는 주소록에서 따로 지정합니다.	HARMLESS_DATA	사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	24	매장·프로필과 동일: 지번·건물·번지와 동·호·출입을 한 행에 나누어 입력합니다. (영문 상세는 아래에서 이어서 입력 가능)	HARMLESS_DATA	사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	27	지역·동네·ZIP 후 지번·건물·번지 / 동·호·출입을 입력하면 연락처 주소에 반영됩니다.	HARMLESS_DATA	사용처 없음	
+hangul	lib/stores/store-address-form-ui.ts	30	지번·건물명·번지	EXPOSED	칸 라벨 (StoreAddressStreetDetailGrid.tsx:49) + 장바구니 오류 문구 치환값 (StoreCommerceCartPageClient.tsx:1768·2750)	키로
+hangul	lib/stores/store-address-form-ui.ts	32	지역·동네는 위에서 고르고, 목록에 없을 때는 3자 이상 입력하세요.	EXPOSED	안내 (StoreAddressStreetDetailGrid.tsx:44)	키로
+hangul	lib/stores/store-address-form-ui.ts	35	동·호·출입 등	EXPOSED	칸 라벨 (StoreAddressStreetDetailGrid.tsx:63)	키로
+hangul	lib/stores/store-address-form-ui.ts	38	예: Barangay · 건물명 · 번지	EXPOSED	placeholder (StoreAddressStreetDetailGrid.tsx:58)	키로
+hangul	lib/stores/store-approval-label-ko.ts	5	신청대기	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	6	검토중	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	7	보완요청	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	8	승인됨	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	9	반려	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	10	정지	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-approval-label-ko.ts	15	상태 미정	HARMLESS_DATA	STORE_APPROVAL_STATUS_LABEL_KO·formatStoreApprovalStatusKo — 사용처 없음(화면은 *I18n 사용)	
+hangul	lib/stores/store-auto-hours.ts	313	없음	HARMLESS_DATA	옛 break_time 값 비교 「없음」	
+hangul	lib/stores/store-auto-hours.ts	328	필리핀 (Asia/Manila)	FALSE_POSITIVE	라벨은 화면에서 ownerStoreTimezoneLabel(language,value) 로 다시 만듦 (OwnerStoreProfileForm.tsx:820-823)	
+hangul	lib/stores/store-auto-hours.ts	329	한국 (Asia/Seoul)	FALSE_POSITIVE	라벨은 화면에서 ownerStoreTimezoneLabel(language,value) 로 다시 만듦 (OwnerStoreProfileForm.tsx:820-823)	
+hangul	lib/stores/store-auto-hours.ts	330	일본 (Asia/Tokyo)	FALSE_POSITIVE	라벨은 화면에서 ownerStoreTimezoneLabel(language,value) 로 다시 만듦 (OwnerStoreProfileForm.tsx:820-823)	
+hangul	lib/stores/store-commerce-extras.ts	113	20~40분	EXPOSED	기본 estPrepLabel 「20~40분」 → prepMinutes 없을 때 localizedStorePrepLabel·buildStoreDeliveryEtaLabel 이 그대로 씀(store-delivery-eta-label.ts:24·47) → 배달 목록 카드 시간 (StoreDeliveryRowCard.tsx:426)	기본값 비우고 화면 키
+hangul	lib/stores/store-commerce-extras.ts	131	${prepMinutes}분	EXPOSED	「N분」 → formatPrepOnlyEtaLabel 이 estPrepLabel 그대로 (store-delivery-eta-label.ts:32·47) → 목록 카드	prepMinutes 로 store_prep_minutes_unit 키
+hangul	lib/stores/store-delivery-alert-sound-presets.ts	17	기본 비프음 (브라우저)	HARMLESS_ADMIN	알림음 옵션 — AdminGlobalAlertSoundSection 만	
+hangul	lib/stores/store-delivery-alert-sound-presets.ts	18	알림음 (기본 파일, 향후 교체 예정)	HARMLESS_ADMIN	알림음 옵션 — 관리자만	
+hangul	lib/stores/store-detail-meta.ts	118	30~50분	HARMLESS_CODE_USED	avgDeliveryTimeLabel — 화면에서 읽지 않음	
+hangul	lib/stores/store-detail-meta.ts	119	없음	HARMLESS_CODE_USED	breakTimeLabel — 화면에서 읽지 않음	
+hangul	lib/stores/store-menus-catalog-assemble.ts	43	옵션 있음	EXPOSED	options_summary 「옵션 있음」 → 상품 담기 시트 (StoreProductAddSheet.tsx:787)	불리언만 내리고 화면 키
+hangul	lib/stores/store-order-detail-seed-cache.ts	173	매장	EXPOSED	seed store_name 「매장」 → 주문 상세 첫 화면 매장명 (MyStoreOrderDetailView.tsx seed)	빈 값 + 화면 키
+hangul	lib/stores/store-product-admin-lock.ts	64	숨김	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111) 의 일부(관리자 {잠금} 조치)	message 빼고 code+lock 으로 화면 키
+hangul	lib/stores/store-product-admin-lock.ts	65	품절	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111) 의 일부(관리자 {잠금} 조치)	message 빼고 code+lock 으로 화면 키
+hangul	lib/stores/store-product-admin-lock.ts	66	판매 차단	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111) 의 일부(관리자 {잠금} 조치)	message 빼고 code+lock 으로 화면 키
+hangul	lib/stores/store-product-admin-lock.ts	71	관리자 ${ADMIN_LOCK_LABEL_KO[lock]} 조치	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111) 의 일부(관리자 {잠금} 조치)	message 빼고 code+lock 으로 화면 키
+hangul	lib/stores/store-product-admin-lock.ts	89	${ownerAdminLockLabelKo(lock)} 상품입니다. 관리자가 해제해야 판매 상태를 바꿀 수 있습니다.	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111)	code admin_locked + lock 으로 키
+hangul	lib/stores/store-product-admin-lock.ts	96	관리자가 판매를 차단한 상품입니다. 고객센터로 문의해 주세요.	EXPOSED	상품 저장 팝업 apiMessage (owner-product-register-error.ts:111); 목록 토스트는 키(OwnerProductsHubClient.tsx:320)	code→키
+hangul	lib/stores/store-product-admin-lock.ts	105	관리자 검수에서 반려된 상품입니다. 내용을 수정하면 재검수 요청이 되고, 승인 후 판매할 수 있습니다.	EXPOSED	상품 저장 팝업 apiMessage (owner-product-register-error.ts:111); 목록은 키	code→키
+hangul	lib/stores/store-product-admin-lock.ts	112	재검수 대기 중인 상품입니다. 관리자 검수 승인 후 판매할 수 있습니다.	EXPOSED	잠금 message 문장 → 사장님 상품 목록 토스트(OwnerProductsHubClient.tsx:313-315)·상품 저장 팝업(owner-product-register-error.ts:111)	code→키
+hangul	lib/stores/stores-browse-build.ts	1080	전체	HARMLESS_CODE_USED	subNameKo 「전체」 — en 은 resolveStoreTopicLabel 이 한국어 대신 slug 이름(All) (store-browse-label-i18n.ts:101-103)	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	35	식당	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	36	마트	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	37	공구류	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	38	펫샵	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	39	카페	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	40	미용	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	41	학원	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	42	서비스	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	46	한식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	47	중식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	48	일식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	49	양식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	50	피자	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	51	분식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	52	치킨	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	53	도시락	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	54	로컬	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	55	디저트	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	56	야식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	57	한인마트	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	58	로컬마트	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	59	정육	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	60	수산	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	61	반찬	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	62	과일	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	63	전동공구	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	64	수공구	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	65	철물	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	66	안전용품	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	67	건축자재	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	68	사료	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	69	간식	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	70	미용	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	71	병원연계	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	72	용품	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	73	커피	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	74	베이커리	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	75	브런치	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	76	헤어	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	77	네일	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	78	스킨케어	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	79	어학	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	80	음악	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	81	운동	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	82	청소	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	83	세탁	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/stores/stores-home-taxonomy-seed.ts	84	수리	HARMLESS_DATA	업종 시드 name/name_en 쌍 — 내보낸 상수 중 화면은 EAGER 개수만 import, 이름은 언어별 해석	
+hangul	lib/trade-ads/trade-post-ad-point-flow.ts	12	포인트가 부족합니다.	HARMLESS_DATA	trade-post-ad-point-flow — import 하는 곳 없음	
+hangul	lib/trade-ads/trade-post-ad-point-flow.ts	34	거래 광고 신청 — 포인트 보류	HARMLESS_DATA	trade-post-ad-point-flow — import 하는 곳 없음	
+hangul	lib/trade-ads/trade-post-ad-point-flow.ts	80	거래 광고 반려/취소 — 보류 해제	HARMLESS_DATA	trade-post-ad-point-flow — import 하는 곳 없음	
+hangul	lib/trade-ads/trade-post-ad-point-flow.ts	127	거래 광고 활성 — 보류 포인트 확정(추가 차감 없음)	HARMLESS_DATA	trade-post-ad-point-flow — import 하는 곳 없음	
+en-literal	app/(main)/mypage/ads/feed-request/page.tsx	322	p.pointCost	FALSE_POSITIVE	p.pointCost — 속성 이름(코드)	
+en-literal	app/(main)/mypage/ads/feed-request/page.tsx	972	https://…	FALSE_POSITIVE	placeholder 「https://…」 — 주소 형식 예시, 언어 무관	
+en-literal	app/(main)/stores/owner/ads/event-promotions/[requestId]/page.tsx	12	missing	EXPOSED	requestId 없을 때 영어 「missing」 표시 (event-promotions/[requestId]/page.tsx:12)	키로
+en-literal	app/(main)/stores/owner/products/[productId]/edit/page.tsx	40	storeId	EXPOSED	안내 문장 안에 개발 용어 「storeId」 표시 (products/[productId]/edit/page.tsx:40)	용어 없이 키 문장으로
+en-literal	components/business/admin/business-admin-store-context.tsx	8	Promise	FALSE_POSITIVE	Promise — TypeScript 타입	
+en-literal	components/business/admin/dashboard/BusinessAdminDashboard.tsx	53	Promise	FALSE_POSITIVE	Promise — TypeScript 타입	
+en-literal	components/business/admin/dashboard/BusinessAdminDashboard.tsx	70	Promise	FALSE_POSITIVE	Promise — TypeScript 타입	
+en-literal	components/business/admin/dashboard/BusinessAdminDashboard.tsx	72	Promise	FALSE_POSITIVE	Promise — TypeScript 타입	
+en-literal	components/business/owner/OwnerCoinConvertSection.tsx	342	Cash	NEED_OWNER	「Cash」 상품 화폐 이름 — ko 카탈로그도 Cash 그대로 씀; 고정 표기인지 Owner 결정	
+en-literal	components/business/owner/OwnerGiftCertificatesView.tsx	318	Coin	NEED_OWNER	「Coin」 상품 화폐 이름 — 고정 표기인지 Owner 결정	
+en-literal	components/business/owner/OwnerHubRuntimeProvider.tsx	49	Promise	FALSE_POSITIVE	Promise — 타입	
+en-literal	components/business/owner/OwnerStoreSettlementsView.tsx	420	order no	EXPOSED	aria-label 「order no」 영어 고정 — ko 화면 스크린리더 (OwnerStoreSettlementsView.tsx:420)	aria-label 도 t(store_owner_settlement_filter_order_no)
+en-literal	components/business/owner/StoreMenuCategorySortableList.tsx	170	Promise	FALSE_POSITIVE	Promise — 타입	
+en-literal	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	708	36:25 crop preview	EXPOSED	img alt 「36:25 crop preview」 영어 고정 (OwnerPlatformPopupApplyView.tsx:708)	alt 키로
+en-literal	components/business/owner/ads/OwnerPlatformPopupRequestDetailView.tsx	156	CTA	EXPOSED	라벨 「CTA」 영어 고정 — 사장님 팝업 신청 상세 (OwnerPlatformPopupRequestDetailView.tsx:156)	키(버튼 이동)로
+en-literal	components/delivery/DeliveryServiceAreaEditorCore.tsx	59	Promise	FALSE_POSITIVE	Promise — 타입	
+en-literal	components/finance/FinanceFilterBar.tsx	60	Point	HARMLESS_ADMIN	FinanceFilterBar — 관리자 재무 화면만(AdminFinance*)	
+en-literal	components/finance/FinanceFilterBar.tsx	61	Coin	HARMLESS_ADMIN	FinanceFilterBar — 관리자 재무 화면만(AdminFinance*)	
+en-literal	components/finance/FinanceFilterBar.tsx	62	Cash	HARMLESS_ADMIN	FinanceFilterBar — 관리자 재무 화면만(AdminFinance*)	
+en-literal	components/finance/OrderMoneyChainView.tsx	53	Qty	HARMLESS_ADMIN	OrderMoneyChainView — AdminFinanceOrderDetailView 만	
+en-literal	components/finance/OrderMoneyChainView.tsx	74	Gross	HARMLESS_ADMIN	OrderMoneyChainView — 관리자만	
+en-literal	components/stores/StoreDetailPublic.tsx	484	Promise	FALSE_POSITIVE	Promise — 타입	
+en-literal	components/stores/commission/StoreCommissionLedgerParts.tsx	521	review filter	EXPOSED	aria-label 「review filter」 영어 고정 — 사장님 정산 화면에도 쓰임 (OwnerStoreSettlementsView.tsx:403)	aria-label 키로
+en-literal	components/stores/owner/dashboard/OwnerFinanceHomeCards.tsx	88	Coin	NEED_OWNER	「Coin」 상품 화폐 이름 고정 표기 — 사장님 재무 홈 카드 (OwnerFinanceHomeCards.tsx:88); Owner 결정	
+en-literal	components/stores/owner/dashboard/OwnerFinanceHomeCards.tsx	94	Cash	NEED_OWNER	「Cash」 상품 화폐 이름 고정 표기 (OwnerFinanceHomeCards.tsx:94); Owner 결정	

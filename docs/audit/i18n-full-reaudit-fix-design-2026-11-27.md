@@ -1,219 +1,277 @@
-# 언어(국문·영문) 재감사 결함 — 수정 설계 (2026-11-27)
+# 언어(국문·영문) 전체 결함 — 전수표 + 전체 수정 설계 (2026-11-27)
 
-> Owner 지시: 「수정 설계 진행」 (재감사 `docs/audit/i18n-full-reaudit-2026-11-27.md` 뒤).
-> 계약 인용:
-> - `docs/i18n-ssot.md` §3-2 「화면 문구는 키(`t("key")`)로만」
-> - §3-3 「영어 화면에 한국어, 한국어 화면에 영어가 나오면 결함」 「서버 API 는 화면 문장 대신 오류 코드를 보내고, 문구는 클라이언트 카탈로그가 정한다」
-> - §3-5 「DB 에 화면 문장을 저장하지 않는다 … 종류 코드 + 값을 저장하고 화면에서 키로 그린다」
-> - §4-2 용어집 「캐시(매장 화폐) — Cash」
-> - AGENTS.md 「서버 문구는 요청 언어로」
+> Owner 지시 원문:
+> - 「가입 부터 전체적으로 기기의 언어, 각가의 언어 국문, 영문 부분을 다시 끝까지 감사 해서 … 빠진 부분은 없는지 명확히 확인 해줘」
+> - 「정확한 전체적인 결함을 확인 하고 전체 설계안을 줘야지 … 잘라서 배포 규정도 안지키고」
 >
-> 이 문서는 **설계**다. 구현·커밋·운영 반영은 Owner 승인 뒤 단계별로 한다.
-> 기준 코드: `origin/main` 9c5dcd6be.
+> 계약:
+> - `docs/i18n-ssot.md` §3-2 화면 문구는 키로만
+> - §3-3 영어 화면에 한국어·한국어 화면에 영어 = 결함. 서버는 오류 코드만
+> - §3-5 DB 에 화면 문장 저장 금지
+> - AGENTS.md 「한 작업 = PR 1개·병합 1회」 「통화 변경 규정」
+>
+> 기준 코드: `origin/main` 9c5dcd6 + 브랜치 `fix/i18n-reaudit-p1`(PR #655, **병합 안 됨 · 자동 병합 해제**).
+> 전수표: `docs/audit/i18n-full-reaudit-2026-11-27/inventory.md`(노출 항목 812행). 원본 판정은 같은 폴더 `result-*.tsv`(전 후보 4,172행).
+> 이 문서가 앞의 「P1~P8 단계 설계」를 **대체**한다.
 
-## 0. 설계 전 확인한 운영 데이터 (읽기 전용 · 2026-11-27 PHT)
+## 0. 작업자 잘못 (먼저 보고)
 
-| 항목 | 조회 결과 | 설계 반영 |
+1. **1차 감사가 전수가 아니었다.**
+   - 건수 상위 파일만 따라가고 「~90건」 같은 추정치를 썼다.
+   - 확인 못 한 것은 「남은 위험·NOT_PROVEN」으로 넘겼다.
+   - 이번에는 후보를 모두 뽑아(4,172행) 한 줄씩 판정했다(§1).
+2. **배포 규정 위반.**
+   - 같은 지시·같은 원인 작업을 P1~P8 로 쪼개 PR 여러 개로 설계했다(「작업 단위 병합」 위반).
+   - P1 만 PR #655 로 올리고 자동 병합까지 등록했다. → **자동 병합 해제함**(11-27). #655 는 열린 채로 두고, 전체 수정을 이 PR 하나에 쌓는다. 단 통화만 규정상 예외(§4-7).
+3. **1차 보고 틀린 항목.**
+   - 「구매내역에 거래 상태가 한국어로 나온다」 → 틀렸다. 구매내역 카드는 그리는 화면이 없다. 같은 라벨은 **판매내역·메신저 거래 목록**에 나온다.
+   - 「알림은 문제 없음」 → 틀렸다. 알림함·사장님 알림함·부재중·가격 제안에 결함이 있다(§2-4).
+
+## 1. 전수 방법 — 빠진 곳이 없다는 근거
+
+| 단계 | 대상 | 행 | 판정 |
+|---|---|---|---|
+| 1차 추출 | 관리자 밖 코드의 한국어 문자열 3,507 · JSX 한국어 17 · 화면이 서버 문장을 쓰는 형태 122 · 고객 화면 영어 글자 96 · 네이티브 한국어 34 | 3,775 | 도메인 7묶음, 모든 행 판정 |
+| 2차 추출 | 1차가 놓친 서버 값 표시 형태(`x.error/message/warning/hint/reason` 를 setter·토스트·JSX 에 씀) 198 · 관리자 밖 영어 문장 199 | 397 | 모든 행 판정 |
+| 공용 표시부 | 토스트·스낵바 호출 250곳의 인자 출처 | 250 | 직접 확인 — 새 결함 0 |
+| 알림 | `notification_events` 쓰는 곳 전부 × 알림함·배너·푸시·사장님 알림함 | 유형 16 | §2-4 |
+| 운영 DB(읽기 전용) | 관리자 등록 이름 13개 표의 영어 빈 칸 · 출시 안내 · 저장 문장 | — | §2-5 |
+| 카탈로그 | ko·en 키 32,965 짝 · 빈 값 · 한국어 값이 영어 | 전부 | 키 차이 0 · 빈 값 0 · ko 값 영어 20 |
+
+- 판정 값: EXPOSED(화면 노출) · RAW_ERROR_EXPOSED(서버 문장·영문 코드 그대로 표시) · STORED(DB 저장 뒤 다시 나옴) · SERVER_TEXT(서버 문장, 표시처 미확정) · NEED_OWNER · 무해 6종(ADMIN·DATA·LOG·DEV_ONLY·CODE_USED·FALSE_POSITIVE).
+- 행 수 대조: 묶음마다 입력 행 수와 판정 행 수가 같다. 판정 못 한 행은 0이다.
+
+## 2. 결함 총괄
+
+### 2-1. 판정 합계 (4,172행)
+
+| 판정 | 행 |
+|---|---|
+| **EXPOSED** | **610** |
+| **RAW_ERROR_EXPOSED** | **83** |
+| **STORED** | **87** |
+| SERVER_TEXT(공통 오류 함수 등 — §4-1 에서 코드로 바꿔 닫음) | 26 |
+| NEED_OWNER | 6 |
+| 무해 (관리자 1,293 · 키 사용 737 · 오탐 641 · 데이터 587 · 개발 57 · 로그 46) | 3,361 |
+
+- 결함 행은 812행(파일 235개)이다. 여기에 아래 §2-3~§2-5 가 더해진다.
+
+### 2-2. 도메인별 (결함 행)
+
+| 도메인 | 노출 | 서버 문장 그대로 | 저장 문장 | 기타 | 파일 |
+|---|---|---|---|---|---|
+| 거래 | 194 | 11 | 19 | Owner 1 | 43 |
+| 필라이프·모임·신고·고객센터 | 113 | 11 | 18 | — | 32 |
+| 메신저(통화 제외) | 114 | 6 | 8 | — | 36 |
+| 매장·주문·사장님·라이더·상품권·광고 | 97 | 19 | 30 | 미확정 1 · Owner 4 | 58 |
+| 홈·공용·그룹채팅·기타 | 40 | — | 4 | 미확정 24 · Owner 1 | 27 |
+| 가입·인증·내정보 | 12 | — | 1 | 미확정 1 | 5 |
+| 2차(서버 값 표시·영어 문장) | 4 | 36 | 2 | — | 30 |
+| **통화·네이티브** | 36 | — | 5 | — | 10 |
+
+화면별 상세(파일:줄·글자·화면 근거·고치는 방법)는 `inventory.md` 에 있다.
+
+### 2-3. 카탈로그 — 한국어 값이 영어 (20키, 검사 `ko-latin-only` 기준선)
+
+| 키 | 한국어 값 | 화면 |
 |---|---|---|
-| 기본 닉네임 「DIBAY 사용자」로 저장된 `profiles` 행 | **0건** | 데이터 정리 없음. 코드만 바꾼다 |
-| 영어 약관·개인정보·마케팅·매장 약관 게시본 | 모두 게시됨 | 감사 A5(영어 원문 없음) 현재 결함 아님 |
-| ko·en 게시 버전 | terms·privacy·marketing·store_partner_terms 모두 같음 | 감사 A3(ko 기준 버전 계산)은 **지금 화면 결함 없음** → 이번 설계에서 빼고 위험으로만 남김(§6) |
+| `addr_ui_kind_home/office/other/shop/store` · `addr_ui_shop_prefix` | House · Office · Input · Store · Store Address · Store · {name} | 주소 목록·장바구니 주소 행 |
+| `addr_ui_preset_*` 4개 | 같은 값 | 쓰는 곳 0 → 삭제 |
+| `profile_guest_name` | DIBAY Guest | 비로그인 이름 |
+| `owner_bc_title`·`owner_bc_page_title`·`owner_ads_business_cash_label`·`owner_ads_confirm_cash_*`·`owner_bc_convert_title`·`owner_copy_finance_cash_ledger_partner_spend`·`finance_partner`·`finance_coin_out_meta` | Cash · Coin → Cash · Partner · Coin Out (meta) | 사장님 캐시·재무 (Coin·Cash 표기는 §5 Owner 결정) |
 
-## 1. 공통 원칙 (모든 단계)
+### 2-4. 알림 (`notification_events`)
 
-### 1-1. 서버 오류 표시 규칙 — 결함 §2-2 의 공통 원인 제거
+- **새로 쓰는 행 노출 1**: 가격 제안 알림(`lib/offers/price-offers.server.ts:526,565,597`)이 언제나 한국어로 만들어진다(`offer-server-i18n.ts` = `DEFAULT_APP_LANGUAGE`). 알림함·배너·푸시 모두 한국어다.
+- **새로 쓰는 행 노출 2 (통화)**: 부재중 전화(`call-missed-notification-authority.ts:177-199`)가 한국어로 저장된다. 알림함·부재중 배너·푸시가 한국어다. 운영 최근 3주에 230건 있다.
+- **알림함이 저장 문장을 그대로 보여 줌**: commerce 만 meta 로 다시 그린다. 그 밖의 시스템 알림은 저장할 때의 언어로 고정된다. 언어를 바꾼 사용자와 옛 행에 다른 언어가 나온다.
+  - 운영 저장 행 중 한국어 제목 6,544 / 8,927. 사람이 쓴 내용(닉네임·메시지)도 섞여 있다.
+- **사장님 알림함**(`owner-notification-inbox-items.ts:137`): commerce 도 다시 그리지 않는다.
 
-- 지금: 클라이언트가 `data.error ?? t(...)` 처럼 서버 문장을 먼저 보여 준다. 서버는 한국어 문장을 보낸다.
-- 바꾼 뒤 서버 응답: `{ ok:false, error:"<code>", code:"<code>", params?:{…} }`.
-  - 코드는 `snake_case` 영어 식별자다.
-  - 바꿔 끼우는 값(남은 초, 금칙어 등)은 `params` 로 보낸다.
-- 새 공통 함수 `lib/i18n/api-error-text.ts`:
+### 2-5. 운영 데이터
 
-  ```ts
-  resolveApiErrorText({ json, status, map, fallbackKey, t })
-  ```
+- 관리자 등록 이름: categories·community_topics·delivery_menus·feed_ad_products·moim_categories·notification_sound_events·point_plans·store_browse_scope_policy·store_categories·store_composition_policy_overrides·store_topics 모두 **영어 빈 칸 0**.
+- **앱 업데이트 기록**: `app_releases` 8건 중 6건의 영어 안내가 비어 있다. 화면 `AppUpdateHistoryClient.tsx:59` 가 en 이 비면 ko 를 보여 준다 → 영어 화면에 한국어.
+- 저장된 시스템 문장(운영, 2026-11-27 조회):
 
-  1. 고르는 순서: `json.code` → `json.error` 가 코드 모양일 때 → 도메인 표 `map[code]` → `t(key, params)`.
-  2. 표에 없으면 상태 번호로 고른다: 401 `common_login_required` · 403 `common_forbidden` 계열 · 429 「잠시 후 다시」 · 5xx 서버 오류 키.
-  3. 그래도 없으면 `fallbackKey`.
-  4. **서버 문장(한글·영어 문장)은 어떤 경우에도 화면에 내보내지 않는다.** 이 점이 지금의 `resolveOwnerApiErrorMessage`(모르는 문장을 그대로 돌려줌, `lib/business/owner-api-error-i18n.ts:47`)와 다르다.
-- 바꾸는 순서 — 화면이 깨지지 않게(설계 규정 4):
-  - 각 단계에서 **클라이언트 표시를 공통 함수로 먼저** 바꾼다. 그 단계 도메인 API 의 한국어 문장도 **같은 PR 에서** 코드로 바꾼다.
-  - 공통 함수는 서버 문장을 무시하므로, 아직 안 바뀐 API 가 있어도 화면에는 일반 오류 키가 나온다. 한국어·영문 코드가 그대로 나오지 않는다.
-  - 모든 API 가 공유하는 `lib/auth/server-guards.ts` 「로그인이 필요합니다.」·「프로필을 찾을 수 없습니다.」는 **마지막 단계(P7)** 에서 코드로 바꾼다. 모든 표시처가 공통 함수로 바뀐 뒤여야 영문 코드 `login_required` 가 화면에 새지 않는다.
-- 웹은 배포 즉시 모든 앱이 새 코드를 쓴다(앱은 웹을 불러옴). 그래서 구 클라이언트 호환 문제는 없다.
+  | 항목 | 운영 행 |
+  |---|---|
+  | 포인트 내역 설명 한국어 | 457행 |
+  | 고객센터 시작 메시지 | 7행 |
+  | 채팅방 미리보기 「사진·(메시지)」 | 0행 |
+  | 「DIBAY 사용자」 | 0행 |
+  | 「회원」 이름 | 0행 |
+  | 「Rejected by admin」 알림 | 0행 |
 
-### 1-2. 언어를 받지 않는 라벨·저장 문장
+## 3. 원인 (결함 812행 + 알림·데이터가 모두 이 6가지 중 하나)
 
-- 라벨 함수: 언어(`t` 또는 `AppLanguageCode`)를 **필수 인자**로 바꾼다. 기본값 `DEFAULT_APP_LANGUAGE`(=ko)를 쓰지 않는다. 호출처는 같은 PR 에서 모두 고친다(타입 검사가 빠진 곳을 잡는다).
-- 저장 문장: 이미 있는 `messageKey` / 메시지 종류(type) 경로로 화면에서 키로 그린다.
-  - 저장 글자는 예전 행 호환용으로만 남긴다. B3 설계 `docs/audit/i18n-b3-stored-preview-design-2026-11-08.md` 와 같은 방식이다.
-
-### 1-3. 검사 보강 — 같은 결함이 다시 생기지 않게 (P1 에 넣음)
-
-`lib/i18n/quality/i18n-quality-rules.ts` + 기준선:
-
-| 새 규칙 | 내용 | 판정 |
+| # | 원인 | 대표 |
 |---|---|---|
-| `ko-latin-only` (키 규칙) | 고객·사장님 키의 ko 값에 한글이 없고 영어 단어가 있음 | 새 항목 실패. 브랜드(telRING·LOUNGE·DIPICK·CREW REP·DIBAY·GCash·COD 등)와 치환값만 있는 값은 허용 목록에 이유와 함께 넣는다 |
-| `client-raw-server-error` (파일 규칙) | 고객·사장님 화면 파일의 `…\.error ?? t(` · `…\.error \|\| t(` · `setError(json.error…)` 형태 | 파일별 증가 실패. 단계마다 줄인다 |
+| R1 | 서버가 한국어 문장·DB 원문·영문 코드를 보내고, 화면이 그대로 보여 줌 | 거래 채팅 전송, 글쓰기·수정·삭제, 신고·차단, 필라이프 글·댓글, 사장님 상품·광고·주문, 라이더, 그룹채팅, 내정보 지역 변경 |
+| R2 | 라이브러리 라벨 함수가 언어를 받지 않고 한국어 고정 | 일자리 라벨, 거래 상태 라벨, 위치 오류, 가격 단위 원·달러, 상품권 「까지」, 배달 ETA, 친구 요청 문구, 그룹방 정보 |
+| R3 | DB 에 화면 문장 저장 | 채팅 미리보기·시스템 메시지, 주문 채팅 요약·결제 안내, 포인트 설명, 고객센터 시작 메시지, 외부 글 출처 문구, 영업시간 「매일」, 이벤트 버튼 이름, 알림 제목·본문 |
+| R4 | 한국어 값이 영어·화면 영어 고정 | 주소 House·Office, Close·Terms·order no·review filter, 상품권 USED, Advertisement |
+| R5 | 다른 언어로 대체 | 출시 안내 en 없으면 ko, 홈 공유 카드 category_name_en 없으면 ko |
+| R6 | 네이티브 판정식 | iOS 시작 오류 화면이 「첫 언어 en 일 때만 영어」 |
 
-- 기존 `user-hangul-literal` 기준선은 단계마다 줄어든 숫자로 다시 쓴다(§5 규칙: 고친 단계에서만).
+## 4. 수정 설계 — **PR 1개(#655)에 전부**. 통화만 규정상 별도(§4-7)
 
-## 2. 단계 (PR 1개 = 단계 1개, 도메인 섞지 않음)
+### 4-1. R1 서버 오류 (같은 틀 하나)
 
-모든 단계의 **[배포 구분]은 웹**이다(P8 만 네이티브). 운영 DB 변경은 없다.
+- **공통 틀** (#655 에 이미 있음)
+  - `lib/i18n/api-error-text.ts` `resolveApiErrorText`
+  - 순서: 코드 → 도메인 표 키 → 상태 번호 키 → 기본 키
+  - 서버 문장은 어떤 경우에도 내보내지 않는다.
+- **서버**: 관리자 밖 API·라이브러리가 `error` 에 넣는 한국어 문장·DB 원문을 모두 `snake_case` 코드로 바꾼다. 값은 `params` 로 보낸다(남은 기간·최대 글자 수 등).
+  - 공통 함수 `lib/http/api-route.ts`·`lib/security/rate-limit-presets.ts`·`lib/auth/server-guards.ts`·`api-session-require.ts`·`member-account-state.ts`·`handle-profile-incomplete-api-response.ts`·`store-member-policy.ts` 도 포함한다. 그래서 SERVER_TEXT 26행이 코드로 닫힌다.
+- **화면**: RAW_ERROR_EXPOSED 83행과 EXPOSED 중 R1 행을 모두 `resolveApiErrorText` + 도메인 표로 바꾼다.
+  - 도메인 표(코드 → 키)는 기존 매퍼를 다시 쓴다: 메신저 `getMessengerRoomActionErrorMessage`·주소 `translateUserAddressApiError`·주문 `resolveStoreOrderMutationErrorKey`·모임 `moimErrorKey`·고객센터 `supportErrorLabel`·사장님 `resolveOwnerApiErrorMessage`.
+  - 새 표: 거래 글·채팅·댓글·신고·차단·필라이프 글/댓글·그룹채팅·라이더·내정보.
+- **고칠 함수 4개**(모르는 문장을 그대로 돌려주던 통로):
+  - `resolveOwnerApiErrorMessage`(문장 → 기본 키)
+  - `resolveOwnerProductRegisterError`(apiMessage 우선 처리 삭제)
+  - `formatOwnerOrderPatchErr`·`OwnerOrderRequestDecision`(모르는 코드 → 일반 실패 키, 「(code)」 붙이기 삭제)
+- **금칙어**: `guardBannedWords` 는 Accept-Language 대신 코드 `content_filter_blocked` 만 화면에 쓴다(리뷰 답글·프로필 등).
+- **웹 SNS 로그인 시작 실패**: JSON 원문 대신 `/login?error=<code>` 로 보낸다.
+- 지금 결과: 위 함수·화면 파일 목록은 `inventory.md` 의 R1 행 전부다(파일 단위로 모두 바꾼다).
 
-### P1 — 공통 틀 + 가입·프로필
+### 4-2. R2 언어를 받지 않는 라벨
 
-| 항목 | 바꾸는 곳 | 내용 |
+- 라벨 함수에 언어(`t` 또는 `AppLanguageCode`)를 **필수 인자**로 넣고, `DEFAULT_APP_LANGUAGE` 기본값을 지운다.
+  - 호출처는 타입 검사가 모두 잡는다(빠지면 빌드 실패).
+- 대상:
+  - `lib/jobs/job-detail-format.ts`·`job-label-keys.ts`
+  - `lib/products/seller-listing-state.ts`(→ `sellerListingStateMessageKey`)
+  - `lib/messenger/trade/item-status.ts`
+  - `lib/map/geolocation.ts`(코드 반환)
+  - `lib/format.ts`(통화 단위)
+  - `format-gift-certificate-expiration.ts`
+  - `store-commerce-extras.ts`·`store-delivery-eta-label.ts`
+  - `format-store-order-checkout-display.ts`(이미 있는 `…I18n` 사용)
+  - `community-messenger-friend-request-client.ts`
+  - `use-messenger-room-phase2-room-presentation.ts`(**309-316 그룹 통화 줄 제외**)
+  - `message-reply-policy.ts`·`messenger-realtime-store.ts`·`message-long-press-policy.ts`
+  - `member-benefit-utils.ts`·`public-member-identity.ts`
+  - `offer-server-i18n.ts`(받는 사람 언어)
+  - `store-order-chat-service.ts`(DEFAULT 언어 4곳)
+  - 그 밖에 `inventory.md` R2 행 전부
+- JSX·aria·alt 의 한국어·영어 고정 글자는 키로 바꾼다(`DiscoverableOpenGroupCard`·`PostDetailRelatedSections`·`PostVideoEmbed`·`GroupChatRoomClient`·`features/services` 빈 화면·`DibayFullSheet`·`DibayOverlayRoot`·`PlatformEventDetailContent`·정산 aria 등).
+
+### 4-3. R3 DB 저장 문장 — 새 행은 코드, 옛 행은 화면에서 대응
+
+- **새로 쓰는 행**: 종류 코드 + 값만 저장하고, 화면·푸시에서 받는 사람 언어로 키로 그린다.
+
+  | 대상 | 저장 | 화면 |
+  |---|---|---|
+  | 거래 채팅 미리보기·시스템 메시지 (`send/route.ts`·`messages/route.ts`·`postSellerListingChangeNotice`·`insert-seller-listing-change-system-messages`) | message type·장수·`messageKey` | 목록·말풍선이 키로 |
+  | 주문 채팅 요약·결제 안내·매칭 응답 (`format-store-order-chat-summary.ts`·`store-order-chat-service.ts`·`store-order-match-ack-text.ts`) | `messageKey`+값 (함수가 이미 `messageKey` 를 받음) | 기존 messageKey 렌더 경로 |
+  | 포인트 내역 설명 (`apply-community-point.ts`·`ads/apply`·`feed-ad-request-point-flow.ts`·`execute-point-reward-server.ts`) | 종류 코드+값(metadata) | `PointFinancialHistoryList` 가 키로 |
+  | 고객센터 시작 메시지·삭제 메시지 (`support-case-service.ts:87,412,683`) | seed 종류·`messageKey` | `SupportTicketViews` 키 |
+  | 외부 글 가져오기 출처·영상 문구 (`publish-content.ts`·`normalize.ts`) | 출처 이름·주소만 | 상세 화면이 키로 |
+  | `region_label` 「동네」·영업시간 「매일」·이벤트 `cta_label` 「자세히 보기」·주문 거절 사유 「Rejected by admin」 | 빈 값/코드 | 키로 |
+  | 알림 | meta 에 `messageKey`+`vars` | 알림함·사장님 알림함·배너·푸시가 키로 |
+
+- **이미 저장된 옛 행**: DB 를 고치지 않고 화면에서 **알려진 고정 문장 → 키** 대응표로 바꿔 그린다(B3 방식).
+  - 대상: 포인트 설명 457행, 고객센터 7행, 알림 옛 행.
+  - 대응표는 카탈로그 ko·en 값을 거꾸로 찾는다. `{name}` 같은 변수는 정규식으로 처리한다.
+  - 대응표에 없는 저장 문장은 사람이 쓴 내용으로 보고 그대로 둔다(닉네임·메시지·관리자 입력).
+- **알림함**: `resolveNotificationInboxTitle/Body` 가 commerce 외 유형도 meta 로 다시 그린다. 사장님 알림함(`ownerRowToInboxItem`)에도 같은 함수를 쓴다.
+
+### 4-4. R4 카탈로그·고정 글자
+
+- §2-3 의 20키:
+  - 주소 ko 값은 가입 주소 단계가 이미 쓰는 `addr_v2_label_*` ko 값(집·회사·…)과 같게 맞춘다.
+  - en 「Input」 → 「Other」.
+  - 쓰는 곳 0인 `addr_ui_preset_*` 4키는 삭제한다.
+  - `profile_guest_name` ko → 「DIBAY 게스트」.
+  - Coin·Cash 는 §5 결정을 따른다.
+- 상품권 도장 「USED」 → 키.
+- 그룹 이름 없음 「Group」 → 키.
+- 「Advertisement」·「36:25 crop preview」·「CTA」·「missing」·「storeId」 → 키.
+
+### 4-5. R5 다른 언어 대체 금지
+
+- `AppUpdateHistoryClient.tsx:59`: en 안내가 없으면 ko 대신 「버전 {v}」 키만 보여 준다.
+- 운영 6건의 `notes_en` 채우기는 데이터 변경이라 §5 승인 항목이다.
+- `HomePostsSection.tsx:87`·`neighborhood/categories.ts:19-26`: `resolveCommunityTopicUILabel(language, …, slug)` 를 쓴다.
+
+### 4-6. R6 네이티브 (같은 PR)
+
+- `ios/App/App/DibayRootBridgeViewController.swift:846`: 판정식을 「앱 저장 언어(`dibay_app_language`) → 기기 첫 언어 ko 면 ko, 그 외 en」으로 바꾼다(`DibayNativeIntroPlugin.localized` 와 같은 식).
+- `Call/` 폴더 파일은 건드리지 않는다.
+- [배포 구분]에 네이티브(iOS)가 들어간다. 빌드 번호는 다음 iOS 설치·배포 빌드 때 1회 올린다(`native:prepare`). 웹 수정은 병합 즉시 반영된다.
+
+### 4-7. 통화 — 규정상 별도 PR (Owner 지시와 규정 충돌 → 보고)
+
+- Owner 지시: 「잘라서 하지 말라」.
+- AGENTS.md 「통화 변경 규정」 4번: 「통화 변경은 **통화만** 단독 커밋·단독 main 반영 … 묶지 않는다」. 3번: 「영향 분석·계획 문서 → **Owner 승인 후** 구현」.
+- 두 지시가 충돌한다. 규정이 최우선이라 통화는 #655 에 넣지 않는다. 다만 **설계는 이 문서에 함께** 둔다.
+- 통화 결함 41행:
+  - 통화 배너·수신 오류 배너가 서버 문장을 표시함(429)
+  - 레거시 발신 경로 한국어 11곳
+  - 상대 이름 「통화」·「회원 xxxxxx」
+  - 웹 OS 수신 알림·통화 푸시 3종의 제목·본문
+  - 부재중 알림 저장 문장
+  - 그룹 통화 상태 줄
+- 통화 수정 방향:
+  - 서버가 받는 사람 언어 키로 푸시를 만든다.
+  - 부재중은 meta(callKind·callerName)만 저장하고 키로 그린다.
+  - 배너는 코드 → 키로 그린다.
+  - **Android·iOS 의 「님의 전화」 이름 추출**(`IncomingCallUiCopy.java:73-95`·`IncomingCallCallerIdentity.swift:75-84`)이 한국어 본문에 기대므로, 서버 본문을 바꾸기 전에 `caller_name` 필드만 읽게 하는 순서가 필요하다(구 바이너리 호환 = `user_devices.app_version` 확인).
+- Owner 승인 → 통화 단독 PR → 실기 행렬(통화 규정 5번) 순서로 진행한다.
+
+### 4-8. 재발 방지 — 검사
+
+`check:i18n-quality` 기준선을 이 PR 에서 **고객·사장님 결함 0** 으로 줄인다.
+- `client-raw-server-error` 0
+- `ko-latin-only` 0(Coin·Cash 결정에 따라 허용 목록)
+- 새 규칙 `server-hangul-error`: 관리자 밖 `app/api/**`·`lib/**` 의 `jsonError("한글…")`·`error: "한글…"` 은 0이어야 한다.
+- `user-hangul-literal`: 무해 판정(데이터·로그·관리자 공유) 파일만 남기고, 파일마다 이유를 허용 목록에 적는다. 그 밖의 증가는 실패다.
+
+## 5. Owner 결정 필요 (이것 말고는 모두 규정·설계로 정함)
+
+| # | 항목 | 근거 |
 |---|---|---|
-| 공통 함수·검사 | `lib/i18n/api-error-text.ts`(신규), `i18n-quality-rules.ts`, 기준선 | §1-1·§1-3 |
-| A1 기본 닉네임 | `lib/auth/post-login-profile-policy.ts:6,15`, `member-access.ts:249`, `refresh-oauth-nickname-if-legacy.ts:27,35` | 아래 참고 |
-| A2 인증 문자 | `lib/auth/phone-verify-sms.ts:21-24` + 호출 API(send) | 아래 참고 |
-| A4 전화 안내 문구 | `lib/auth/phone-verification-public-settings.ts:33-36`, `auth-phone-settings.ts:34` | 아래 참고 |
-| S15·S16·A5 프로필 저장 | `app/api/me/profile/route.ts` 한국어 오류 → 코드, `me/profile/avatar/route.ts:43,47`(있는 code 사용), `lib/profile/updateMyProfile.ts:45` | 화면 `ProfileEditForm.tsx:465,491`, `ProfileImageField.tsx:100`, `OnboardingProfileClient.tsx:83` → 공통 함수 |
+| D1 | 사장님 화면 「Coin」「Cash」를 한국어 화면에서도 영어로 둘지(용어집은 「캐시」) | 용어집 §4-2 「캐시(매장 화폐) — Cash」 ↔ 화면·카탈로그 ko 「Cash」 |
+| D2 | 필리핀 번호 인증 문자 한국어 발송 | Semaphore 문서·FAQ 에 유니코드(한글) 지원·요금 기준 없음(「160 bytes = 1 credit」). 시험 문자 1건 발송 승인 시 확인 가능 |
+| D3 | PWA 설치 설명 문장(한 언어만 가능) 언어 | `lib/pwa/dibay-web-app-manifest.ts:26` |
+| D4 | 상품권 도안 「GIFT CERTIFICATE」「DIBAY BENEFIT」, 거래 썸네일 「IMG」 — 장식인지 문구인지 | `DibayGiftCertificateFace.tsx:341,446` · `TradeChatComposePreparingShell.tsx:38` |
+| D5 | 운영 `app_releases` 6건 `notes_en` 입력(DB 데이터 변경) | 개발 프로세스 2번 — 운영 DB 변경은 Owner 승인 |
+| D6 | 관리자 알림 캠페인·공지를 ko·en 두 언어로 입력받을지(지금 한 언어) | 계약에 없음 |
+| D7 | 통화 별도 PR 진행 승인(§4-7) | 통화 변경 규정 3·4번 |
 
-- **A1 기본 닉네임**
-  - 시드 이름을 가입 요청 언어로 만든다: `translateBy(요청 언어, "profile_default_display_name")`. 요청 언어는 `resolveRequestAppLanguageOr`.
-  - 옛 기본 이름 판정은 ko·en 두 값을 모두 본다.
-  - 근거: 이름은 사용자가 바꾸는 프로필 값이라 「화면 문장 저장」이 아니다. 운영 행은 0건이다.
-- **A2 인증 문자**
-  - 문자를 요청 언어로 보낸다. ko 「[DIBAY] 인증번호: {code}」 · en 「[DIBAY] Verification code: {code}」.
-  - 근거는 AGENTS.md 「서버 문구는 요청 언어로」다. ko 문구는 90byte 안이다.
-- **A4 전화 안내 문구**
-  - 어드민 안내 문구는 글자가 화면 언어와 맞을 때만 보여 준다. 지금은 en 만 검사하는데, 같은 규칙을 ko 에도 적용한다.
-  - 맞지 않으면 기본 키 문구를 쓴다.
-  - 기본 문구 「필리핀 휴대폰 번호만」은 +82 허용과 다르다. 실제 허용 국가(PH·KR)에 맞는 키 문구로 바꾼다.
+## 6. 바뀌는 화면 (영향 범위 — 같은 PR 에서 함께 정리)
 
-- 영향받는 화면: 로그인(SNS 첫 가입), 전화 인증 단계, 내정보 프로필 수정·사진, `/onboarding/profile`. 다른 화면은 공통 함수를 아직 쓰지 않으므로 변화가 없다.
+- 가입·로그인: 웹 SNS 시작 실패.
+- 내정보: 프로필·사진·지역 일괄 변경·회원 혜택·주소·포인트 내역·업데이트 기록·커뮤니티 탭·공지.
+- 거래: 채팅방·채팅 목록·글쓰기·수정·삭제·상품 상세·댓글·일자리·가격 제안·판매내역·위치 시트.
+- 필라이프·모임: 피드·상세·글쓰기·댓글·신고·차단·내 글·홈 공유 카드.
+- 메신저: 홈·친구 요청·연락처·방 정보·답장·스티커·거래/주문 목록·그룹채팅.
+- 매장·주문: 장바구니·상품 시트·배달 목록·주문 목록·다시 주문·주문 채팅·영수증 카드·매장 상세.
+- 사장님: 상품·광고·팝업·쿠폰·주문·주문 채팅·정산·재무·관리 메모·알림함.
+- 라이더: 홈·주문·상세.
+- 공용: 시트·오버레이 닫기·하단 탭 커스텀·이벤트 상세·상품권·고객센터·알림함·알림 배너·푸시 문구.
+- 네이티브: iOS 시작 오류 화면.
 - 깨질 수 있는 것과 처리:
-  - 프로필 API 를 쓰는 다른 표시처 → `rg "/api/me/profile"` 로 전부 찾아 같은 PR 에서 공통 함수로 바꾼다.
-  - SMS 업체 글자 수 → 단위 테스트로 byte 를 검사한다.
+  1. 코드 표에 없는 오류는 일반 키가 된다 → 이 PR 이 각 도메인 API 오류 코드를 모두 표에 넣고, 검사 `server-hangul-error`=0 이 빠진 문장을 막는다.
+  2. 저장 형식이 바뀌는 메시지·알림은 옛 행과 새 행이 섞인다 → 화면이 둘 다 그린다(대응표).
+  3. 요청 수 변화 0(문구만) — `docs/request-budget-ssot.md` 영향 없음.
+  4. 통화 줄 diff 0 확인(`use-messenger-room-phase2-room-presentation.ts` 309-316 등).
 
-### P2 — 거래
+## 7. 검증
 
-| 항목 | 바꾸는 곳 |
-|---|---|
-| S1·S2 채팅 전송 | `app/api/chat/rooms/[roomId]/messages/route.ts`, `app/api/chat/room/[roomId]/send/route.ts`, `lib/chat/sendChatMessage.ts:52-73`(클라 한국어 대체 문구 포함), `components/chats/ChatDetailView.tsx:1418`(서버 문장 먼저 → 공통 함수) |
-| S3 거래 상태 | `app/api/posts/[postId]/seller-listing-state/route.ts`, `ChatDetailView.tsx:992`, `CommunityMessengerTradeProcessSection.tsx:247` |
-| S4~S8·S17 | `posts/[postId]/owner-status`·`owner-delete`·`job-apply`·`comments`·`owner-edit`·`posts/create` 라우트 + `lib/posts/createPost.ts`, `updateTradePost.ts` + 화면 `MyProductsView.tsx:209`, `PostDetailView.tsx:976,1177`, `PostCard.tsx:713`, `TradeWriteForm.tsx:2005`, `PostCommunityCommentsSection.tsx:133`, `ProductTradeEditPageClient.tsx:62,70`, `TradeFlowBanner.tsx` |
-| K1 일자리 라벨 | `lib/jobs/job-detail-format.ts`, `lib/jobs/job-label-keys.ts`(`defaultT` 제거) → `JobsExtendedDetailExtras.tsx:82,83,137,143` 가 `t` 를 넘긴다 |
-| K2 거래 상태 라벨 | `lib/products/seller-listing-state.ts:22-25,64-72`(`SELLER_LISTING_LABEL` 10곳 사용) → 상태 → 키 표. 화면 `ChatProductSummary.tsx`, `PurchaseHistoryCard.tsx`, `lib/mypage/purchase-history-ui.ts` |
-| 거래 채팅 미리보기 「사진」 | 저장: `chat/rooms/[roomId]/messages/route.ts:320-355`, `chat/room/[roomId]/send/route.ts:169-175`. 목록: `lib/messenger/trade/preview.ts:31` → 메시지 종류(image·개수)로 화면에서 키로 그림(이미 있는 `metadata`·type 사용). 저장 글자는 그대로 둔다(예전 행 호환) |
+- **코드**: 최종 HEAD 1회
+  - `typecheck:build`·`typecheck:test`·변경 파일 eslint·`test:ci` 전체
+  - `check:i18n-quality`(§4-8 기준선 0)
+  - `verify:call-surface-cta-ssot`
+- **화면**(Owner 화면 기준: 로그인 계정·저장 주소·휴대폰):
+  - §6 화면 묶음마다 ko·en 각 1회 본다.
+  - 언어는 앱 안 토글로 바꾼다(다시 실행 불필요).
+  - 앱 처음 실행은 Android 1대·iPhone 1대 합쳐 **10회 이하**로 계획한다. 넘으면 시작 전 승인을 받는다. 실행 횟수×195건을 보고한다.
+  - 오류 화면은 운영 데이터를 바꾸지 않는 방법(입력 검증 오류·권한 없는 요청)으로만 낸다.
+- **보고**: 단계 끝 1회. 코드 PASS / Production / 실기 PASS 를 구분한다.
 
-- 영향받는 화면: 거래 채팅방·채팅 목록(거래 탭)·상품 상세·글쓰기·수정·내 상품·구매내역·일자리 상세.
-- 깨질 수 있는 것과 처리:
-  - `SELLER_LISTING_LABEL` 을 문자열 비교에 쓰는 곳이 있으면 상태 값 비교로 바꾼다(10곳 전수).
-  - 미리보기 「사진」을 저장 글자 비교로 판정하는 곳 → `rg '"사진"'` 전수 확인(`lib/messenger/*/preview.ts`).
-- `/market` 목록 불변조건(`docs/trade-lightweight-design.md` §9)은 건드리지 않는다. 요청 수 변화 없음(문구만).
+## 8. 배포
 
-### P3 — 신고·차단·커뮤니티(필라이프)
-
-| 항목 | 바꾸는 곳 |
-|---|---|
-| S9~S12 신고 | `app/api/reports/route.ts`, `app/api/community/reports/route.ts`, `lib/reports/createReport.ts`·`submitReport.ts`·`createCommunityFeed*Report.ts`·`createCommunityCommentReport.ts` + 화면 `ReportReasonModal.tsx:68`, `ReportActionSheet.tsx:77`, `CommunityDetail.tsx:453`, `PostCommunityCommentsSection.tsx:179` |
-| S13 차단 | `lib/reports/request-user-block.ts:17`, `app/api/chat/rooms/[roomId]/block/route.ts:53,59`, `CommunityDetail.tsx:394` |
-| S14 동네 글쓰기 | `app/api/community/neighborhood-posts/route.ts:83-173`, `PhilifeNeighborhoodWriteForm.tsx:955` |
-| 삭제 실패 영문 코드 | `CommunityDetail.tsx:413`(`imported_not_deletable` 를 키로) |
-| 그 밖의 표시처 | `CommunityFeed.tsx`, `CommunityMyHubClient.tsx` |
-
-- 영향받는 화면: 신고 시트(거래·필라이프·댓글·통합)·차단 토스트·동네 글쓰기·필라이프 상세.
-- 깨질 수 있는 것: 신고 API 는 거래 화면도 쓴다. 신고 표시처 4곳을 같은 PR 에서 모두 바꾼다.
-
-### P4 — 메신저 (통화 제외)
-
-| 항목 | 바꾸는 곳 |
-|---|---|
-| K3 친구 요청 실패·남은 시간 | `lib/community-messenger/community-messenger-friend-request-client.ts:30-62,230-256` → `t` 를 받는 함수로. 호출 5곳 `CommunityMessengerHome.tsx:1550`, `CommunityMessengerRoomPhase2PeerNotice.tsx:169`, `…OneToOneDotMenu.tsx:364`, `use-contacts-friend-cta.ts:62`, `use-messenger-room-phase2-controller.ts:2296` |
-| K4 공개 모임 카드 | `components/community-messenger/home/DiscoverableOpenGroupCard.tsx:22-36` → 키 |
-| K5 그룹방 정보 문구 | `use-messenger-room-phase2-room-presentation.ts:322-336,374` → 키 (**309-316 그룹 통화 상태는 통화 규정이라 손대지 않음**) |
-| 목록 미리보기 「사진」 | `lib/messenger/general-direct/preview.ts:30`, `lib/messenger/group/preview.ts:51` → 종류 → 키 |
-
-- 영향받는 화면: 메신저 홈·친구 요청·방 상단 안내·연락처·그룹방 정보 시트·목록 미리보기.
-- 통화 경계 확인:
-  - 바꾸는 파일 중 `use-messenger-room-phase2-room-presentation.ts` 는 통화 상태 줄을 함께 갖고 있다. **통화 줄(309-316)은 글자 하나도 바꾸지 않는다.**
-  - PR 에서 그 줄들의 diff 가 0줄인지 확인한다(통화 변경 규정 1번).
-- Realtime·bump 계약은 바꾸지 않는다(문구만).
-
-### P5 — 매장·주문·사장님·라이더
-
-| 항목 | 바꾸는 곳 |
-|---|---|
-| K6 결제 확정 시스템 메시지 | `lib/community-messenger/store-order-chat-service.ts` `appendStoreOrderMessengerPaymentCompletedLine` → 새 키 + `messageKey` 전달(함수가 이미 `messageKey` 를 받음, 769·794줄). 화면은 기존 `messageKey` 렌더 경로 사용 |
-| 매장 주문 미리보기 | `lib/messenger/store-order/preview.ts:35-66` 사진·음성 분기도 `lang` 사용 |
-| K7 장바구니 주소 라벨 | `lib/stores/store-address-form-ui.ts:11-12,30` → 키. 화면 `StoreCommerceCartPageClient.tsx:1768,2750`, `OwnerStoreBasicInfoForm.tsx:1125` |
-| K9 「Cash」 | `OwnerCoinConvertSection.tsx:342`, `OwnerFinanceHomeCards.tsx:94` → 키. 카탈로그 ko 값 `owner_bc_title`·`owner_bc_page_title`·`owner_ads_business_cash_label`·`owner_ads_confirm_cash_*`·`owner_bc_convert_title`(「Coin → 캐시」) → 용어집대로 「캐시」 |
-| E1 사장님 오류 코드 그대로 | `components/business/owner/ads/*`(OwnerEventPromotion*·OwnerPlatformPopup*·OwnerDeliveryAds*), `OwnerCareAdminNotes*` → 공통 함수 + 사장님 코드 표(`owner-api-error-i18n.ts` 표 재사용·확장). `resolveOwnerApiErrorMessage` 의 「모르는 문장 그대로」(47줄)는 공통 함수 규칙으로 바꾼다 |
-| E2·E3 영어 대체·읽기 문구 | `OwnerPlatformPopupApplyView.tsx:447,705`, `OwnerPlatformPopupRequestDetailView.tsx:89,91,187`, `OwnerStoreSettlementsView.tsx:420`, `StoreCommissionLedgerParts.tsx:521` |
-| 라이더 | `components/rider/Rider*Client.tsx` 서버 문장 표시 → 공통 함수 |
-
-- 매장 정산·수수료 경계: 수수료 금액·트리거·`admin_decide_store_commission_adjustment` 는 건드리지 않는다. `StoreCommissionLedgerParts.tsx` 는 aria 문구만 바꾼다.
-- 주문 상태 UI·채팅 단계 규칙(`store-order-process-model.ts` 만): K6 은 단계 정의를 바꾸지 않는다. 이미 있는 메시지에 키를 붙이는 것뿐이다.
-- 영향받는 화면: 고객 주문 채팅·주문 목록 미리보기·장바구니, 사장님 캐시·광고·팝업 신청·관리 메모·정산, 라이더 화면.
-
-### P6 — 공용 UI·주소·이벤트·상품권·고객센터
-
-| 항목 | 바꾸는 곳 |
-|---|---|
-| K8 주소 종류 ko 값 | `lib/i18n/catalog/addresses-ui.ts`. ko 값을 가입 주소 단계에서 이미 쓰는 `addr_v2_label_*` 의 ko 값(집·회사 등)과 같게 맞춘다. en 「Input」은 의미가 맞는 기존 en 값(직접 입력)으로 맞춘다. 사용처 0인 `addr_ui_preset_*` 4키는 삭제 |
-| E3 공용 닫기 읽기 문구 | `components/ui/dibay-overlay/DibayFullSheet.tsx:116`, `DibayOverlayRoot.tsx:171` → `common_close` 키 |
-| E4 약관 제목 | `components/platform-events/PlatformEventDetailContent.tsx:111` |
-| E5 그룹 이름 없음 | `app/(main)/group/[token]/GroupInviteJoinClient.tsx:203` |
-| E6 상품권 도장 「USED」 | `DibayGiftCertificateFace.tsx:764` → 키 (「GIFT CERTIFICATE」「DIBAY BENEFIT」은 Owner 결정 전 그대로) |
-| 고객센터 첫 메시지 | `lib/support/support-case-service.ts:412` → 저장값 확인 뒤 키 경로(B3 방식) |
-| 게스트 이름 ko 「DIBAY Guest」 | `profile_guest_name` ko 값 → 한국어 (P1 `ko-latin-only` 검사로 발견) |
-
-- 영향받는 화면: 주소 관리·장바구니 주소 행·모든 바텀시트/전체 시트(닫기 버튼 읽기 문구만)·이벤트 상세·그룹 초대·상품권·고객센터.
-- 공용 오버레이는 aria-label 글자만 바꾸고 동작·스타일은 바꾸지 않는다(오버레이 계약 불변).
-
-### P7 — 공통 401·404 마무리 + 기준선
-
-- `lib/auth/server-guards.ts` 「로그인이 필요합니다.」 3곳·「프로필을 찾을 수 없습니다.」 → `login_required`·`profile_not_found` 코드.
-- 시작 조건: P1~P6 반영 후 `client-raw-server-error` 기준선이 **0** 이어야 한다(서버 문장을 그대로 보여 주는 화면이 하나도 없음).
-- 같은 PR 에서 `user-hangul-literal`·새 규칙 기준선을 줄어든 숫자로 다시 쓴다.
-
-### P8 — iOS 시작 오류 화면 (네이티브)
-
-- 바꾸는 곳: `ios/App/App/DibayRootBridgeViewController.swift:846`
-- 내용: 언어를 「앱에 저장된 언어(`DibayAppLanguagePlugin` UserDefaults `dibay_app_language`) → 기기 첫 언어가 ko 면 ko, 그 외 en」으로 고른다. 문구는 이 파일 안 ko/en 두 벌을 그대로 둔다. `ios/App/App/Call/DibayNativeCopy.swift` 는 통화 폴더라 쓰지도 바꾸지도 않는다.
-- [배포 구분] 네이티브. iOS `CURRENT_PROJECT_VERSION` 은 다음 설치·배포 빌드 때 1회 올린다(`native:prepare`). 웹 단계와 다른 PR 이다.
-- 영향: 오프라인·시작 실패 때만 보이는 화면이다. 통화·CallKit 과는 무관하다(같은 파일 안 다른 함수 diff 0 확인).
-
-## 3. 이번 설계에서 빼는 것
-
-| 항목 | 이유 |
-|---|---|
-| 통화 N2~N5 (통화 푸시 제목·본문 한국어, Android 「수신 통화」, 「님의 전화」 이름 추출, 그룹 통화 상태 문구) | 통화 변경 규정 2·3번 — 실기기 로그·운영 DB 증거, 구 바이너리 호환(`user_devices.app_version`), 행렬 검증 계획을 **별도 문서**로 쓰고 Owner 승인 후 단독 PR. 서버 본문만 영어로 바꾸면 이름 추출(`IncomingCallUiCopy.java:73-95`, `IncomingCallCallerIdentity.swift:75-84`)이 깨지므로 네이티브와 순서 설계가 필요 |
-| A3 동의 버전 ko 기준 계산 | 운영 ko·en 버전이 모두 같아 지금 화면 결함 없음 |
-| OS 권한 창 언어(앱 선택 언어 대신 기기 언어) | OS 동작. 앱 단위 언어(Android `localeConfig`·iOS 앱별 언어) 도입은 계약에 없음 → Owner 결정 |
-| 「GIFT CERTIFICATE」「DIBAY BENEFIT」 도안 글자 | 장식인지 문구인지 Owner 결정 |
-
-## 4. 검증 (단계마다)
-
-- **코드**: 최종 HEAD 에서 1회 —
-  - `npm run typecheck:build`, `npm run typecheck:test`
-  - 바꾼 파일 `eslint`
-  - 관련 `vitest`(공통 함수 단위 테스트: 서버 한글·영어 문장이 절대 안 나옴, 코드 → 키, 상태 번호 → 키)
-  - `npm run check:i18n-quality`, main 반영 전 `npm run test:ci`
-- **화면 (Owner 화면 기준)**: 단계별 대표 화면을 ko·en 으로 1회씩 본다(로그인 계정·저장 주소·휴대폰).
-  - 일부러 오류를 내야 하는 항목(신고 중복·차단 실패 등)은 운영 데이터를 바꾸지 않는 방법만 쓴다. 못 내면 NOT_PROVEN.
-  - 앱 처음 실행·운영 사이트 자동화 열기는 측정 묶음당 **모든 기기 합쳐 10회 이하**(실행 횟수 × 195건을 보고서에 적음).
-- **보고**: 단계 끝 1회. 원인·수정·검증·배포 SHA·남은 위험. 코드 PASS / Production / 실기 PASS 를 구분한다.
-
-## 5. 순서·규모
-
-```text
-P1 공통 틀·가입·프로필 → P2 거래 → P3 신고·커뮤니티 → P4 메신저 → P5 매장·사장님 → P6 공용·주소 → P7 401 마무리·기준선
-P8 iOS 시작 오류 (웹 단계와 독립, 다음 iOS 빌드 때)
-```
-
-- P2~P6 은 서로 독립이다(파일 겹침 없음, 각자 P1 공통 함수만 씀). P1 뒤 순서는 바꿔도 된다.
-- P7 은 P1~P6 이 모두 반영된 뒤에만 한다.
-- 운영 DB 적용 0건. 요청 예산(`docs/request-budget-ssot.md`) 영향 0 — 문구·표시만 바꾼다.
-
-## 6. 남은 위험
-
-- 공통 함수가 서버 문장을 무시하므로, 코드 표에 빠진 오류는 구체 안내 대신 일반 오류 키로 나온다. 단계마다 그 도메인 API 의 한국어 `error` 를 전수 목록으로 만들어 표에 넣는다(기준선 숫자로 확인).
-- A3: 나중에 ko·en 약관 버전이 달라지면 버전 표시가 어긋난다. 그때 별도 처리한다.
-- iOS WKWebView `navigator.languages` 가 앱 지원 언어로 좁혀지는지는 NOT_PROVEN(실기 확인 필요). 좁혀지면 「일본어·한국어」 순서 기기에서 ko 가 나올 수 있다 — 이번 설계 밖, 실기 확인 뒤 판단.
+- 모두 PR #655 한 개에 쌓는다. 검증 PASS 뒤 자동 병합을 등록한다(병합 1회 = Production 1회).
+- 통화는 D7 승인 뒤 단독 PR 로 진행한다.

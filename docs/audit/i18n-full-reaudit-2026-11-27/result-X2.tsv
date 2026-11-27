@@ -1,0 +1,200 @@
+rule	file	line	text	verdict	evidence	fix
+en-sentence	app/api/auth/native/exchange/route.ts	87	This sign-in method is currently disabled.	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	app/api/auth/naver/callback/route.ts	17	Naver login is no longer supported.	FALSE_POSITIVE	네이버 버튼 없음(login-provider-platform-filter.ts:18 LOGIN_BUTTON_PROVIDERS=google·kakao·apple) — 화면 도달 경로 없음	
+en-sentence	app/api/auth/naver/start/route.ts	17	Naver login is no longer supported.	FALSE_POSITIVE	네이버 버튼 없음(login-provider-platform-filter.ts:18) — 화면 도달 경로 없음	
+en-sentence	app/api/auth/oauth/start/route.ts	55	This sign-in method is currently disabled.	EXPOSED	웹 로그인 start-oauth-login.ts:219 location.assign(/api/auth/oauth/start) → 실패 시 JSON 원문 페이지가 그대로 뜸(네이티브는 errorCode→키). 관리자 OFF 직후 열린 로그인 화면 등 조건부	웹 시작 실패는 JSON 대신 /login?error=<code> 로 302 하고 화면은 mapOAuthErrorToMessage 키로
+en-sentence	app/api/community-messenger/rooms/[roomId]/media/route.ts	22	Too many requests	HARMLESS_CODE_USED	use-room-media-gallery.ts:32-40 은 ok/page 만 보고 실패 시 failed 플래그(키 문구)	
+en-sentence	app/api/me/admin-notes/[threadId]/route.ts	49	Legacy note threads are read-only. Use Support Center for new messages.	HARMLESS_CODE_USED	POST 410 — 화면 OwnerCareAdminNotesThread.tsx:45 는 GET 의 error 코드만 쓰고 POST 호출 없음	
+en-sentence	app/api/me/delivery-ads/[campaignId]/funding/route.ts	144	Delivery Ads payments use Cash at submit. Use Cash top-up or Coin conversion, then submit.	HARMLESS_CODE_USED	POST 410 detail — 화면 OwnerDeliveryAdDetailView.tsx:282·391 은 GET 만 호출, detail 미표시	
+en-sentence	app/api/me/points/promotion-orders/route.ts	424	Could not find the function	HARMLESS_DATA	PostgREST 오류 문자열 비교값(includes)	
+en-sentence	app/api/me/points/promotion-orders/route.ts	552	Could not find the function	HARMLESS_DATA	PostgREST 오류 문자열 비교값(includes)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	46	Coin conversion is paused right now.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	49	Enter Coin to convert.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	55	Today's conversion count limit is reached.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	57	This week's conversion count limit is reached.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	59	This month's conversion count limit is reached.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	61	Exceeds today's Coin conversion limit.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	63	Exceeds this month's Coin conversion limit.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	65	Wait for the minimum interval since the last conversion.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	76	The rate changed. Preview again with the new rate.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	79	Cannot read the conversion policy. Conversion is unavailable.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	82	Only the store owner can convert.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	84	Request conflict. Refresh and try again.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinConvertSection.tsx	363	Convert Coin to Cash	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 은 SSOT 신규 금지 형식 — 키 이전 대상)	
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	66	Cannot read the Coin balance. Try again later.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 형식)	
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	68	Enter the GCash number and account name.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 형식)	
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	70	Enter bank name, account number and account name.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 형식)	
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	72	Choose a payout method.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 형식)	
+en-sentence	components/business/owner/OwnerCoinWithdrawalPanel.tsx	75	Only the store owner can request a withdrawal.	FALSE_POSITIVE	ownerUiCopy(language, ko, en) 의 en 분기 값(인라인 ko/en 형식)	
+en-sentence	components/debug/CallQaDebugPanel.tsx	74	Copy all logs	DEV_ONLY	app/(main)/debug/call-qa/page.tsx 전용 QA 패널	
+en-sentence	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	67	The start date is after the end date	FALSE_POSITIVE	pick(ko, en) en 분기 값(CustomerGiftWalletBody.tsx:66-68)	
+en-sentence	components/orders/customer-commerce/CustomerGiftWalletBody.tsx	68	Choose both a start and an end date	FALSE_POSITIVE	pick(ko, en) en 분기 값(CustomerGiftWalletBody.tsx:66-68)	
+en-sentence	components/stores/commission/StoreCommissionLedgerTable.tsx	172	Commission history table	FALSE_POSITIVE	pickCommissionCopy(lang, ko, en) en 분기 값	
+en-sentence	components/stores/commission/StoreCommissionLedgerTable.tsx	172	Commission ledger table	FALSE_POSITIVE	pickCommissionCopy(lang, ko, en) en 분기 값	
+en-sentence	lib/addresses/address-book-line.ts	16	Republic of the Philippines	HARMLESS_DATA	주소에서 국가명 제거용 비교 목록	
+en-sentence	lib/addresses/user-address-format.ts	51	Republic of the Philippines	HARMLESS_DATA	주소에서 국가명 제거용 비교 목록	
+en-sentence	lib/admin-business/sample-store-delete-model.ts	278	Store not found	HARMLESS_ADMIN	관리자 샘플 매장 삭제 사유([ko,en] 짝) — AdminSampleStoreDeleteDrawer 등 관리자만	
+en-sentence	lib/admin-business/sample-store-delete-model.ts	279	Not a sample store	HARMLESS_ADMIN	관리자 샘플 매장 삭제 사유([ko,en] 짝) — AdminSampleStoreDeleteDrawer 등 관리자만	
+en-sentence	lib/admin-business/sample-store-delete-model.ts	280	Linked records must be kept	HARMLESS_ADMIN	관리자 샘플 매장 삭제 사유([ko,en] 짝) — AdminSampleStoreDeleteDrawer 등 관리자만	
+en-sentence	lib/admin-business/sample-store-delete-model.ts	281	Ad campaign not ended	HARMLESS_ADMIN	관리자 샘플 매장 삭제 사유([ko,en] 짝) — AdminSampleStoreDeleteDrawer 등 관리자만	
+en-sentence	lib/admin-business/sample-store-delete-model.ts	282	Paid ad history would be removed	HARMLESS_ADMIN	관리자 샘플 매장 삭제 사유([ko,en] 짝) — AdminSampleStoreDeleteDrawer 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	26	Name edit permission changed	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	27	Admin memo saved	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	28	Store name changed	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	32	Business hours changed	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	34	Delivery radius changed	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	37	Notice sent to owner	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-business/store-audit-action-labels.ts	39	Service area changed	HARMLESS_ADMIN	관리자 매장 감사 라벨([ko,en] 짝) — AdminBusinessDetailPage 등 관리자만	
+en-sentence	lib/admin-users/member-admin-screen-catalog.ts	40	Support compose bridge	HARMLESS_ADMIN	관리자 화면 목록 메타	
+en-sentence	lib/ads/feed-ad-member-presentation.ts	313	Paused by the operator	FALSE_POSITIVE	lang==='en' 분기 값(:313), ko 짝 :314	
+en-sentence	lib/ads/feed-ad-member-presentation.ts	313	Ended by the operator	FALSE_POSITIVE	lang==='en' 분기 값(:313), ko 짝 :314	
+en-sentence	lib/ads/feed-ad-placement.ts	321	Trade home feed	FALSE_POSITIVE	ko/en 표의 en 값	
+en-sentence	lib/ads/feed-ad-placement.ts	322	Trade category feed	FALSE_POSITIVE	ko/en 표의 en 값	
+en-sentence	lib/ads/feed-ad-placement.ts	323	Community home feed	FALSE_POSITIVE	ko/en 표의 en 값	
+en-sentence	lib/ads/feed-ad-placement.ts	324	Community topic feed	FALSE_POSITIVE	ko/en 표의 en 값	
+en-sentence	lib/auth/finish-client-auth-login.client.ts	61	Client session was not established after login	HARMLESS_CODE_USED	CommonClientSessionSyncError.code → mapOAuthErrorToMessage 키 auth_err_session_not_persisted(use-oauth-login.ts:265)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	135	Apple account profile exists but auth user is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	151	Apple owner account has no sign-in email	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	209	Apple sign-in account is reserved by another registration	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	218	Failed to create Apple auth user	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	332	Apple user identifier does not match verified token sub	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-native-session.server.ts	380	Apple native Supabase session creation failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/apple-token-verify.server.ts	174	Apple identity token verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	114	Google account profile exists but auth user is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	130	Google owner account has no sign-in email	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	213	Google sign-in account is reserved by another registration	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	222	Failed to create Google auth user	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	352	Google native Supabase session creation failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	370	Google session user does not match the linked account	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-native-session.server.ts	378	Google session user does not match the linked account	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/google-token-verify.server.ts	104	Google id token audience is not allowed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	123	Kakao account profile exists but auth user is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	139	Kakao owner account has no sign-in email	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	195	Kakao sign-in account is reserved by another registration	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	204	Failed to create Kakao auth user	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	318	Kakao native Supabase session creation failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-native-session.server.ts	362	Failed to persist Kakao profile identity	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-token-verify.server.ts	100	Kakao login is temporarily unavailable	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/kakao-token-verify.server.ts	110	Kakao access token was not issued for this app	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	50	Apple identity token is required	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	51	Kakao access token or id token is required	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-exchange-contract.server.ts	52	Google id token is required	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-exchange-errors.server.ts	39	Native exchange provider must be apple, kakao, or google.	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	152	Apple identity token verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	161	Apple verified identity payload is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	230	Kakao token verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	239	Kakao verified identity payload is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	307	Google id token verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/native-provider-adapter.server.ts	316	Google verified identity payload is missing	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	50	Google native exchange is not ready	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	50	Kakao native exchange is not ready	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	57	Email already registered with another sign-in method	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	66	Google account conflict	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	66	Kakao account conflict	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	79	Google login verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	79	Kakao login verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	92	Google login token is invalid	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	92	Kakao login token is invalid	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	101	This account was withdrawn. Please contact support or sign up again.	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	108	Profile sync failed after login	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	140	Invalid native exchange response	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/post-native-exchange.client.ts	157	Native exchange succeeded without session	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	40	Apple native exchange is not ready	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	46	Apple account conflict	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	59	Apple login verification failed	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	70	Apple login token is invalid	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	103	Invalid native exchange response	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-apple-login.client.ts	129	Native exchange succeeded without session	HARMLESS_CODE_USED	네이티브 교환 실패 → 화면은 errorCode 로 mapOAuthErrorToMessage(use-oauth-login.ts:243·498) 키만 씀, message 는 로그(oauth-start-error.client.ts:28)	
+en-sentence	lib/auth/native/start-native-provider-login.client.ts	66	Unsupported native provider	HARMLESS_CODE_USED	err.name='invalid_provider' → mapOAuthErrorToMessage 키 auth_err_invalid_provider	
+en-sentence	lib/auth/oauth/open-native-oauth-tab.ts	215	Capacitor native bridge is not ready.	HARMLESS_CODE_USED	code oauth_bridge_not_ready → 키 auth_err_oauth_bridge_not_ready(use-oauth-login.ts:261)	
+en-sentence	lib/auth/oauth/supabase-oauth-start.server.ts	119	Supabase OAuth is not configured.	EXPOSED	웹 로그인 start-oauth-login.ts:219 location.assign(/api/auth/oauth/start) → 실패 시 JSON 원문 페이지가 그대로 뜸(네이티브는 errorCode→키). 관리자 OFF 직후 열린 로그인 화면 등 조건부	웹 시작 실패는 JSON 대신 /login?error=<code> 로 302 하고 화면은 mapOAuthErrorToMessage 키로
+en-sentence	lib/auth/oauth/supabase-oauth-start.server.ts	147	Supabase did not return an authorize URL.	EXPOSED	웹 로그인 start-oauth-login.ts:219 location.assign(/api/auth/oauth/start) → 실패 시 JSON 원문 페이지가 그대로 뜸(네이티브는 errorCode→키). 관리자 OFF 직후 열린 로그인 화면 등 조건부	웹 시작 실패는 JSON 대신 /login?error=<code> 로 302 하고 화면은 mapOAuthErrorToMessage 키로
+en-sentence	lib/auth/phone-otp-client-errors.ts	44	Could not send	HARMLESS_DATA	서버 문장 → 코드 판별용 비교값(includes)	
+en-sentence	lib/auth/semaphore-account.ts	82	Semaphore API authentication rejected	HARMLESS_ADMIN	SMS 계정 상태 detail — phone-otp-ops → AdminPhoneVerificationOpsPage 관리자만	
+en-sentence	lib/auth/semaphore-account.ts	93	Semaphore account rate limited	HARMLESS_ADMIN	SMS 계정 상태 detail — phone-otp-ops → AdminPhoneVerificationOpsPage 관리자만	
+en-sentence	lib/auth/semaphore-account.ts	116	Semaphore account response shape unexpected	HARMLESS_ADMIN	SMS 계정 상태 detail — phone-otp-ops → AdminPhoneVerificationOpsPage 관리자만	
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	90	Not a Runtime Auth failure state	HARMLESS_LOG	QA 분류 계약 설명 문자열	
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	95	Neither PASS nor FAIL	HARMLESS_LOG	QA 분류 계약 설명 문자열	
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	100	No failure evidence	HARMLESS_LOG	QA 분류 계약 설명 문자열	
+en-sentence	lib/auth/state/auth-external-classification-contract.ts	105	Direct Runtime proof of first product-code discontinuity	HARMLESS_LOG	QA 분류 계약 설명 문자열	
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	13	Send a message to start chatting.	HARMLESS_DATA	빈 방 안내 판별 비교 목록 — 화면은 messengerRoomLastMessagePlaceholderKey 로 키(cm_svc_last_msg_*) 사용	
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	14	Start a group conversation.	HARMLESS_DATA	빈 방 안내 판별 비교 목록 — 화면은 messengerRoomLastMessagePlaceholderKey 로 키(cm_svc_last_msg_*) 사용	
+en-sentence	lib/community-messenger/room/messenger-room-last-message-placeholder.ts	32	Send a message to start chatting.	HARMLESS_DATA	빈 방 안내 판별 비교 목록 — 화면은 messengerRoomLastMessagePlaceholderKey 로 키(cm_svc_last_msg_*) 사용	
+en-sentence	lib/community-messenger/service.ts	14405	Check DB migrations. Critical tier does not silently enrich via fallback.	HARMLESS_LOG	console 진단 hint	
+en-sentence	lib/community-operator-import/publish-errors.ts	11	Could not find the function	HARMLESS_DATA	PostgREST 오류 문자열 비교값	
+en-sentence	lib/delivery/delivery-list-oor-policy.ts	15	Outside delivery area	FALSE_POSITIVE	KO/EN 상수 짝의 EN 값(외부 사용처 없음)	
+en-sentence	lib/device/dibay-breakpoint-classification.ts	72	Named tablet-max from width.	HARMLESS_LOG	분기점 분류 계약 설명	
+en-sentence	lib/device/dibay-breakpoint-classification.ts	79	Owner compact shell upper bound. Not main BottomNav Device identity.	HARMLESS_LOG	분기점 분류 계약 설명	
+en-sentence	lib/device/dibay-breakpoint-classification.ts	86	Trade grid density only.	HARMLESS_LOG	분기점 분류 계약 설명	
+en-sentence	lib/http/fetch-client-telemetry.ts	27	Failed to fetch	HARMLESS_DATA	브라우저 오류 문자열 비교값	
+en-sentence	lib/media/post-images-storage-ownership.ts	70	Data Reset community	HARMLESS_LOG	저장소 소유 계약 메타	
+en-sentence	lib/messenger/contracts/domain-cutover-prep.ts	242	React state patch	HARMLESS_LOG	전환 준비 계약 메타	
+en-sentence	lib/notifications/badge-lifecycle-transition-matrix.ts	102	Leave removes room from active unread set	HARMLESS_LOG	배지 전이 계약 라벨(테스트·문서용)	
+en-sentence	lib/notifications/badge-lifecycle-transition-matrix.ts	134	Login rebuilds from RoomUnread facts via same Writer	HARMLESS_LOG	배지 전이 계약 라벨(테스트·문서용)	
+en-sentence	lib/notifications/badge-writer-authority.ts	132	Cap Badge via NativeBadgeSync	HARMLESS_LOG	배지 작성 권한 계약 메타	
+en-sentence	lib/notifications/badge-writer-authority.ts	150	Domain Builder appIconTotal embedded in FCM data	HARMLESS_LOG	배지 작성 권한 계약 메타	
+en-sentence	lib/notifications/badge-writer-authority.ts	162	Domain Builder appIconTotal embedded in APNS	HARMLESS_LOG	배지 작성 권한 계약 메타	
+en-sentence	lib/notifications/bell-lifecycle-transition-matrix.ts	174	Login rebuilds Bell from events via same Writer	HARMLESS_LOG	벨 전이 계약 라벨	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	42	Trade report result	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	46	Post actions and sanctions	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	47	Community report result	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	50	Support case status	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	51	Admin inquiry reply	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	52	Message from admin	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	53	Chat report result	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	54	Chat report sanction	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-item-sound-seeds.ts	69	Platform inquiry reply	FALSE_POSITIVE	seed(labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	370	Direct message received	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	380	Group message received	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	390	Friend request received	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	400	Friend request accepted	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	410	Trade chat message	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	450	Order status changed	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	540	Order match chat	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	550	Voice call incoming	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	560	Video call incoming	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	570	Voice outgoing ringback	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/notifications/notification-sound-registry.ts	580	Video outgoing ringback	FALSE_POSITIVE	ev(key, labelKo, labelEn) 의 en 값	
+en-sentence	lib/platform-events/publication.ts	62	This event has not started yet.	FALSE_POSITIVE	language==='en' 분기 값(:59), ko 짝 :74~	
+en-sentence	lib/platform-events/publication.ts	64	This event has ended.	FALSE_POSITIVE	language==='en' 분기 값(:59), ko 짝 :74~	
+en-sentence	lib/platform-events/publication.ts	68	This event is not available.	FALSE_POSITIVE	language==='en' 분기 값(:59), ko 짝 :74~	
+en-sentence	lib/platform-events/publication.ts	71	We could not find this event.	FALSE_POSITIVE	language==='en' 분기 값(:59), ko 짝 :74~	
+en-sentence	lib/platform-popup/admin-surface-target-mode.ts	39	One popup on those five areas. Not shown on Delivery Owner or Admin screens unless selecte	HARMLESS_ADMIN	관리자 팝업 대상 선택 도움말(helpKo/helpEn 짝)	
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	81	Go to store	FALSE_POSITIVE	lang==='en' 분기 값, ko 짝 :85-87	
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	82	Go to store menu section	FALSE_POSITIVE	lang==='en' 분기 값, ko 짝 :85-87	
+en-sentence	lib/platform-popup/popup-cta-destination-ux.ts	83	Go to store promotions	FALSE_POSITIVE	lang==='en' 분기 값, ko 짝 :85-87	
+en-sentence	lib/platform-promotion-distribution/event-banner-upload.ts	28	This image does not match the banner size for this type. Check the ratio and minimum size.	FALSE_POSITIVE	lang==='en' 분기 값(:26)	
+en-sentence	lib/products/regions-data.ts	27	San Andres Bukid	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	69	Krus na Ligas	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	87	Pasong Tamo QC	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	108	Cebu Business Park	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	161	Lourdes North West	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	162	Lourdes Sur East	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	165	Virgen delos Remedios	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	166	Agapito del Rosario	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/products/regions-data.ts	168	Claro M. Recto	FALSE_POSITIVE	필리핀 지명 고유명사 — 언어와 무관한 이름	
+en-sentence	lib/promotion/apply-community-paid-exposure.ts	214	Could not find the function	HARMLESS_DATA	PostgREST 오류 문자열 비교값	
+en-sentence	lib/push/dispatch/fcm-sender.ts	52	Cannot find module	HARMLESS_DATA	오류 문자열 비교값	
+en-sentence	lib/startup/local-runtime-markup.ts	61	Noto Sans KR	HARMLESS_DATA	CSS 글꼴 이름	
+en-sentence	lib/startup/pre-hydration-guard-script.ts	56	Something went wrong while loading the app	FALSE_POSITIVE	en?…:… 분기(html lang==='en') en 값, ko 짝 같은 줄	
+en-sentence	lib/startup/pre-hydration-guard-script.ts	56	Please try again in a moment.	FALSE_POSITIVE	en?…:… 분기(html lang==='en') en 값, ko 짝 같은 줄	
+en-sentence	lib/stores/advertising/banner-search-top-exposure.ts	46	No paid keyword auction. Fail-closed when organic stores empty.	HARMLESS_LOG	광고 정책 계약 note	
+en-sentence	lib/stores/advertising/delivery-ad-inventory.ts	94	Browse organic card anatomy	HARMLESS_LOG	광고 인벤토리 계약 notes	
+en-sentence	lib/stores/apply-admin-store-order-operations.ts	217	Rejected by admin	STORED	관리자 거절 사유 비었을 때 기본값 → eventMessage·rejected_reason 저장 → 구매자 알림 본문 notify-store-commerce.ts:968-973 {reason} + 주문 이력 store-order-process-model.ts:356 order_event_rejected_reason {reason} 로 한국어 화면에 영어 노출	사유 없으면 null 저장(→ 키 order_event_rejected·notify_*_rejected_body 사용) 또는 reason_code 저장 후 화면에서 키로
+en-sentence	lib/stores/apply-admin-store-order-operations.ts	458	Refund request rejected by admin	STORED	관리자 거절 사유 비었을 때 기본값 → eventMessage·rejected_reason 저장 → 구매자 알림 본문 notify-store-commerce.ts:968-973 {reason} + 주문 이력 store-order-process-model.ts:356 order_event_rejected_reason {reason} 로 한국어 화면에 영어 노출	사유 없으면 null 저장(→ 키 order_event_rejected·notify_*_rejected_body 사용) 또는 reason_code 저장 후 화면에서 키로
+en-sentence	lib/stores/discovery/store-discovery-shadow-adversarial-harness.ts	763	City of Pasay	HARMLESS_DATA	시험 하네스 입력 샘플	
+en-sentence	lib/stores/payment-methods-config.ts	41	Cash on meet-up	HARMLESS_DATA	금지 라벨 회귀 검증 목록	
+en-sentence	lib/stores/presentation/stores-home-presentation-map.ts	139	No A-VIS featured-grid pattern	HARMLESS_LOG	표현 매핑 계약 근거 문자열	
+en-sentence	lib/stores/presentation/stores-home-presentation-map.ts	159	Vertical store list remainder	HARMLESS_LOG	표현 매핑 계약 근거 문자열	
+en-sentence	lib/trade/location/trade-lgu-city-rollup.ts	120	San Juan City	FALSE_POSITIVE	필리핀 시 이름 고유명사	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	25	Honda City RS	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	28	Toyota Rush G AT	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	29	Toyota Fortuner G	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	30	Mitsubishi Montero Sport	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	31	Honda Civic RS Turbo	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	33	Nissan Navara VE	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/showcase/trade-showcase-listings.ts	70	Toyota Hiace GL Grandia	FALSE_POSITIVE	차종 모델명 고유명사(쇼케이스 meta car_model)	
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	59	No LIVE trade room opens ChatDetailView for process CTA	HARMLESS_LOG	브리지 종료 조건 계약 설명	
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	69	Zero in-repo and known external clients	HARMLESS_LOG	브리지 종료 조건 계약 설명	
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	71	Docs no longer list as seller process primary API	HARMLESS_LOG	브리지 종료 조건 계약 설명	
+en-sentence	lib/trade/trade-bridge-exit-conditions.ts	80	Legacy create-or-get exit conditions met	HARMLESS_LOG	브리지 종료 조건 계약 설명	

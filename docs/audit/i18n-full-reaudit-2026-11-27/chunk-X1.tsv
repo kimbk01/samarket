@@ -1,0 +1,198 @@
+raw-error2	app/(main)/stores/owner/products/page.tsx	42	          rscBootstrapError={bootstrap.error}
+raw-error2	app/(main)/stores/owner/settings/page.tsx	119	          toast.error(formatOwnerStoreToggleFailure(res.code, language));
+raw-error2	app/(main)/stores/owner/settings/page.tsx	152	        {t("owner_store_settings_load_failed")} ({phase.message})
+raw-error2	app/(main)/stores/owner/menu-categories/page.tsx	36	        <OwnerMenuCategoriesClient key={storeId} storeId={storeId} rscBootstrapError={sec.error} />
+raw-error2	app/(main)/group-chat/[roomId]/page.tsx	49	          <p>{boot.error}</p>
+raw-error2	app/(main)/group-chat/[roomId]/page.tsx	58	        <p>{boot.error}</p>
+raw-error2	app/(main)/mypage/ads/apply/MyAdsApplyPageClient.tsx	79	          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);
+raw-error2	app/(main)/mypage/ads/feed-request/page.tsx	427	          setErr(feedAdUploadRejectMessage(check.error, en ? "en" : "ko"));
+raw-error2	app/(main)/mypage/points/promotions/page.tsx	248	          if (j.error === "price_changed") setCatalogRefreshKey((k) => k + 1);
+raw-error2	components/write/trade/TradeWriteForm.tsx	69	  return failure?.message ? `${partial} (${failure.message})` : partial;
+raw-error2	components/write/trade/TradeWriteForm.tsx	86	  return { title, description: failure?.message ? `${desc} (${failure.message})` : desc };
+raw-error2	components/write/trade/TradeWriteForm.tsx	1992	            setErrors({ submit: res.error });
+raw-error2	components/write/trade/TradeWriteForm.tsx	2005	          setErrors({ submit: res.error });
+raw-error2	components/write/trade/TradeWriteForm.tsx	2248	            setErrors({ submit: res.error });
+raw-error2	components/write/trade/TradeWriteForm.tsx	2263	            setErrors({ submit: res.error });
+raw-error2	components/write/trade/TradeWriteForm.tsx	2714	            {tradePolicy.hint}
+raw-error2	components/write/service/ServiceWriteForm.tsx	96	          setErrors({ submit: res.error });
+raw-error2	components/ui/dibay-overlay/DibaySheetParts.tsx	76	                {item.hint ? <span className="dibay-overlay-menu__hint">{item.hint}</span> : null}
+raw-error2	components/offers/MyOffersView.tsx	300	              <p className="mt-2 sam-text-helper leading-snug text-sam-muted">{offer.message}</p>
+raw-error2	components/post/PostDetailView.tsx	1177	      setChatError(typeof data.error === "string" ? data.error : t("trade_detail_job_apply_failed"));
+raw-error2	components/rider/RiderOrderDetailClient.tsx	100	      setErr(e instanceof Error ? e.message : "upload_failed");
+raw-error2	components/rider/RiderOrderDetailClient.tsx	115	      setErr(e instanceof Error ? e.message : "upload_failed");
+raw-error2	components/auth/RegistrationPhoneStep.tsx	111	      setDiscardError(t(json?.error === "not_empty_account" ? "auth_reg_discard_not_empty" : "auth_reg_discard_failed"));
+raw-error2	components/moim/MoimProfileScreen.tsx	51	    if (!r.ok) return setSaveError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimScheduleDetailScreen.tsx	101	        <p className={moimCls.hint}>{t("moim_schedule_motivation_lead", { min: MOTIVATION_MIN })}</p>
+raw-error2	components/moim/MoimScheduleDetailScreen.tsx	109	        <span className={`${moimCls.hint} text-right`}>
+raw-error2	components/moim/MoimPublicView.tsx	196	        <p className={`${moimCls.hint} px-4 pt-4`}>{t("moim_public_members_only_note")}</p>
+raw-error2	components/moim/MoimJoinSheet.tsx	102	          <span className={moimCls.hint}>{t("moim_join_profile_hint")}</span>
+raw-error2	components/moim/MoimReportSheet.tsx	51	      setError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimReportSheet.tsx	73	        <p className={moimCls.hint}>{t("moim_report_lead")}</p>
+raw-error2	components/moim/MoimPostDetailScreen.tsx	103	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/MoimPostDetailScreen.tsx	111	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/MoimPostDetailScreen.tsx	117	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/MoimPostDetailScreen.tsx	128	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/MoimPostDetailScreen.tsx	136	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/manage/MoimManageRequests.tsx	39	        toast.showError(r.error);
+raw-error2	components/moim/MoimCreateWizard.tsx	128	      setError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimCreateWizard.tsx	201	              <span className={moimCls.hint}>{t("moim_create_cover_hint")}</span>
+raw-error2	components/moim/MoimCreateWizard.tsx	210	              <p className={moimCls.hint}>{t("moim_create_area_hint")}</p>
+raw-error2	components/moim/MoimCreateWizard.tsx	304	              <span className={moimCls.hint}>{t("moim_profile_privacy_note")}</span>
+raw-error2	components/moim/MoimCreateWizard.tsx	312	            <p className={moimCls.hint}>{t("moim_create_rules_lead")}</p>
+raw-error2	components/moim/MoimCreateWizard.tsx	323	            <p className={moimCls.hint}>{t("moim_create_rules_sanction_note")}</p>
+raw-error2	components/moim/MoimCategoryField.tsx	78	          <span className={`${moimCls.hint} flex justify-between gap-2`}>
+raw-error2	components/moim/manage/MoimManageTransfer.tsx	39	    if (!r.ok) return toast.showError(r.error);
+raw-error2	components/moim/MoimDetailScreen.tsx	168	      toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/manage/MoimManageClose.tsx	40	      return toast.showError(r.error);
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	156	      setSubmitError(t(v.error));
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	164	      if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	170	    if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	218	          <span className={`${moimCls.hint} text-right`}>
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	229	          {preview ? <span className={moimCls.hint}>{t("moim_schedule_form_pht_preview", { time: preview })}</span> : null}
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	330	          <span className={moimCls.hint}>{t("moim_schedule_form_capacity_hint")}</span>
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	349	          <span className={moimCls.hint}>
+raw-error2	components/moim/MoimScheduleFormScreen.tsx	358	              <span className={`${moimCls.hint} block`}>{t("moim_schedule_form_ask_motivation_hint")}</span>
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	58	      toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	94	        <p className={`${moimCls.hint} px-4 pb-2 pt-4`}>{t("moim_notify_lead")}</p>
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	100	                <span className={`${moimCls.hint} block`}>{t(row.hint)}</span>
+raw-error2	components/moim/MoimNotificationSettingsScreen.tsx	109	                <span className={`${moimCls.hint} block`}>{t("moim_notify_chat_hint")}</span>
+raw-error2	components/moim/moim-ui.tsx	177	  const node = state ? <DibayToast message={state.message} tone={state.tone} /> : null;
+raw-error2	components/moim/MoimInvitesScreen.tsx	48	    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+raw-error2	components/moim/manage/MoimManagePermissions.tsx	48	      toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageHostRequest.tsx	48	        setErrorText(t(r.error === "moim_host_recently_active" ? "moim_err_moim_host_recently_active" : "moim_err_moim_transfer_pending"));
+raw-error2	components/moim/manage/MoimManageHostRequest.tsx	51	      toast.showError(r.error);
+raw-error2	components/moim/MoimWriteScreen.tsx	93	      if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimWriteScreen.tsx	99	    if (!r.ok) return setSubmitError(t(moimErrorKey(r.error)));
+raw-error2	components/moim/MoimWriteScreen.tsx	208	          <span className={moimCls.hint}>{visibility === "members" ? t("moim_write_visibility_members_hint") : t("moim_write_visibility_public_hint")}</span>
+raw-error2	components/moim/manage/MoimManageInfo.tsx	72	    else toast.show(r.error, "error");
+raw-error2	components/moim/manage/MoimManageInfo.tsx	113	      toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageMembers.tsx	126	        toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageMembers.tsx	374	              toast.showError(r.error);
+raw-error2	components/moim/manage/moim-manage-shared.tsx	32	      else setState({ status: "error", errorKey: moimErrorKey(r.error) });
+raw-error2	components/moim/manage/moim-manage-shared.tsx	137	  const node = toast ? <DibayToast key={toast.seq} message={toast.message} tone={toast.tone} /> : null;
+raw-error2	components/moim/manage/MoimManageBoards.tsx	35	      toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageReports.tsx	66	        toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageInvite.tsx	65	    if (!r.ok) return toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageInvite.tsx	97	    if (!r.ok) return toast.showError(r.error);
+raw-error2	components/moim/manage/MoimManageInvite.tsx	238	      setResults((prev) => ({ ...prev, [id]: r.ok ? { ok: true } : { ok: false, key: moimErrorKey(r.error) } }));
+raw-error2	components/platform/AndroidPlayInAppUpdateHost.tsx	129	        setScreen((s) => (s ? { ...s, step: "ready", waitingForCall: false, error: outcome.message } : s));
+raw-error2	components/platform/AndroidPlayInAppUpdateHost.tsx	156	          setScreen((s) => (s ? { ...s, step: "intro", error: outcome.message } : s));
+raw-error2	components/business/MyBusinessNavList.tsx	214	        <span className="mt-0.5 block sam-text-helper leading-relaxed text-sam-muted">{item.hint}</span>
+raw-error2	components/business/apply/StorePhoneVerifySheet.tsx	90	        setError(t(storePhoneVerifyErrorKey(json.code ?? json.error)));
+raw-error2	components/business/apply/StorePhoneVerifySheet.tsx	127	          setError(t(storePhoneVerifyErrorKey(json.code ?? json.error)));
+raw-error2	components/business/owner/OwnerStoreOrderChatsView.tsx	126	          {state.message}
+raw-error2	components/business/owner/OwnerStoreFinanceView.tsx	174	        setError(resolveOwnerApiErrorMessage(json.error, t));
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	120	        setError(typeof j?.error === "string" ? j.error : "load_failed");
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	306	        setError(typeof j?.error === "string" ? j.error : t("business_phase7_476"));
+raw-error2	components/business/owner/OwnerMenuCategoriesClient.tsx	339	        setError(typeof j?.error === "string" ? j.error : t("business_phase7_352"));
+raw-error2	components/business/owner/OwnerStorePagePhaseGate.tsx	58	        <p className="sam-text-body text-sam-danger">{phase.message}</p>
+raw-error2	components/business/owner/OwnerStoreReviewsView.tsx	97	        setErr(typeof payload.j?.error === "string" ? payload.j.error : "load_failed");
+raw-error2	components/business/owner/OwnerStoreReviewsView.tsx	149	          toast.error(msg);
+raw-error2	components/business/owner/OwnerBusinessCashView.tsx	128	        setError(resolveOwnerApiErrorMessage(json.error, t));
+raw-error2	components/business/owner/OwnerBusinessCashView.tsx	225	        setError(topUpErrorMessage(json.error));
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	166	        setErr(typeof bj?.error === "string" ? bj.error : "load_failed");
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	335	        toast.error(t("owner_s4_delete_failed"));
+raw-error2	components/business/owner/OwnerStoreBannersView.tsx	339	      toast.error(t("owner_s4_delete_failed"));
+raw-error2	components/business/owner/OwnerStoreInquiriesView.tsx	152	        toast.error(ownerFetchErrorMessage(res, t));
+raw-error2	components/business/owner/OwnerStoreInquiriesView.tsx	186	        toast.error(ownerFetchErrorMessage(res, t));
+raw-error2	components/business/owner/OwnerStoreOrderDeliveryActions.tsx	196	              setErr(formatOwnerOrderPatchErr(res.error, language));
+raw-error2	components/business/owner/OwnerOrderRequestDecision.tsx	71	      setErr(key ? t(key) : t("store_owner_decision_err_failed", { code: res.error }));
+raw-error2	components/business/owner/OwnerStoreCommerceStateLabel.tsx	38	      data-owner-store-commerce-state={st.reason}
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	218	        setError(typeof pj?.error === "string" ? pj.error : t("business_phase7_424"));
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	303	          toast.error(t("business_phase7_425"));
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	305	          toast.error(
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	313	          toast.error(
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	320	          toast.error(
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	324	          setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));
+raw-error2	components/business/owner/OwnerProductsHubClient.tsx	354	    toast.error(t("business_phase7_427"));
+raw-error2	components/business/owner/OwnerCoinConvertSection.tsx	166	        setError(reason(r.error));
+raw-error2	components/business/owner/OwnerCoinConvertSection.tsx	184	        setError(reason(q.error));
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	112	        setErr(typeof j?.error === "string" ? j.error : "load_failed");
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	170	          setErr(typeof j?.error === "string" ? j.error : "save_failed");
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	191	          setErr(typeof j?.error === "string" ? j.error : "save_failed");
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	219	        toast.error(t("owner_s4_delete_failed"));
+raw-error2	components/business/owner/OwnerStoreNoticesView.tsx	223	      toast.error(t("owner_s4_delete_failed"));
+raw-error2	components/business/owner/OwnerStoreOrderReviewBlock.tsx	90	        setReplyErr(typeof j?.error === "string" ? j.error : "reply_failed");
+raw-error2	components/business/owner/OwnerStoreOrderReviewBlock.tsx	119	        setReplyErr(typeof j?.error === "string" ? j.error : "delete_reply_failed");
+raw-error2	components/business/owner/OwnerStoreOrdersView.tsx	1187	        <p className="text-sm text-sam-danger">({state.message})</p>
+raw-error2	components/business/owner/OwnerToastHost.tsx	89	      message={item.message}
+raw-error2	components/business/owner/OwnerStorePartnerAgreementView.tsx	108	        if (json?.error === "partner_terms_version_mismatch") setReloadKey((n) => n + 1);
+raw-error2	components/business/owner/ads/OwnerPlatformPopupApplyView.tsx	293	      setError(e instanceof Error ? e.message : "image_failed");
+raw-error2	components/business/admin/BusinessAdminVisibleToggle.tsx	69	          toast.error(formatOwnerStoreToggleFailure(res.code, language));
+raw-error2	components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx	463	        setError(ownerAdDraftSaveErrorCode(patchJson.error));
+raw-error2	components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx	489	      setError(ownerAdDraftSaveErrorCode(createJson.error));
+raw-error2	components/business/owner/ads/OwnerBannerCreateView.tsx	439	        setError(ownerAdDraftSaveErrorCode(json.error));
+raw-error2	components/business/owner/ads/OwnerBannerCreateView.tsx	510	      setError(ownerAdDraftSaveErrorCode(createJson.error));
+raw-error2	components/business/owner/ads/OwnerDeliveryAdDetailView.tsx	790	                        : {h.reason}
+raw-error2	components/business/admin/BusinessAdminOpenToggle.tsx	56	          toast.error(formatOwnerStoreToggleFailure(res.code, language));
+raw-error2	components/business/admin/BusinessAdminShell.tsx	289	        setLoadErr(typeof json?.error === "string" ? json.error : "load_failed");
+raw-error2	components/stores/StoreCartEntrySwitch.tsx	120	      hint={state.hint}
+raw-error2	components/stores/StoreCommerceOrderDetailClient.tsx	142	        <p className="text-sm text-sam-muted">{state.message}</p>
+raw-error2	components/stores/StoreCommerceCartPageClient.tsx	1309	          setDistanceBlockReason(svc.ok === true ? (svc.reason ?? null) : null);
+raw-error2	components/stores/commission/StoreCommissionLedgerTable.tsx	349	        `Approved ${formatCashMinor(d.approvedMinor)} = Cash ${formatCashMinor(d.cashRefundMinor)} + unpaid cancelled ${formatCashMinor(d.outstandingCancelMinor)} · Reason: ${d.reason}`
+raw-error2	components/stores/commission/StoreCommissionLedgerParts.tsx	230	            {translateBy(lang, "stores_reason", undefined, "en")}: {d.reason}
+raw-error2	components/stores/owner/OwnerNotificationSettings.tsx	130	          toast.error(t("owner_s4_setting_failed_reverted"));
+raw-error2	components/stores/owner/dashboard/OwnerFinanceHomeCards.tsx	46	        setError(resolveOwnerApiErrorMessage(payload.error, t));
+raw-error2	components/stores/StoreReviewReportButton.tsx	79	        setErr(t(resolveStoreReportSubmitErrorKey(json.code ?? json.error)));
+raw-error2	components/stores/StoreReportForm.tsx	76	        setErr(t(resolveStoreReportSubmitErrorKey(json?.code ?? json?.error)));
+raw-error2	components/stores/modifiers/StoreModifierPicker.tsx	207	                  <p className={sheetCls.hint}>{rangeHint}</p>
+raw-error2	components/stores/owner/OwnerNotificationList.tsx	119	            setError(typeof j?.error === "string" ? j.error : "load_failed");
+raw-error2	components/mypage/MypageToastHost.tsx	104	      message={toast.message}
+raw-error2	components/map/AddressSelectClient.tsx	209	        setMapsError(e instanceof Error ? e.message : t("addr_ui_maps_load_failed"));
+raw-error2	components/map/AddressSelectClient.tsx	266	        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
+raw-error2	components/map/AddressSelectClient.tsx	289	        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_map") : t("addr_ui_geo_failed"));
+raw-error2	components/messenger/call/CallInAppNoticeBanner.tsx	55	        <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug tracking-tight">{current.message}</p>
+raw-error2	components/mypage/MyStoreOrderDetailView.tsx	459	        setRefundErr(t(resolveStoreOrderMutationErrorKey("request_cancel", j?.error)));
+raw-error2	components/addresses/AddressPlatformSearchClient.tsx	255	        setErr(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
+raw-error2	components/mypage/tabs/CommunityTab.tsx	248	          setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_activity_load_failed"));
+raw-error2	components/mypage/tabs/CommunityTab.tsx	282	        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unsave_failed"));
+raw-error2	components/mypage/tabs/CommunityTab.tsx	318	        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unlike_failed"));
+raw-error2	components/addresses/AddressMapConfirmClient.tsx	132	          setErr(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
+raw-error2	components/my/MyNotificationsView.tsx	286	            setError(typeof j?.error === "string" ? j.error : "load_failed");
+raw-error2	components/my/MyNotificationsView.tsx	467	        setActionErrorToast(typeof j?.error === "string" ? j.error : "failed");
+raw-error2	components/my/MyNotificationsView.tsx	587	          setActionErrorToast(typeof json?.error === "string" ? json.error : "notif_inbox_offer_action_failed");
+raw-error2	components/my/settings/NoticesContent.tsx	52	          setError(typeof json.error === "string" ? json.error : t("settings_notices_load_failed"));
+raw-error2	components/my/settings/BulkRegionChangeContent.tsx	35	        setError(typeof json.error === "string" ? json.error : t("settings_bulk_region_error"));
+raw-error2	components/delivery/DeliveryServiceAreaEditorCore.tsx	317	        setError(t(serviceAreaErrorKey(json.error, "load")));
+raw-error2	components/delivery/DeliveryServiceAreaEditorCore.tsx	445	        setSearchError(t(serviceAreaErrorKey(json.error, "search")));
+raw-error2	components/finance/AdminFinanceAdsView.tsx	100	        setError(json.error || "load_failed");
+raw-error2	components/chats/StoreOrderSellerOrderPanel.tsx	196	      setSendToast(r.error?.trim() || t("chats_seller_panel_send_failed_toast"));
+raw-error2	components/finance/AdminFinanceSettingsView.tsx	44	        setError(json.error || "load_failed");
+raw-error2	components/finance/AdminFinanceSettingsView.tsx	102	        setResult({ ok: false, code: json.error || "save_failed" });
+raw-error2	components/finance/AdminFinanceOrderDetailView.tsx	35	        setError(json.error || "not_found");
+raw-error2	components/finance/AdminFinanceHubView.tsx	51	        setSummaryErr({ code: adminSafeErrorCode(json.error, "load_failed"), httpStatus: res.status });
+raw-error2	components/finance/AdminFinanceHubView.tsx	102	        setTxError(res.status === 403 ? "forbidden" : adminSafeErrorCode(json.error, "load_failed"));
+raw-error2	components/finance/AdminFinanceTransactionDetailView.tsx	37	        setError(json.error || "not_found");
+raw-error2	components/chats/ChatDetailView.tsx	1448	        return { ok: false, error: res.error };
+raw-error2	components/chats/TradeChatComposePreparingShell.tsx	53	          <p className="text-[13px] text-sam-danger">{errorBanner.message}</p>
+raw-error2	components/my/settings/NotificationsSettingsContent.tsx	528	                  if (j?.error === "column_missing") setCommerceEmailColumnMissing(true);
+raw-error2	components/my/settings/NotificationsSettingsContent.tsx	529	                  else if (j?.error === "profile_not_found") setCommerceEmailPatchError(t("notifications_profile_missing"));
+raw-error2	components/finance/AdminFinanceTransactionsView.tsx	95	        setError(json.error || "load_failed");
+raw-error2	components/community/CommunityPostDetailPage.tsx	24	        reason={access.reason}
+raw-error2	components/finance/AdminFinanceOutstandingView.tsx	107	        error={list.error}
+raw-error2	components/finance/AdminFinanceConversionsView.tsx	106	        setError(json.error || "load_failed");
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	119	        setError(json.error || "load_failed");
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	344	        setError(stJson.error || "load_failed");
+raw-error2	components/finance/AdminFinanceStoreViews.tsx	403	        setTxError(json.error || "load_failed");
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1425	        setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1719	        setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1869	        setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	1982	      setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2082	      setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2141	      setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community-messenger/CommunityMessengerHome.tsx	2173	          setActionError(getMessengerActionErrorMessage(json.error));
+raw-error2	components/community/CommunityDetail.tsx	394	        setActionToast(res.error);
+raw-error2	components/community-messenger/MessengerSnackbarHost.tsx	65	      message={current.message}
+raw-error2	components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx	475	     * 확실한 거절 + 같은 화면이면 `setMessage(글)`(→ 위 vm.message 동기화) + 방별 초안 저장, 결과 불명이면 실패 행만.
+raw-error2	components/community-messenger/domain-shell-canary/load-domain-room-timeline-seed.ts	60	    if (!prepared.ok) return { ok: false, error: prepared.error };
+raw-error2	components/community-messenger/friend-qr/FriendQrResultHost.tsx	69	      setErrorKey(status === 429 ? "common_try_again_later" : friendQrErrorMessageKey(j.error));
+raw-error2	components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx	362	        if (result.error === "already_requested") setPeerPending({ kind: "outgoing" });
+raw-error2	components/share/DibayShareSheet.tsx	152	      ? createPortal(<DibayToast message={toast.message} tone={toast.tone} />, document.body)
+raw-error2	components/community-messenger/room/message/MessageLongPressPopover.tsx	372	          copyTitle={copyAction?.reason}
+raw-error2	components/community-messenger/room/message/MessageLongPressPopover.tsx	376	          replyTitle={replyAction?.reason}
+raw-error2	components/debug/CallQaDebugPanel.tsx	124	                  {e.reason ? <span className="text-sam-fg-muted"> reason={e.reason}</span> : null}
+en-sentence	app/(main)/mypage/points/page.tsx	448	The start date is after the end date
+en-sentence	app/(main)/mypage/points/page.tsx	449	Choose both a start and an end date
+en-sentence	app/(main)/mypage/points/page.tsx	587	Deposit requests you can cancel, regardless of period.
+en-sentence	app/(main)/mypage/points/promotions/page.tsx	341	The start date is after the end date
+en-sentence	app/(main)/mypage/points/promotions/page.tsx	342	Choose both a start and an end date
