@@ -16,6 +16,7 @@ import {
   listSupportMessages,
   markSupportCaseNotificationsRead,
   markSupportCaseReadForAdmin,
+  supportShownListSeenAt,
   reopenSupportCase,
 } from "@/lib/support/support-case-service";
 import type { SupportCasePriority, SupportCaseStatus } from "@/lib/support/support-case-types";
@@ -45,13 +46,17 @@ export async function GET(
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
   // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다
-  await markSupportCaseReadForAdmin(sb, caseId, gate.case.last_message_at);
+  await markSupportCaseReadForAdmin(sb, caseId, supportShownListSeenAt(messages.messages, gate.case.last_message_at));
   // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
   // 재감사 D15: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번).
   await markSupportCaseNotificationsRead(sb, {
     userId: adminGate.actor.userId,
     caseId,
     includeAdmin: true,
+    // 남은 위험 5: 보여 준 고객 공개 글의 알림만 읽음
+    shownCustomerMessageIds: messages.messages
+      .filter((m) => (m.sender_type === "MEMBER" || m.sender_type === "OWNER") && m.message_type === "PUBLIC")
+      .map((m) => m.id),
   });
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.

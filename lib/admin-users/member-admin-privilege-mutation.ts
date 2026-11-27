@@ -4,6 +4,7 @@
  * never account soft-delete / Store ownership / member classification.
  */
 
+import { releaseSupportAssignmentsIfNoSupportPermission } from "@/lib/support/support-assignee-permission-sync";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   hasActiveAdminMembershipOrLegacyRole,
@@ -101,6 +102,8 @@ export async function executeMemberPrivilegePromote(
   }
 
   await replaceStaffPermissions(sb, targetUserId, permissions, input.actor.userId);
+  // 고객 문의 남은 위험 ⑤: 고객지원 권한이 빠졌으면 담당 문의를 미배정으로
+  await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: targetUserId, changedBy: input.actor.userId });
 
   void appendAuditLog(sb, {
     actor_type: "admin",

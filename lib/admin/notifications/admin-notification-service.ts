@@ -37,6 +37,10 @@ import {
 } from "@/lib/admin/admin-ops-sound-preference-gate";
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 import { withPushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
+import {
+  supportCustomerMessageNeedsAdmin,
+  supportMessageIdFromDedupeKey,
+} from "@/lib/support/support-admin-work-check";
 
 export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
 export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
@@ -390,6 +394,73 @@ export async function createAdminNotification(
   return { ok: true, created: inserted.length, skippedRecipients, pushed };
 }
 
+/**
+ * 고객 문의 남은 위험 — 고객 글 알림(support_customer_replied)을 보내기 직전 문의 상태 확인.
+ * send = 어드민 일이 남음(OPEN·WAITING_ADMIN) · skip = 끝남(답변·종료·없음) · retry = 상태를 못 읽음(다음 회차에 다시).
+ * 다른 종류 알림은 항상 send.
+ */
+async function supportCustomerMessageGate(
+  sb: SupabaseClient,
+  input: CreateAdminNotificationInput
+): Promise<"send" | "skip" | "retry"> {
+  if (input.kind !== "support_customer_replied") return "send";
+  const caseId = input.workRef?.table === "support_cases" ? input.workRef.id : "";
+  if (!caseId) return "send";
+  // 6차 재감사 2: 상태 + 「이 글이 이미 답을 받았나」 — 앱 즉시 발송과 같은 판정
+  return supportCustomerMessageNeedsAdmin(sb, { caseId, messageId: supportMessageIdFromDedupeKey(input.dedupeKey) });
+}
+
+/**
+ * 6차 재감사 3 — 만든 직후 다시 판정해 그사이 어드민이 답했으면 **그 글의 알림만** 받은 사람 전원 읽음.
+ * (문의 단위 전체 읽음이 아니라 같은 dedupe 키만 — 더 새 고객 글 알림은 건드리지 않는다.)
+ */
+export async function settleSupportCustomerMessageNotification(
+  sb: SupabaseClient,
+  input: { caseId: string; dedupeKey: string }
+): Promise<void> {
+  const verdict = await supportCustomerMessageNeedsAdmin(sb, {
+    caseId: input.caseId,
+    messageId: supportMessageIdFromDedupeKey(input.dedupeKey),
+  });
+  if (verdict !== "skip") return;
+  const { error } = await sb
+    .from(ADMIN_NOTIFICATIONS_TABLE)
+    .update({ read_at: new Date().toISOString() })
+    .eq("dedupe_key", input.dedupeKey)
+    .is("read_at", null);
+  if (error) console.warn("[admin-notifications] settle_support_failed", { dedupeKey: input.dedupeKey, error: error.message });
+}
+
+/**
+ * 고객 문의 남은 위험 ⑤ — 재생 발송에서 담당자가 받을 수 없을 때(권한 잃음) 그 담당을 푼다(진행 중 문의만 —
+ * `releaseSupportAssignmentsOnRevoke` 와 같은 규칙: 종료·보관 문의의 담당 기록은 그대로).
+ */
+async function releaseUnreachableSupportAssignees(
+  sb: SupabaseClient,
+  input: CreateAdminNotificationInput,
+  staleAssignees: readonly string[]
+): Promise<void> {
+  const caseId = input.workRef?.table === "support_cases" ? input.workRef.id : "";
+  if (!caseId) return;
+  for (const uid of staleAssignees) {
+    const { data: released } = await sb
+      .from("support_cases")
+      .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
+      .eq("id", caseId)
+      .eq("assigned_admin_id", uid)
+      .not("status", "in", "(RESOLVED,ARCHIVED)")
+      .select("id");
+    if (released && released.length > 0) {
+      await sb.from("support_case_events").insert({
+        case_id: caseId,
+        event_type: "assignee_released_admin_revoked",
+        actor_user_id: null,
+        payload: { previous_assignee: uid, trigger: "outbox_replay" },
+      });
+    }
+  }
+}
+
 export type OutboxRow = { id: string; claim_token: string; source_key: string; payload: unknown };
 export type PushDeliveryRow = { notification_id: string; claim_token: string };
 
@@ -489,9 +560,49 @@ export async function runAdminNotificationDeliveryWorker(
   for (const row of (claimed.data ?? []) as OutboxRow[]) {
     sum.outboxClaimed += 1;
     const input = parseOutboxPayload(row.payload);
-    const res = input
-      ? await createAdminNotification(sb, input, { resolveAuthority, sendPush }, { fromOutbox: true })
-      : ({ ok: false, error: "invalid_payload", queued: true } as const);
+    let res: CreateAdminNotificationResult;
+    // 고객 문의 남은 위험 (5차 재감사 2·4): 고객 글 알림은 보내기 직전에 문의 상태를 본다 —
+    // 어드민 일이 끝났으면(답변·종료) 만들지 않고 처리됨으로 닫는다. 상태를 못 읽으면 실패로 두어 다음 회차에 다시(놓치지 않음).
+    const supportGate = input ? await supportCustomerMessageGate(sb, input) : "send";
+    if (!input) {
+      res = { ok: false, error: "invalid_payload", queued: true };
+    } else if (supportGate === "retry") {
+      res = { ok: false, error: "support_case_status_unavailable", queued: true };
+    } else if (supportGate === "skip") {
+      res = { ok: true, created: 0, skippedRecipients: 0, pushed: 0 };
+    } else {
+      res = await createAdminNotification(sb, input, { resolveAuthority, sendPush }, { fromOutbox: true });
+    }
+    // 고객 문의 남은 위험 ⑤: 담당자에게 보낸 고객 글 알림을 담당자가 받을 수 없으면(권한 잃음) 담당을 풀고 support 권한 전원에게 —
+    // 앱 즉시 경로(notifyAdminsOfCustomerMessage)와 같은 대체. 같은 dedupe 키라 중복 없음. (상태는 위에서 이미 확인)
+    if (
+      input &&
+      supportGate === "send" &&
+      res.ok &&
+      res.created === 0 &&
+      res.skippedRecipients > 0 &&
+      input.kind === "support_customer_replied" &&
+      (input.recipientAdminIds?.length ?? 0) > 0
+    ) {
+      await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
+      res = await createAdminNotification(
+        sb,
+        { ...input, recipientAdminIds: undefined, broadcastPermission: "support", requiredPermission: "support" },
+        { resolveAuthority, sendPush },
+        { fromOutbox: true }
+      );
+    }
+    if (
+      input &&
+      input.kind === "support_customer_replied" && // 7차 재감사 N1: 고객 글 알림만 (담당 지정 알림은 정리하지 않는다)
+      supportGate === "send" &&
+      res.ok &&
+      res.created > 0 &&
+      input.workRef?.table === "support_cases"
+    ) {
+      // 6차 재감사 3: 만든 사이 어드민이 답했으면 이 글 알림만 읽음
+      await settleSupportCustomerMessageNotification(sb, { caseId: input.workRef.id, dedupeKey: input.dedupeKey });
+    }
     const fin = await sb.rpc("admin_notification_outbox_finish", {
       p_id: row.id,
       p_claim_token: row.claim_token,
@@ -738,6 +849,8 @@ export async function countUnreadAdminNotifications(
  * Mark read (recipient-scoped). Only read_at changes — business rows are never touched.
  * `ids` | `all` | `workRef` (e.g. opening a support case clears its replies).
  */
+const DEDUPE_KEY_CHUNK = 100;
+
 export async function markAdminNotificationsRead(
   sb: SupabaseClient,
   input: {
@@ -745,6 +858,10 @@ export async function markAdminNotificationsRead(
     ids?: string[];
     all?: boolean;
     workRef?: { table: string; id: string };
+    /** 이 dedupe 키들만 (예: 화면에 보여 준 고객 글 알림 — 고객 문의 남은 위험 5) */
+    dedupeKeys?: readonly string[];
+    /** 이 종류만 */
+    kinds?: readonly string[];
   }
 ): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
   const ids = (input.ids ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 200);
@@ -756,6 +873,28 @@ export async function markAdminNotificationsRead(
     .is("read_at", null);
   if (ids.length > 0) q = q.in("id", ids);
   if (input.workRef) q = q.eq("work_ref_table", input.workRef.table).eq("work_ref_id", input.workRef.id);
+  if (input.dedupeKeys) {
+    if (input.dedupeKeys.length === 0) return { ok: true, updated: 0 };
+    // 6차 재감사 5: 요청 주소 길이 — 100개씩 나눠 읽음 처리
+    if (input.dedupeKeys.length > DEDUPE_KEY_CHUNK) {
+      let total = 0;
+      for (let i = 0; i < input.dedupeKeys.length; i += DEDUPE_KEY_CHUNK) {
+        const part = await markAdminNotificationsRead(sb, {
+          ...input,
+          dedupeKeys: input.dedupeKeys.slice(i, i + DEDUPE_KEY_CHUNK),
+        });
+        if (!part.ok) return part;
+        total += part.updated;
+      }
+      return { ok: true, updated: total };
+    }
+    q = q.in("dedupe_key", [...input.dedupeKeys]);
+  }
+  if (input.kinds) {
+    // 6차 재감사 6: 빈 목록 = 아무것도(dedupeKeys 와 같은 뜻)
+    if (input.kinds.length === 0) return { ok: true, updated: 0 };
+    q = q.in("kind", [...input.kinds]);
+  }
   const { data, error } = await q.select("id");
   if (error) return { ok: false, error: error.message };
   return { ok: true, updated: (data ?? []).length };
