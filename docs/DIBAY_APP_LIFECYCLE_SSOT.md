@@ -256,7 +256,7 @@ Admin Intro ON/OFF = 기존 Live `active|paused|unpublished` + cache — **CMS �
 |---|---|
 | 판정 시점 | `startup-destination.ts`가 **이미 promote된** 로컬 Intro index를 **동기·1회**만 읽음 |
 | index 없음 | `reason=no_index` → Intro 스킵 · Community/Initial Surface |
-| Discovery | `discovery.ts`는 **startup 이후**(OS release / foreground)만 실행 · **현재 실행 snapshot 변경 금지** |
+| Discovery | `discovery.ts`는 **startup 이후**(OS release / foreground)만 실행 · **현재 실행 snapshot 변경 금지** · OS release 발견은 실행마다 1번, **foreground(다시 열기) 발견은 마지막 성공 발견 뒤 30분이 지났을 때만**(성공 = 받아 오기·색인 반영·그림 받기·소재 묶음 동기화가 모두 끝남 — 하나라도 실패하면 다음 다시 열기에 바로 재시도, 기기 시계가 거꾸로 가면 바로 발견)(Owner 「결함 2 · 30분」 2026-11-27 · 11-26 다시 열기 발견 322요청·Supabase 979). 그래서 관리자 일시정지·게시중단은 그 30분 안에 다시 열기만 하다 완전히 껐다 켠 기기에 1번 늦게 반영될 수 있다(새로 켠 실행이 발견해 그다음 실행부터 반영) |
 | 최초 설치 · `pm clear` | 해당 USER_COLD에서는 Intro 없음이 **정상**. promote 후 **다음 USER_COLD**부터 Intro ON 적용 |
 | Admin Intro ON | 로컬 콘텐츠가 준비된 상태에서만 표시. 최초 실행 무조건 Intro를 의미하지 않음 |
 

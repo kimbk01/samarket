@@ -103,16 +103,23 @@ function hasNativePlugin(): boolean {
   }
 }
 
-/** 발견 응답의 묶음을 네이티브 저장소에 맞춘다(같은 판이면 건너뜀). null = 서버 읽기 실패 → 이전 저장 유지 */
-export async function syncNativeIntroPool(pool: LaunchIntroPoolPayload | null | undefined): Promise<void> {
-  if (!pool || !hasNativePlugin()) return;
+/**
+ * 발견 응답의 묶음을 네이티브 저장소에 맞춘다(같은 판이면 건너뜀). null = 서버 읽기 실패 → 이전 저장 유지.
+ * 반환: true = 맞춤 완료(또는 맞출 것 없음), false = 다음 발견 때 다시 해야 함(서버 묶음 읽기 실패·저장 실패).
+ * 발견은 이 값이 false 면 성공 시각을 남기지 않는다 — 다음 다시 열기에 바로 재시도(결함 2 재감사 2026-11-27).
+ */
+export async function syncNativeIntroPool(pool: LaunchIntroPoolPayload | null | undefined): Promise<boolean> {
+  if (!hasNativePlugin()) return true;
+  if (!pool) return false;
   try {
     // 재감사 L4: 기기 저장소의 판과 비교한다(웹 저장 표시가 아니라) — 네이티브 저장이 지워졌으면 다시 맞춘다
     const state = await plugin().getState();
-    if (state?.revision === pool.revision) return;
+    if (state?.revision === pool.revision) return true;
     await plugin().sync(pool);
+    return true;
   } catch {
     /* 다음 발견 때 다시 */
+    return false;
   }
 }
 
