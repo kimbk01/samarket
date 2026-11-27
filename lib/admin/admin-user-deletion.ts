@@ -105,6 +105,34 @@ async function fetchAuthUserPurgeBlockersFallback(
   return { ok: blockers.length === 0, blockers };
 }
 
+/** 시스템 계정(커뮤니티 가져오기 글 작성자) — DB 가 삭제를 막는다(ON DELETE RESTRICT) */
+export const PURGE_BLOCKER_SYSTEM_ACCOUNT = "community_import_principal";
+
+/**
+ * 영구 삭제 직전 준비 — 기기 행이 지워질 때 캠페인 발송 기록이 고유키에서 겹치지 않게 겹칠 행만 지운다.
+ * 운영 DB 에 함수가 아직 없으면(마이그레이션 적용 전) 건너뛴다 — 지금과 같은 동작.
+ * 설계 docs/audit/admin-user-purge-failures-2026-11-27/design.md D2·C1
+ */
+export async function prepareAuthUserPurge(
+  sb: SupabaseClient,
+  userId: string
+): Promise<{ ok: true; deliveriesDeleted: number | null } | { ok: false; error: string }> {
+  const uid = String(userId ?? "").trim();
+  if (!uid) return { ok: false, error: "invalid_user_id" };
+  const { data, error } = await sb.rpc("admin_prepare_auth_user_purge", { p_user_id: uid });
+  if (error) {
+    const message = error.message ?? "";
+    if (message.includes("admin_prepare_auth_user_purge") && (message.includes("does not exist") || message.includes("Could not find"))) {
+      return { ok: true, deliveriesDeleted: null };
+    }
+    return { ok: false, error: message || "purge_prepare_failed" };
+  }
+  const payload = data as { ok?: boolean; deliveries_deleted?: unknown; error?: unknown } | null;
+  if (payload?.ok !== true) return { ok: false, error: String(payload?.error ?? "purge_prepare_failed") };
+  const n = Number(payload.deliveries_deleted);
+  return { ok: true, deliveriesDeleted: Number.isFinite(n) ? n : 0 };
+}
+
 function isAuthUserNotFoundError(message: string): boolean {
   const normalized = String(message ?? "").trim().toLowerCase();
   return (

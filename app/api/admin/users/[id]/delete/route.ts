@@ -7,7 +7,9 @@ import {
   fetchAuthUserPurgeBlockers,
   moderationActionForDeleteMode,
   normalizeAdminUserDeleteMode,
+  prepareAuthUserPurge,
   purgeAuthUserById,
+  PURGE_BLOCKER_SYSTEM_ACCOUNT,
   type AdminUserDeleteMode,
 } from "@/lib/admin/admin-user-deletion";
 import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
@@ -103,13 +105,19 @@ export async function POST(
           ok: false,
           error: "purge_blocked",
           blockers: blockers.blockers,
-          message:
-            blockers.blockers.length > 0
+          message: blockers.blockers.includes(PURGE_BLOCKER_SYSTEM_ACCOUNT)
+            ? await adminServerText("admin_api_users_purge_system_account")
+            : blockers.blockers.length > 0
               ? await adminServerText("admin_api_users_purge_blocked", { list: blockers.blockers.join(", ") })
               : await adminServerText("admin_api_users_purge_precheck_failed"),
         },
         { status: 409 }
       );
+    }
+    /** 아무것도 바꾸기 전에 — 기기 삭제 때 발송 기록 고유키 충돌을 없앤다(설계 D2·C1) */
+    const prepared = await prepareAuthUserPurge(sb, userId);
+    if (!prepared.ok) {
+      return NextResponse.json({ ok: false, error: "purge_prepare_failed", message: prepared.error }, { status: 500 });
     }
   }
 
@@ -135,18 +143,24 @@ export async function POST(
     if (!consentOff.ok) console.warn("[admin/users/delete] marketing consent off failed", { code: consentOff.error });
   }
 
-  try {
-    await insertModerationEvent(sb, {
-      userId,
-      actorId: actor.userId,
-      action: moderationAction,
-      fromStatus,
-      toStatus: mode === "purge" ? "purged" : "deleted",
-      reason,
-    });
-  } catch (eventErr) {
-    const message = eventErr instanceof Error ? eventErr.message : "moderation_event_failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  /**
+   * 제재 이력: 영구 삭제는 기록하지 않는다 — user_moderation_events.user_id 는 profiles ON DELETE CASCADE 라 성공하면 함께 지워지고,
+   * 실패할 때만 「영구 삭제」로 남아 이력을 속인다(2026-11-27 실패 10건 · 독립 재감사). 영구 삭제 기록은 감사 기록(user_purge)이 맡는다.
+   */
+  if (mode !== "purge") {
+    try {
+      await insertModerationEvent(sb, {
+        userId,
+        actorId: actor.userId,
+        action: moderationAction,
+        fromStatus,
+        toStatus: "deleted",
+        reason,
+      });
+    } catch (eventErr) {
+      const message = eventErr instanceof Error ? eventErr.message : "moderation_event_failed";
+      return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    }
   }
 
   await invalidateAllUserSessions(sb, userId, "account_deleted");
@@ -169,6 +183,40 @@ export async function POST(
   const appleTokenRevoke = await revokeAppleSigninTokenForUser(sb, userId).catch(
     (): AppleTokenRevokeResult => ({ status: "failed", detail: "unexpected_error" })
   );
+
+  const sideEffects = {
+    pushTokensDeactivated: pushTokenDeactivation.ok,
+    ownerStoresSuspended: ownerStoreSales.filter((r) => r.changed).map((r) => r.storeId),
+    pushTokenDeactivationErrors: pushTokenDeactivation.errors,
+    appleTokenRevoke,
+  };
+
+  /**
+   * 영구 삭제는 Auth 삭제가 성공한 뒤에만 「완료」·`user_purge` 를 기록한다.
+   * 실패하면 `user_purge_failed` 만 남기고 탈퇴 요청은 그대로 둔다(2026-11-27 실패 10건이 「삭제됨」으로 남던 결함 · 설계 C2).
+   */
+  if (mode === "purge") {
+    const purged = await purgeAuthUserById(sb, userId);
+    if (!purged.ok) {
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: actor.userId,
+        target_type: "user",
+        target_id: userId,
+        action: "user_purge_failed",
+        before_json: { status: fromStatus, nickname },
+        after_json: { mode, purged: false, error: purged.error, reason, at: now, actorId: actor.userId, ...sideEffects },
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "auth_user_delete_failed",
+          message: purged.error,
+        },
+        { status: 500 }
+      );
+    }
+  }
 
   await sb
     .from("account_deletion_requests")
@@ -195,26 +243,9 @@ export async function POST(
       reason,
       at: now,
       actorId: actor.userId,
-      pushTokensDeactivated: pushTokenDeactivation.ok,
-      ownerStoresSuspended: ownerStoreSales.filter((r) => r.changed).map((r) => r.storeId),
-      pushTokenDeactivationErrors: pushTokenDeactivation.errors,
-      appleTokenRevoke,
+      ...sideEffects,
     },
   });
-
-  if (mode === "purge") {
-    const purged = await purgeAuthUserById(sb, userId);
-    if (!purged.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "auth_user_delete_failed",
-          message: purged.error,
-        },
-        { status: 500 }
-      );
-    }
-  }
 
   return NextResponse.json({ ok: true, mode: mode satisfies AdminUserDeleteMode });
 }
