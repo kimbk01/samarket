@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-messenger/messenger-room-domain";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import { ROOM_LIST_PREVIEW_CALL_TOKEN } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerMessageType,
@@ -150,6 +151,8 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
   }
   if (lastMessageType === "call_stub") {
     if (!lastMessage) return translateCmUi("cm_home_preview_call");
+    /** 저장 호환 토큰 「통화」(상세 없는 통화 미리보기) → 보는 사람 언어 */
+    if (lastMessage === ROOM_LIST_PREVIEW_CALL_TOKEN) return translateCmUi("cm_home_preview_call");
     /** 토큰 tip → viewer(발신/수신) 기준 문구(타임라인과 동일 계약). 레거시 라벨은 그대로. */
     const callText = formatCallStubRoomTipForViewer(lastMessage, viewerUserId, getRuntimeAppLanguage());
     return LEGACY_CALL_TOKEN.test(callText)

@@ -48,7 +48,12 @@ import {
   outgoingCallStartFailedMessage,
   outgoingCallVoiceOnlyMessage,
 } from "@/lib/community-messenger/call-outgoing-failure-alert";
-import { showCallInAppNotice } from "@/lib/community-messenger/stores/call-in-app-notice-store";
+import {
+  callTooManyRequestsMessage,
+  isRateLimitedErrorCode,
+  showCallInAppNotice,
+} from "@/lib/community-messenger/stores/call-in-app-notice-store";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   acquireCallActionLock,
   bindCallActionLockCallId,
@@ -72,6 +77,11 @@ import {
   writeCallEngineNavigationSeed,
   writeCallEngineReturnPath,
 } from "@/lib/community-messenger/call-engine";
+
+/** 발신 실패 안내 — 지금 앱 언어 키 */
+function seedCallT(key: MessageKey): string {
+  return safeTranslate(getRuntimeAppLanguage(), key);
+}
 
 /** 발신 즉시 진입용 임시 세션 id (`POST /calls` 완료 전 통화 UI 페인트) */
 export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
@@ -169,7 +179,7 @@ export function buildSyntheticTempOutgoingCallSession(input: {
     initiatorUserId: input.initiatorUserId,
     recipientUserId: input.peerUserId,
     peerUserId: input.peerUserId,
-    peerLabel: input.peerLabel.trim() || "통화",
+    peerLabel: input.peerLabel.trim() || safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_label"),
     peerAvatarUrl: null,
     callKind: input.kind,
     status: "ringing",
@@ -492,7 +502,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       code?: string;
     };
     if (res.status === 401) {
-      return fail("로그인이 필요합니다.");
+      return fail(seedCallT("common_login_required"));
     }
     if (isPhoneVerificationRequiredApiPayload(json)) {
       return failPhoneVerification();
@@ -507,8 +517,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       );
     }
     if (!res.ok || !json.ok || !json.roomId) {
+      /** 서버 `error` 문장은 화면에 쓰지 않는다(언어 SSOT §3-3) — 429·요청 제한 코드 / 거부 코드 / 그 외 */
       const err = String(json.error ?? "").trim();
-      return fail(err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      if (res.status === 429 || isRateLimitedErrorCode(err)) return fail(callTooManyRequestsMessage());
+      return fail(resolveDirectCallDenyUserMessageFromApiError(err) ?? seedCallT("reaudit_call_room_create_failed"));
     }
     roomId = String(json.roomId);
     cmCallLatencyInfo("ensure_room_done", {
@@ -521,7 +533,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   }
 
   if (!roomId) {
-    return fail("방 정보가 없어 통화를 시작할 수 없습니다.");
+    return fail(seedCallT("reaudit_call_room_missing"));
   }
 
   cmCallLatencyInfo("create_call_session_post_start", {
@@ -565,7 +577,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       return failPhoneVerification("create_failed");
     }
     if (json.error === "group_call_not_supported_yet") {
-      return fail("그룹 통화 실연결은 다음 단계에서 지원합니다.", "create_failed");
+      return fail(seedCallT("reaudit_call_group_not_supported"), "create_failed");
     }
     if (json.error === "peer_busy") {
       const viewerId = getSyncViewerUserIdForClient()?.trim();
@@ -598,34 +610,31 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       return fail("", "create_failed");
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
-      return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");
+      return fail(seedCallT("reaudit_call_room_unavailable"), "create_failed");
     }
     if (json.error === "room_domain_required" || json.error === "room_domain_mismatch") {
-      return fail(
-        "이 대화방의 도메인 정보가 없어 통화를 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-        "create_failed"
-      );
+      return fail(seedCallT("reaudit_call_room_info_unavailable"), "create_failed");
     }
     if (json.error === "call_room_quarantined") {
-      return fail(
-        "이 대화방은 점검 중이라 통화를 시작할 수 없습니다.",
-        "create_failed"
-      );
+      return fail(seedCallT("reaudit_call_room_maintenance"), "create_failed");
     }
     if (json.error === "trade_chat_calls_disabled") {
-      return fail("이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.", "create_failed");
+      return fail(seedCallT("cm_ui_trade_post_calls_disabled"), "create_failed");
     }
     if (json.error === "trade_chat_video_not_allowed") {
-      return fail("이 글에서는 음성 통화만 허용되어 있습니다.", "create_failed");
+      return fail(seedCallT("cm_ui_trade_post_voice_only"), "create_failed");
     }
     if (json.error === "trade_chat_call_friend_required_after_complete") {
-      return fail("통화를 원하면 친구를 요청하세요.", "create_failed");
+      return fail(seedCallT("reaudit_call_friend_required"), "create_failed");
     }
     const denyMessage = resolveDirectCallDenyUserMessageFromApiError(json.error);
     if (denyMessage) {
       return fail(denyMessage, "create_failed");
     }
-    return fail("통화를 시작할 수 없습니다.", "create_failed");
+    if (res.status === 429 || isRateLimitedErrorCode(json.error)) {
+      return fail(callTooManyRequestsMessage(), "create_failed");
+    }
+    return fail(outgoingCallStartFailedMessage(), "create_failed");
   }
   const clientPostMs =
     typeof performance !== "undefined" ? Math.round(performance.now() - postT0) : undefined;

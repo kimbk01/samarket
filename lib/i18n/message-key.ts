@@ -150,6 +150,7 @@ import { adsImpl1107DeleteMessages } from "./catalog/ads-impl-1107-r2";
 import { adminConsoleCoreMessages } from "./catalog/admin-console-core";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
+import { reauditCallMessages } from "./catalog/reaudit-call";
 import { copyAdminMessages } from "./catalog/copy-admin";
 import { copyAdminL25JsxAMessages } from "./catalog/copy-admin-l25-jsx-a";
 import { copyAdminL25JsxBMessages } from "./catalog/copy-admin-l25-jsx-b";
@@ -353,6 +354,7 @@ export type MessageKey =
   | KeyOf<typeof copyAdminB4Ops2Messages.ko>
   | KeyOf<typeof copyLibB4Messages.ko>
   | KeyOf<typeof copyLibMessages.ko>
+  | KeyOf<typeof reauditCallMessages.ko>
   | KeyOf<typeof appShellCoreMessages.ko>;
 
 /** EN sources — used only for compile-time KO/EN key parity. */
@@ -529,6 +531,7 @@ type EnMessageKey =
   | KeyOf<typeof copyAdminB4Ops2Messages.en>
   | KeyOf<typeof copyLibB4Messages.en>
   | KeyOf<typeof copyLibMessages.en>
+  | KeyOf<typeof reauditCallMessages.en>
   | KeyOf<typeof appShellCoreMessages.en>;
 
 type _MissingInEn = Exclude<MessageKey, EnMessageKey>;

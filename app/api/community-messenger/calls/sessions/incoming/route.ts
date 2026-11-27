@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     key: `community-messenger:incoming-calls:${getRateLimitKey(request, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "수신 통화 상태를 너무 자주 확인하고 있습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_incoming_call_rate_limited",
     code: "community_messenger_incoming_call_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

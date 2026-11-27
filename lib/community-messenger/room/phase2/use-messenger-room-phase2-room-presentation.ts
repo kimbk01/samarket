@@ -306,14 +306,14 @@ export function useMessengerRoomPhase2RoomPresentation({
   const activeGroupCall = isGroupRoom && snapshot?.activeCall?.sessionMode === "group" ? snapshot.activeCall : null;
   const groupCallStatusLabel = activeGroupCall
     ? activeGroupCall.status === "active"
-      ? "그룹 통화 진행 중"
+      ? t("reaudit_call_group_status_active")
       : activeGroupCall.status === "ringing"
-        ? "그룹 통화 연결 중"
-        : "그룹 통화 대기"
+        ? t("reaudit_call_group_status_ringing")
+        : t("reaudit_call_group_status_waiting")
     : canStartGroupCall
-      ? "그룹 통화 시작 가능"
+      ? t("reaudit_call_group_status_can_start")
       : isGroupRoom
-        ? "그룹 통화 시작 권한 없음"
+        ? t("reaudit_call_group_status_not_allowed")
         : "";
   const privateGroupPermissionRows = useMemo(() => {
     if (!snapshot) return [];

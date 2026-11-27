@@ -34,7 +34,8 @@ export async function GET(
     key: `community-messenger:call-session-get:${getRateLimitKey(req, auth.userId)}`,
     limit: 120,
     windowMs: 60_000,
-    message: "통화 세션 조회 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_call_session_get_rate_limited",
     code: "community_messenger_call_session_get_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -71,7 +72,8 @@ export async function PATCH(
       key: `community-messenger:call-session-patch:${getRateLimitKey(req, auth.userId)}`,
       limit: 90,
       windowMs: 60_000,
-      message: "통화 세션 변경 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+      /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+      message: "community_messenger_call_session_patch_rate_limited",
       code: "community_messenger_call_session_patch_rate_limited",
     });
     if (!rateLimit.ok) return rateLimit.response;

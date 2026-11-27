@@ -19,7 +19,8 @@ export async function GET(
     key: `community-messenger:call-token:${getRateLimitKey(req, auth.userId)}`,
     limit: 45,
     windowMs: 60_000,
-    message: "통화 토큰 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_call_token_rate_limited",
     code: "community_messenger_call_token_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

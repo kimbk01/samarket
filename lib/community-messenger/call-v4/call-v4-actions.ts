@@ -802,14 +802,13 @@ export async function callV4CreateOutgoing(rawInput: {
         showCallInAppNotice({ event: busyNoticeEvent });
         return { ok: false as const, userMessage: "" };
       }
-      const {
-        inferCallInAppNoticeEventFromFailureMessage,
-        resolveCallInAppNoticeMessage,
-      } = await import("@/lib/community-messenger/stores/call-in-app-notice-store");
-      const noticeEvent = inferCallInAppNoticeEventFromFailureMessage(err || "call_failed");
+      /** 서버 `error` 문장은 화면에 쓰지 않는다(언어 SSOT §3-3) — 사건 판정만, 429 → 요청 제한 문구 */
+      const { resolveCallStartServerErrorMessage } = await import(
+        "@/lib/community-messenger/stores/call-in-app-notice-store"
+      );
       return {
         ok: false as const,
-        userMessage: resolveCallInAppNoticeMessage(noticeEvent, err || null),
+        userMessage: resolveCallStartServerErrorMessage(err, created.httpStatus ?? null),
       };
     }
 

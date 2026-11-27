@@ -8,6 +8,8 @@
 import {
   isCapacitorNativePlatform,
 } from "@/lib/platform/capacitor-native";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 
 /** 이 탭에서 연 수신 통화 알림 — 링 종료 시 스크립트로 닫기 */
 const localIncomingCallNotificationsBySessionId = new Map<string, Notification>();
@@ -37,8 +39,9 @@ export function showIncomingCallBrowserNotification(input: LocalIncomingCallNoti
   if (!("Notification" in window)) return false;
   if (Notification.permission !== "granted") return false;
 
-  const title = input.callKind === "video" ? "영상 통화" : "음성 통화";
-  const body = `${input.peerLabel}님의 전화`;
+  const language = getRuntimeAppLanguage();
+  const title = safeTranslate(language, input.callKind === "video" ? "nav_video_call_label" : "nav_voice_call_label");
+  const body = safeTranslate(language, "reaudit_call_incoming_push_body", { vars: { name: input.peerLabel } });
   const url = defaultCallDeepLink(input.sessionId);
   const sid = String(input.sessionId ?? "").trim();
   if (!sid) return false;

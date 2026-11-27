@@ -8,6 +8,12 @@ import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-cal
 import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import {
+  callStartServerErrorCodeOrNull,
+  callTooManyRequestsMessage,
+  isRateLimitedErrorCode,
+  resolveCallStartServerErrorMessage,
+} from "@/lib/community-messenger/stores/call-in-app-notice-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   alertOutgoingCallFailure,
@@ -131,7 +137,18 @@ export async function callV3CreateOutgoing(input: {
     if (!created.ok || !created.session?.id) {
       useCallV3Store.getState().resetToIdle();
       const err = String(created.error ?? "").trim();
-      return { ok: false as const, userMessage: err || outgoingGenericErrorMessage() };
+      /**
+       * 서버 `error` 문장은 화면에 쓰지 않는다(언어 SSOT §3-3). 코드는 예전처럼 그대로 넘겨 받는 쪽이 사건(바쁨 등)을 고른다.
+       * 429·요청 제한 코드 → 요청 제한 문구.
+       */
+      if (created.httpStatus === 429 || isRateLimitedErrorCode(err)) {
+        return { ok: false as const, userMessage: callTooManyRequestsMessage() };
+      }
+      const code = callStartServerErrorCodeOrNull(err);
+      return {
+        ok: false as const,
+        userMessage: code ?? (err ? resolveCallStartServerErrorMessage(err, created.httpStatus ?? null) : outgoingGenericErrorMessage()),
+      };
     }
 
     const identity = buildOutgoingIdentity(created.session);

@@ -18,6 +18,8 @@
 
 import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
 import type { CreateNotificationEventInput } from "@/lib/notifications/core/notification-event-schema";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -159,6 +161,29 @@ export function decideRoomBoundMissedCallNotification(input: {
   };
 }
 
+export const MISSED_CALL_NOTIFICATION_TITLE_KEY: MessageKey = "reaudit_call_missed_title";
+
+export function missedCallNotificationBodyKey(callKind: "voice" | "video"): MessageKey {
+  return callKind === "video" ? "reaudit_call_missed_body_video" : "reaudit_call_missed_body_voice";
+}
+
+/**
+ * 부재중 알림 제목·본문 — 보는(받는) 사람 언어 키에서 만든다. 서버 저장·푸시와 앱 안 배너가 같은 함수를 쓴다.
+ * 이름이 비면 「상대방」(`cm_ui_other_party`).
+ */
+export function buildMissedCallNotificationCopy(input: {
+  language: AppLanguageCode;
+  callKind: "voice" | "video";
+  callerDisplayName?: string | null;
+}): { title: string; body: string; callerName: string } {
+  const callerName = trimText(input.callerDisplayName) || translate(input.language, "cm_ui_other_party");
+  return {
+    title: translate(input.language, MISSED_CALL_NOTIFICATION_TITLE_KEY),
+    body: translate(input.language, missedCallNotificationBodyKey(input.callKind), { name: callerName }),
+    callerName,
+  };
+}
+
 export function buildRoomBoundMissedCallNotificationInput(input: {
   recipientUserId: string;
   roomId: string;
@@ -169,13 +194,19 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
   chatDomain?: string | null;
   /** NOTI-01: 세션의 정규 domain_identity_key("<domain>:..."). 없으면 둘 다 null 로 둔다. */
   domainIdentityKey?: string | null;
+  /** 받는 사람 언어 — 저장 제목·본문(푸시로도 나감) 글자. docs/audit/i18n-call-copy-plan-2026-11-27.md */
+  recipientLanguage: AppLanguageCode;
 }): CreateNotificationEventInput {
   const href = buildExactMissedCallRoomHref({
     roomId: input.roomId,
     chatDomain: input.chatDomain,
   });
-  const kindLabel = input.callKind === "video" ? "영상 통화" : "음성 통화";
-  const caller = trimText(input.callerDisplayName) || "상대방";
+  const copy = buildMissedCallNotificationCopy({
+    language: input.recipientLanguage,
+    callKind: input.callKind,
+    callerDisplayName: input.callerDisplayName,
+  });
+  const caller = copy.callerName;
   // NOTI-01: notification_events_domain_identity_pair_check 는
   //   (chat_domain IS NULL AND domain_identity_key IS NULL)
   //   OR (chat_domain NOT NULL AND domain_identity_key ~~ chat_domain || ':%')
@@ -195,8 +226,8 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
     roomId: input.roomId,
     callSessionId: input.callSessionId,
     actorUserId: input.actorUserId,
-    title: "부재중 전화",
-    body: `${caller} · 부재중 ${kindLabel}`,
+    title: copy.title,
+    body: copy.body,
     unread: true,
     dedupeKey: resolveMissedCallNotificationDedupeKey(input.callSessionId, input.recipientUserId),
     displayPayload: {
@@ -211,6 +242,9 @@ export function buildRoomBoundMissedCallNotificationInput(input: {
       callerId: input.actorUserId,
       caller_name: caller,
       callerName: caller,
+      /** 화면이 보는 사람 언어로 다시 그릴 때 — 제목·본문 키(본문 치환값 {name} = caller_name) */
+      title_key: MISSED_CALL_NOTIFICATION_TITLE_KEY,
+      body_key: missedCallNotificationBodyKey(input.callKind),
       chatDomain: input.chatDomain ?? "general_direct",
     },
     chatDomain: chatDomainColumn,

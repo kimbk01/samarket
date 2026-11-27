@@ -21,6 +21,7 @@ vi.mock("@/lib/community-messenger/unread/messenger-room-unread-authority", () =
 vi.mock("@/lib/community-messenger/bootstrap-cache", () => ({ peekBootstrapCache: () => null }));
 vi.mock("@/lib/community-messenger/home-list-patch", () => ({ findHomeListRoomRow: () => null }));
 
+import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   __resetMissedCallEventBannerForTests,
   installMissedCallBannerNativeTerminalTracker,
@@ -60,12 +61,19 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/community-messenger");
   __resetMissedCallEventBannerForTests();
   installMissedCallBannerNativeTerminalTracker();
+  setRuntimeAppLanguage("ko");
 });
 afterEach(() => {
   __resetMissedCallEventBannerForTests();
 });
 
 describe("missed-call-event-banner (D7)", () => {
+  it("영어 앱 — 저장 문장(한국어)이 아니라 지금 앱 언어 키로 그린다", () => {
+    setRuntimeAppLanguage("en");
+    expect(pushMessengerMissedCallBannerFromRealtimeRow(row({ display_payload: { callKind: "video", caller_name: "Kim" } }))).toBe(true);
+    expect(pushed[0]).toMatchObject({ title: "Missed call", preview: "Kim · Missed video call" });
+  });
+
   it("보이는 상태 → 부재중 배너 1건 (문구 = 알림 행, 통화 1건 1키)", () => {
     expect(pushMessengerMissedCallBannerFromRealtimeRow(row())).toBe(true);
     expect(pushed).toHaveLength(1);

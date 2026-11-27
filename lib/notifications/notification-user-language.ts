@@ -12,7 +12,8 @@ import {
  * 2) 기기 언어 따름이면 → 최근 활성 기기의 앱 언어 `user_devices.app_language`(웹이 시작·변경 때 기록)
  * 3) 둘 다 없으면 → en
  * 폐기 열 `profiles.preferred_language` 는 읽지 않는다. 채팅 목록 DB 함수 `get_chat_rooms_snapshot.user_lang` 도 같은 순서.
- * 통화 푸시(VoIP/FCM) 제목·본문은 이 함수를 쓰지 않는다(구 앱 판정 의존 — §1 원칙 2).
+ * 통화 푸시(수신·종료·부재중) 제목·본문도 2026-11-27 부터 이 순서를 쓴다(`lib/push/call-push-recipient-language.ts`) —
+ * 설치된 구 빌드는 발신자 이름을 데이터 `caller_name` 에서 먼저 읽음을 확인(docs/audit/i18n-call-copy-plan-2026-11-27.md §2).
  */
 export async function loadNotificationUserLanguage(
   sb: SupabaseClient,

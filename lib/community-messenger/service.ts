@@ -305,6 +305,11 @@ import { runIncomingListReconcileIfDue } from "@/lib/community-messenger/call-in
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
+import {
+  loadCallPushRecipientLanguage,
+  peekCallPushRecipientLanguage,
+  warmCallPushRecipientLanguage,
+} from "@/lib/push/call-push-recipient-language";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
@@ -1425,6 +1430,8 @@ async function notifyRoomBoundMissedCallBestEffort(
   if (!decision.notify) return;
   const sb = getSupabaseOrNull();
   if (!sb) return;
+  /** 부재중 알림 제목·본문 = 받는 사람 언어 — 프로필 조회와 동시에. throw 없음. */
+  const recipientLanguagePromise = loadCallPushRecipientLanguage(decision.recipientUserId);
   let callerDisplayName = "";
   try {
     const profiles = await hydrateProfiles(decision.recipientUserId, [decision.actorUserId]);
@@ -1432,6 +1439,7 @@ async function notifyRoomBoundMissedCallBestEffort(
   } catch {
     /* best-effort */
   }
+  const recipientLanguage = await recipientLanguagePromise;
   const { createAndDispatchNotificationEvent } = await import(
     "@/lib/notifications/pipeline/notification-event-dispatcher"
   );
@@ -1445,6 +1453,7 @@ async function notifyRoomBoundMissedCallBestEffort(
       callKind: decision.callKind,
       callerDisplayName: callerDisplayName || null,
       chatDomain: "general_direct",
+      recipientLanguage,
     }),
   ).catch((err) => {
     // NOTI-01: 과거엔 실패를 .catch(()=>{}) 로 삼켜 부재중 알림 누락이 추적 불가였다.
@@ -20655,11 +20664,17 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
   const roomId = trimText(input.roomId);
   const callerId = trimText(input.callerId);
   if (!recipient || !sessionId || !roomId || !callerId) return;
+  /**
+   * 받는 사람 언어(푸시 제목·본문 글자) — 차단 확인·프로필 조회와 동시에 뒤에서 캐시를 데운다. **기다리지 않는다**:
+   * 발송 직전 캐시에 있으면 그 언어, 없으면 예전 문구(ko)로 즉시 발송(docs/audit/i18n-call-copy-plan-2026-11-27.md §2-4).
+   */
+  warmCallPushRecipientLanguage(recipient);
   // SSOT_CONTRACT: messenger-call-push-block ensureNoBlockedEitherWay
   if (!(await ensureNoBlockedEitherWay(recipient, callerId))) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
   const callerLabel = profileLabel(callerProfile, callerId);
+  const recipientLanguage = peekCallPushRecipientLanguage(recipient);
   await sendWebPushForCommunityMessengerIncomingCall({
     recipientUserId: recipient,
     sessionId,
@@ -20671,6 +20686,7 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
     startedAt: input.startedAt,
     domainEnvelope: input.domainEnvelope ?? null,
     waiting: input.waiting === true,
+    recipientLanguage,
   });
 }
 

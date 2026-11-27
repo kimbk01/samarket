@@ -286,6 +286,15 @@ describe("resolveStoreOrderBuyerVoicePeerLabel", () => {
     ).not.toBe("owner_nickname_123");
   });
 
+  it("store name missing → viewer-language store label (common_store)", () => {
+    expect(
+      resolveStoreOrderBuyerVoicePeerLabel({ headerMode: "buyer_store", storeDisplayName: "", language: "en" })
+    ).toBe("Store");
+    expect(
+      resolveStoreOrderBuyerVoicePeerLabel({ headerMode: "buyer_store", storeDisplayName: " ", language: "ko" })
+    ).toBe("매장");
+  });
+
   it("returns empty for non-buyer_store modes", () => {
     expect(
       resolveStoreOrderBuyerVoicePeerLabel({

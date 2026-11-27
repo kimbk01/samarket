@@ -6,6 +6,11 @@
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
+import { translate } from "@/lib/i18n/messages";
+import {
+  CALL_SIGNAL_LEGACY_COPY_LANGUAGE,
+  resolveCallPushLanguageNoWait,
+} from "@/lib/push/call-push-recipient-language";
 
 function absolutizeLink(link: string | null | undefined): string | null {
   if (link == null || !String(link).trim()) return null;
@@ -27,10 +32,15 @@ export async function sendWebPushForCommunityMessengerCallAnsweredElsewhere(inpu
   const answeredDeviceId = String(input.answeredDeviceId ?? "").trim();
 
   const link_url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
+  /**
+   * 제목 = 받는 사람 언어(ko 「통화」 그대로). 기기는 종류 값(`call_push_kind`)만 보고 닫는다 — 글자는 표시용.
+   * 종료 신호는 언어 조회를 기다리지 않는다: 캐시가 없으면 예전 문구(ko)로 즉시 보내고 조회는 뒤에서 캐시만 채운다.
+   */
+  const language = resolveCallPushLanguageNoWait(recipient) ?? CALL_SIGNAL_LEGACY_COPY_LANGUAGE;
   const out: NotificationSideEffectPayloadOut = {
     user_id: recipient,
     notification_type: "community_messenger_call_canceled",
-    title: "통화",
+    title: translate(language, "cm_ui_call_label"),
     body: "",
     link_url,
     meta: {

@@ -17,7 +17,17 @@ export type CallHistoryRedialRoomClientResult =
   | { ok: true; roomId: string; source: "historic_room" | "canonical_direct" }
   | { ok: false; error: string; userMessage: string; phoneVerificationRequired?: boolean };
 
-export function callHistoryRedialRoomFailureMessage(error: string): string {
+function isRedialRateLimited(error: string, httpStatus?: number | null): boolean {
+  if (httpStatus === 429) return true;
+  const e = error.trim().toLowerCase();
+  return e === "rate_limited" || (/^[a-z][a-z0-9_]*$/.test(e) && e.endsWith("_rate_limited"));
+}
+
+export function callHistoryRedialRoomFailureMessage(error: string, httpStatus?: number | null): string {
+  /** 429·요청 제한 코드 → 「요청이 너무 많습니다」(방 상태 문구로 바꾸지 않는다) */
+  if (isRedialRateLimited(error, httpStatus)) {
+    return safeTranslate(getRuntimeAppLanguage(), "reaudit_call_too_many_requests");
+  }
   const deny = resolveDirectCallDenyUserMessageFromApiError(error);
   if (deny) return deny;
   return safeTranslate(getRuntimeAppLanguage(), "cm_call_deny_room_mismatch");
@@ -54,7 +64,7 @@ export async function resolveCallHistoryRedialRoomClient(input: {
       return { ok: false, error: "phone_verification_required", userMessage: "", phoneVerificationRequired: true };
     }
     const error = String(json.error ?? "redial_room_failed");
-    return { ok: false, error, userMessage: callHistoryRedialRoomFailureMessage(error) };
+    return { ok: false, error, userMessage: callHistoryRedialRoomFailureMessage(error, res.status) };
   }
   return {
     ok: true,

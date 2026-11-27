@@ -62,6 +62,7 @@ describe("call-missed-notification-authority CUT5", () => {
       callSessionId: "sess-1",
       actorUserId: "caller",
       callKind: "voice",
+      recipientLanguage: "ko",
     });
     const b = buildRoomBoundMissedCallNotificationInput({
       recipientUserId: "callee",
@@ -69,6 +70,7 @@ describe("call-missed-notification-authority CUT5", () => {
       callSessionId: "sess-1",
       actorUserId: "caller",
       callKind: "voice",
+      recipientLanguage: "ko",
     });
     expect(a.dedupeKey).toBe(b.dedupeKey);
   });
@@ -86,6 +88,7 @@ describe("call-missed-notification-authority CUT5", () => {
       callSessionId: "sess-1",
       actorUserId: "caller",
       callKind: "voice",
+      recipientLanguage: "ko",
     });
     expect(input.roomId).toBe("canonical-room");
     expect(String(input.displayPayload?.routeUrl)).toBe("/community-messenger/rooms/canonical-room");

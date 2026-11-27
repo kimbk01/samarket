@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     key: `${CALL_REALTIME_CREDENTIALS_RATE_LIMIT_KEY_PREFIX}${getRateLimitKey(req, auth.userId)}`,
     limit: CALL_REALTIME_CREDENTIALS_RATE_LIMIT.limit,
     windowMs: CALL_REALTIME_CREDENTIALS_RATE_LIMIT.windowMs,
-    message: "Realtime 인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: CALL_REALTIME_CREDENTIALS_RATE_LIMIT_CODE,
     code: CALL_REALTIME_CREDENTIALS_RATE_LIMIT_CODE,
   });
   if (!rateLimit.ok) return rateLimit.response;

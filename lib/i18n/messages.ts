@@ -108,6 +108,7 @@ import { ownerStage4RoutesMessages } from "./catalog/owner-stage4-routes";
 import { ownerUiCopyKeysMessages } from "./catalog/owner-ui-copy-keys";
 import { appShellCoreMessages } from "./catalog/app-shell-core";
 import { copyLibMessages } from "./catalog/copy-lib";
+import { reauditCallMessages } from "./catalog/reaudit-call";
 import { copyUiL25JsxMessages } from "./catalog/copy-ui-l25-jsx";
 import { copyLibB4Messages } from "./catalog/copy-lib-b4";
 import { copyAuthMessages } from "./catalog/copy-auth";
@@ -232,6 +233,7 @@ function buildKoMessages(): LocaleMessageBag {
   ...storeApplyV2Messages.ko,
   ...appShellCoreMessages.ko,
   ...copyLibMessages.ko,
+  ...reauditCallMessages.ko,
   ...copyUiL25JsxMessages.ko,
   ...copyLibB4Messages.ko,
   ...copyAuthMessages.ko,
@@ -355,6 +357,7 @@ function buildEnMessages(): LocaleMessageBag {
   ...storeApplyV2Messages.en,
   ...appShellCoreMessages.en,
   ...copyLibMessages.en,
+  ...reauditCallMessages.en,
   ...copyUiL25JsxMessages.en,
   ...copyLibB4Messages.en,
   ...copyAuthMessages.en,

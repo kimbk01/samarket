@@ -10,6 +10,8 @@ import type {
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -17,7 +19,7 @@ function trimText(value: unknown): string {
 
 function peerFallbackLabel(userId: string): string {
   const compact = userId.replace(/-/g, "");
-  return `회원 ${compact.slice(0, 6)}`;
+  return safeTranslate(getRuntimeAppLanguage(), "cm_svc_member_fallback", { vars: { id: compact.slice(0, 6) } });
 }
 
 function messengerUserIdsEqual(a: string, b: string): boolean {

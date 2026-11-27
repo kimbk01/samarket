@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+/** 언어 재감사(통화) 2026-11-27 — 매장명 없을 때 대체 이름은 보는 사람 언어 키 `common_store` */
+const runtimeLang = vi.hoisted(() => ({ value: "ko" as "ko" | "en" }));
+vi.mock("@/lib/i18n/runtime-app-language", async (orig) => ({
+  ...(await orig<typeof import("@/lib/i18n/runtime-app-language")>()),
+  getRuntimeAppLanguage: () => runtimeLang.value,
+}));
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveStoreOrderBuyerDialPeerLabel } from "@/lib/community-messenger/room/phase2/store-order-buyer-dial-peer-label";
@@ -37,6 +44,9 @@ describe("resolveStoreOrderBuyerDialPeerLabel", () => {
   it("매장명이 없으면 「매장」, 사장님(owner)은 null(기존 방 제목 = 구매자 닉네임)", () => {
     const room = { chatDomain: "store_order", messengerDirectKey: "store_order:ord-1" };
     expect(resolveStoreOrderBuyerDialPeerLabel(snap(room))).toBe("매장");
+    runtimeLang.value = "en";
+    expect(resolveStoreOrderBuyerDialPeerLabel(snap(room))).toBe("Store");
+    runtimeLang.value = "ko";
     expect(resolveStoreOrderBuyerDialPeerLabel(snap(room, "owner"))).toBeNull();
   });
 
