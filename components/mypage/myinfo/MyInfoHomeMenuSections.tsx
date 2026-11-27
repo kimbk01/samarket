@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import { addMypagePullRefreshHandler } from "@/lib/mypage/mypage-pull-refresh-store";
 import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLanguageToggleRow";
 import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
@@ -177,22 +178,50 @@ export function MyInfoStoreOwnerEntryRow({
 
 
 
-/** 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회). */
-export function useCustomerCenterUnreadTotal(): number {
+/** 고객센터 안 읽은 글 수 — 실패면 null (0 으로 채우지 않는다) */
+async function fetchCustomerCenterUnreadTotal(): Promise<number | null> {
+  try {
+    const r = await fetch("/api/me/settings/notices?unread_counts=1", { credentials: "include", cache: "no-store" });
+    if (!r.ok) return null;
+    const j = (await r.json().catch(() => null)) as { ok?: boolean; unread_counts?: { total?: number } } | null;
+    return j?.ok ? Math.max(0, Number(j.unread_counts?.total) || 0) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 알림 최종 설계 §3 — 고객센터 줄 = 안 읽은 고객센터 글 수 (로그인 회원만 조회).
+ * `mypagePullRefresh` — 내정보 홈 당겨서 새로고침 때 다시 읽는다 (docs/audit/mypage-ptr-2026-11-27).
+ */
+export function useCustomerCenterUnreadTotal(opts?: { mypagePullRefresh?: boolean }): number {
   const [ccUnread, setCcUnread] = useState(0);
   useEffect(() => {
     if (!getSyncViewerUserIdForClient()) return;
     let cancelled = false;
-    void fetch("/api/me/settings/notices?unread_counts=1", { credentials: "include", cache: "no-store" })
-      .then((r) => (r.ok ? r.json().catch(() => null) : null))
-      .then((j: { ok?: boolean; unread_counts?: { total?: number } } | null) => {
-        if (!cancelled && j?.ok) setCcUnread(Math.max(0, Number(j.unread_counts?.total) || 0));
-      })
-      .catch(() => undefined);
+    void fetchCustomerCenterUnreadTotal().then((n) => {
+      if (!cancelled && n != null) setCcUnread(n);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+  const withPtr = opts?.mypagePullRefresh === true;
+  useEffect(() => {
+    if (!withPtr) return;
+    let alive = true;
+    const off = addMypagePullRefreshHandler(async () => {
+      if (!getSyncViewerUserIdForClient()) return "cancelled";
+      const n = await fetchCustomerCenterUnreadTotal();
+      if (n == null) return "error";
+      if (alive) setCcUnread(n);
+      return "success";
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [withPtr]);
   return ccUnread;
 }
 

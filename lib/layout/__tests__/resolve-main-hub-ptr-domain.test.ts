@@ -21,6 +21,16 @@ describe("resolveMainHubPtrDomain", () => {
   it("returns null for browse and unsupported paths", () => {
     expect(resolveMainHubPtrDomain("/stores/browse/restaurant")).toBe(null);
     expect(resolveMainHubPtrDomain("/market/trade-meet-spot")).toBe(null);
-    expect(resolveMainHubPtrDomain("/mypage")).toBe(null);
+  });
+
+  it("내정보 홈만 mypage — 하위 화면 제외 (docs/audit/mypage-ptr-2026-11-27)", () => {
+    expect(resolveMainHubPtrDomain("/mypage")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/mypage/")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/my")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/mypage?tab=x")).toBe("mypage");
+    expect(resolveMainHubPtrDomain("/mypage/addresses")).toBe(null);
+    expect(resolveMainHubPtrDomain("/mypage/trade/chat/abc")).toBe(null);
+    expect(resolveMainHubPtrDomain("/my/business")).toBe(null);
+    expect(resolveMainHubPtrDomain("/mypages")).toBe(null);
   });
 });

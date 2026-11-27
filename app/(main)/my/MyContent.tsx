@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
@@ -32,6 +32,10 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
 import type { MypageAdminMenuSeed } from "@/lib/my/load-mypage-admin-menu-seed";
+import { DibayPtrSlot } from "@/components/ptr/DibayPtrSlot";
+import { MypagePullRefreshHost } from "@/components/mypage/MypagePullRefreshHost";
+import { addMypagePullRefreshHandler, mypagePtrStore } from "@/lib/mypage/mypage-pull-refresh-store";
+import { getMypageHomeSummaryState, loadMypageHomeSummary } from "@/lib/mypage/mypage-home-summary-client";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -82,7 +86,35 @@ export function MyContent({
 
   const membershipCheckFailed = useClientMembershipRecoveryFailed() && !treatAsMember;
 
-  const { projection, refresh, needsRelogin, loadFailed } = useMypageHomeModel(treatAsMember);
+  const { projection, refresh, refreshFresh, needsRelogin, loadFailed } = useMypageHomeModel(treatAsMember);
+
+  /**
+   * 당겨서 새로고침 (Owner 「설계안대로 구현」 2026-11-27 · docs/audit/mypage-ptr-2026-11-27) — 회원 화면만.
+   * 프로필·주소(캐시 건너뜀) · 요약 숫자·배너(force). 고객센터 안 읽음은 대시보드 훅이 따로 등록한다.
+   */
+  useEffect(() => {
+    if (!treatAsMember) return;
+    const offProfile = addMypagePullRefreshHandler(() => refreshFresh());
+    const offSummary = addMypagePullRefreshHandler(async () => {
+      const uid = getCurrentUser()?.id?.trim() ?? "";
+      if (!uid) return "cancelled";
+      await loadMypageHomeSummary(uid, { force: true });
+      const st = getMypageHomeSummaryState();
+      if (!st || st.viewerId !== uid) return "cancelled";
+      return st.failed ? "error" : "success";
+    });
+    return () => {
+      offProfile();
+      offSummary();
+    };
+  }, [treatAsMember, refreshFresh]);
+  /** 1단 바로 아래 슬롯 — 홈·거래와 같은 시그니처 그린 (셸 `AppStickyHeader` 가 `stickyBelow` 로 그림) */
+  const ptrSlot = useMemo(
+    () => (
+      <DibayPtrSlot store={mypagePtrStore} tone="onBrand" className="bg-signature" dataAttribute="data-mypage-ptr-hint" />
+    ),
+    []
+  );
 
   useEffect(() => {
     if (!pathname) return;
@@ -162,7 +194,8 @@ export function MyContent({
   return (
     <MypageProfileSheetsProvider>
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`} data-mypage-home-shell="1">
-        <MyPageHeader />
+        <MypagePullRefreshHost />
+        <MyPageHeader stickyBelow={ptrSlot} />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageHomeDashboard
             projection={projection}
