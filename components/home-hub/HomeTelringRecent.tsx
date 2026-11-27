@@ -39,7 +39,7 @@ let homeCallsCache: { viewer: string; at: number; calls: CommunityMessengerCallL
  * 홈 ④ telRING 최근 통화·대화 — 시안 v2 §3-5 (Owner 「v2대로 구현」 2026-11-26, 통화 변경 규정 §6).
  * 휴대폰: 연초록 머리 + 줄 3(사진 · 이름 · 종류·시간 · 오른쪽 시각 · 진초록 버튼 1 = 그 통화 종류)
  * 태블릿: 진초록 머리 + 줄 3(사진 · 이름 · 종류·시간·시각 · 연초록 영상 + 노랑 음성 버튼)
- * 데이터 = 기존 `GET /api/community-messenger/calls` 첫 페이지 앞 3건 · 버튼 = 누른 종류로 바로 `startCallFromHistory`(통화 탭과 같은 발신 함수).
+ * 데이터 = `GET /api/community-messenger/calls?view=home&limit=3` (관계 조회 없는 홈 전용 응답, 결함 4 · 2026-11-27) · 버튼 = 누른 종류로 바로 `startCallFromHistory`(통화 탭과 같은 발신 함수).
  * 통화가 끝나거나 앱이 앞으로 오면 다시 읽는다.
  * 비로그인·빈 상태는 같은 카드 모양.
  */
@@ -73,7 +73,7 @@ export function HomeTelringRecent({
       return;
     }
     const seq = ++loadSeqRef.current;
-    void fetchCommunityMessengerCallLogsClient().then((page) => {
+    void fetchCommunityMessengerCallLogsClient({ homeLimit: HOME_TELRING_RECENT_ROWS }).then((page) => {
       if (seq !== loadSeqRef.current) return;
       if (!page) {
         setFailed(true);

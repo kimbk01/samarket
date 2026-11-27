@@ -2349,17 +2349,60 @@ async function getViewerRelationSets(
   return { following, blocked, friendIds, favoriteFriendIds, hiddenFriendIds };
 }
 
+/**
+ * 프로필 채우기의 관계 조회 범위 (결함 4 · 통화 영향 분석서 call-log-relation-lite-call-impact-2026-11-27.md).
+ * - `all`(기본): 팔로우·차단·친구·즐겨찾기·숨김 친구 — 지금과 같다(조회 7번).
+ * - `friend`: 친구 여부만(조회 4번) — 나머지 관계 값은 false.
+ * - `none`: 관계 조회 0번 — 관계 값 모두 false.
+ * `friend`·`none` 은 그 값을 쓰지 않는 호출처(통화 기록 목록)만 넘긴다.
+ */
+export type HydrateProfilesRelations = "all" | "friend" | "none";
+
+type ViewerRelationSets = Awaited<ReturnType<typeof getViewerRelationSets>>;
+
+async function getViewerRelationSetsScoped(
+  viewerId: string,
+  targetIds: string[],
+  relations: HydrateProfilesRelations
+): Promise<ViewerRelationSets> {
+  if (relations === "all") return getViewerRelationSets(viewerId, targetIds);
+  const empty: ViewerRelationSets = {
+    following: new Set<string>(),
+    blocked: new Set<string>(),
+    friendIds: new Set<string>(),
+    favoriteFriendIds: new Set<string>(),
+    hiddenFriendIds: new Set<string>(),
+  };
+  if (relations === "none") return empty;
+  const uniqueTargets = dedupeIds(targetIds.filter((id) => id !== viewerId));
+  if (!uniqueTargets.length) return empty;
+  /** `getViewerRelationSets` 의 친구 판정과 같은 함수·같은 계산 */
+  const acceptedRows = await fetchCommunityFriendAcceptedRowsForViewer(viewerId);
+  const acceptedPeerSet = new Set(acceptedPeerIdsFromCommunityFriendRows(viewerId, acceptedRows));
+  for (const target of uniqueTargets) {
+    if (acceptedPeerSet.has(target)) empty.friendIds.add(target);
+  }
+  return empty;
+}
+
+/** 시험 전용 — 관계 범위 `friend` 의 친구 판정이 `all` 과 같은지 비교한다 */
+export const __callLogRelationScopeTestHooks = {
+  getViewerRelationSets: (viewerId: string, targetIds: string[]) => getViewerRelationSets(viewerId, targetIds),
+  getViewerRelationSetsScoped: (viewerId: string, targetIds: string[], relations: HydrateProfilesRelations) =>
+    getViewerRelationSetsScoped(viewerId, targetIds, relations),
+};
+
 async function hydrateProfilesWithProfileMap(
   viewerId: string,
   targetIds: string[],
-  options?: { includeSelf?: boolean }
+  options?: { includeSelf?: boolean; relations?: HydrateProfilesRelations }
 ): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const includeSelf = options?.includeSelf === true;
   const uniqueTargets = dedupeIds(targetIds.filter((id) => id && (includeSelf || id !== viewerId)));
   if (!uniqueTargets.length) return { members: [], profileMap: new Map() };
   const [profileMap, relationSets] = await Promise.all([
     fetchProfilesByIds(uniqueTargets),
-    getViewerRelationSets(viewerId, uniqueTargets),
+    getViewerRelationSetsScoped(viewerId, uniqueTargets, options?.relations ?? "all"),
   ]);
   const members = uniqueTargets.map((id) => {
     const profile = profileMap.get(id);
@@ -2382,7 +2425,7 @@ async function hydrateProfilesWithProfileMap(
 async function hydrateProfiles(
   viewerId: string,
   targetIds: string[],
-  options?: { includeSelf?: boolean }
+  options?: { includeSelf?: boolean; relations?: HydrateProfilesRelations }
 ): Promise<CommunityMessengerProfileLite[]> {
   const { members } = await hydrateProfilesWithProfileMap(viewerId, targetIds, options);
   return members;
@@ -4849,10 +4892,21 @@ export type CommunityMessengerCallLogsListResult =
     }
   | { ok: false; error: "invalid_cursor" };
 
+/** 홈 최근 통화 등 앞 몇 건만 쓰는 호출처의 응답 상한 */
+export const COMMUNITY_MESSENGER_CALL_LOGS_HOME_LIMIT_MAX = 10;
+
+/**
+ * 통화 기록 목록.
+ * - `view: "full"`(기본) — 통화 탭·메신저 홈 합류. 관계 조회는 친구 여부만(`peerRelationLabel` 에 쓰는 유일한 값).
+ * - `view: "home"` — 홈 telRING. 관계 조회 0번, `peerRelationLabel` 없음, 응답을 `limit` 건으로 자른다.
+ *   행은 같은 한 페이지를 읽는다 — 보는 사람 기준 제외(`shouldIncludeCallLogRowForViewer`) 뒤에 잘라야 3건이 모자라지 않는다.
+ * 근거: docs/audit/supabase-request-surge-2026-11-18/call-log-relation-lite-call-impact-2026-11-27.md
+ */
 export async function listCommunityMessengerCallLogs(
   userId: string,
-  options?: { cursor?: string | null }
+  options?: { cursor?: string | null; view?: "full" | "home"; limit?: number }
 ): Promise<CommunityMessengerCallLogsListResult> {
+  const homeView = options?.view === "home";
   const decoded = decodeCommunityMessengerCallHistoryCursor(options?.cursor);
   if (!decoded.ok) return { ok: false, error: "invalid_cursor" };
 
@@ -4896,7 +4950,9 @@ export async function listCommunityMessengerCallLogs(
     ...sessionParticipantUserIds,
   ]);
   const profileById = new Map(
-    (await hydrateProfiles(userId, allIds, { includeSelf: true })).map((p) => [p.id, p])
+    (
+      await hydrateProfiles(userId, allIds, { includeSelf: true, relations: homeView ? "none" : "friend" })
+    ).map((p) => [p.id, p])
   );
   const roomMetaMap = new Map(
     summarizeRoomsBatchWithProfileMap(await resolveRequestAppLanguageOr("ko"), 
@@ -4927,6 +4983,15 @@ export async function listCommunityMessengerCallLogs(
     sessionMap,
     participantsBySession
   );
+  if (homeView) {
+    const cap = Math.max(
+      1,
+      Math.min(COMMUNITY_MESSENGER_CALL_LOGS_HOME_LIMIT_MAX, Math.floor(Number(options?.limit) || 3))
+    );
+    /** 홈은 관계 값을 쓰지 않는다 — 계산하지 않은 값(모두 「모르는 사람」)을 내보내지 않게 뺀다 */
+    const homeCalls = calls.slice(0, cap).map(({ peerRelationLabel: _omit, ...rest }) => rest);
+    return { ok: true, calls: homeCalls, nextCursor: null, hasMore: calls.length > cap || hasMore };
+  }
   const last = calls[calls.length - 1];
   const nextCursor =
     hasMore && last
