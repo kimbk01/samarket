@@ -1,10 +1,10 @@
-import { releaseSupportAssignmentsIfNoSupportPermission } from "@/lib/support/support-assignee-permission-sync";
 /**
  * R6 privilege-only mutation writers.
  * Promote/revoke touch `admin_memberships` (+ staff permissions) only —
  * never account soft-delete / Store ownership / member classification.
  */
 
+import { releaseSupportAssignmentsIfNoSupportPermission } from "@/lib/support/support-assignee-permission-sync";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   hasActiveAdminMembershipOrLegacyRole,

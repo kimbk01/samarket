@@ -86,6 +86,8 @@ vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
 }));
 
 import {
+  notifyAdminsOfCustomerMessage,
+  supportShownListSeenAt,
   markSupportCaseReadForRequester,
   markSupportCaseReadForAdmin,
   adminAssignSupportCase,
@@ -1085,27 +1087,58 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
 
   it("E2 (구조 확인): a deferred admin notification is not created once the admin already answered", () => {
     const svc = src("lib/support/support-case-service.ts");
-    // 남은 위험 ③④: 끝난 일 = 읽음 기록만(푸시 없음) · 상태를 못 읽으면 보내지 않음(재생 함수가 남은 일만 다시 만든다)
+    // 남은 위험 ③④: 끝난 일 = 처리됨 재생 키만(알림 없음) · 상태를 못 읽으면 보내지 않음(재생 함수가 남은 일만 다시 만든다)
     expect(svc).toContain('const workDone = liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN";');
-    expect(svc).toMatch(/if \(workDone\) \{[\s\S]{0,200}push: false,[\s\S]{0,300}resolveSupportAdminNotifications\(sb, c\.id\)/);
+    expect(svc).toMatch(/if \(workDone\) \{[\s\S]{0,200}markCustomerMessageHandledForReplay\(sb,/);
     expect(svc).toMatch(/if \(live\.error\) live = await readStatus\(\);[\s\S]{0,400}return;/);
   });
 
-  it("남은 위험 ④: a customer message whose admin work finished before the deferred send → read record only, no push", async () => {
+  it("남은 위험 ④: admin work already finished at send time → no admin notification, only a handled replay key", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");
     if (!a.ok) throw new Error(a.error);
-    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
-    adminNotifyCalls.length = 0;
-    adminResolveCalls.length = 0;
-    // 고객 글 → (응답 뒤 발송 전) 어드민이 곧바로 답함
-    const p = postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
-    await p;
-    db.support_cases[0].status = "WAITING_USER"; // 발송 직전 상태 = 이미 답함
+    const r = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    if (!r.ok) throw new Error(r.error);
     await flush();
+    adminNotifyCalls.length = 0;
+    db.support_cases[0].status = "WAITING_USER"; // 발송 시점에 어드민이 이미 답함
+    await notifyAdminsOfCustomerMessage(sb, {
+      caseRow: db.support_cases[0] as never,
+      messageId: String(r.message.id),
+      body: "추가",
+      actorUserId: U,
+      isNewCase: false,
+    });
+    expect(adminNotifyCalls).toHaveLength(0); // 알림함·푸시 없음
+    const marker = (db.admin_notification_outbox ?? []).find(
+      (o) => o.source_key === `support_customer_replied:${r.message.id}`
+    );
+    expect(marker?.status).toBe("delivered"); // 재생 함수가 이 키를 보고 건너뛴다
+
+    db.support_cases[0].status = "WAITING_ADMIN"; // 아직 어드민 일이 남은 경우 = 평소대로 발송
+    await notifyAdminsOfCustomerMessage(sb, {
+      caseRow: db.support_cases[0] as never,
+      messageId: "m-next",
+      body: "또",
+      actorUserId: U,
+      isNewCase: false,
+    });
     expect(adminNotifyCalls).toHaveLength(1);
-    expect(adminNotifyCalls[0].push).toBe(false);
-    expect(adminResolveCalls).toContain(a.case.id);
+    expect(adminNotifyCalls[0].push).toBe(true);
+  });
+
+  it("남은 위험 ① (4차): the read cutoff is the newest shown message, so a reply that arrived before the list read counts as seen", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변 A" });
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변 B" }); // 문의 행 읽은 뒤·목록 읽기 전에 도착
+    const shownList = db.support_messages.map((m) => ({ created_at: String(m.created_at) })); // 목록엔 B 까지 있음
+    const seen = supportShownListSeenAt(shownList, "2000-01-01T00:00:00Z");
+    expect(seen).toBe(String(db.support_messages[db.support_messages.length - 1].created_at));
+    await markSupportCaseReadForRequester(sb, { userId: U, caseId: a.case.id, seenLastMessageAt: seen });
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(0);
+    expect(supportShownListSeenAt([], "fallback-at")).toBe("fallback-at");
   });
 
   it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {

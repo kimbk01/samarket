@@ -49,9 +49,10 @@ describe("support assignee permission sync", () => {
       const src = readFileSync(join(process.cwd(), f), "utf8");
       const writes = (src.match(/await replaceStaffPermissions\(/g) ?? []).length;
       const syncs = (src.match(/await releaseSupportAssignmentsIfNoSupportPermission\(/g) ?? []).length;
-      expect(syncs).toBe(writes);
+      // 권한 쓰기마다 1번 + 등급만 바꾸는 경로(staff/[id] role) 1번
+      expect(syncs).toBe(writes + (f === "app/api/admin/staff/[id]/route.ts" ? 1 : 0));
       calls += syncs;
     }
-    expect(calls).toBe(4);
+    expect(calls).toBe(5);
   });
 });

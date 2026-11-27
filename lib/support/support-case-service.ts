@@ -92,6 +92,26 @@ async function countRepliesAfter(
   return Math.max(0, Number(count ?? 0));
 }
 
+/**
+ * 4차 재감사 ① — 화면에 보여 준 글 목록의 **가장 늦은 글 시각**(읽음 기준). 목록이 비면 대신 값(문의 last_message_at).
+ * 문의 행을 먼저 읽고 목록을 나중에 읽으므로, 그 사이에 온 글도 목록에 있으면 「본 것」으로 센다.
+ */
+export function supportShownListSeenAt(
+  rows: readonly { created_at?: string | null }[],
+  fallback: string | null | undefined
+): string | null {
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const r of rows) {
+    const ms = Date.parse(String(r.created_at ?? ""));
+    if (Number.isFinite(ms) && ms >= bestMs) {
+      bestMs = ms;
+      best = String(r.created_at);
+    }
+  }
+  return best ?? (fallback ? String(fallback) : null);
+}
+
 /** 같은 시각인지 (DB `timestamptz` 문자열 표기 차이 무시). 둘 중 하나라도 해석 못 하면 문자열 비교. */
 function sameInstant(a: string | null | undefined, b: string | null | undefined): boolean {
   const ta = Date.parse(String(a ?? ""));
@@ -184,7 +204,8 @@ async function recordCaseEvent(
  *   `admin_notification_replay_support_replies` 가 같은 키를 보고 다시 보내지 않는다(담당 지정 뒤 지난 글 재알림 방지).
  * - 어드민 알림 문구 = 한국어(어드민 운영 언어 · 카탈로그 키).
  */
-async function notifyAdminsOfCustomerMessage(
+/** 시험에서 「끝난 일」 분기를 그대로 부르기 위해 내보낸다(앱 코드는 notifyAdminsAfterResponse 만 쓴다). */
+export async function notifyAdminsOfCustomerMessage(
   sb: SupabaseClient,
   input: {
     caseRow: SupportCaseRow;
@@ -207,8 +228,8 @@ async function notifyAdminsOfCustomerMessage(
     return;
   }
   const liveStatus = String((live.data as { status?: unknown } | null)?.status ?? "");
-  // 남은 위험 ④: 어드민 일이 이미 끝났다(답변·종료) → 알림을 「읽음」으로 기록만 남긴다(푸시 없음).
-  // 같은 글 id 키가 생겨 재생 함수가 나중에(같은 문의에 새 고객 글이 와서 다시 WAITING_ADMIN 이 돼도) 이 옛 글을 다시 보내지 않는다.
+  // 남은 위험 ④: 어드민 일이 이미 끝났다(답변·종료) → 알림은 만들지 않고, 재생 함수가 보는 발송 대기열 키만
+  // 「처리됨(delivered)」으로 남긴다 — 나중에 같은 문의에 새 고객 글이 와 다시 WAITING_ADMIN 이 돼도 이 옛 글은 재생되지 않는다.
   const workDone = liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN";
   const title = translateBy(
     "ko",
@@ -229,13 +250,7 @@ async function notifyAdminsOfCustomerMessage(
   } as const;
   if (workDone) {
     if (!liveStatus) return; // 문의가 없다
-    const marker = await createAdminNotification(sb, {
-      ...base,
-      push: false,
-      broadcastPermission: "support",
-      requiredPermission: "support",
-    });
-    if (marker.ok) await resolveSupportAdminNotifications(sb, c.id);
+    await markCustomerMessageHandledForReplay(sb, { messageId: input.messageId, caseId: c.id, reason: liveStatus });
     return;
   }
   const logFail = (error: string) =>
@@ -283,6 +298,28 @@ async function notifyAdminsOfCustomerMessage(
     requiredPermission: "support",
   });
   if (!broadcast.ok) logFail(broadcast.error);
+}
+
+/**
+ * 남은 위험 ④ — 「이 고객 글은 어드민 일이 끝나 알림이 필요 없다」를 재생 함수가 보는 키로만 남긴다.
+ * `admin_notification_outbox` 에 같은 키(`support_customer_replied:<글 id>`)를 **처리됨**으로 넣는다 → 작업자가 꺼내지 않고
+ * (pending 만 꺼냄), 재생 함수는 키가 있어 건너뛴다. 어드민 알림함에는 아무것도 생기지 않는다. 이미 키가 있으면 그대로(23505).
+ */
+async function markCustomerMessageHandledForReplay(
+  sb: SupabaseClient,
+  input: { messageId: string; caseId: string; reason: string }
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await sb.from("admin_notification_outbox").insert({
+    source_key: `support_customer_replied:${input.messageId}`,
+    kind: "support_customer_replied",
+    payload: { handled: true, reason: "admin_work_done", caseStatus: input.reason, caseId: input.caseId },
+    status: "delivered",
+    delivered_at: now,
+  });
+  if (error && (error as { code?: string }).code !== "23505") {
+    console.warn("[support] handled_marker_failed", { caseId: input.caseId, error: error.message });
+  }
 }
 
 /**
@@ -1763,7 +1800,9 @@ export async function markSupportCaseReadForRequester(
     .from("support_cases")
     .update({ requester_unread_count: remaining, updated_at: new Date().toISOString() })
     .eq("id", input.caseId)
-    .eq("requester_unread_count", unread);
+    .eq("requester_unread_count", unread)
+    // 4차 재감사 ①: 센 뒤 새 글이 붙었으면(마지막 글 시각이 바뀜) 쓰지 않는다 — 답변+삭제가 겹쳐 숫자가 같아진 경우도 막는다
+    .eq("last_message_at", gate.case.last_message_at);
   if (error) return { ok: false, error: error.message };
   return { ok: true, wrote: true };
 }
@@ -1880,7 +1919,8 @@ export async function markSupportCaseReadForAdmin(
     .from("support_cases")
     .update({ admin_unread_count: remaining, updated_at: new Date().toISOString() })
     .eq("id", caseId)
-    .eq("admin_unread_count", unread);
+    .eq("admin_unread_count", unread)
+    .eq("last_message_at", gate.case.last_message_at);
   if (error) return { ok: false, error: error.message };
   return { ok: true, wrote: true };
 }

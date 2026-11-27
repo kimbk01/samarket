@@ -390,6 +390,39 @@ export async function createAdminNotification(
   return { ok: true, created: inserted.length, skippedRecipients, pushed };
 }
 
+/**
+ * 고객 문의 남은 위험 ⑤ — 재생 발송에서 담당자가 받을 수 없을 때(권한 잃음):
+ * 그 담당을 풀고(앱 즉시 경로의 self-heal 과 같음), 문의에 어드민 일이 남았을 때(OPEN·WAITING_ADMIN)만 전원 발송을 허락한다.
+ */
+async function supportCaseStillNeedsAdmin(
+  sb: SupabaseClient,
+  input: CreateAdminNotificationInput,
+  staleAssignees: readonly string[]
+): Promise<boolean> {
+  const caseId = input.workRef?.table === "support_cases" ? input.workRef.id : "";
+  if (!caseId) return false;
+  for (const uid of staleAssignees) {
+    const { data: released } = await sb
+      .from("support_cases")
+      .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
+      .eq("id", caseId)
+      .eq("assigned_admin_id", uid)
+      .select("id");
+    if (released && released.length > 0) {
+      await sb.from("support_case_events").insert({
+        case_id: caseId,
+        event_type: "assignee_released_admin_revoked",
+        actor_user_id: null,
+        payload: { previous_assignee: uid, trigger: "outbox_replay" },
+      });
+    }
+  }
+  const { data, error } = await sb.from("support_cases").select("status").eq("id", caseId).maybeSingle();
+  if (error) return true; // 상태를 못 읽으면 알리는 쪽(놓치지 않음)
+  const status = String((data as { status?: unknown } | null)?.status ?? "");
+  return status === "OPEN" || status === "WAITING_ADMIN";
+}
+
 export type OutboxRow = { id: string; claim_token: string; source_key: string; payload: unknown };
 export type PushDeliveryRow = { notification_id: string; claim_token: string };
 
@@ -500,7 +533,8 @@ export async function runAdminNotificationDeliveryWorker(
       res.created === 0 &&
       res.skippedRecipients > 0 &&
       input.kind === "support_customer_replied" &&
-      (input.recipientAdminIds?.length ?? 0) > 0
+      (input.recipientAdminIds?.length ?? 0) > 0 &&
+      (await supportCaseStillNeedsAdmin(sb, input, input.recipientAdminIds ?? []))
     ) {
       res = await createAdminNotification(
         sb,

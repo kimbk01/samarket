@@ -391,6 +391,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
         { user_id: "admin-a", status: "active" },
         { user_id: "support-b", status: "active" },
       ],
+      support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: "admin-a" }],
     });
     const authorities: Record<string, AdminRecipientAuthority> = {
       "admin-a": OPERATOR, // 고객지원 권한 없음 (users 만)
@@ -403,6 +404,30 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     });
     expect(run).toMatchObject({ outboxDelivered: 1 });
     expect(healed.tables.admin_notifications.map((r) => r.recipient_admin_id)).toEqual(["support-b"]);
+    // 앱 즉시 경로와 같은 self-heal: 받을 수 없는 담당자는 풀린다
+    expect(healed.tables.support_cases[0].assigned_admin_id).toBeNull();
+  });
+
+  it("남은 위험 ⑤: no broadcast fallback when the case no longer needs the admin (already answered)", async () => {
+    const sb = memoryDb({}, { failInsertInto: new Set(["admin_notifications"]) });
+    await createAdminNotification(sb as never, { ...input, requiredPermission: "support" as const }, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+    const healed = memoryDb({
+      admin_notification_outbox: sb.tables.admin_notification_outbox,
+      admin_memberships: [
+        { user_id: "admin-a", status: "active" },
+        { user_id: "support-b", status: "active" },
+      ],
+      support_cases: [{ id: "case-9", status: "WAITING_USER", assigned_admin_id: "admin-a" }],
+    });
+    const authorities: Record<string, AdminRecipientAuthority> = {
+      "admin-a": OPERATOR,
+      "support-b": { active: true, isSuperAdmin: false, permissions: ["support"] },
+    };
+    await runAdminNotificationDeliveryWorker(healed as never, {
+      resolveAuthority: async (_: unknown, uid: string) => authorities[uid] ?? REVOKED,
+      sendPush: vi.fn(async () => "sent" as const),
+    });
+    expect(healed.tables.admin_notifications ?? []).toHaveLength(0);
   });
 
   it("persistent failure is bounded: dead after max attempts and surfaced by health", async () => {
