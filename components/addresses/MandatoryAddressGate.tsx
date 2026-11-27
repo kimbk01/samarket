@@ -37,7 +37,8 @@ function isAuthEntryPath(path: string): boolean {
  * - 주소·지도 제외 경로 → 일반 경로로 진입(주소 등록 플로우 종료)
  * - 로그인/가입 화면에서 이탈
  * - 주소 갱신 이벤트
- * - 탭 복귀(다른 탭에서 주소 변경 등)
+ * - 탭 복귀(다른 탭에서 주소 변경 등) — **마지막 확인이 「정상 통과」가 아닐 때만** (막힘·가입 단계 남음·미확인)
+ *   (설계 resume-fixed-cost-design-2026-11-27 §4: 통과한 회원은 복귀마다 다시 묻지 않는다)
  * - Supabase SIGNED_IN (세션 확보 직후)
  */
 function shouldRefetchGateOnPathChange(prev: string | null, next: string): boolean {
@@ -52,7 +53,7 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
  * - 결과로 `registration-pending-state` 를 채운다 → 가입 관문(`DibaySignupGate`)이 그 값으로 빠진 단계 화면으로 보낸다.
  *   화면 이동은 여기서 하지 않는다(설계 `docs/audit/registration-ssot-redesign-2026-11-24.md` S1 ⑤ — 이동 주인 1곳).
  * - 팝업 critical 표식(`addressGate` = 대표 주소 없음)은 기존 의미 그대로.
- * - 재확인: 최초 · 주소/프로필 흐름 종료 · 로그인 화면 이탈 · 주소 갱신 이벤트 · 탭 복귀 · SIGNED_IN.
+ * - 재확인: 최초 · 주소/프로필 흐름 종료 · 로그인 화면 이탈 · 주소 갱신 이벤트 · 탭 복귀(정상 통과가 아닐 때) · SIGNED_IN.
  */
 export function MandatoryAddressGate() {
   const pathname = usePathname() ?? "";
@@ -61,6 +62,11 @@ export function MandatoryAddressGate() {
   const [blocked, setBlocked] = useState(false);
   /** 마지막으로 본 로그인 계정 — 같은 계정의 `SIGNED_IN`(앱 복귀)은 무시 */
   const lastSignedInUserIdRef = useRef<string | null>(null);
+  /**
+   * 마지막 서버 확인이 「정상 통과」(로그인됨 · 대표 주소 있음 · 남은 가입 단계 없음)였는가.
+   * 그렇다면 앱 복귀 때 다시 묻지 않는다 — 통과 상태를 바꾸는 주소 변경·계정 변경은 각자 이벤트로 다시 확인한다.
+   */
+  const lastPassedRef = useRef(false);
 
   useEffect(() => {
     patchPlatformPopupCriticalRuntimeFlags({ addressGate: blocked });
@@ -69,6 +75,7 @@ export function MandatoryAddressGate() {
 
   const applyGateJson = useCallback(
     async (res: Response) => {
+      lastPassedRef.current = false;
       if (res.status === 401) {
         setBlocked(false);
         return;
@@ -91,6 +98,8 @@ export function MandatoryAddressGate() {
       if (j.authenticated === true) setRegistrationPendingFromServer(j.registrationNextStep ?? null);
       /** 팝업 critical 표식(`addressGate`)은 기존 의미(대표 주소 없음) 그대로 */
       setBlocked(j.authenticated === true && j.needsBlock === true);
+      lastPassedRef.current =
+        j.authenticated === true && j.needsBlock !== true && (j.registrationNextStep ?? null) == null;
     },
     [],
   );
@@ -162,7 +171,9 @@ export function MandatoryAddressGate() {
       if (pe.persisted) coalesce.schedule();
     };
     const onVisibility = () => {
-      if (document.visibilityState === "visible") coalesce.schedule();
+      if (document.visibilityState !== "visible") return;
+      if (lastPassedRef.current) return;
+      coalesce.schedule();
     };
     window.addEventListener("pageshow", onPageShow);
     document.addEventListener("visibilitychange", onVisibility);

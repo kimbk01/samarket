@@ -14,6 +14,7 @@ import {
   pushMessengerMissedCallBannerFromRealtimeRow,
 } from "@/lib/community-messenger/notifications/missed-call-event-banner";
 import { createResumeSignalCoalescer } from "@/lib/community-messenger/realtime/friend-request-feed-sync-policy";
+import { ensureResumeVisibilityClock, shouldRefetchOnAppResume } from "@/lib/community-messenger/realtime/resume-resync-gate";
 import { Capacitor } from "@capacitor/core";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
@@ -58,7 +59,10 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     let cancelled = false;
     const resumeSignals = createResumeSignalCoalescer();
     const onResume = () => {
-      if (cancelled || !resumeSignals.accept(Date.now())) return;
+      if (cancelled) return;
+      /** 실시간이 끊기지 않았으면 조회하지 않는다 — 끊겼다 붙으면 재연결 RESYNC 가 배지를 1번 다시 받는다(`resume-resync-gate.ts`) */
+      if (!shouldRefetchOnAppResume()) return;
+      if (!resumeSignals.accept(Date.now())) return;
       // 숫자만 다시 받는다. 목록은 화면별 기존 복귀 조회(알림센터 visibility·종 팝업 열 때)가 맡는다 — 중복 조회 방지.
       requestNotificationBadgeCountResync("app_resume");
     };
@@ -66,6 +70,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       onResume();
     };
+    ensureResumeVisibilityClock();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     let appStateHandle: { remove: () => void } | null = null;
