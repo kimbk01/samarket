@@ -65,6 +65,21 @@
 2. **광고 ID 수집** — SDK 기본값은 켜짐(`AD_ID` 권한 자동 추가). 측정에 꼭 필요한지는 Meta 문서에 문장이 없음 → 기본값(켜짐) 유지 여부를 Owner 가 정함.
 3. A 단계 Meta 앱 등록을 Owner 계정으로 진행.
 
+## iOS 추가 (Owner 2026-11-27 「apk·ios 모두 적용, 빼고 하지 말 것」)
+
+| 항목 | 내용 | 근거 |
+|---|---|---|
+| 라이브러리 | SPM `https://github.com/facebook/facebook-ios-sdk` **19.0.1**(exactVersion), 제품 `FacebookCore`(=FBSDKCoreKit) — 기존 Kakao 와 같은 방식으로 App 타깃에 추가 | [ios getting-started](https://developers.facebook.com/docs/ios/getting-started) · 저장소 `Package.swift`·태그 직접 확인 |
+| Info.plist | `FacebookAppID`·`FacebookClientToken`(= `$(FACEBOOK_APP_ID)`·`$(FACEBOOK_CLIENT_TOKEN)`, `ios/App/App/Facebook.local.xcconfig` gitignore — Kakao 방식)·`FacebookDisplayName` | 같은 문서 Step 2 |
+| 초기화 | `AppDelegate` 에서 `ApplicationDelegate.shared.application(…didFinishLaunching…)` — 값이 없으면 호출 안 함 | 같은 문서 Step 3 (iOS 는 자동 초기화 문장 없음) |
+| 자동 이벤트 | 앱 설치·실행 | [app-events iOS](https://developers.facebook.com/docs/app-events/getting-started-app-events-ios) |
+| 넣지 않은 것 | `LSApplicationQueriesSchemes`·`fb{앱ID}` URL 스킴 — 문서상 로그인·공유 창 전용. `SKAdNetworkItems` — Meta 문서 페이지가 Audience Network(앱 안에 광고를 보여 주는 앱)용 | 같은 문서 · [SKAdNetwork](https://developers.facebook.com/docs/SKAdNetwork) |
+| 추적 허용(ATT) 팝업 | **넣지 않음.** Meta 문서에 「반드시 띄워야 한다」는 문장 없음. 미동의 사용자는 Meta 「집계 이벤트 측정(AEM)」으로 측정된다고 문서에 있음. iOS 17+ 와 SDK 17+ 는 ATT 상태를 SDK 가 직접 읽음 | [advertising-tracking-enabled](https://developers.facebook.com/docs/app-events/guides/advertising-tracking-enabled) · [AEM](https://developers.facebook.com/docs/app-events/guides/aggregated-event-measurement) |
+| 빌드 번호 | iOS `CURRENT_PROJECT_VERSION` 65 → 66 (4곳) | 네이티브 규정 |
+| Meta 앱 | iOS 플랫폼: 번들 ID `com.dibay.ph`, iPhone Store ID 6831952401 저장(새로 고침 후 값 유지 확인) | Meta 개발자 화면 |
+| App Store | 「앱 개인정보 보호」 질문지에 Meta 로 보내는 항목 신고 필요(Owner) | app-events iOS Step 7 |
+| 광고 | iPhone 광고는 「iOS 14 이상 캠페인」 별도 | 최종 방안 v4 §2 |
+
 ## 진행 기록
 - 11-27 18:3x PHT A 완료: Meta 개발자 계정 등록(Owner) · 앱 「DIBAY」(앱 ID 984578564333244, 비즈니스 DIBAY, 이용 사례 「광고 관리자로 앱 광고」) · Android 플랫폼(Google Play, `com.dibay.app`, `com.dibay.app.MainActivity`) 저장 · 인증된 광고 계정 1454362712907917 저장. 앱 ID·클라이언트 토큰은 `android/local.properties`(gitignore) 에만.
 

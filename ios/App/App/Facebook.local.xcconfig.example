@@ -1,0 +1,3 @@
+// Copy to Facebook.local.xcconfig (same directory) and set the Meta app values (Meta for Developers → DIBAY → 앱 설정).
+FACEBOOK_APP_ID = YOUR_FACEBOOK_APP_ID
+FACEBOOK_CLIENT_TOKEN = YOUR_FACEBOOK_CLIENT_TOKEN

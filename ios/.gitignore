@@ -13,3 +13,6 @@ App/App/config.xml
 
 # Kakao Native app key (local only)
 App/App/Kakao.local.xcconfig
+
+# Meta(Facebook) app id / client token (local only)
+App/App/Facebook.local.xcconfig

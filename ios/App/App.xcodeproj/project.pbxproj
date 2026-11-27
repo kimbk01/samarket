@@ -44,6 +44,7 @@
 		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
 		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
+		C7FBK0122AF431CB00220026 /* FacebookCore in Frameworks */ = {isa = PBXBuildFile; productRef = C7FBK0112AF431CB00220026 /* FacebookCore */; };
 		C7KBD0022FED79650016851F /* DibayWebViewKeyboardChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KBD0012FED79650016851F /* DibayWebViewKeyboardChrome.swift */; };
 		C7MEL0022FED79650016851F /* DibayMemberEventEligibilityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MEL0012FED79650016851F /* DibayMemberEventEligibilityStore.swift */; };
 		C7MIC0022FED79650016851F /* DibayVoiceMicrophonePermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MIC0012FED79650016851F /* DibayVoiceMicrophonePermission.swift */; };
@@ -228,6 +229,7 @@
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 				C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */,
+				C7FBK0122AF431CB00220026 /* FacebookCore in Frameworks */,
 				C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -425,6 +427,7 @@
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
 				C7KAK0112AF431CB00220026 /* KakaoSDK */,
+				C7FBK0112AF431CB00220026 /* FacebookCore */,
 				C7AGR0112AF431CB00220026 /* RtcBasic */,
 			);
 			productName = App;
@@ -481,6 +484,7 @@
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
 				C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+				C7FBK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
 				C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
@@ -800,7 +804,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -825,7 +829,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -848,7 +852,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -874,7 +878,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 65;
+				CURRENT_PROJECT_VERSION = 66;
 				DEVELOPMENT_TEAM = ATB959PF9V;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DibayPushServiceExtension/Info.plist;
@@ -949,6 +953,14 @@
 				minimumVersion = 2.22.0;
 			};
 		};
+		C7FBK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
+			requirement = {
+				kind = exactVersion;
+				version = 19.0.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -966,6 +978,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
 			productName = KakaoSDK;
+		};
+		C7FBK0112AF431CB00220026 /* FacebookCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7FBK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

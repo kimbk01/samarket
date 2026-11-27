@@ -2,6 +2,7 @@ import UIKit
 import Capacitor
 import KakaoSDKAuth
 import KakaoSDKCommon
+import FBSDKCoreKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -37,6 +38,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             let isPlaceholder = trimmed.isEmpty || trimmed.hasPrefix("$(") || trimmed.contains("YOUR_KAKAO")
             if !isPlaceholder {
                 KakaoSDK.initSDK(appKey: trimmed)
+            }
+        }
+
+        // Meta(Facebook) SDK — 앱 설치·실행 자동 기록(앱 홍보 광고 설치 측정). 설계: docs/audit/meta-android-sdk-design-2026-11-27.md
+        // 값(Facebook.local.xcconfig)이 없으면 초기화하지 않는다 — 앱 동작 무변경.
+        if let fbAppId = Bundle.main.object(forInfoDictionaryKey: "FacebookAppID") as? String {
+            let trimmed = fbAppId.trimmingCharacters(in: .whitespacesAndNewlines)
+            let isPlaceholder = trimmed.isEmpty || trimmed.hasPrefix("$(") || trimmed.contains("YOUR_FACEBOOK")
+            if !isPlaceholder {
+                ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
             }
         }
         VoIPPushRegistry.shared.start()

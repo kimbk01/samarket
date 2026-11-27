@@ -1,0 +1,5 @@
+// Meta(Facebook) SDK — copy Facebook.local.xcconfig.example → Facebook.local.xcconfig (gitignored)
+// 설계: docs/audit/meta-android-sdk-design-2026-11-27.md
+#include? "Facebook.local.xcconfig"
+FACEBOOK_APP_ID = $(inherited)
+FACEBOOK_CLIENT_TOKEN = $(inherited)
