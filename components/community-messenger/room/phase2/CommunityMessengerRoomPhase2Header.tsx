@@ -55,6 +55,7 @@ import {
 } from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 
 /** 통화 선택 시트 — 📞 를 누를 때만 불러온다 (방 첫 화면 번들·방 진입 경로에 연락처 코드를 넣지 않음) */
 const MessengerCallChoiceSheetLazy = lazy(
@@ -153,6 +154,15 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     members: vm.snapshot.members,
     thumbnailUrl: deliveryMeta?.thumbnailUrl ?? null,
   });
+  /** 서버 대체 제목(「새 대화」·「회원 …」·「그룹 N명」·「공개 그룹방」) → 보는 사람 언어. 사람이 정한 제목은 그대로 */
+  const roomDisplayTitle = useMemo(
+    () =>
+      resolveMessengerRoomDisplayTitle(
+        { title: vm.snapshot.room.title, roomType: vm.snapshot.room.roomType },
+        vm.t
+      ),
+    [vm.snapshot.room.title, vm.snapshot.room.roomType, vm.t]
+  );
 
   const useDeliveryHeaderBlock =
     isDeliveryRoom && deliveryHeaderModel.mode !== "none" && deliveryHeaderModel.showAvatar;
@@ -431,7 +441,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
               <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
-                {vm.snapshot.room.title}
+                {roomDisplayTitle}
               </p>
               <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
             </div>
@@ -441,7 +451,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             type="button"
             onClick={vm.openPeerFriendProfile}
             className="flex min-w-0 flex-1 items-center gap-2 self-center text-left active:opacity-80"
-            aria-label={vm.snapshot.room.title}
+            aria-label={roomDisplayTitle}
           >
             <div className="relative h-9 w-9 shrink-0 self-center">
               <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
@@ -460,7 +470,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </div>
             <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
               <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
-                {vm.snapshot.room.title}
+                {roomDisplayTitle}
               </p>
               <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
             </div>
@@ -486,14 +496,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               {peerTradeRoleLabel ? (
                 <p className="truncate text-[length:var(--cm-chat-font-header-status)] text-[color:var(--cm-room-text-muted)]">
                   <span className="inline-block text-[length:var(--cm-chat-font-header-title)] font-semibold leading-snug text-[color:var(--sector-header-title-color)]">
-                    {vm.snapshot.room.title}
+                    {roomDisplayTitle}
                   </span>
                   <span aria-hidden> | </span>
                   <span>{peerTradeRoleLabel}</span>
                 </p>
               ) : (
                 <p className="truncate text-[length:var(--cm-chat-font-header-title)] font-semibold leading-tight text-[color:var(--sector-header-title-color)]">
-                  {vm.snapshot.room.title}
+                  {roomDisplayTitle}
                 </p>
               )}
               <p className="truncate text-[length:var(--cm-chat-font-header-status)] leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>

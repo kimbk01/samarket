@@ -3,6 +3,7 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
 import { markAppleIapOutcome } from "@/lib/apple-iap/apple-iap-service.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     return NextResponse.json({ ok: true, changed: r.changed === true, status: String(r.status) });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("outcome_failed", "[me/apple-iap/outcome]", e);
   }
 }

@@ -14,6 +14,9 @@ export type OwnerOptionsValidationCode =
   | "duplicate_option_name"
   | "duplicate_option_group_id";
 
+/** 응답 `params` — 화면이 키로 그린다 (사후 검토 E2 2026-11-27). `groupIndex` 는 1부터 */
+export type OwnerOptionsErrorParams = { groupIndex: number; name?: string };
+
 function optT(
   lang: AppLanguageCode,
   key: MessageKey,
@@ -42,7 +45,7 @@ export function validateProductOptionGroups(
   groups: ProductOptionGroup[],
   lang: AppLanguageCode,
   opts?: { checkGroupIds?: boolean }
-): { ok: true } | { ok: false; message: string; code?: OwnerOptionsValidationCode } {
+): { ok: true } | { ok: false; message: string; code?: OwnerOptionsValidationCode; params?: OwnerOptionsErrorParams } {
   if (groups.length === 0) return { ok: true };
   const checkGroupIds = opts?.checkGroupIds !== false;
   const seenGroupIds = new Set<string>();
@@ -58,6 +61,7 @@ export function validateProductOptionGroups(
         return {
           ok: false,
           code: "duplicate_option_group_id",
+          params: { groupIndex: gi + 1 },
           message: optT(lang, "store_owner_opt_duplicate_group_id", { group: label }),
         };
       }
@@ -157,6 +161,7 @@ export function validateProductOptionGroups(
         return {
           ok: false,
           code: "duplicate_option_name",
+          params: { groupIndex: gi + 1, name },
           message: optT(lang, "store_owner_opt_duplicate_choice_name", { group: label, name }),
         };
       }
@@ -215,7 +220,7 @@ export function validateOwnerOptionsJsonPayload(
   lang: AppLanguageCode
 ):
   | { ok: true; value: unknown[] }
-  | { ok: false; error: OwnerOptionsValidationCode; message: string } {
+  | { ok: false; error: OwnerOptionsValidationCode; message: string; params?: OwnerOptionsErrorParams } {
   if (raw === null || raw === undefined) return { ok: true, value: [] };
   if (!Array.isArray(raw)) {
     return {
@@ -236,6 +241,7 @@ export function validateOwnerOptionsJsonPayload(
       return {
         ok: false,
         error: "duplicate_option_group_id",
+        params: { groupIndex: gi + 1 },
         message: optT(lang, "store_owner_opt_duplicate_group_id", { group: groupLabel(lang, gi) }),
       };
     }
@@ -243,6 +249,13 @@ export function validateOwnerOptionsJsonPayload(
   }
   const groups = optionsJsonToFormGroups(raw);
   const v = validateProductOptionGroups(groups, lang, { checkGroupIds: false });
-  if (!v.ok) return { ok: false, error: v.code ?? "invalid_options_json", message: v.message };
+  if (!v.ok) {
+    return {
+      ok: false,
+      error: v.code ?? "invalid_options_json",
+      message: v.message,
+      ...(v.params ? { params: v.params } : {}),
+    };
+  }
   return { ok: true, value: raw as unknown[] };
 }

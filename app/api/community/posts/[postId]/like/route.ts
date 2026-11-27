@@ -13,6 +13,7 @@ import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-im
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,9 +59,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     const sb = getSupabaseServer();
     const gate = await assertPostEngagementAllowed(sb, id, auth.userId);
     if (!gate.ok) {
-      const msg =
-        gate.error === "community_like_blocked_relation" ? "차단 관계에서는 공감할 수 없습니다." : gate.error;
-      return NextResponse.json({ ok: false, error: msg, code: gate.error }, { status: gate.status });
+      // 언어 사후 검토 — 문장 대신 코드. 화면(CommunityDetail)은 code → 키(`community_like_blocked_relation`)로 그린다.
+      return NextResponse.json({ ok: false, error: gate.error, code: gate.error }, { status: gate.status });
     }
 
     /**
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         .eq("post_id", id)
         .eq("user_id", auth.userId);
       if (delErr) {
-        return NextResponse.json({ ok: false, error: delErr.message ?? "like_failed" }, { status: 500 });
+        return internalErrorResponse("like_failed", "[community/posts/like delete]", delErr);
       }
     } else {
       /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       if (insErr) {
         /** 동시 요청으로 이미 들어간 공감(UNIQUE 위반)은 성공으로 본다 */
         if ((insErr as { code?: string }).code !== "23505") {
-          return NextResponse.json({ ok: false, error: insErr.message ?? "like_failed" }, { status: 500 });
+          return internalErrorResponse("like_failed", "[community/posts/like insert]", insErr);
         }
       }
       const likeId = String((likeRow as { id?: string } | null)?.id ?? "").trim();
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
 
     return NextResponse.json({ ok: true, liked, like_count: likeCount });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("like_failed", "[community/posts/like]", e);
   }
 }
 

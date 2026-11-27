@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isMissingPreferenceRelationError } from "@/lib/notifications/policy/notification-preference-relation-errors";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,7 +72,7 @@ export async function GET() {
     if (isMissingPreferenceRelationError(error)) {
       return NextResponse.json({ ok: true, settings: DEFAULTS, table_missing: true });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/owner-notification-settings GET]", error);
   }
 
   return NextResponse.json({
@@ -108,7 +109,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "table_missing", table_missing: true }, { status: 503 });
   }
   if (curError) {
-    return NextResponse.json({ ok: false, error: curError.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/owner-notification-settings PATCH read]", curError);
   }
 
   const curRow = (cur ?? {}) as Record<string, unknown>;
@@ -163,7 +164,7 @@ export async function PATCH(req: NextRequest) {
     if (isMissingPreferenceRelationError(error)) {
       return NextResponse.json({ ok: false, error: "table_missing", table_missing: true }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/owner-notification-settings PATCH]", error);
   }
 
   return NextResponse.json({

@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,8 +40,7 @@ export async function GET(req: NextRequest) {
     const loaded = await loadPurchaseHistoryRows(sbAny, userId);
     rows = loaded.rows;
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "load failed";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[my/purchases]", e);
   }
 
   if (countOnly) {

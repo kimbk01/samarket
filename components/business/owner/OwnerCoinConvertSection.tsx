@@ -25,7 +25,7 @@ import { OWNER_FORM_ACTION_ROW_CLASS, OWNER_FORM_INPUT_GROW_CLASS, OwnerCta } fr
 import { COIN_TO_CASH_LABEL_KO, COIN_WITHDRAWAL_LABEL_KO } from "@/lib/finance/product-decision-lock";
 import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import type { BusinessCashConversionQuote } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { translateBy } from "@/lib/i18n/translate-by";
 

@@ -18,9 +18,6 @@ export const PH_LOCAL_MOBILE_LENGTH = 11;
  */
 export const PH_LOCAL_MOBILE_RULE_ERROR_CODE = "invalid_ph_phone";
 
-/** @deprecated 이름만 호환 — 값은 오류 코드(`PH_LOCAL_MOBILE_RULE_ERROR_CODE`). 화면 문구는 `getPhLocalMobileRuleMessage`. */
-export const PH_LOCAL_MOBILE_RULE_MESSAGE_KO = PH_LOCAL_MOBILE_RULE_ERROR_CODE;
-
 export function getPhLocalMobileRuleMessage(language: AppLanguageCode): string {
   return translate(language, "phone_rule");
 }

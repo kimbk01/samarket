@@ -173,7 +173,7 @@ export async function resolveNeighborhoodLocationId(
   }
 
   if (process.env.NODE_ENV === "development") {
-    console.error("[resolveNeighborhoodLocationId] upsert failed:", upErr.message, upErr);
+    console.error("[resolveNeighborhoodLocationId] upsert failed:", { code: (upErr as { code?: string }).code, message: upErr.message });
   }
 
   return {

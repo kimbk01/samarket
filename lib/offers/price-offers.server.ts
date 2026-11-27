@@ -23,8 +23,7 @@ import type { PriceOfferListItem, PriceOfferRow, PriceOfferTransitionResult } fr
 import { enrichPriceOffersToListItems, mapPriceOfferRow } from "@/lib/offers/offers-map";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
-import { offerNotifyT, offerServerT } from "@/lib/offers/offer-server-i18n";
-import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { offerServerT } from "@/lib/offers/offer-server-i18n";
 import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
 
 /** 읽기·쓰기 반환 공통 — `amount` 레거시 컬럼 미존재 DB 에서 select 실패 방지 */
@@ -524,12 +523,11 @@ async function notifyOfferCreated(
     buyerNickname: string | null;
   }
 ): Promise<void> {
-  const lang = await loadNotificationUserLanguage(sb, args.offer.seller_id);
-  const titleSnippet = args.post.title?.trim() ? args.post.title.trim().slice(0, 40) : offerNotifyT(lang, "offer_fallback_product");
+  const titleSnippet = args.post.title?.trim() ? args.post.title.trim().slice(0, 40) : offerServerT("offer_fallback_product");
   await appendUserNotification(sb, {
     user_id: args.offer.seller_id,
     notification_type: "status",
-    title: offerNotifyT(lang, "offer_notif_received_title"),
+    title: offerServerT("offer_notif_received_title"),
     body: `${titleSnippet} · ${formatOfferAmount(args.offer.original_price, args.post.currency)} → ${formatOfferAmount(args.offer.offered_price, args.post.currency)}`,
     /** 판매자 알림 탭 시 상세 진입과 함께 받은 제안 모달 자동 오픈 (`PostDetailView`) */
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}?${OPEN_RECEIVED_OFFERS_SEARCH_PARAM}=1`,
@@ -566,13 +564,12 @@ async function notifyOfferAccepted(
   // T3 (docs/audit/notification-f2-android-tap-read-fix-design-2026-10-28.md B): 방 화면은 메신저 방 id 로 열린다.
   // 거래방(chat_rooms) id 를 넣으면 404 — ensure 가 메신저 방 id 를 못 주면 같은 해석기로 찾고, 그래도 없을 때만 거래방 id.
   const linkRoomId = await resolveTradeNotificationMessengerRoomId(sb, args.messengerRoomId, args.chatRoomId);
-  const lang = await loadNotificationUserLanguage(sb, args.offer.buyer_id);
   const amount = formatOfferAmount(args.offer.offered_price, await loadOfferPostCurrency(sb, args.offer.product_id));
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
-    title: offerNotifyT(lang, "offer_notif_accepted_title"),
-    body: offerNotifyT(lang, "offer_notif_accepted_body", { amount }),
+    title: offerServerT("offer_notif_accepted_title"),
+    body: offerServerT("offer_notif_accepted_body", { amount }),
     link_url: tradeChatNotificationHref(linkRoomId, args.chatRoomSource),
     ref_id: args.offer.id,
     meta: {
@@ -603,13 +600,12 @@ async function notifyOfferRejected(
   sb: SupabaseClient,
   args: { offer: PriceOfferRow }
 ): Promise<void> {
-  const lang = await loadNotificationUserLanguage(sb, args.offer.buyer_id);
   const amount = formatOfferAmount(args.offer.offered_price, await loadOfferPostCurrency(sb, args.offer.product_id));
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
-    title: offerNotifyT(lang, "offer_notif_rejected_title"),
-    body: offerNotifyT(lang, "offer_notif_rejected_body", { amount }),
+    title: offerServerT("offer_notif_rejected_title"),
+    body: offerServerT("offer_notif_rejected_body", { amount }),
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}`,
     ref_id: args.offer.id,
     meta: {

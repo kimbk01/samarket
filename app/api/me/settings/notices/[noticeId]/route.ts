@@ -12,6 +12,7 @@ import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-cente
 import { normalizeCustomerCenterHeroImageUrl } from "@/lib/notices/customer-center-media";
 import { isMissingAppNoticesTableError } from "@/lib/notices/is-missing-app-notices-table-error";
 import { APP_NOTICE_MEMBER_AUDIENCE, isAppNoticeVisibleToMembers } from "@/lib/notices/app-notice-audience";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     if (isMissingAppNoticesTableError(error.message ?? "")) {
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/settings/notices]", error);
   }
   // 배달 오픈 4단계 — 사장님 전용 운영 공지는 회원 상세에서 없는 글로 본다(제목도 노출하지 않음)
   if (!row || !isAppNoticeVisibleToMembers(row)) {

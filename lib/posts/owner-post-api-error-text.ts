@@ -16,7 +16,6 @@ export const OWNER_POST_API_ERROR_MAP: ApiErrorCodeMap = {
   delete_not_allowed: "owner_post_err_delete_not_allowed",
   delete_failed: "trade_detail_delete_failed",
   save_failed: "common_save_failed",
-  invalid_json: "common_error",
   invalid_status: "trade_detail_owner_action_failed",
   category_missing: "ui_product_edit_category_missing",
   trade_lifecycle_locked: "ui_post_owner_edit_locked_default",
@@ -26,11 +25,11 @@ export const OWNER_POST_API_ERROR_MAP: ApiErrorCodeMap = {
   price_invalid: "owner_post_err_price_invalid",
   content_filter_blocked: "content_filter_blocked_message",
   sold_is_final: "owner_post_err_sold_is_final",
-  reserved_not_supported: "owner_post_err_reserved_not_supported",
+  /** D2 사후 검토 2026-11-27 — 판매 단계 표와 같은 키 */
+  reserved_not_supported: "reaudit_trade_listing_err_reserved_not_supported",
   sold_requires_seller_complete: "owner_post_err_sold_requires_seller_complete",
   admin_hidden: "ui_post_owner_locked_admin",
   owner_deleted: "owner_post_err_owner_deleted",
-  phone_verification_required: "owner_post_err_phone_verification_required",
   member_action_restricted: "common_api_forbidden",
 };
 

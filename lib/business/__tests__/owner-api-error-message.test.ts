@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const t = (key: MessageKey) => key;

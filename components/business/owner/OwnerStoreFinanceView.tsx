@@ -20,7 +20,7 @@ import { OwnerFinanceNav } from "@/components/finance/OwnerFinanceNav";
 import { OwnerFinanceStoreSwitcher } from "@/components/finance/OwnerFinanceStoreSwitcher";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   StoreCommissionLedgerSummary,

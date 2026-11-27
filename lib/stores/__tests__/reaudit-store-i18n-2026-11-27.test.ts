@@ -15,7 +15,6 @@ import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { parseProductOptionsJson } from "@/lib/stores/modifiers/parse-json";
 import {
   ownerAdminLockLabel,
-  ownerAdminLockLabelKo,
   ownerProductStatusBlockText,
   ownerProductStatusChangeBlock,
 } from "@/lib/stores/store-product-admin-lock";
@@ -147,7 +146,7 @@ describe("사장님 상품 — 관리자 잠금 (서버 문장 없음)", () => {
       expect(HANGUL.test(text)).toBe(false);
     }
     expect(ownerAdminLockLabel("blocked", en)).toBe("Admin action: sales blocked");
-    expect(ownerAdminLockLabelKo("blocked")).toBe("관리자 판매 차단 조치");
+    expect(ownerAdminLockLabel("blocked", tFor("ko"))).toBe("관리자 판매 차단 조치");
   });
 
   it("모르는 문장은 내보내지 않는다", () => {

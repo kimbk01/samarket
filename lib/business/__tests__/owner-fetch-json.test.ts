@@ -70,7 +70,7 @@ describe("ownerFetchJson", () => {
     expect(!u.ok && u.stateKind).toBe("no_permission");
   });
 
-  it("error message uses owner-api-error-i18n mapping", () => {
+  it("error message uses owner-api-error-text mapping", () => {
     const t = (k: string) => k;
     expect(ownerFetchErrorMessage({ code: "network_error" }, t as never)).toBe("common_network_error");
     expect(ownerFetchErrorMessage({ code: "request_failed" }, t as never)).toBe("business_phase7_426");

@@ -26,6 +26,7 @@ import {
 import { holdPointsForFeedAdRequest } from "@/lib/ads/feed-ad-request-point-flow";
 import { checkMemberFeedAdDestination } from "@/lib/ads/feed-ad-member-destination-check";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -188,7 +189,7 @@ async function getUncached(req: NextRequest): Promise<NextResponse> {
     if (error.message?.includes("feed_ad_requests")) {
       return NextResponse.json({ ok: true, requests: [], catalog, tableMissing: true });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/feed-ad-requests GET]", error);
   }
 
   const rows = (data ?? []) as Record<string, unknown>[];
@@ -630,7 +631,7 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-    return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/feed-ad-requests POST insert]", insErr);
   }
 
   const { error: crErr } = await sb.from("feed_ad_request_creatives").insert(
@@ -644,7 +645,7 @@ export async function POST(req: NextRequest) {
   );
   if (crErr) {
     await sb.from("feed_ad_requests").delete().eq("id", requestId);
-    return NextResponse.json({ ok: false, error: crErr.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/feed-ad-requests POST creatives]", crErr);
   }
 
   const hold = await holdPointsForFeedAdRequest(sb, {

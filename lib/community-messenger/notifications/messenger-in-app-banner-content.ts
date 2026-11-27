@@ -5,12 +5,22 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
+import { translate } from "@/lib/i18n/messages";
 import { buildMessageNotificationDisplay } from "@/lib/notifications/display/build-message-notification-display";
 import type { NotificationPresentation } from "@/lib/notifications/display/notification-presentation";
 import {
   resolveContextLabelFromMeta,
   resolveEffectiveRoomKind,
 } from "@/lib/notifications/display/message-notification-room-kind";
+
+/** 서버 대체 방 제목(「새 대화」·「그룹 N명」 등) → 배너 언어. 사람이 정한 제목은 그대로 */
+function roomTitleForLanguage(
+  room: Pick<CommunityMessengerRoomSummary, "title" | "roomType">,
+  language: AppLanguageCode
+): string {
+  return resolveMessengerRoomDisplayTitle(room, (key, vars) => translate(language, key, vars));
+}
 
 /**
  * §14-11 M-B1 — 앱 안 메시지 배너 문구. OS 푸시(`notification_events` title/body)와 같은 함수로 만든다.
@@ -127,7 +137,7 @@ export function buildMessengerInAppBannerContent(args: {
     messageType: message.messageType,
     textContent: message.content,
     sender: { displayName: senderName, avatarUrl },
-    room: { name: trimText(room.title) || null, contextLabel },
+    room: { name: trimText(roomTitleForLanguage(room, language)) || null, contextLabel },
     roomId: room.id,
     chatDomain: room.chatDomain ?? null,
   });
@@ -143,7 +153,7 @@ export function buildMessengerInAppBannerContentFromListRow(args: {
   const { row } = args;
   /** D7: 통화 기록 미리보기(cmcall1 토큰 등)는 메시지 배너로 만들지 않는다 — 부재중 배너는 부재중 알림 행이 근거 */
   if (row.lastMessageType === "call_stub") return null;
-  const title = trimText(row.title);
+  const title = trimText(roomTitleForLanguage(row, args.language));
   const lastMessage = trimText(row.lastMessage);
   if (!title || !lastMessage) return null;
   const display = buildMessageNotificationDisplay({

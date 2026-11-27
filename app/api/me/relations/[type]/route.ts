@@ -13,6 +13,7 @@ import {
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
 import { restoreDirectRoomsOnUnblockForViewer } from "@/lib/community-messenger/participant-block-hide";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -175,7 +176,7 @@ export async function GET(
       if (isMissingTableError(error.message ?? "", "user_relationships")) {
         return NextResponse.json({ ok: true, items: [], source: "missing_table" });
       }
-      return NextResponse.json({ ok: false, error: error.message ?? "neighbor_fetch_failed" }, { status: 500 });
+      return internalErrorResponse("neighbor_fetch_failed", "[me/relations GET neighbor]", error);
     }
     const relationRows = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
       .map((row) => ({
@@ -200,7 +201,7 @@ export async function GET(
     if (isMissingTableError(error.message ?? "", table)) {
       return NextResponse.json({ ok: true, items: [], source: "missing_table" });
     }
-    return NextResponse.json({ ok: false, error: error.message ?? "relation_fetch_failed" }, { status: 500 });
+    return internalErrorResponse("relation_fetch_failed", "[me/relations GET]", error);
   }
 
   const relationRows = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
@@ -280,7 +281,7 @@ export async function DELETE(
     }
     const { error } = await sbNeighbor.from("user_relationships").delete().eq("id", relationId).eq("user_id", auth.userId);
     if (error) {
-      return NextResponse.json({ ok: false, error: error.message ?? "neighbor_remove_failed" }, { status: 500 });
+      return internalErrorResponse("neighbor_remove_failed", "[me/relations DELETE neighbor]", error);
     }
     return NextResponse.json({ ok: true });
   }
@@ -300,7 +301,7 @@ export async function DELETE(
     if (isMissingTableError(error.message ?? "", table)) {
       return NextResponse.json({ ok: true });
     }
-    return NextResponse.json({ ok: false, error: error.message ?? "relation_delete_failed" }, { status: 500 });
+    return internalErrorResponse("relation_delete_failed", "[me/relations DELETE]", error);
   }
 
   return NextResponse.json({ ok: true });

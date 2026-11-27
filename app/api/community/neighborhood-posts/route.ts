@@ -110,7 +110,10 @@ export async function POST(req: NextRequest) {
   /** images SSOT = 본문 이미지 순서 ∪ 본문 밖 첨부 — 외부·data URL 거부, 10장 초과 거부 (CM-P1-02·CM-P2-11) */
   const imagesRes = resolveMemberPostImages({ userId: auth.userId, content, candidates: body.images });
   if (!imagesRes.ok) {
-    return NextResponse.json({ ok: false, error: imagesRes.message, code: imagesRes.error }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: imagesRes.message, code: imagesRes.error, params: imagesRes.params },
+      { status: 400 }
+    );
   }
   const images = imagesRes.images;
 

@@ -1,5 +1,6 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { resolveRoomContextHeadline } from "@/lib/community-messenger/delivery-room-headline";
 import { tradeContextMetaRoleLabelKey } from "@/lib/community-messenger/product-chat-messenger-meta";
 import type {
   CommunityMessengerRoomContextMetaV1,
@@ -143,7 +144,8 @@ export function presentCommunityMessengerRoomContextListText(
     const roleKey = tradeContextMetaRoleLabelKey(roleLabel);
     return roleKey ? t(roleKey) : roleLabel;
   }
-  const parts = [meta.headline, meta.priceLabel]
+  /** 배달 방 머리 문구는 매장명·주문번호로 보는 사람 언어(서버는 만들지 않음) */
+  const parts = [resolveRoomContextHeadline(meta, t), meta.priceLabel]
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean);
   return parts.join(" · ");

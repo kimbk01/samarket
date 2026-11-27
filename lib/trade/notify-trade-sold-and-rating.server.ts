@@ -62,7 +62,8 @@ export async function notifyTradeSoldToEligibleCounterparts(
       /** 차단·계정 정지·같은 기기·대화 부족·이미 평가함 등은 자격 판정이 걸러 낸다 */
       if (!ctx?.eligibility.eligible) continue;
       const lang = await loadNotificationUserLanguage(sb, buyerId);
-      const product = snippet(args.postTitle) || notifySafeT(lang, "notify_trade_product_fallback");
+      const rawProduct = snippet(args.postTitle);
+      const product = rawProduct || notifySafeT(lang, "notify_trade_product_fallback");
       await appendUserNotification(sb, {
         user_id: buyerId,
         notification_type: "status",
@@ -83,7 +84,9 @@ export async function notifyTradeSoldToEligibleCounterparts(
           ...notificationCopyMeta({
             titleKey: "notify_trade_sold_rate_title",
             messageKey: "notify_trade_sold_rate_body",
-            vars: { product },
+            // 언어 사후 검토 E4① — 대체 이름은 vars 에 넣지 않고 키(varKeys)로 — 화면이 보는 사람 언어로 그린다.
+            vars: { product: rawProduct || undefined },
+            varKeys: { product: rawProduct ? undefined : "notify_trade_product_fallback" },
           }),
         },
       });
@@ -115,7 +118,8 @@ export async function notifyTradeRatingReceived(
       loadNotificationUserLanguage(sb, revieweeId),
       fetchNicknamesForUserIds(sb, [args.reviewerId]),
     ]);
-    const name = nickMap.get(args.reviewerId) ?? notifySafeT(lang, "notify_peer_fallback");
+    const rawName = nickMap.get(args.reviewerId)?.trim() || "";
+    const name = rawName || notifySafeT(lang, "notify_peer_fallback");
     await appendUserNotification(sb, {
       user_id: revieweeId,
       notification_type: "status",
@@ -136,7 +140,9 @@ export async function notifyTradeRatingReceived(
         ...notificationCopyMeta({
           titleKey: "notify_trade_rating_received_title",
           messageKey: "notify_trade_rating_received_body",
-          vars: { name },
+          // 언어 사후 검토 E4① — 대체 이름은 vars 에 넣지 않고 키(varKeys)로.
+          vars: { name: rawName || undefined },
+          varKeys: { name: rawName ? undefined : "notify_peer_fallback" },
         }),
       },
     });

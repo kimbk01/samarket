@@ -42,6 +42,7 @@ import {
   patchInboxNotificationIdsRead,
 } from "@/lib/notifications/inbox-read-bridge";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   bellTabDomains,
   parseMemberNotificationDomainParam,
@@ -288,7 +289,6 @@ export async function GET(req: NextRequest) {
         }),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "unknown_error";
       const logPrefix = excludeOwner || ownerOnly
         ? "[GET notifications segmented count]"
         : "[GET notifications count]";
@@ -301,8 +301,7 @@ export async function GET(req: NextRequest) {
           { status: 503 }
         );
       }
-      console.error(logPrefix, error);
-      return NextResponse.json({ ok: false, error: message }, { status: 500 });
+      return internalErrorResponse("notifications_count_failed", logPrefix, error);
     }
   }
 

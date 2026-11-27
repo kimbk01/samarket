@@ -60,8 +60,8 @@ async function loadDeliverySnapshot(
     if (/store_order_deliveries/i.test(String(error.message)) && /does not exist/i.test(String(error.message))) {
       return { ok: true, delivery: null };
     }
-    console.error("[GET owner store-order delivery]", error);
-    return { ok: false, error: error.message };
+    console.error("[GET owner store-order delivery]", { code: error.code, message: error.message });
+    return { ok: false, error: "delivery_load_failed" };
   }
 
   return { ok: true, delivery: (data as any) ?? null };

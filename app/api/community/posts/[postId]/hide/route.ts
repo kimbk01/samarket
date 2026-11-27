@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         if (msg.includes("community_post_hides") && msg.includes("does not exist")) {
           return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
         }
-        return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+        return internalErrorResponse("hide_failed", "[community/posts/hide delete]", delErr);
       }
     } else {
       const { error } = await sb.from("community_post_hides").insert({ post_id: id, user_id: auth.userId });
@@ -56,11 +57,11 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         if (msg.includes("community_post_hides") && msg.includes("does not exist")) {
           return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
         }
-        return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+        return internalErrorResponse("hide_failed", "[community/posts/hide insert]", error);
       }
     }
     return NextResponse.json({ ok: true, hidden });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("hide_failed", "[community/posts/hide]", e);
   }
 }

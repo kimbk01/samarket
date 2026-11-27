@@ -5,14 +5,26 @@ import {
   resolveInboxNotificationDisplayText as resolveStoredKeyOrText,
 } from "@/lib/notifications/notify-safe-translate";
 import {
+  isNotificationPreviewBodyRow,
   mapLegacyNotificationText,
   renderNotificationCopyFromMeta,
 } from "@/lib/notifications/notification-stored-copy";
+import {
+  mapLegacySupportNotificationBody,
+  mapLegacySupportNotificationTitle,
+} from "@/lib/notifications/support-legacy-notification-copy";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
-/** 저장 문장 — 알려진 알림 문구면 보는 사람 언어로(설계 §4-3 옛 행), 아니면 기존 처리(키 문자열 번역·그대로) */
-function resolveInboxNotificationDisplayText(lang: AppLanguageCode, text: string | null | undefined): string {
-  return mapLegacyNotificationText(lang, text) ?? resolveStoredKeyOrText(lang, text);
+/**
+ * 저장 문장 — 알려진 알림 문구면 보는 사람 언어로(설계 §4-3 옛 행), 아니면 기존 처리(키 문자열 번역·그대로).
+ * 본문(`part: "body"`)은 치환 틀·시스템 본문 고정 문장만 대응한다(언어 사후 검토 E1).
+ */
+function resolveInboxNotificationDisplayText(
+  lang: AppLanguageCode,
+  text: string | null | undefined,
+  part: "title" | "body"
+): string {
+  return mapLegacyNotificationText(lang, text, part) ?? resolveStoredKeyOrText(lang, text);
 }
 
 export type CommerceNotificationMeta = {
@@ -344,7 +356,9 @@ export function resolveCommerceNotificationInboxTitle(
   const baseKey =
     variant && variant !== "stored" ? variant.key : commerceTitleKey(kind, String(m.order_status ?? ""));
   if (!baseKey) {
-    return renderNotificationCopyFromMeta(lang, meta, "title") ?? resolveInboxNotificationDisplayText(lang, storedTitle);
+    return (
+      renderNotificationCopyFromMeta(lang, meta, "title") ?? resolveInboxNotificationDisplayText(lang, storedTitle, "title")
+    );
   }
   const key = senderVariantKey(baseKey, kind, m, storedBody, "title");
 
@@ -364,13 +378,13 @@ export function resolveCommerceNotificationInboxBody(
   const m = (meta ?? {}) as CommerceNotificationMeta;
   const kind = typeof m.kind === "string" ? m.kind : "";
   const variant = kind === "store_order_owner_status" ? buyerStatusVariant(m, "body") : null;
-  if (variant === "stored" && raw) return resolveInboxNotificationDisplayText(lang, raw);
+  if (variant === "stored" && raw) return resolveInboxNotificationDisplayText(lang, raw, "body");
   const baseKey =
     variant && variant !== "stored" ? variant.key : commerceBodyKey(kind, String(m.order_status ?? ""));
 
   if (!baseKey) {
     if (!raw) return null;
-    return renderNotificationCopyFromMeta(lang, meta, "body") ?? resolveInboxNotificationDisplayText(lang, raw);
+    return renderNotificationCopyFromMeta(lang, meta, "body") ?? resolveInboxNotificationDisplayText(lang, raw, "body");
   }
 
   const key = senderVariantKey(baseKey, kind, m, storedBody, "body");
@@ -400,6 +414,8 @@ export function resolveNotificationInboxTitle(
     title: string;
     body?: string | null;
     meta?: Record<string, unknown> | null;
+    /** 알면 넘긴다 — 옛 고객센터 문장 대응을 `support_*` 행으로 좁힌다 */
+    event_type?: string | null;
   }
 ): string {
   if (row.notification_type === "commerce") {
@@ -414,7 +430,10 @@ export function resolveNotificationInboxTitle(
   const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "title");
   if (fromMeta) return fromMeta;
   if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, row.title);
-  return resolveInboxNotificationDisplayText(lang, row.title);
+  return (
+    mapLegacySupportNotificationTitle(lang, row.title, row.event_type) ??
+    resolveInboxNotificationDisplayText(lang, row.title, "title")
+  );
 }
 
 /**
@@ -434,6 +453,8 @@ export function resolveNotificationInboxBody(
     notification_type: string;
     body: string | null;
     meta?: Record<string, unknown> | null;
+    /** 알면 넘긴다 — 옛 고객센터 문장 대응을 `support_*` 행으로 좁힌다 */
+    event_type?: string | null;
   }
 ): string | null {
   if (row.notification_type === "commerce") {
@@ -445,5 +466,9 @@ export function resolveNotificationInboxBody(
   const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "body");
   if (fromMeta) return fromMeta;
   if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, raw);
-  return resolveInboxNotificationDisplayText(lang, raw);
+  // E1 — 댓글·답글·메시지 미리보기 본문은 사람이 쓴 글이라 옛 문장 대응을 하지 않는다.
+  if (isNotificationPreviewBodyRow(row.meta)) return resolveStoredKeyOrText(lang, raw);
+  return (
+    mapLegacySupportNotificationBody(lang, raw, row.event_type) ?? resolveInboxNotificationDisplayText(lang, raw, "body")
+  );
 }

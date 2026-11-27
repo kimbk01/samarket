@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   isMissingPointPlansTable,
   normalizePointPlanRow,
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (isMissingPointPlansTable(error.message ?? "")) {
       return NextResponse.json({ ok: true, plans: [] });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/point-plans]", error);
   }
 
   const plans = (rows ?? []).map((row) => normalizePointPlanRow(row as Record<string, unknown>, lang));

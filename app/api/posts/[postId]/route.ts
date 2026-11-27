@@ -1,4 +1,5 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ export async function GET(
 
   if (error) {
     void viewerPromise.catch(() => {});
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return internalErrorResponse("post_load_failed", "[api/posts/postId]", error);
   }
   if (!data) {
     void viewerPromise.catch(() => {});

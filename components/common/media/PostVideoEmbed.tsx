@@ -70,7 +70,7 @@ export function PostVideoEmbed({ video, label }: { video: PostVideo; label?: str
       <figcaption className="mt-1 flex items-center justify-between gap-2 text-[13px] text-sam-muted">
         <span className="min-w-0 truncate">{caption}</span>
         <a href={video.watchUrl} target="_blank" rel="noreferrer noopener" className="shrink-0 underline underline-offset-2" data-testid="post-video-external">
-          {providerName ? t("reaudit_post_video_open_on", { provider: providerName }) : t("reaudit_post_video_open_source")}
+          {providerName ? t("reaudit_post_video_open_on", { provider: providerName }) : t("admin_trade_post_detail_view_original")}
         </a>
       </figcaption>
     </figure>

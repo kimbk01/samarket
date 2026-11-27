@@ -9,7 +9,10 @@ import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
+import {
+  notificationCopyMeta,
+  type NotificationCopyMetaInput,
+} from "@/lib/notifications/notification-stored-copy";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 function trim(v: unknown): string {
@@ -21,14 +24,31 @@ function roomHref(roomId: string, transferId: string): string {
   return `/community-messenger/rooms/${encodeURIComponent(roomId)}?${q.toString()}`;
 }
 
+type PeerLabel = {
+  /** 저장 제목·본문에 넣는 이름(대체 이름이면 받는 사람 언어로 번역된 글자) */
+  name: string;
+  /** meta 용 — 실제 이름이면 vars, 대체 이름이면 varKeys(E4① `peerFallback`) */
+  copy: Pick<NotificationCopyMetaInput, "vars" | "varKeys">;
+};
+
+function peerLabelFrom(
+  language: Parameters<typeof notifySafeT>[0],
+  raw: string,
+  fallbackKey: "notify_peer_fallback" | "notify_member_fallback_name"
+): PeerLabel {
+  if (raw) return { name: raw, copy: { vars: { name: raw } } };
+  // 언어 사후 검토 E4① — 대체 이름은 vars 에 넣지 않고 키(varKeys)로 — 화면이 보는 사람 언어로 그린다.
+  return { name: notifySafeT(language, fallbackKey), copy: { varKeys: { name: fallbackKey } } };
+}
+
 async function peerLabel(
   sb: SupabaseClient,
   peerUserId: string,
   language: Parameters<typeof notifySafeT>[0]
-): Promise<string> {
+): Promise<PeerLabel> {
   const nickMap = await fetchNicknamesForUserIds(sb, [peerUserId]);
   // B-10: 대체 이름은 받는 사람 언어.
-  return nickMap.get(peerUserId)?.trim() || notifySafeT(language, "notify_peer_fallback");
+  return peerLabelFrom(language, nickMap.get(peerUserId)?.trim() || "", "notify_peer_fallback");
 }
 
 export async function notifyGiftTransferOffered(
@@ -51,9 +71,13 @@ export async function notifyGiftTransferOffered(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, recipientId);
-  const peer = await peerLabel(sb, senderId, language);
-  // 4절 문구 — 아이디(@…) 대신 「회원」
-  const name = peer.startsWith("@") ? notifySafeT(language, "notify_member_fallback_name") : peer;
+  const nickMap = await fetchNicknamesForUserIds(sb, [senderId]);
+  const rawPeer = nickMap.get(senderId)?.trim() || "";
+  // 4절 문구 — 아이디(@…) 대신 「회원」, 이름 없음은 「상대」
+  const peer = rawPeer.startsWith("@")
+    ? peerLabelFrom(language, "", "notify_member_fallback_name")
+    : peerLabelFrom(language, rawPeer, "notify_peer_fallback");
+  const name = peer.name;
 
   await appendUserNotification(sb, {
     user_id: recipientId,
@@ -70,7 +94,7 @@ export async function notifyGiftTransferOffered(
       ...notificationCopyMeta({
         titleKey: "notify_gift_transfer_offered_title",
         messageKey: "notify_gift_transfer_offered_body",
-        vars: { name },
+        ...peer.copy,
       }),
       gift_transfer_id: transferId,
       room_id: roomId,
@@ -100,7 +124,8 @@ export async function notifyGiftTransferAccepted(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, senderId);
-  const name = await peerLabel(sb, recipientId, language);
+  const peer = await peerLabel(sb, recipientId, language);
+  const name = peer.name;
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)
@@ -121,7 +146,7 @@ export async function notifyGiftTransferAccepted(
       ...notificationCopyMeta({
         titleKey: "notify_gift_transfer_accepted_title",
         messageKey: "notify_gift_transfer_accepted_body",
-        vars: { name },
+        ...peer.copy,
       }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,
@@ -151,7 +176,8 @@ export async function notifyGiftTransferRejected(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, senderId);
-  const name = await peerLabel(sb, recipientId, language);
+  const peer = await peerLabel(sb, recipientId, language);
+  const name = peer.name;
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)
@@ -172,7 +198,7 @@ export async function notifyGiftTransferRejected(
       ...notificationCopyMeta({
         titleKey: "notify_gift_transfer_rejected_title",
         messageKey: "notify_gift_transfer_rejected_body",
-        vars: { name },
+        ...peer.copy,
       }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,
@@ -202,7 +228,8 @@ export async function notifyGiftTransferCancelled(
   if (isNotificationSuppressedForActor(relation)) return;
 
   const language = await loadNotificationUserLanguage(sb, recipientId);
-  const name = await peerLabel(sb, senderId, language);
+  const peer = await peerLabel(sb, senderId, language);
+  const name = peer.name;
   const link =
     roomId.length > 0
       ? roomHref(roomId, transferId)
@@ -223,7 +250,7 @@ export async function notifyGiftTransferCancelled(
       ...notificationCopyMeta({
         titleKey: "notify_gift_transfer_cancelled_title",
         messageKey: "notify_gift_transfer_cancelled_body",
-        vars: { name },
+        ...peer.copy,
       }),
       gift_transfer_id: transferId,
       room_id: roomId || undefined,

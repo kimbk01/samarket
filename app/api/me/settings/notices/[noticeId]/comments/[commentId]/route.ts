@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     .is("deleted_at", null);
 
   if (updErr) {
-    return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+    return internalErrorResponse("delete_failed", "[me/settings/notices/comments DELETE]", updErr);
   }
 
   const { data: content } = await sb

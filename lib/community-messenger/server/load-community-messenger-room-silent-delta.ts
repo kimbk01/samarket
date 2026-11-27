@@ -153,7 +153,7 @@ function buildSilentDeltaRoomSummary(
     roomType === "direct"
       ? translate(lang, "cm_svc_direct_subtitle")
       : roomType === "open_group"
-        ? translate(lang, "cm_ui_open_group_subtitle")
+        ? translate(lang, "admin_cm_room_type_open_group")
         : translate(lang, "cm_svc_group_subtitle", { count: effectiveMemberCount });
 
   return {
@@ -173,7 +173,8 @@ function buildSilentDeltaRoomSummary(
     isMuted,
     isPinned,
     lastMessage:
-      roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
+      roomLastMessage ||
+      translate(lang, roomType === "direct" ? "cm_svc_last_msg_direct" : "cm_svc_last_msg_group"),
     lastMessageType: roomLastMessageType,
     lastMessageAt: roomLastAt,
     memberCount: effectiveMemberCount,

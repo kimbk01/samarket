@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import { peekMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
@@ -213,7 +214,7 @@ export function MessengerChatRoomActionSheet({
             </div>
           </div>
         ) : (
-          <DibaySheetHeader title={room.title} onClose={onClose} closeLabel={t("nav_close")} />
+          <DibaySheetHeader title={resolveMessengerRoomDisplayTitle(room, t)} onClose={onClose} closeLabel={t("nav_close")} />
         )}
         <DibayMenuList groups={groups} />
       </div>

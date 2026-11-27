@@ -122,7 +122,7 @@ function toHeader(dto: RoomDto): DomainRoomCanaryHeader | null {
   if (h.kind === "owner_buyer_peer") {
     return {
       kind: "owner_buyer_peer",
-      title: h.customerName.trim() || translateCmUi("cm_ui_store_order_customer_fallback"),
+      title: h.customerName.trim() || translateCmUi("business_phase7_275"),
       avatarUrl: h.customerAvatarUrl,
       orderId: h.orderId?.trim() || null,
       orderStatusLabel: h.orderStatusLabel?.trim() || null,

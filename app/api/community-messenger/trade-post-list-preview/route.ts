@@ -100,15 +100,14 @@ export async function GET(req: NextRequest) {
     const msg = supabaseErrorMessage(error);
     lastErrorMessage = msg || lastErrorMessage;
     if (!shouldRetryPostSelectWithReducedColumns(error)) {
-      return NextResponse.json({ ok: false, error: msg || "posts_fetch_failed" }, { status: 500 });
+      console.error("[community-messenger/trade-post-list-preview]", { code: error.code, message: msg });
+      return NextResponse.json({ ok: false, error: "posts_fetch_failed" }, { status: 500 });
     }
   }
 
   if (!post) {
-    return NextResponse.json(
-      { ok: false, error: lastErrorMessage || "posts_fetch_failed" },
-      { status: 500 }
-    );
+    if (lastErrorMessage) console.error("[community-messenger/trade-post-list-preview]", { message: lastErrorMessage });
+    return NextResponse.json({ ok: false, error: "posts_fetch_failed" }, { status: 500 });
   }
 
   const row = post;

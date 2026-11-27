@@ -12,8 +12,8 @@ const SUMMARY_MARKERS: readonly string[] = [
   "📋 [매장] 주문 내용 전달",
   "📋 주문 요약",
   "[매장] 주문 내용 전달",
-  translate("ko", "store_order_summary_header"),
-  translate("en", "store_order_summary_header"),
+  translate("ko", "cm_home_preview_order_summary"),
+  translate("en", "cm_home_preview_order_summary"),
 ];
 
 const ORDER_NO_MARKERS: readonly string[] = [

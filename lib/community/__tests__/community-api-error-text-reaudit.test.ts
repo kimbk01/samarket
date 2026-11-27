@@ -69,7 +69,7 @@ describe("필라이프 API 오류 코드 → 화면 문구 (재감사 2026-11-27
 
 describe("필라이프 옛 저장 문장 → 화면 언어 (재감사 2026-11-27)", () => {
   it("저장 기본 지역 「동네」는 화면 언어 키로, 실제 지역 이름은 그대로", () => {
-    expect(COMMUNITY_PUBLIC_REGION_FALLBACK).toBe(translate("ko", "community_region_fallback"));
+    expect(COMMUNITY_PUBLIC_REGION_FALLBACK).toBe(translate("ko", "community_local_filter_area_label"));
     expect(communityRegionLabelText(COMMUNITY_PUBLIC_REGION_FALLBACK, tFor("en"))).toBe("Neighborhood");
     expect(communityRegionLabelText(COMMUNITY_PUBLIC_REGION_FALLBACK, tFor("ko"))).toBe("동네");
     expect(communityRegionLabelText("Makati", tFor("en"))).toBe("Makati");
@@ -115,5 +115,26 @@ describe("가져온 영상 링크 — 저장 문구 없이 표식만 (재감사 
       const [seg] = splitPostTextWithVideos(`${v!.label} ${v!.url}`);
       expect(seg).toMatchObject({ kind: "video", label: "▶" });
     }
+  });
+});
+
+describe("E3 — 글 저장 사진 장수 한도는 서버 params.max 로 그린다 (언어 사후 검토)", () => {
+  it("동네 글 등록·수정 route 가 params 를 함께 보낸다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    for (const rel of [
+      "app/api/community/neighborhood-posts/route.ts",
+      "app/api/community/neighborhood-posts/[postId]/route.ts",
+    ]) {
+      const src = readFileSync(resolve(process.cwd(), rel), "utf8");
+      expect(src, rel).toContain("params: imagesRes.params");
+    }
+  });
+
+  it("too_many_images + params.max → 그 숫자로 화면 언어 문구", () => {
+    const json = { ok: false, error: "too_many_images", code: "too_many_images", params: { max: 7 } };
+    expect(communityApiErrorText({ json }, COMMUNITY_POST_WRITE_ERROR_KEYS, "philife_write_err_register_failed", tFor("en"))).toBe(
+      translate("en", "philife_write_err_image_limit", { max: 7 })
+    );
   });
 });

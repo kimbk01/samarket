@@ -301,7 +301,7 @@ function createPlaceholderMessage(args: {
               .reverse()
               .find((m) => m.senderId && messengerUserIdsEqual(m.senderId, senderId) && m.senderLabel?.trim())
               ?.senderLabel
-          : undefined) ?? (room?.roomType === "direct" ? room.title : translateCmUi("cm_ui_new_message_label")),
+          : undefined) ?? (room?.roomType === "direct" ? room.title : translateCmUi("notify_preview_new_message")),
     messageType: mt,
     content: typeof row.content === "string" ? row.content : "",
     createdAt,

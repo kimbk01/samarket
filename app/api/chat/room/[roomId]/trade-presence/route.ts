@@ -10,6 +10,7 @@ import {
 } from "@/lib/chats/trade-presence-rules";
 import { formatTradeLastSeenLabel } from "@/lib/chats/trade-presence-policy";
 import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +76,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ roomId: 
         schema_missing: true,
       });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("trade_presence_load_failed", "[chat/room/trade-presence]", error);
   }
 
   const rows = (data ?? []) as PresenceRow[];

@@ -4,13 +4,14 @@ import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { orderStatusLabelForSummary } from "@/lib/store-order-chat/store-order-summary-timeline";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate } from "@/lib/i18n/messages";
+import { isApiErrorCode } from "@/lib/i18n/api-error-text";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 /**
  * 채팅·서버 idempotent 요약 — 단일 헤더 (구매자/매장 동일).
  * 한국어 저장본·레거시 판별(`collapse-duplicate-order-summaries`)과 같은 값을 유지하려고 ko 카탈로그 값을 쓴다.
  */
-export const STORE_ORDER_SUMMARY_HEADER = translate("ko", "store_order_summary_header");
+export const STORE_ORDER_SUMMARY_HEADER = translate("ko", "cm_home_preview_order_summary");
 
 export type ChatSummaryOrderFields = {
   store_name?: string;
@@ -41,9 +42,6 @@ export type ChatSummaryItemFields = {
   options_snapshot_json?: unknown;
 };
 
-/** DB 상태 코드 모양(`accepted`·`cancel_requested` …)이 아니면 이미 사람이 읽는 라벨로 보고 그대로 쓴다 */
-const ORDER_STATUS_CODE_SHAPE = /^[a-z][a-z0-9_]*$/;
-
 /**
  * 채팅방 주문 요약 — 자동·수동 전송 모두 동일 포맷 (문구는 카탈로그 `store_order_summary_*`).
  * `language` 를 넘기면 그 언어로, 서버 저장본(레거시 판별 유지)은 `"ko"`.
@@ -58,12 +56,12 @@ export function formatStoreOrderSummaryText(
   const tr = (key: Parameters<typeof translate>[1], vars?: Record<string, string | number>) =>
     translate(language, key, vars);
   const lines: string[] = [];
-  lines.push(tr("store_order_summary_header"));
+  lines.push(tr("cm_home_preview_order_summary"));
   if (order.store_name) lines.push(tr("store_order_summary_store", { store: order.store_name }));
   if (order.order_no) lines.push(tr("store_order_summary_order_no", { orderNo: order.order_no }));
   if (order.order_status) {
     const raw = order.order_status.trim();
-    const labeled = ORDER_STATUS_CODE_SHAPE.test(raw)
+    const labeled = isApiErrorCode(raw) /* DB 상태 코드 모양(`accepted` …)이 아니면 이미 사람이 읽는 라벨 */
       ? orderStatusLabelForSummary(raw, order.fulfillment_type ?? "local_delivery", statusLanguage)
       : order.order_status;
     lines.push(tr("store_order_summary_status", { status: labeled }));
@@ -76,7 +74,7 @@ export function formatStoreOrderSummaryText(
     lines.push(tr("store_order_summary_address", { address: deliveryAddr }));
   }
   if (order.buyer_phone?.trim()) {
-    lines.push(tr("store_order_summary_phone", { phone: order.buyer_phone.trim() }));
+    lines.push(tr("store_oc_summary_phone", { phone: order.buyer_phone.trim() }));
   }
   if (items.length > 0) {
     lines.push(tr("store_order_summary_items"));

@@ -40,6 +40,7 @@ export async function GET() {
       { headers: { "Cache-Control": TOPIC_OPTIONS_CACHE_CONTROL } }
     );
   } catch (e) {
+    console.error("[philife/neighborhood-topic-options]", { message: e instanceof Error ? e.message : String(e) });
     return NextResponse.json(
       {
         ok: false,
@@ -48,7 +49,7 @@ export async function GET() {
         showAllFeedTab: true,
         showNeighborOnlyFilter: true,
         source: "error",
-        error: (e as Error).message,
+        error: "load_failed",
       },
       { status: 200, headers: { "Cache-Control": "private, no-store" } }
     );

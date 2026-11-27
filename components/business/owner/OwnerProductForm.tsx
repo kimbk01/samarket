@@ -40,8 +40,7 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
+import { isOwnerApiErrorCode, resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,

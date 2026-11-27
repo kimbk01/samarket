@@ -272,7 +272,7 @@ export async function POST(
   }
   if (partFetchErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
-    console.error("[chat/rooms/messages] participant lookup failed", partFetchErr);
+    console.error("[chat/rooms/messages] participant lookup failed", { code: (partFetchErr as { code?: string }).code, message: partFetchErr.message });
     return tradeApiError("trade_chat_participant_lookup_failed", 500);
   }
   {
@@ -334,7 +334,7 @@ export async function POST(
 
   if (insertErr) {
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 500);
-    console.error("[chat/rooms/messages] insert failed", insertErr);
+    console.error("[chat/rooms/messages] insert failed", { code: (insertErr as { code?: string }).code, message: insertErr.message });
     return tradeApiError("trade_chat_message_insert_failed", 500);
   }
   const now = (msg as { created_at: string }).created_at ?? new Date().toISOString();

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTradeRoomListingUnavailable } from "@/lib/community-messenger/room/phase2/use-trade-room-listing-unavailable";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { deliveryContextStepLabel } from "@/lib/community-messenger/store-order-messenger-context";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import type { ChatRoom } from "@/lib/types/chat";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
@@ -141,7 +142,7 @@ function buildTradeContextFromMeta(
 }
 
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const tradePostDetailSlide = useTradePostDetailSlideHost();
 
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
@@ -335,7 +336,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       storeName: deliveryHeaderModel.title,
       statusLabel:
         snap?.orderCard?.statusLabel ??
-        deliveryMeta?.stepLabel ??
+        deliveryContextStepLabel(deliveryMeta, language) ??
         snap?.buyerOrder?.order_status ??
         null,
       addressLine,
@@ -343,7 +344,8 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   }, [
     deliveryHeaderModel.mode,
     deliveryHeaderModel.title,
-    deliveryMeta?.stepLabel,
+    deliveryMeta,
+    language,
     deliveryRoomSnap?.snapshot,
     isDeliveryRoom,
   ]);

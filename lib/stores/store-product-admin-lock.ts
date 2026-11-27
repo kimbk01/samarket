@@ -16,7 +16,7 @@ import {
   type ApiErrorCodeMap,
   type ApiErrorTranslate,
 } from "@/lib/i18n/api-error-text";
-import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export const STORE_PRODUCT_ADMIN_LOCKS = ["hidden", "sold_out", "blocked"] as const;
 export type StoreProductAdminLock = (typeof STORE_PRODUCT_ADMIN_LOCKS)[number];
@@ -90,11 +90,6 @@ export const ADMIN_LOCK_KIND_KEYS: Readonly<Record<StoreProductAdminLock, Messag
 /** 오너 허브·폼 표시용 — 「관리자 {잠금} 조치」 */
 export function ownerAdminLockLabel(lock: StoreProductAdminLock, t: ApiErrorTranslate): string {
   return t("store_admin_lock_action_label", { lock: t(ADMIN_LOCK_KIND_KEYS[lock]) });
-}
-
-/** @deprecated `ownerAdminLockLabel(lock, t)` — 옮기기 전 호출처용(ko 고정) */
-export function ownerAdminLockLabelKo(lock: StoreProductAdminLock): string {
-  return ownerAdminLockLabel(lock, (key, vars) => translate("ko", key, vars));
 }
 
 /** 상태 변경 거부 코드 → 키 */

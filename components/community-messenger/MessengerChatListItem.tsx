@@ -50,6 +50,8 @@ import {
 } from "@/lib/messenger-policy/messenger-swipe-leave-visibility";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { messengerRoomTitleDisplayKey } from "@/lib/community-messenger/room/messenger-room-display-title";
+import { deliveryContextStepLabel } from "@/lib/community-messenger/store-order-messenger-context";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import { MessengerChatListTypingPreview } from "@/components/community-messenger/chat-list/MessengerChatListTypingPreview";
@@ -411,8 +413,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     if (commerceListPresentation.statusLabelKey) {
       return t(commerceListPresentation.statusLabelKey);
     }
-    return commerceMeta.stepLabel?.trim() || null;
-  }, [commerceMeta, commerceListPresentation.statusLabelKey, t]);
+    /** 원 상태 코드가 있으면 보는 사람 언어로(서버 stepLabel 은 기본 언어 고정 저장) */
+    return deliveryContextStepLabel(commerceMeta, language);
+  }, [commerceMeta, commerceListPresentation.statusLabelKey, language, t]);
 
   const isTradeChatListVisual = listVisual === "trade";
   const isDeliveryChatListVisual = listVisual === "delivery";
@@ -420,6 +423,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const listDisplayTitle = useMemo(() => {
     /** 거래 방 상대 이름이 빈 값이면 제목이 빈칸 — 거래 목록 행 모델과 같은 대체 키 (재감사 2026-11-27) */
     if (commerceMeta?.kind === "trade" && !room.title.trim()) return t("chats_trade_list_peer_fallback");
+    /** 서버 대체 제목(「새 대화」·「회원 …」·「그룹 N명」·「공개 그룹방」 — 응답 언어 고정) → 보는 사람 언어. 사람이 쓴 제목은 그대로 */
+    const titleDisplay = messengerRoomTitleDisplayKey({ title: room.title, roomType: room.roomType });
+    if (titleDisplay) return t(titleDisplay.key, titleDisplay.vars);
     if (isPillarChatListVisual || room.roomType !== "direct") return room.title;
     return incomingCallPeerNicknameLabel(room.title) || room.title;
   }, [commerceMeta?.kind, isPillarChatListVisual, room.roomType, room.title, t]);

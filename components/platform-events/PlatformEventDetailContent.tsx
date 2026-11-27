@@ -118,7 +118,7 @@ function SectionBlock({
     return (
       <section className="space-y-1">
         <h3 className="text-[13px] font-semibold text-sam-muted">
-          {safeTranslate(language, "platform_event_terms_title")}
+          {safeTranslate(language, "admin_event_editor_section_kind_terms")}
         </h3>
         <div className="text-[12px] leading-relaxed text-sam-muted">
           <CustomerCenterSafeMarkdownBody body={section.body} />

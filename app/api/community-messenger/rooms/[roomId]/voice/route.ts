@@ -12,6 +12,7 @@ import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enfor
 import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import { purgeMessengerMediaStoragePaths } from "@/lib/community-messenger/messenger-media-purge";
 import { resolveMessengerMediaUploadBucket } from "@/lib/community-messenger/server/messenger-media-bucket";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   });
 
   if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message ?? "upload_failed" }, { status: 500 });
+    return internalErrorResponse("upload_failed", "[community-messenger/rooms/voice]", upErr);
   }
 
   const {

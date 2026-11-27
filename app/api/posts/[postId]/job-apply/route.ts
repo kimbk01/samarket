@@ -45,7 +45,7 @@ export async function POST(
     .maybeSingle();
 
   if (fetchErr) {
-    console.error("[posts/job-apply] post lookup failed", fetchErr);
+    console.error("[posts/job-apply] post lookup failed", { code: (fetchErr as { code?: string }).code, message: fetchErr.message });
     return tradeApiError("job_apply_failed", 500);
   }
   if (!row) {
@@ -97,7 +97,7 @@ export async function POST(
     if (/duplicate|unique/i.test(msg)) {
       return tradeApiError("duplicate_application", 409);
     }
-    console.error("[posts/job-apply] insert failed", insErr);
+    console.error("[posts/job-apply] insert failed", { code: (insErr as { code?: string }).code, message: insErr.message });
     return tradeApiError("job_apply_failed", 500);
   }
 

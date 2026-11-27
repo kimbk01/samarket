@@ -28,6 +28,7 @@ const TRADE_CONTEXT_META_KEYS: (keyof CommunityMessengerRoomContextMetaV1)[] = [
   "priceLabel",
   "thumbnailUrl",
   "stepLabel",
+  "orderStatus",
   "roleLabel",
   "itemStateLabel",
   "categoryMenuLabel",

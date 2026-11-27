@@ -15,6 +15,7 @@ import {
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { resolveRoomContextHeadline } from "@/lib/community-messenger/delivery-room-headline";
 import { resolveStoredMessagePlaceholderKey } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { ROOM_LIST_PREVIEW_CALL_TOKEN } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
@@ -131,6 +132,9 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
      * "시스템 메시지"로 표기하지 않고 아래 빈 방/컨텍스트 안내로 내려간다.
      */
     if (lastMessage) {
+      /** 빈 방 안내(서버가 한 언어로 채움 — 새 방은 종류가 system) → 보는 사람 언어 */
+      const emptyRoomKey = messengerRoomLastMessagePlaceholderKey(lastMessage);
+      if (emptyRoomKey) return translateCmUi(emptyRoomKey);
       /** 언어 SSOT B3 — 종류 코드가 저장 글자와 맞으면 보는 사람 언어로, 아니면 저장 글자 */
       return (
         resolveCmSystemListPreview({ lastMessage, meta: room.lastMessageMeta }, translateCmUi) ??
@@ -172,7 +176,9 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
     return lastMessage;
   }
   const meta = room.contextMeta;
-  if (meta?.headline) return meta.headline;
+  /** 배달 방 머리 문구는 매장명·주문번호로 보는 사람 언어(서버는 만들지 않음) */
+  const headline = resolveRoomContextHeadline(meta);
+  if (headline) return headline;
   const summary = room.summary?.trim();
   if (summary) {
     if (meta) return translateCmUi("cm_home_preview_check_message");

@@ -11,8 +11,7 @@ import { invalidateStoreBannersPublicCache } from "@/lib/stores/store-delivery-a
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { isOwnerApiErrorCode } from "@/lib/business/owner-api-error-text";
+import { isOwnerApiErrorCode, resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,

@@ -241,7 +241,7 @@ export async function recordStoreOrderPaid(
         hint: "apply migration store_payments",
       };
     }
-    console.error("[recordStoreOrderPaid insert]", insErr);
+    console.error("[recordStoreOrderPaid insert]", { code: (insErr as { code?: string }).code, message: insErr.message });
     return { ok: false, error: insErr.message, httpStatus: 500 };
   }
 

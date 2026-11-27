@@ -120,7 +120,11 @@ export function mergeStoreOrderLifecycleIntoDeliveryContextMeta(
   const storeProfileImageUrl =
     trim(args.storeProfileImageUrl) || trim(meta.storeProfileImageUrl) || trim(meta.thumbnailUrl);
   const storeOwnerUserId = trim(args.storeOwnerUserId) || trim(meta.storeOwnerUserId);
-  const headline = usableStoreName(meta.headline) || storeDisplayName || "";
+  /**
+   * 저장 headline 만 유지한다. 없으면 만들지 않는다 — 화면이 매장명·주문번호로 보는 사람 언어로 그린다
+   * (`resolveRoomContextHeadline`, 언어 사후 검토 M2). 매장명은 `storeDisplayName` 에 둔다.
+   */
+  const headline = usableStoreName(meta.headline) || "";
   const next: CommunityMessengerRoomContextMetaV1 = {
     ...meta,
     kind: "delivery",

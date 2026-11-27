@@ -3,6 +3,7 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { readAppleIapServerConfig } from "@/lib/apple-iap/apple-iap-config.server";
 import { appleIapIsUuid } from "@/lib/apple-iap/apple-iap-contract";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   listActiveAppleIapProducts,
   listAppleIapAttentionAttempts,
@@ -40,6 +41,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ]);
     return NextResponse.json({ ok: true, configured: true, products, attention, attempt });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("status_failed", "[me/apple-iap/status]", e);
   }
 }

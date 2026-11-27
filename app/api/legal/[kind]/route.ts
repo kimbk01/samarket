@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   APP_LEGAL_DOCUMENT_SELECT,
   isAppLegalKind,
@@ -48,7 +49,7 @@ export async function GET(
     if (isMissingAppLegalDocumentsTableError(error.message ?? "")) {
       return NextResponse.json({ ok: false, error: "table_missing", document: null }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[legal]", error);
   }
 
   const rows = (data ?? [])

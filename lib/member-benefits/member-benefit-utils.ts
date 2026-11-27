@@ -18,8 +18,8 @@ export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
  */
 export const MEMBER_TYPE_LABEL_KEYS: Record<MemberType, MessageKey> = {
   normal: "member_type_normal",
-  premium: "member_type_premium",
-  admin: "member_type_admin",
+  premium: "benefits_role_premium",
+  admin: "profile_member_admin",
 };
 
 export const MEMBER_BENEFIT_LOG_ACTION_LABELS: Record<

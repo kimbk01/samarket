@@ -150,7 +150,7 @@ export function usePhilifePostComments(postId: string) {
         if (!data.ok) {
           const profileHandled = handleProfileIncompleteApiResponse(data);
           setSubmitError(
-            profileHandled.handled ? t("community_comment_err_profile_incomplete") : resolveSubmitError(res, data)
+            profileHandled.handled ? t("api_err_profile_incomplete") : resolveSubmitError(res, data)
           );
           return false;
         }

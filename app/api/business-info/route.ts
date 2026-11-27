@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   APP_BUSINESS_INFO_SELECT,
   isAppBusinessLocale,
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     if (isMissingAppPlatformBusinessInfoTableError(error.message ?? "")) {
       return NextResponse.json({ ok: false, error: "table_missing", document: null }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[business-info]", error);
   }
 
   const rows = (data ?? [])

@@ -58,6 +58,7 @@ import {
 import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { getRoomTypeBadgeLabel } from "@/lib/community-messenger/cm-home-list-copy";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import { getViewerUserId } from "@/lib/auth/viewer-user-id";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -150,6 +151,7 @@ function ChatKindSection({
   query: string;
   onOpen: (hit: GlobalSearchChatHit) => void;
 }) {
+  const { t } = useI18n();
   if (hits.length === 0) return null;
   return (
     <div className="space-y-1.5" data-global-search-chat-kind={hits[0]?.kind}>
@@ -171,10 +173,11 @@ function ChatKindSection({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <p className="truncate sam-text-body font-semibold text-sam-fg">
+                    {/* 서버 대체 제목(「새 대화」·「그룹 N명」 등)은 보는 사람 언어로 — 언어 사후 검토 M2 */}
                     {hit.matchedField === "title" ? (
-                      <SearchHighlightText text={hit.room.title} query={query} />
+                      <SearchHighlightText text={resolveMessengerRoomDisplayTitle(hit.room, t)} query={query} />
                     ) : (
-                      hit.room.title
+                      resolveMessengerRoomDisplayTitle(hit.room, t)
                     )}
                   </p>
                   <span className="shrink-0 rounded-full bg-sam-primary-soft px-1.5 py-0.5 sam-text-xxs text-sam-primary">

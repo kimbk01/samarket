@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { loadActiveEventHeroBanners } from "@/lib/platform-promotion-distribution/load-active-event-hero-banners";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -23,9 +24,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       paidSideEffect: 0,
     });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "failed" },
-      { status: 500 }
-    );
+    return internalErrorResponse("load_failed", "[platform-events/hero-banners]", e);
   }
 }

@@ -9,6 +9,7 @@ import type {
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { warnMarkReadPerformanceLockIfNeeded } from "@/lib/community-messenger/mark-read-performance-lock";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import {
   createMarkReadRecentResultCache,
   markReadRequestWantsBadgeAck,
@@ -598,9 +599,7 @@ export async function PATCH(
         { status: result.ok ? 200 : 400 }
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      console.error("[mark_read_error]", e);
-      return NextResponse.json({ ok: false, error: message }, { status: 500 });
+      return internalErrorResponse("mark_read_failed", "[mark_read_error]", e);
     }
   }
   if (body.action === "archive") {

@@ -8,6 +8,12 @@ const h = vi.hoisted(() => ({
   rankCalls: 0,
   policyLoads: 0,
   rankImpl: null as null | (() => Promise<unknown>),
+  lang: "ko" as "ko" | "en",
+}));
+
+/** M3 (i18n-postmerge 2026-11-27) — 응답 언어 = 내정보 언어(화면 언어 쿠키) → 기기 언어 → en */
+vi.mock("@/lib/i18n/request-app-language", () => ({
+  resolveRequestAppLanguageOr: async () => h.lang,
 }));
 
 vi.mock("@/lib/stores/try-supabase-stores", () => {
@@ -111,7 +117,8 @@ function member(userId: string, addressId = "addr-1") {
   };
 }
 
-async function call(lang = "ko") {
+async function call(lang: "ko" | "en" = "ko") {
+  h.lang = lang;
   const res = await GET(
     new Request("http://localhost/api/stores/home-feed", { headers: { "accept-language": lang } })
   );

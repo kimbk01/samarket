@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import type { PointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerRoomSummary,
@@ -249,7 +250,7 @@ function ImportantRoomRow({
             <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
               {badge}
             </span>
-            <p className="min-w-0 flex-1 truncate sam-text-body-secondary font-medium text-ui-fg">{room.title}</p>
+            <p className="min-w-0 flex-1 truncate sam-text-body-secondary font-medium text-ui-fg">{resolveMessengerRoomDisplayTitle(room, t)}</p>
             {room.unreadCount > 0 ? (
               <span className="shrink-0 rounded-full bg-ui-fg px-1.5 py-0.5 sam-text-xxs font-semibold text-ui-surface">
                 {room.unreadCount > 99 ? "99+" : room.unreadCount}
@@ -262,7 +263,7 @@ function ImportantRoomRow({
       </div>
       {menu ? (
         <RowActionSheet
-          title={room.title}
+          title={resolveMessengerRoomDisplayTitle(room, t)}
           onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             {

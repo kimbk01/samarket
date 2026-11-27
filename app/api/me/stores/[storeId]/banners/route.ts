@@ -134,7 +134,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
     .maybeSingle();
 
   if (insErr) {
-    console.error("[POST store_banners]", insErr);
+    console.error("[POST store_banners]", { code: (insErr as { code?: string }).code, message: insErr.message });
     return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/banners POST]", insErr, 500);
   }
 

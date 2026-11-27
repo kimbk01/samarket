@@ -27,7 +27,7 @@ const PROVINCE_OR_COUNTRY_RE =
 /**
  * `region_label`(NOT NULL) 저장 호환 기본값 — 옛 행과 같은 값을 유지한다(재감사 2026-11-27 · 브리프 STORED 규칙).
  * 화면은 이 값을 그대로 보이지 않고 `communityRegionLabelText`(lib/community/community-display-fallbacks.ts)로
- * 화면 언어 키(`community_region_fallback`)로 그린다.
+ * 화면 언어 키(`community_local_filter_area_label`)로 그린다.
  */
 export const COMMUNITY_PUBLIC_REGION_FALLBACK = "동네";
 

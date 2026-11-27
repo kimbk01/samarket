@@ -11,7 +11,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerCoinConvertSection } from "@/components/business/owner/OwnerCoinConvertSection";
 import { CurrencyBalanceCard } from "@/components/currency";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { Sam } from "@/lib/ui/css-vars";

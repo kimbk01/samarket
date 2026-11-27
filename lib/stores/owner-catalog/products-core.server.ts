@@ -184,7 +184,7 @@ export async function createStoreProductCore(
     uiLang
   );
   if (!limits.ok) {
-    return NextResponse.json({ ok: false, error: limits.error, message: limits.message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: limits.error, message: limits.message, params: limits.params }, { status: 400 });
   }
 
   const priceFloored = Math.floor(price);
@@ -305,7 +305,7 @@ export async function createStoreProductCore(
     const optCheck = validateOwnerOptionsJsonPayload(parsed.value, uiLang);
     if (!optCheck.ok) {
       return NextResponse.json(
-        { ok: false, error: optCheck.error, message: optCheck.message },
+        { ok: false, error: optCheck.error, message: optCheck.message, params: optCheck.params },
         { status: 400 }
       );
     }
@@ -797,7 +797,7 @@ export async function patchStoreProductCore(
     const optCheck = validateOwnerOptionsJsonPayload(parsed.value, uiLang);
     if (!optCheck.ok) {
       return NextResponse.json(
-        { ok: false, error: optCheck.error, message: optCheck.message },
+        { ok: false, error: optCheck.error, message: optCheck.message, params: optCheck.params },
         { status: 400 }
       );
     }
@@ -861,7 +861,7 @@ export async function patchStoreProductCore(
     uiLang
   );
   if (!limits.ok) {
-    return NextResponse.json({ ok: false, error: limits.error, message: limits.message }, { status: 400 });
+    return NextResponse.json({ ok: false, error: limits.error, message: limits.message, params: limits.params }, { status: 400 });
   }
 
   // PRD-10 — 저장 결과가 「재고 추적 · 재고 0 · 판매중」 이면 품절(stock) 로 저장하고 오너에게 안내.

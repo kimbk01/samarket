@@ -66,6 +66,9 @@ import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
 import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
+import { postmergeNotifMessages } from "./catalog/postmerge-notif";
+import { postmergeMessengerMessages } from "./catalog/postmerge-messenger";
+import { postmergeMiscMessages } from "./catalog/postmerge-misc";
 import { reauditTradeMessages } from "./catalog/reaudit-trade";
 import { reauditCommunityMessages } from "./catalog/reaudit-community";
 import { reauditMessengerMessages } from "./catalog/reaudit-messenger";
@@ -264,6 +267,9 @@ export type MessageKey =
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.ko>
   | KeyOf<typeof storeOrderStageTermsMessages.ko>
   | KeyOf<typeof navigationMessages.ko>
+  | KeyOf<typeof postmergeNotifMessages.ko>
+  | KeyOf<typeof postmergeMessengerMessages.ko>
+  | KeyOf<typeof postmergeMiscMessages.ko>
   | KeyOf<typeof reauditTradeMessages.ko>
   | KeyOf<typeof reauditCommunityMessages.ko>
   | KeyOf<typeof reauditMessengerMessages.ko>
@@ -412,6 +418,9 @@ type EnMessageKey =
   | KeyOf<typeof storeOrderChatSummaryLabelsMessages.en>
   | KeyOf<typeof storeOrderStageTermsMessages.en>
   | KeyOf<typeof navigationMessages.en>
+  | KeyOf<typeof postmergeNotifMessages.en>
+  | KeyOf<typeof postmergeMessengerMessages.en>
+  | KeyOf<typeof postmergeMiscMessages.en>
   | KeyOf<typeof reauditTradeMessages.en>
   | KeyOf<typeof reauditCommunityMessages.en>
   | KeyOf<typeof reauditMessengerMessages.en>

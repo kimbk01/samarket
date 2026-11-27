@@ -52,7 +52,13 @@ export function mergePostBodyImages(input: {
 
 export type MemberPostImagesResult =
   | { ok: true; images: string[] }
-  | { ok: false; error: "image_not_allowed" | "too_many_images"; message: string };
+  | {
+      ok: false;
+      error: "image_not_allowed" | "too_many_images";
+      message: string;
+      /** 응답 `params` — 화면 문구 치환값 (사후 검토 E3 2026-11-27) */
+      params?: { max: number };
+    };
 
 /**
  * 회원 native 글 — 이미지 URL 검증 + 10장 제한(조용히 자르지 않음).
@@ -93,6 +99,7 @@ export function resolveMemberPostImages(input: {
       ok: false,
       error: "too_many_images",
       message: "too_many_images",
+      params: { max },
     };
   }
   return { ok: true, images: merged };

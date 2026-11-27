@@ -89,7 +89,7 @@ export async function resolveLegacyProductChatCreateOrGet(input: {
     .single();
 
   if (insertErr) {
-    console.error("[legacy-product-chat] insert failed", insertErr);
+    console.error("[legacy-product-chat] insert failed", { code: (insertErr as { code?: string }).code, message: insertErr.message });
     return { ok: false, error: "chat_room_create_failed", status: 500 };
   }
   const ins = inserted as { id?: string } | null | undefined;

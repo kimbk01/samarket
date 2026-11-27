@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[community-messenger/store-profile-thumbnail store]", error);
   }
   if (!store) {
     return NextResponse.json({ ok: true, url: null });
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
       .eq("store_id", storeId)
       .eq("buyer_user_id", auth.userId);
     if (orderErr) {
-      return NextResponse.json({ ok: false, error: orderErr.message }, { status: 500 });
+      return internalErrorResponse("load_failed", "[community-messenger/store-profile-thumbnail orders]", orderErr);
     }
     if (!count || count < 1) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });

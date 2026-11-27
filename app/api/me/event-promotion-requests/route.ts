@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import {
@@ -28,10 +29,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ ok: true, items });
   } catch (e) {
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "failed" },
-      { status: 500 }
-    );
+    return internalErrorResponse("load_failed", "[me/event-promotion-requests GET]", e);
   }
 }
 

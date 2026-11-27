@@ -52,6 +52,9 @@ import { feedEmergencyLabelsMessages } from "./catalog/feed-emergency-labels";
 import { storeOrderChatSummaryLabelsMessages } from "./catalog/store-order-chat-summary-labels";
 import { storeOrderStageTermsMessages } from "./catalog/store-order-stage-terms";
 import { navigationMessages } from "./catalog/navigation";
+import { postmergeNotifMessages } from "./catalog/postmerge-notif";
+import { postmergeMessengerMessages } from "./catalog/postmerge-messenger";
+import { postmergeMiscMessages } from "./catalog/postmerge-misc";
 import { reauditTradeMessages } from "./catalog/reaudit-trade";
 import { reauditCommunityMessages } from "./catalog/reaudit-community";
 import { reauditMessengerMessages } from "./catalog/reaudit-messenger";
@@ -187,6 +190,9 @@ function buildKoMessages(): LocaleMessageBag {
   ...storeOrderChatSummaryLabelsMessages.ko,
   ...storeOrderStageTermsMessages.ko,
   ...navigationMessages.ko,
+  ...postmergeNotifMessages.ko,
+  ...postmergeMessengerMessages.ko,
+  ...postmergeMiscMessages.ko,
   ...reauditTradeMessages.ko,
   ...reauditCommunityMessages.ko,
   ...reauditMessengerMessages.ko,
@@ -311,6 +317,9 @@ function buildEnMessages(): LocaleMessageBag {
   ...storeOrderChatSummaryLabelsMessages.en,
   ...storeOrderStageTermsMessages.en,
   ...navigationMessages.en,
+  ...postmergeNotifMessages.en,
+  ...postmergeMessengerMessages.en,
+  ...postmergeMiscMessages.en,
   ...reauditTradeMessages.en,
   ...reauditCommunityMessages.en,
   ...reauditMessengerMessages.en,

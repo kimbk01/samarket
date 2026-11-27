@@ -10,11 +10,11 @@ import { translate } from "@/lib/i18n/messages";
 /**
  * 글 카드·상세·내 활동의 지역 표시 — 저장 기본값 「동네」는 화면 언어 키로.
  * 저장값 = `region_label`(NOT NULL)·`locations.name`(NOT NULL) 호환값 `COMMUNITY_PUBLIC_REGION_FALLBACK`
- * (lib/addresses/community-public-region-label.ts) = `community_region_fallback` 의 ko 값 (테스트가 같음을 지킨다).
+ * (lib/addresses/community-public-region-label.ts) = `community_local_filter_area_label` 의 ko 값 (테스트가 같음을 지킨다).
  */
 export function communityRegionLabelText(label: string | null | undefined, t: ApiErrorTranslate): string {
   const v = (label ?? "").trim();
-  if (v && v === translate("ko", "community_region_fallback")) return t("community_region_fallback");
+  if (v && v === translate("ko", "community_local_filter_area_label")) return t("community_local_filter_area_label");
   return v;
 }
 

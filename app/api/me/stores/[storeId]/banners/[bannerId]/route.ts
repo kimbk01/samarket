@@ -139,7 +139,7 @@ export async function PATCH(
 
   const { error: upErr } = await sb.from("store_banners").update(patch).eq("id", bid).eq("store_id", sid);
   if (upErr) {
-    console.error("[PATCH store_banners]", upErr);
+    console.error("[PATCH store_banners]", { code: (upErr as { code?: string }).code, message: upErr.message });
     return internalErrorResponse("save_failed", "[/api/me/stores/[storeId]/banners/[bannerId] PATCH]", upErr, 500);
   }
 

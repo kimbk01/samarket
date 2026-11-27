@@ -66,7 +66,7 @@ import {
   capHomeFeedProductsPerStore,
   resolveHomeFeedProductFetchCap,
 } from "@/lib/stores/store-home-feed-product-fetch-cap";
-import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import { translate } from "@/lib/i18n/messages";
 import { localizedStorePrepLabel } from "@/lib/stores/store-delivery-eta-label";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
@@ -187,7 +187,8 @@ async function finalizeHomeFeedJsonPayload(
  * 매장 탭 홈 피드 — 지역·거리 정렬 + 카드용 부가 필드
  */
 export async function GET(req: Request) {
-  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
+  /** M3 — 내정보 언어(화면 언어 쿠키) → 기기 언어 → en (`docs/i18n-ssot.md` §2) */
+  const uiLang = await resolveRequestAppLanguageOr("en");
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json(

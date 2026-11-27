@@ -43,7 +43,7 @@ import {
 } from "@/lib/stores/stores-browse-response-cache";
 import { attachStoresBrowseInsertionMeta } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
-import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { resolveRequestAppLanguageOr } from "@/lib/i18n/request-app-language";
 import {
   BROWSE_STORE_LIMIT,
   logBrowseRoutePerf,
@@ -202,7 +202,8 @@ type BrowseCoreOverride = {
 
 async function browseCore(req: Request, override?: BrowseCoreOverride): Promise<NextResponse> {
   const tRoute0 = devPerfNow();
-  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
+  /** M3 — 내정보 언어(화면 언어 쿠키) → 기기 언어 → en (`docs/i18n-ssot.md` §2) */
+  const uiLang = await resolveRequestAppLanguageOr("en");
   const { searchParams } = new URL(req.url);
   const cacheBypass = resolveRouteMemoryCacheBypass(searchParams);
   const storesBrowseBypass =

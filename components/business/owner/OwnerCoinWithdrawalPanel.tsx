@@ -12,7 +12,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { newOwnerFormRequestKey } from "@/lib/business/owner-form-request-key";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerMethodChoiceChips } from "@/components/business/owner/OwnerMethodChoiceChips";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";

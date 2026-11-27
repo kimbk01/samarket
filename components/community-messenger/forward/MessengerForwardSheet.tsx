@@ -16,7 +16,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DibayFullSheet } from "@/components/ui/dibay-overlay";
-import type { CommunityShareTargetItem } from "@/components/community/share/CommunityShareTargetPicker";
+import {
+  communityShareTargetDisplayLabel,
+  type CommunityShareTargetItem,
+} from "@/components/community/share/CommunityShareTargetPicker";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 export const MESSENGER_FORWARD_MAX_TARGETS = 5;
@@ -205,7 +208,7 @@ export function MessengerForwardSheet({
           roundedClassName="rounded-[15px]"
         />
         <span className="grid min-w-0 flex-1">
-          <span className={`truncate text-[15px] ${disabled ? "text-sam-muted" : "text-sam-fg"}`}>{item.label}</span>
+          <span className={`truncate text-[15px] ${disabled ? "text-sam-muted" : "text-sam-fg"}`}>{communityShareTargetDisplayLabel(item, t)}</span>
           {mode === "result" && st ? (
             <span className={`truncate text-[12px] ${st === "retry" ? "text-sam-danger" : "text-sam-muted"}`}>
               {st === "retry" ? t("share_forward_err_retry") : t("share_forward_err_not_allowed")}

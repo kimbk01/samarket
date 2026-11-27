@@ -157,7 +157,7 @@ export async function POST(
     .single();
 
   if (msgErr) {
-    console.error("[chat/room/send] insert failed", msgErr);
+    console.error("[chat/room/send] insert failed", { code: (msgErr as { code?: string }).code, message: msgErr.message });
     return tradeApiError("send_failed", 500);
   }
 

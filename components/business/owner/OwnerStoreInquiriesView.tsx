@@ -12,7 +12,7 @@ import { ENTRY_SHARED_FLIGHT_DEADLINE_MS, runWithSharedFlightDeadline } from "@/
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-text";
 import { ownerFetchJson, ownerFetchErrorMessage } from "@/lib/business/owner-fetch-json";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import type { AppLanguageCode } from "@/lib/i18n/config";

@@ -13,6 +13,7 @@ import {
 } from "@/lib/points/point-plan-shared";
 import type { PointPaymentMethod } from "@/lib/types/point";
 import { blockIosAppDigitalPurchase } from "@/lib/apple-iap/ios-digital-purchase-gate.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (isMissingPointPlansTable(planErr.message ?? "")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: planErr.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/points/charge plan]", planErr);
   }
   if (!planRow) {
     return NextResponse.json({ ok: false, error: "invalid_plan" }, { status: 400 });
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[me/points/charge insert]", error);
   }
   if (!row) {
     return NextResponse.json({ ok: false, error: "insert_failed" }, { status: 500 });

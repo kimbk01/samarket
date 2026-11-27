@@ -10,6 +10,7 @@ import {
   writeMemberMarketingConsent,
 } from "@/lib/legal/marketing-consent.server";
 import { hasValidMarketingConsent } from "@/lib/legal/marketing-consent-validity";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,7 +98,7 @@ export async function GET() {
     if (lowered.includes("column") && lowered.includes("does not exist")) {
       return NextResponse.json({ ok: true, settings: DEFAULTS, table_missing: true });
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    return internalErrorResponse("load_failed", "[me/notification-settings GET]", error);
   }
 
   // 혜택·이벤트 수신 동의 — 내정보 ON/OFF 의 마지막 변경 시각 · 어드민 문구 (Owner 2026-11-03)
@@ -247,7 +248,7 @@ export async function PATCH(req: NextRequest) {
       if (error.message?.includes("does not exist")) {
         return NextResponse.json({ ok: false, error: "table_missing", table_missing: true }, { status: 503 });
       }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return internalErrorResponse("save_failed", "[me/notification-settings PATCH]", error);
     }
   }
 

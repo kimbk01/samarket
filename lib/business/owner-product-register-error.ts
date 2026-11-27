@@ -1,5 +1,6 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveOwnerApiErrorText } from "@/lib/business/owner-api-error-text";
+import { isApiErrorCode, pickApiErrorParams } from "@/lib/i18n/api-error-text";
 import { OWNER_RECOMMENDED_MENU_MAX } from "@/lib/stores/owner-recommended-menu-limit";
 
 export type OwnerProductRegisterErrorKind = "owner_recommended_limit" | "generic";
@@ -12,12 +13,28 @@ export type OwnerProductRegisterErrorModal = {
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
-/** 옵션 검사 실패 코드 — 서버 `message` 문장 대신 같은 키 (재감사 2026-11-27) */
-const OWNER_OPTIONS_ERROR_CODES = new Set([
-  "invalid_options_json",
-  "duplicate_option_name",
-  "duplicate_option_group_id",
-]);
+/**
+ * 옵션 검사 실패 코드 — 서버 `message` 문장 대신 키 (재감사 2026-11-27).
+ * 사후 검토 E2: 중복 그룹·중복 선택지는 서버 `params`(`groupIndex`·`name`)로 구체 문구, 값이 없으면 일반 옵션 문구.
+ */
+function ownerOptionsErrorText(
+  code: string,
+  params: Record<string, string | number> | undefined,
+  t: TranslateFn
+): string | null {
+  if (code !== "invalid_options_json" && code !== "duplicate_option_name" && code !== "duplicate_option_group_id") {
+    return null;
+  }
+  const groupIndex = params?.groupIndex;
+  const group = groupIndex != null ? t("store_owner_opt_group_label", { index: groupIndex }) : null;
+  if (code === "duplicate_option_group_id" && group) {
+    return t("store_owner_opt_duplicate_group_id", { group });
+  }
+  if (code === "duplicate_option_name" && group && params?.name != null) {
+    return t("store_owner_opt_duplicate_choice_name", { group, name: params.name });
+  }
+  return t("store_owner_opt_invalid_json");
+}
 
 function registerFallbackKey(mode: "new" | "edit"): MessageKey {
   return mode === "new" ? "business_phase7_367" : "business_phase7_368";
@@ -33,7 +50,7 @@ function registerTitle(mode: "new" | "edit", t: TranslateFn): string {
  * - 객체 입력 = 서버 응답. 서버 `message` 문장은 쓰지 않고 `error` 코드로만 그린다 (재감사 2026-11-27).
  */
 export function resolveOwnerProductRegisterError(
-  input: { error?: string; message?: string } | string,
+  input: { error?: string; message?: string; params?: unknown } | string,
   mode: "new" | "edit",
   t: TranslateFn
 ): OwnerProductRegisterErrorModal {
@@ -42,7 +59,7 @@ export function resolveOwnerProductRegisterError(
     // IMG-02: 업로드 오류 코드(`file_too_large` 등)는 원문 코드 대신 i18n 문구
     const description = !raw
       ? t("common_error")
-      : /^[a-z][a-z0-9_]*$/.test(raw)
+      : isApiErrorCode(raw)
         ? resolveOwnerApiErrorText(raw, t, registerFallbackKey(mode))
         : raw;
     return {
@@ -53,6 +70,8 @@ export function resolveOwnerProductRegisterError(
   }
 
   const code = typeof input.error === "string" ? input.error.trim() : "";
+  /** E2 사후 검토 2026-11-27 — 한도 숫자 등은 서버 `params` (서버 `message` 문장은 쓰지 않는다) */
+  const params = pickApiErrorParams(input);
 
   if (code === "owner_recommended_limit") {
     return {
@@ -104,16 +123,17 @@ export function resolveOwnerProductRegisterError(
       description: t("business_phase7_366"),
     };
   }
-  if (OWNER_OPTIONS_ERROR_CODES.has(code)) {
+  const optionsText = ownerOptionsErrorText(code, params, t);
+  if (optionsText) {
     return {
       kind: "generic",
       title: registerTitle(mode, t),
-      description: t("store_owner_opt_invalid_json"),
+      description: optionsText,
     };
   }
 
-  /** `detail_image_overlaps_thumbnail` 등은 `OWNER_EXTRA_API_ERROR_MAP` 키 · 모르는 코드는 등록/저장 실패 문구 */
-  const fallback = resolveOwnerApiErrorText(code, t, registerFallbackKey(mode));
+  /** `detail_image_overlaps_thumbnail`·`title_too_long` 등은 `OWNER_API_ERROR_MAP` 키 · 모르는 코드는 등록/저장 실패 문구 */
+  const fallback = resolveOwnerApiErrorText(code, t, registerFallbackKey(mode), params);
 
   return {
     kind: "generic",

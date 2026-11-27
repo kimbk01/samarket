@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isBlockedByMe, isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,6 +124,6 @@ export async function POST(req: NextRequest) {
     type: "neighbor_follow",
     relation_type: "neighbor_follow",
   });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return internalErrorResponse("save_failed", "[community/neighbor-relations POST]", error);
   return NextResponse.json({ ok: true, following: true });
 }

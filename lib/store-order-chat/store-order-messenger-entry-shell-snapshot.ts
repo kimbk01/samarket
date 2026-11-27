@@ -1,5 +1,6 @@
 import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { resolveRoomContextHeadline } from "@/lib/community-messenger/delivery-room-headline";
 import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSnapshot,
@@ -13,7 +14,8 @@ export function buildStoreOrderMessengerShellSnapshot(params: {
   myRole?: "owner" | "member";
 }): CommunityMessengerRoomSnapshot {
   const base = buildClientShellPlaceholderSnapshot(params.roomId, params.viewerUserId);
-  const headline = params.contextMeta.headline?.trim() ?? "";
+  /** 배달 방 머리 문구 — 서버가 headline 을 만들지 않으므로 매장명·주문번호로 보는 사람 언어 */
+  const headline = resolveRoomContextHeadline(params.contextMeta);
   return {
     ...base,
     myRole: params.myRole ?? base.myRole,

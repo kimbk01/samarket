@@ -194,6 +194,7 @@ const ROOM_CONTEXT_META_DISPLAY_KEYS: (keyof CommunityMessengerRoomContextMetaV1
   "priceLabel",
   "thumbnailUrl",
   "stepLabel",
+  "orderStatus",
   "roleLabel",
   "itemStateLabel",
   "categoryMenuLabel",

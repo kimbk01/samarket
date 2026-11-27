@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { loadNotificationSoundSsotCached } from "@/lib/notifications/load-notification-sound-ssot-server";
 import { loadNotificationSoundSsotShared } from "@/lib/notifications/notification-sound-ssot-shared-cache.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,6 @@ export async function GET() {
       mappings: data.mappings,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return internalErrorResponse("load_failed", "[app/notification-sound-ssot]", e);
   }
 }

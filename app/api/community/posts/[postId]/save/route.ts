@@ -5,6 +5,7 @@ import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
+import { internalErrorResponse } from "@/lib/security/internal-error-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         if (msg.includes("community_post_saves") && msg.includes("does not exist")) {
           return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
         }
-        return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+        return internalErrorResponse("save_failed", "[community/posts/save delete]", delErr);
       }
     } else {
       /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
@@ -65,12 +66,12 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
         if (msg.includes("community_post_saves") && msg.includes("does not exist")) {
           return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
         }
-        return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+        return internalErrorResponse("save_failed", "[community/posts/save insert]", error);
       }
     }
     return NextResponse.json({ ok: true, saved });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return internalErrorResponse("save_failed", "[community/posts/save]", e);
   }
 }
 
