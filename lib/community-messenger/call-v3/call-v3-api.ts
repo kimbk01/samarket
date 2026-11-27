@@ -167,7 +167,7 @@ export async function callV3FetchSessionForCallerPoll(
 export async function callV3CreateSession(input: {
   roomId: string;
   mediaType: CallV3MediaType;
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; httpStatus?: number }> {
   const callKind = input.mediaType === "video" ? "video" : "voice";
   logCallV3("create_start", { roomId: input.roomId, mediaType: input.mediaType });
   const result = await startCommunityMessengerRoomCall({ roomId: input.roomId, callKind });

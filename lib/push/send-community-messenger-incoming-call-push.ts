@@ -10,6 +10,12 @@ import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import type { RoomDomainEnvelope } from "@/lib/chat-domain/room-domain-envelope";
 import { domainEnvelopeToPushMeta } from "@/lib/chat-domain/room-domain-envelope";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import {
+  CALL_SIGNAL_LEGACY_COPY_LANGUAGE,
+  resolveCallPushLanguageNoWait,
+} from "@/lib/push/call-push-recipient-language";
 
 const INCOMING_CALL_FCM_TTL_MS = 60_000;
 const INCOMING_CALL_SERVER_EXPIRES_SECONDS = 90;
@@ -42,6 +48,8 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
   domainEnvelope?: RoomDomainEnvelope | null;
   /** 대기 통화(받는 사람이 다른 통화에 연결된 중) — 기기가 「거절 / 종료 후 받기」로 표시 (WS1). */
   waiting?: boolean;
+  /** 받는 사람 언어(캐시 값) — 없으면 캐시를 보고, 캐시도 없으면 예전 문구(ko). 조회를 기다리지 않는다. */
+  recipientLanguage?: AppLanguageCode | null;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
@@ -60,11 +68,19 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
       ? domainEnvelopeToPushMeta(input.domainEnvelope)
       : {};
 
+  /**
+   * 제목·본문 = 받는 사람 언어 (docs/audit/i18n-call-copy-plan-2026-11-27.md §2).
+   * ko 는 예전 글자 그대로(「영상 통화/음성 통화」「{이름}님의 전화」). 네이티브 수신 화면 이름은 아래 `caller_name`
+   * 데이터를 먼저 읽는다(설치된 구 빌드 포함) — 이 데이터 키는 바꾸지 않는다.
+   * 수신 신호는 언어 조회를 기다리지 않는다(캐시 없으면 예전 문구로 즉시 발송 + 뒤에서 캐시 채움).
+   */
+  const language =
+    input.recipientLanguage ?? resolveCallPushLanguageNoWait(recipient) ?? CALL_SIGNAL_LEGACY_COPY_LANGUAGE;
   const out: NotificationSideEffectPayloadOut = {
     user_id: recipient,
     notification_type: "community_messenger_incoming_call",
-    title: isVideo ? "영상 통화" : "음성 통화",
-    body: `${input.callerDisplayName}님의 전화`,
+    title: translate(language, isVideo ? "nav_video_call_label" : "nav_voice_call_label"),
+    body: translate(language, "reaudit_call_incoming_push_body", { name: input.callerDisplayName }),
     link_url,
     meta: {
       session_id: sessionId,

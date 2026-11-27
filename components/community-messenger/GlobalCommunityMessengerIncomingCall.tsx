@@ -98,6 +98,7 @@ import {
   cmCallIncomingTraceRegisterRingingRoom,
 } from "@/lib/community-messenger/cm-call-debug";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
+import { callTooManyRequestsMessage } from "@/lib/community-messenger/stores/call-in-app-notice-store";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
@@ -551,10 +552,9 @@ export function GlobalCommunityMessengerIncomingCall() {
           setIncomingListError(null);
           return;
         }
+        /** 서버 `error` 는 화면에 붙이지 않는다(언어 SSOT §3-3) — 429 만 요청 제한 문구 */
         setIncomingListError(
-          json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
-            ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
-            : MESSENGER_CALL_USER_MSG.incomingListFailed
+          res.status === 429 ? callTooManyRequestsMessage() : MESSENGER_CALL_USER_MSG.incomingListFailed
         );
         /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
       } catch {

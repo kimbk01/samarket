@@ -13,7 +13,8 @@
  * 띄우지 않는 때: 그 대화방을 보고 있음 · 방 알림 끔(`muted_snapshot`) · 채팅 알림 끔 · 다시 보일 때 이미 읽음(안 읽은 수 0).
  */
 
-import { buildRoomBoundMissedCallNotificationInput } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
+import { buildMissedCallNotificationCopy } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { pushMessengerInAppMessageBanner } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
 import { peekMessengerRoomUnreadFact } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate-snapshot";
@@ -117,16 +118,14 @@ export function pushMessengerMissedCallBannerFromRealtimeRow(row: Record<string,
 
   const payload = payloadOf(row);
   const callKindRaw = trimText(payload.callKind ?? payload.call_kind).toLowerCase();
-  const display = buildRoomBoundMissedCallNotificationInput({
-    recipientUserId: trimText(row.user_id),
-    roomId,
-    callSessionId: sessionId,
-    actorUserId: trimText(row.actor_user_id),
+  /** 저장 문장(`row.title`/`row.body`)이 아니라 지금 앱 언어 키로 그린다 — 종류·이름은 행 `display_payload` */
+  const copy = buildMissedCallNotificationCopy({
+    language: getRuntimeAppLanguage(),
     callKind: callKindRaw === "video" ? "video" : "voice",
     callerDisplayName: trimText(payload.caller_name ?? payload.callerName) || null,
   });
-  const title = trimText(row.title) || display.title;
-  const preview = trimText(row.body) || trimText(display.body);
+  const title = copy.title;
+  const preview = copy.body;
   /** 기존 부재중 배너와 같은 출처 — 1:1 대화방 목록 행 사진(없으면 기본 얼굴) */
   const listRow = findHomeListRoomRow(peekBootstrapCache(), roomId);
   const avatarUrl = (listRow?.roomType === "direct" ? trimText(listRow.avatarUrl) : "") || null;

@@ -29,11 +29,16 @@ type Store = {
   clear: () => void;
 };
 
+/**
+ * `messageOverride` = 클라이언트가 **키로 만든** 문장만 넘긴다. 서버 `error` 문장은 넘기지 않는다
+ * (`resolveCallStartServerErrorMessage` 를 쓴다). 코드 모양 값은 문장으로 쓰지 않고, 요청 제한 코드만 키 문구로 바꾼다.
+ */
 export function resolveCallInAppNoticeMessage(
   event: CallInAppNoticeEvent,
   messageOverride?: string | null
 ): string {
   const override = messageOverride?.trim();
+  if (override && isRateLimitedErrorCode(override)) return callTooManyRequestsMessage();
   if (override && !isRawErrorCode(override)) return override;
   const spec = getCallInAppNoticeSpec(event);
   return safeTranslate(getRuntimeAppLanguage(), spec.messageKey);
@@ -41,6 +46,37 @@ export function resolveCallInAppNoticeMessage(
 
 function isRawErrorCode(text: string): boolean {
   return /^[a-z][a-z0-9_]*$/i.test(text.trim()) && !/\s/.test(text.trim());
+}
+
+/** 요청 제한 응답 코드(`rate_limited`·`*_rate_limited`) */
+export function isRateLimitedErrorCode(text: string | null | undefined): boolean {
+  const t = String(text ?? "").trim().toLowerCase();
+  return t === "rate_limited" || (isRawErrorCode(t) && t.endsWith("_rate_limited"));
+}
+
+export function callTooManyRequestsMessage(): string {
+  return safeTranslate(getRuntimeAppLanguage(), "reaudit_call_too_many_requests");
+}
+
+/**
+ * 통화 시작 API 실패 → 화면 문구. 서버 `error` 는 사건 판정에만 쓰고, 문장(서버 한국어·DB 오류 원문)은 화면에 쓰지 않는다.
+ * 429·요청 제한 코드 → 「요청이 너무 많습니다」.
+ */
+export function resolveCallStartServerErrorMessage(
+  serverError: string | null | undefined,
+  httpStatus?: number | null
+): string {
+  const err = String(serverError ?? "").trim();
+  if (httpStatus === 429 || isRateLimitedErrorCode(err)) return callTooManyRequestsMessage();
+  /** 사건 판정은 예전처럼 서버 값 전체로(코드·문장 단어) — 화면 글자만 그 사건의 키 문구 */
+  const event = inferCallInAppNoticeEventFromFailureMessage(err || "call_failed");
+  return resolveCallInAppNoticeMessage(event, null);
+}
+
+/** 서버 `error` 가 코드 모양이면 그대로(사건 판정용), 아니면 null — 문장은 화면에 넘기지 않는다. */
+export function callStartServerErrorCodeOrNull(serverError: string | null | undefined): string | null {
+  const err = String(serverError ?? "").trim();
+  return err && isRawErrorCode(err) ? err : null;
 }
 
 export function inferCallInAppNoticeEventFromFailureMessage(
@@ -155,7 +191,7 @@ export function showCallInAppNoticeFromFailureMessage(message: string): void {
   const event = inferCallInAppNoticeEventFromFailureMessage(text);
   showCallInAppNotice({
     event,
-    messageOverride: isRawErrorCode(text) ? null : text,
+    messageOverride: isRateLimitedErrorCode(text) ? callTooManyRequestsMessage() : isRawErrorCode(text) ? null : text,
   });
 }
 

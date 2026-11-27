@@ -53,6 +53,15 @@ describe("resolveCallHistoryRedialRoomClient", () => {
     }
   });
 
+  it("429 → too-many-requests copy (not the room-mismatch copy)", async () => {
+    mockFetchOnce(429, { ok: false, error: "community_messenger_call_redial_room_rate_limited" });
+    const result = await resolveCallHistoryRedialRoomClient({ peerUserId: "peer-1", roomId: null });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.userMessage).toBe("Too many requests. Please try again shortly.");
+    }
+  });
+
   it("opens the phone verification sheet instead of alerting", async () => {
     mockFetchOnce(403, { ok: false, error: "PHONE_VERIFICATION_REQUIRED", code: "PHONE_VERIFICATION_REQUIRED" });
     const result = await resolveCallHistoryRedialRoomClient({ peerUserId: "peer-1", roomId: null });
