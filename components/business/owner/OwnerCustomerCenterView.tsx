@@ -1,5 +1,6 @@
 "use client";
 
+import { OWNER_SUPPORT_CTA_CLASS } from "@/lib/support/support-owner-cta";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -10,7 +11,6 @@ import { SupportContextProvider } from "@/components/support/SupportContextProvi
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DISABLED_SUPPORT_CONTEXT, buildOwnerSupportContext } from "@/lib/support/support-context";
-import { OWNER_ADMIN_PRIMARY_BTN_CLASS } from "@/lib/business/owner-admin-list-ui";
 
 type CareTab = "history" | "archive";
 
@@ -92,7 +92,7 @@ export function OwnerCustomerCenterView({
           sourceSurface="owner_customer_center"
           storeId={storeId}
           className="mb-3 w-full"
-          buttonClassName={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} w-full min-h-11`}
+          buttonClassName={OWNER_SUPPORT_CTA_CLASS}
           inquireDataAttr="data-owner-support-inquire"
         />
       )}

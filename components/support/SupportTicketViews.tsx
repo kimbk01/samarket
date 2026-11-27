@@ -27,7 +27,7 @@ import { useSupportCategoryLabels } from "@/lib/support/use-support-category-set
 import type { SupportContext } from "@/lib/support/support-context";
 import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
-import { supportCaseStatusLabelMeta } from "@/lib/support/support-status-label";
+import { supportCaseStatusLabelMeta, supportRequesterStatusPill } from "@/lib/support/support-status-label";
 import {
   SUPPORT_TICKET_BODY_MAX,
   applySupportTicketDraft,
@@ -106,18 +106,27 @@ export function SupportTicketHeader({
   );
 }
 
+/**
+ * 문의 창 버튼 단일 모양 (UI U6·U9 · Owner 「권장안대로」 2026-11-27): 높이 44px · 모서리 4px(rounded-ui-rect).
+ * 문의 창은 전체 화면이라 「화면에 붙은 버튼 = 4px」 계약을 따른다(떠 있는 시트 12px 아님). 모든 버튼이 이것만 쓴다.
+ */
+const SUPPORT_BTN = "w-full !min-h-11 !rounded-ui-rect";
+
 /** 상단 줄 44px — 누가(회원/매장) 또는 상태 */
 function TopRow({
   label,
   value,
   tag,
   owner = false,
+  tagClassName,
   right,
 }: {
   label: string;
   value: string;
   tag?: string;
   owner?: boolean;
+  /** UI U1: 상태 줄은 상태 색(`supportRequesterStatusPill`) — 주면 회원/사장님 색 대신 이 색 */
+  tagClassName?: string;
   right?: ReactNode;
 }) {
   return (
@@ -132,7 +141,7 @@ function TopRow({
         (tag ? (
           <span
             className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
-              owner ? `${OWNER_TONE_BG} text-sam-on-primary` : "bg-sam-primary-soft text-sam-primary"
+              tagClassName ?? (owner ? `${OWNER_TONE_BG} text-sam-on-primary` : "bg-sam-primary-soft text-sam-primary")
             }`}
           >
             {tag}
@@ -256,7 +265,6 @@ function ActiveTicketList({
       <SectionLabel>{t("support_ticket_active_section")}</SectionLabel>
       <div className="border-y border-[var(--overlay-border)] bg-[var(--overlay-surface)]">
         {rows.map((c) => {
-          const answered = isSupportTicketAnsweredStatus(c.status);
           return (
             <button
               key={c.id}
@@ -272,10 +280,10 @@ function ActiveTicketList({
               </span>
               <span
                 className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
-                  answered ? "bg-sam-primary-soft text-sam-primary" : "bg-sam-warning-soft text-[var(--overlay-text-primary)]"
+                  supportRequesterStatusPill(c.status, c.requester_unread_count).className
                 }`}
               >
-                {t(supportCaseStatusLabelMeta(c.status).key)}
+                {t(supportRequesterStatusPill(c.status, c.requester_unread_count).key)}
               </span>
               <span className="row-span-2 flex items-center justify-end text-[var(--overlay-text-secondary)]" aria-hidden>
                 <ChevronRight className="h-4 w-4" strokeWidth={2} />
@@ -361,7 +369,7 @@ function SupportAdPricingView({
         )}
       </div>
       <Footer>
-        <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" data-support-ad-pricing-back="1" onClick={onBack}>
+        <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} data-support-ad-pricing-back="1" onClick={onBack}>
           {t("ad_guide_back_to_inquiry")}
         </DibayOverlayButton>
       </Footer>
@@ -577,7 +585,7 @@ export function SupportTicketCompose({
             <div className="grid grid-cols-2 gap-2 p-3">
               <DibayOverlayButton
                 roleTone="primary"
-                className="w-full !min-h-11"
+                className={SUPPORT_BTN}
                 data-support-ticket-draft-continue="1"
                 onClick={() => {
                   const d = draft;
@@ -589,7 +597,7 @@ export function SupportTicketCompose({
               </DibayOverlayButton>
               <DibayOverlayButton
                 roleTone="destructive"
-                className="w-full !min-h-11"
+                className={SUPPORT_BTN}
                 data-support-ticket-draft-delete="1"
                 onClick={() => {
                   void (async () => {
@@ -626,7 +634,7 @@ export function SupportTicketCompose({
             {state.storeChatHref ? (
               <DibayOverlayButton
                 roleTone="primary"
-                className="w-full !min-h-11"
+                className={SUPPORT_BTN}
                 data-support-ticket-store-chat="1"
                 onClick={() => onOpenStoreChat(state.storeChatHref!)}
               >
@@ -704,7 +712,7 @@ export function SupportTicketCompose({
         ) : null}
         <DibayOverlayButton
           roleTone="primary"
-          className={`w-full !min-h-11 ${isOwner && canSubmit ? "!bg-[var(--dibay-brown)]" : ""}`}
+          className={`${SUPPORT_BTN} ${isOwner && canSubmit ? "!bg-[var(--dibay-brown)]" : ""}`}
           loading={submitting}
           disabled={!canSubmit}
           data-support-ticket-submit="1"
@@ -772,10 +780,10 @@ export function SupportTicketSubmitted({
       </div>
       <Footer>
         <div className="grid grid-cols-2 gap-2">
-          <DibayOverlayButton roleTone="secondary" className="w-full !min-h-11" onClick={onViewMine} data-support-ticket-view-mine="1">
+          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onViewMine} data-support-ticket-view-mine="1">
             {t("support_ticket_view_mine")}
           </DibayOverlayButton>
-          <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={onClose}>
+          <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onClose}>
             {t("support_ticket_ok")}
           </DibayOverlayButton>
         </div>
@@ -807,10 +815,10 @@ export function SupportTicketLogin({
       </div>
       <Footer>
         <div className="grid grid-cols-2 gap-2">
-          <DibayOverlayButton roleTone="secondary" className="w-full !min-h-11" onClick={onSignup} data-support-ticket-signup="1">
+          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onSignup} data-support-ticket-signup="1">
             {t("support_ticket_signup_cta")}
           </DibayOverlayButton>
-          <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={onLogin} data-support-ticket-login="1">
+          <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onLogin} data-support-ticket-login="1">
             {t("support_ticket_login_cta")}
           </DibayOverlayButton>
         </div>
@@ -1040,6 +1048,7 @@ export function SupportTicketDetail({
           value={lastAt}
           tag={statusText}
           owner={supportCase.audience === "OWNER"}
+          tagClassName={supportRequesterStatusPill(supportCase.status, supportCase.requester_unread_count).className}
         />
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3" data-support-message-list="1">
@@ -1053,7 +1062,7 @@ export function SupportTicketDetail({
           <div className="mx-4 rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] p-4 text-[14px] text-[var(--overlay-danger)]">
             {error === "forbidden" ? t("support_case_unavailable") : supportErrorLabel(safeT, error)}
             {error !== "forbidden" ? (
-              <DibayOverlayButton roleTone="secondary" className="mt-3 w-full" onClick={() => void load()}>
+              <DibayOverlayButton roleTone="secondary" className={`mt-3 ${SUPPORT_BTN}`} onClick={() => void load()}>
                 {t("common_retry")}
               </DibayOverlayButton>
             ) : null}
@@ -1108,11 +1117,11 @@ export function SupportTicketDetail({
             </p>
           ) : null}
           {closedView && messages.length > 0 ? (
-            <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={onClose}>
+            <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onClose}>
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           ) : closedView ? (
-            <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={() => onNewInquiry(fromCase)}>
+            <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={() => onNewInquiry(fromCase)}>
               {t("support_ticket_new_cta")}
             </DibayOverlayButton>
           ) : followUp !== null ? (
@@ -1128,12 +1137,12 @@ export function SupportTicketDetail({
                 placeholder={t("support_ticket_body_placeholder")}
               />
               <div className="grid grid-cols-2 gap-2">
-                <DibayOverlayButton roleTone="secondary" className="w-full !min-h-11" onClick={() => setFollowUp(null)}>
+                <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={() => setFollowUp(null)}>
                   {t("support_ticket_cancel")}
                 </DibayOverlayButton>
                 <DibayOverlayButton
                   roleTone="primary"
-                  className="w-full !min-h-11"
+                  className={SUPPORT_BTN}
                   loading={busy}
                   disabled={busy || !followUp.trim()}
                   onClick={() => void sendFollowUp()}
@@ -1146,7 +1155,7 @@ export function SupportTicketDetail({
             <div className="grid grid-cols-2 gap-2">
               <DibayOverlayButton
                 roleTone="secondary"
-                className="w-full !min-h-11"
+                className={SUPPORT_BTN}
                 data-support-ticket-followup-open="1"
                 onClick={() => setFollowUp("")}
               >
@@ -1154,7 +1163,7 @@ export function SupportTicketDetail({
               </DibayOverlayButton>
               <DibayOverlayButton
                 roleTone="primary"
-                className="w-full !min-h-11"
+                className={SUPPORT_BTN}
                 loading={busy}
                 disabled={busy}
                 data-support-ticket-confirm="1"
@@ -1164,7 +1173,7 @@ export function SupportTicketDetail({
               </DibayOverlayButton>
             </div>
           ) : (
-            <DibayOverlayButton roleTone="secondary" className="w-full !min-h-11" onClick={onClose}>
+            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose}>
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           )}

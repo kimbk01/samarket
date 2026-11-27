@@ -34,6 +34,41 @@ export function supportCaseStatusLabelMeta(status: SupportCaseStatus | null): {
 }
 
 /**
+ * 고객 화면 상태 알약 단일 정의 (고객 문의 SSOT UI U1·U2 · Owner 「권장안대로」 2026-11-27).
+ * 문의 상세 상태 줄 · 쓰기 화면 「진행 중인 문의」 · 내 문의 목록이 모두 이것만 쓴다 — 색은 **상태**로 정한다(회원/사장님 아님).
+ *   종료 + 안 읽은 답변 → 「새 답변」 초록   ·  답변 완료(WAITING_USER) → 「답변 완료」 초록
+ *   접수·추가 문의(OPEN·WAITING_ADMIN) → 「답변 대기」 노랑  ·  종료 → 「종료」 회색
+ */
+export type SupportRequesterStatusPill = {
+  key: SupportCaseStatusLabelKey | "support_status_new_reply";
+  tone: "answered" | "waiting" | "closed";
+  className: string;
+};
+
+const PILL_TONE_CLASS: Record<SupportRequesterStatusPill["tone"], string> = {
+  answered: "bg-sam-primary-soft text-sam-primary",
+  waiting: "bg-sam-warning-soft text-sam-fg",
+  closed: "bg-sam-surface-muted text-sam-muted",
+};
+
+export function supportRequesterStatusPill(
+  status: SupportCaseStatus | null,
+  requesterUnreadCount?: number | null
+): SupportRequesterStatusPill {
+  const closed = status === "RESOLVED" || status === "ARCHIVED";
+  if (closed && Number(requesterUnreadCount ?? 0) > 0) {
+    return { key: "support_status_new_reply", tone: "answered", className: PILL_TONE_CLASS.answered };
+  }
+  const key = supportCaseStatusLabelMeta(status).key;
+  const tone: SupportRequesterStatusPill["tone"] = closed
+    ? "closed"
+    : key === "support_status_waiting_admin"
+      ? "waiting"
+      : "answered";
+  return { key, tone, className: PILL_TONE_CLASS[tone] };
+}
+
+/**
  * Admin-facing vocabulary SSOT (Phase 3 B1). Admin queue rows, case header, context column,
  * control-plane cards and the admin awareness toast all read these — no screen keeps its own map.
  * Customer wording above stays separate on purpose (customers see 3 states, admins see 5).

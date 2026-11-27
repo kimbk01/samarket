@@ -83,7 +83,8 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
     const expected: Record<string, string> = {
       OPEN: "접수",
       WAITING_ADMIN: "답변 대기",
-      WAITING_USER: "사용자 답변 대기",
+      // UI U7 (2026-11-27): 탭·알약 같은 이름
+      WAITING_USER: "고객 확인 대기",
       RESOLVED: "종료",
       ARCHIVED: "보관",
     };
