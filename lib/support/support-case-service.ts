@@ -9,12 +9,14 @@ import {
 } from "@/lib/support/support-community-filter";
 import {
   authorityAllows,
+  settleSupportCustomerMessageNotification,
   createAdminNotification,
   markAdminNotificationsRead,
   resolveAdminNotificationsForWork,
   resolveAdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
+import { supportCustomerMessageNeedsAdmin } from "@/lib/support/support-admin-work-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   mypageKeysetOrFilter,
@@ -216,21 +218,18 @@ export async function notifyAdminsOfCustomerMessage(
   }
 ): Promise<void> {
   const c = input.caseRow;
-  // 2차 재감사 E: 발송은 응답 뒤라 그사이 어드민이 답했거나 문의가 끝났을 수 있다 → 어드민 일이 남았을 때만 보낸다
-  // (끝난 문의에 미읽음 알림이 새로 생기지 않게 — 답변·종료 때의 전원 읽음 처리보다 늦게 만들어지는 것 방지).
-  const readStatus = async () => sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
-  let live = await readStatus();
-  if (live.error) live = await readStatus(); // 한 번 더
-  if (live.error) {
-    // 남은 위험 ③: 상태를 끝내 못 읽으면 보내지 않는다 — 5분 재생 함수(운영 적용, OPEN·WAITING_ADMIN 만)가
-    // 어드민 일이 남은 글만 다시 만든다(끝난 문의에 미읽음 알림이 생기지 않는다).
-    console.warn("[support] admin_notify_status_read_failed", { caseId: c.id, error: live.error.message });
+  // 발송은 응답 뒤라 그사이 어드민이 답했거나 문의가 끝났을 수 있다 → 작업자(재생·재시도)와 **같은 판정**
+  // (`supportCustomerMessageNeedsAdmin`: 문의 OPEN·WAITING_ADMIN + 이 글 뒤 어드민 공개 답변 없음).
+  let verdict = await supportCustomerMessageNeedsAdmin(sb, { caseId: c.id, messageId: input.messageId });
+  if (verdict === "retry") verdict = await supportCustomerMessageNeedsAdmin(sb, { caseId: c.id, messageId: input.messageId });
+  if (verdict === "retry") {
+    // 끝내 못 읽으면 보내지 않는다 — 5분 재생 함수가 대기열에 넣고 작업자가 같은 판정으로 보낸다(놓치지 않음).
+    console.warn("[support] admin_notify_status_read_failed", { caseId: c.id });
     return;
   }
-  const liveStatus = String((live.data as { status?: unknown } | null)?.status ?? "");
-  // 남은 위험 ④: 어드민 일이 이미 끝났다(답변·종료) → 알림은 만들지 않고, 재생 함수가 보는 발송 대기열 키만
-  // 「처리됨(delivered)」으로 남긴다 — 나중에 같은 문의에 새 고객 글이 와 다시 WAITING_ADMIN 이 돼도 이 옛 글은 재생되지 않는다.
-  const workDone = liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN";
+  // 어드민 일이 이미 끝났다(답변·종료·이미 답 받은 글) → 알림은 만들지 않고, 재생 함수가 보는 발송 대기열 키만
+  // 「처리됨(delivered)」으로 남긴다. (키를 못 남겨도 작업자가 보내기 직전 같은 판정으로 건너뛴다.)
+  const workDone = verdict === "skip";
   const title = translateBy(
     "ko",
     input.isNewCase ? "admin_support_notify_new_title" : "admin_support_notify_followup_title",
@@ -249,8 +248,7 @@ export async function notifyAdminsOfCustomerMessage(
     push: true,
   } as const;
   if (workDone) {
-    if (!liveStatus) return; // 문의가 없다
-    await markCustomerMessageHandledForReplay(sb, { messageId: input.messageId, caseId: c.id, reason: liveStatus });
+    await markCustomerMessageHandledForReplay(sb, { messageId: input.messageId, caseId: c.id, reason: "admin_work_done" });
     return;
   }
   const logFail = (error: string) =>
@@ -272,7 +270,11 @@ export async function notifyAdminsOfCustomerMessage(
       logFail(notified.error);
       return;
     }
-    if (notified.skippedRecipients === 0) return;
+    if (notified.skippedRecipients === 0) {
+      // 6차 재감사 3: 만든 사이 어드민이 답했으면 이 글 알림만 읽음
+      if (notified.created > 0) await settleSupportCustomerMessageNotification(sb, { caseId: c.id, dedupeKey: base.dedupeKey });
+      return;
+    }
     // Self-heal: the assignee lost admin authority but the revoke-time release did not run
     // (or failed). Return the case to the unassigned queue so it is not stranded,
     // then fall through to the unassigned fan-out so this message is not lost.
@@ -298,6 +300,7 @@ export async function notifyAdminsOfCustomerMessage(
     requiredPermission: "support",
   });
   if (!broadcast.ok) logFail(broadcast.error);
+  else if (broadcast.created > 0) await settleSupportCustomerMessageNotification(sb, { caseId: c.id, dedupeKey: base.dedupeKey });
 }
 
 /**
@@ -321,8 +324,7 @@ async function markCustomerMessageHandledForReplay(
   let { error } = await insert();
   if (error && (error as { code?: string }).code !== "23505") ({ error } = await insert()); // 한 번 더
   if (error && (error as { code?: string }).code !== "23505") {
-    // 두 번 다 실패해도: 재생·재시도 발송은 보내기 직전에 문의 상태를 다시 보므로(어드민 일이 남았을 때만)
-    // 이미 답한 옛 글은 새 고객 글로 다시 WAITING_ADMIN 이 된 경우에만 알림이 될 수 있다 — 기록해 둔다.
+    // 두 번 다 실패해도: 작업자(재생·재시도)가 보내기 직전 같은 판정(이미 답 받은 글이면 건너뜀)을 하므로 재알림되지 않는다.
     console.warn("[support] handled_marker_failed", { caseId: input.caseId, error: error.message });
   }
 }
@@ -1873,14 +1875,15 @@ export async function markSupportCaseNotificationsRead(
   let error: { message: string } | null = null;
   if (input.shownMessageIds) {
     const replyKeys = input.shownMessageIds.map((id) => `support_admin_replied:${id}`);
-    const [others, replies] = await Promise.all([
+    // 6차 재감사 5: 요청 주소 길이 — 답변 알림 키는 100개씩
+    const chunks: string[][] = [];
+    for (let i = 0; i < replyKeys.length; i += 100) chunks.push(replyKeys.slice(i, i + 100));
+    const results = await Promise.all([
       base().like("type", "support_%").neq("type", "support_admin_replied").select("id"),
-      replyKeys.length > 0
-        ? base().eq("type", "support_admin_replied").in("dedupe_key", replyKeys).select("id")
-        : Promise.resolve({ data: [] as { id: string }[], error: null }),
+      ...chunks.map((keys) => base().eq("type", "support_admin_replied").in("dedupe_key", keys).select("id")),
     ]);
-    error = others.error ?? replies.error ?? null;
-    data = [...((others.data ?? []) as { id: string }[]), ...((replies.data ?? []) as { id: string }[])];
+    error = results.find((r) => r.error)?.error ?? null;
+    data = results.flatMap((r) => (r.data ?? []) as { id: string }[]);
   } else {
     const r = await base().like("type", "support_%").select("id");
     error = r.error;
@@ -1907,6 +1910,13 @@ export async function markSupportCaseNotificationsRead(
           markAdminNotificationsRead(sb, { adminUserId: uid, workRef, kinds: ["support_case_assigned"] }),
         ]);
         const updated = (replies.ok ? replies.updated : 0) + (assigned.ok ? assigned.updated : 0);
+        // 6차 재감사 4: 둘 중 하나만 실패해도 기록
+        if (!replies.ok && replies.error !== "nothing_to_mark") {
+          console.warn("[support] admin_notification_read_sync_failed", { caseId, part: "replies", error: replies.error });
+        }
+        if (!assigned.ok && assigned.error !== "nothing_to_mark") {
+          console.warn("[support] admin_notification_read_sync_failed", { caseId, part: "assigned", error: assigned.error });
+        }
         return replies.ok || assigned.ok
           ? ({ ok: true as const, updated })
           : ({ ok: false as const, error: (!replies.ok && replies.error) || "admin_read_failed" });

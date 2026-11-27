@@ -37,6 +37,10 @@ import {
 } from "@/lib/admin/admin-ops-sound-preference-gate";
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 import { withPushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
+import {
+  supportCustomerMessageNeedsAdmin,
+  supportMessageIdFromDedupeKey,
+} from "@/lib/support/support-admin-work-check";
 
 export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
 export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
@@ -402,10 +406,29 @@ async function supportCustomerMessageGate(
   if (input.kind !== "support_customer_replied") return "send";
   const caseId = input.workRef?.table === "support_cases" ? input.workRef.id : "";
   if (!caseId) return "send";
-  const { data, error } = await sb.from("support_cases").select("status").eq("id", caseId).maybeSingle();
-  if (error) return "retry";
-  const status = String((data as { status?: unknown } | null)?.status ?? "");
-  return status === "OPEN" || status === "WAITING_ADMIN" ? "send" : "skip";
+  // 6차 재감사 2: 상태 + 「이 글이 이미 답을 받았나」 — 앱 즉시 발송과 같은 판정
+  return supportCustomerMessageNeedsAdmin(sb, { caseId, messageId: supportMessageIdFromDedupeKey(input.dedupeKey) });
+}
+
+/**
+ * 6차 재감사 3 — 만든 직후 다시 판정해 그사이 어드민이 답했으면 **그 글의 알림만** 받은 사람 전원 읽음.
+ * (문의 단위 전체 읽음이 아니라 같은 dedupe 키만 — 더 새 고객 글 알림은 건드리지 않는다.)
+ */
+export async function settleSupportCustomerMessageNotification(
+  sb: SupabaseClient,
+  input: { caseId: string; dedupeKey: string }
+): Promise<void> {
+  const verdict = await supportCustomerMessageNeedsAdmin(sb, {
+    caseId: input.caseId,
+    messageId: supportMessageIdFromDedupeKey(input.dedupeKey),
+  });
+  if (verdict !== "skip") return;
+  const { error } = await sb
+    .from(ADMIN_NOTIFICATIONS_TABLE)
+    .update({ read_at: new Date().toISOString() })
+    .eq("dedupe_key", input.dedupeKey)
+    .is("read_at", null);
+  if (error) console.warn("[admin-notifications] settle_support_failed", { dedupeKey: input.dedupeKey, error: error.message });
 }
 
 /**
@@ -568,6 +591,10 @@ export async function runAdminNotificationDeliveryWorker(
         { resolveAuthority, sendPush },
         { fromOutbox: true }
       );
+    }
+    if (input && supportGate === "send" && res.ok && res.created > 0 && input.workRef?.table === "support_cases") {
+      // 6차 재감사 3: 만든 사이 어드민이 답했으면 이 글 알림만 읽음
+      await settleSupportCustomerMessageNotification(sb, { caseId: input.workRef.id, dedupeKey: input.dedupeKey });
     }
     const fin = await sb.rpc("admin_notification_outbox_finish", {
       p_id: row.id,
@@ -815,6 +842,8 @@ export async function countUnreadAdminNotifications(
  * Mark read (recipient-scoped). Only read_at changes — business rows are never touched.
  * `ids` | `all` | `workRef` (e.g. opening a support case clears its replies).
  */
+const DEDUPE_KEY_CHUNK = 100;
+
 export async function markAdminNotificationsRead(
   sb: SupabaseClient,
   input: {
@@ -839,9 +868,26 @@ export async function markAdminNotificationsRead(
   if (input.workRef) q = q.eq("work_ref_table", input.workRef.table).eq("work_ref_id", input.workRef.id);
   if (input.dedupeKeys) {
     if (input.dedupeKeys.length === 0) return { ok: true, updated: 0 };
+    // 6차 재감사 5: 요청 주소 길이 — 100개씩 나눠 읽음 처리
+    if (input.dedupeKeys.length > DEDUPE_KEY_CHUNK) {
+      let total = 0;
+      for (let i = 0; i < input.dedupeKeys.length; i += DEDUPE_KEY_CHUNK) {
+        const part = await markAdminNotificationsRead(sb, {
+          ...input,
+          dedupeKeys: input.dedupeKeys.slice(i, i + DEDUPE_KEY_CHUNK),
+        });
+        if (!part.ok) return part;
+        total += part.updated;
+      }
+      return { ok: true, updated: total };
+    }
     q = q.in("dedupe_key", [...input.dedupeKeys]);
   }
-  if (input.kinds && input.kinds.length > 0) q = q.in("kind", [...input.kinds]);
+  if (input.kinds) {
+    // 6차 재감사 6: 빈 목록 = 아무것도(dedupeKeys 와 같은 뜻)
+    if (input.kinds.length === 0) return { ok: true, updated: 0 };
+    q = q.in("kind", [...input.kinds]);
+  }
   const { data, error } = await q.select("id");
   if (error) return { ok: false, error: error.message };
   return { ok: true, updated: (data ?? []).length };

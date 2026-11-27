@@ -55,9 +55,8 @@ describe("support assignee permission sync", () => {
     }
     expect(calls).toBe(4);
     const patch = readFileSync(join(process.cwd(), "app/api/admin/staff/[id]/route.ts"), "utf8");
-    expect(patch).toMatch(/if \(\(body\.role \|\| body\.permissions\) && !isSuperAdminRole\(effectiveRole\)\) \{\s*await releaseSupportAssignmentsIfNoSupportPermission/);
-    expect(patch.indexOf("await releaseSupportAssignmentsIfNoSupportPermission")).toBeGreaterThan(
-      patch.indexOf("await replaceStaffPermissions(")
-    );
+    // 6차 재감사 1: 등급·권한을 바꿨으면 중간 return·오류에도 finally 에서 현재 권한으로 판정
+    expect(patch).toMatch(/\} finally \{\s*if \(privilegeChanged && !isSuperAdminRole\(effectiveRole\)\) \{\s*await releaseSupportAssignmentsIfNoSupportPermission/);
+    expect(patch).toContain("privilegeChanged = true;");
   });
 });

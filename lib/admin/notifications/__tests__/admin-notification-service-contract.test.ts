@@ -327,7 +327,7 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(svc).not.toMatch(/notifySupportEvent\(sb, \{[^}]*type: "support_customer_replied"/);
     expect(svc).toContain('"assignee_not_active_admin"');
     // self-heal when the assignee lost authority and the revoke-time release did not happen
-    expect(svc).toMatch(/notified\.skippedRecipients === 0\) return;[\s\S]{0,500}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
+    expect(svc).toMatch(/if \(notified\.skippedRecipients === 0\) \{[\s\S]{0,400}return;\s*\}[\s\S]{0,500}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
   });
 
   it("Bell (Action Queue) and inbox (notifications) never read each other's source", () => {
@@ -368,6 +368,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     const healed = memoryDb({
       admin_notification_outbox: sb.tables.admin_notification_outbox,
       support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: null }],
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],
     });
     const run = await runAdminNotificationDeliveryWorker(healed as never, deps);
     expect(run).toMatchObject({ outboxClaimed: 1, outboxDelivered: 1, errors: [] });
@@ -402,6 +403,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     const healed = memoryDb({
       admin_notification_outbox: sb.tables.admin_notification_outbox,
       support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: null }],
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],
     });
     const sendPush = vi.fn(async () => "sent" as const);
     const run = await runAdminNotificationDeliveryWorker(healed as never, { resolveAuthority: async () => REVOKED, sendPush });
@@ -421,6 +423,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
         { user_id: "support-b", status: "active" },
       ],
       support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: "admin-a" }],
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],
     });
     const authorities: Record<string, AdminRecipientAuthority> = {
       "admin-a": OPERATOR, // 고객지원 권한 없음 (users 만)
@@ -447,6 +450,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
         { user_id: "support-b", status: "active" },
       ],
       support_cases: [{ id: "case-9", status: "WAITING_USER", assigned_admin_id: "admin-a" }],
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],
     });
     const authorities: Record<string, AdminRecipientAuthority> = {
       "admin-a": OPERATOR,
@@ -461,7 +465,8 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
 
   it("persistent failure is bounded: dead after max attempts and surfaced by health", async () => {
     const sb = memoryDb(
-      { support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: null }] },
+      { support_cases: [{ id: "case-9", status: "OPEN", assigned_admin_id: null }] ,
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],},
       { failInsertInto: new Set(["admin_notifications"]) }
     );
     const deps = { resolveAuthority: async () => SUPER, sendPush: vi.fn() };
@@ -500,6 +505,7 @@ describe("R13-D reliable delivery (outbox · replay · at-most-once push)", () =
     const healed = memoryDb({
       admin_notification_outbox: sb.tables.admin_notification_outbox,
       support_cases: [{ id: "case-9", status: "WAITING_USER", assigned_admin_id: null }],
+      support_messages: [{ id: "msg-9", case_id: "case-9", created_at: "2026-11-27T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null }],
     });
     const sendPush = vi.fn(async () => "sent" as const);
     const run = await runAdminNotificationDeliveryWorker(healed as never, { resolveAuthority: async () => SUPER, sendPush });

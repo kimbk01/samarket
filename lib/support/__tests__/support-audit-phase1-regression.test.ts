@@ -78,6 +78,7 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
     return 0;
   }),
   authorityAllows: vi.fn(() => authorityAllowsResult.value),
+  settleSupportCustomerMessageNotification: vi.fn(async () => undefined),
   resolveAdminRecipientAuthority: vi.fn(async () => ({ active: true, isSuperAdmin: true, permissions: [] })),
 }));
 
@@ -85,6 +86,7 @@ vi.mock("@/lib/stores/owner-store-ownership-cache", () => ({
   getCachedStoreIfOwner: vi.fn(async () => ({ ok: false })),
 }));
 
+import { supportCustomerMessageNeedsAdmin } from "@/lib/support/support-admin-work-check";
 import {
   notifyAdminsOfCustomerMessage,
   supportShownListSeenAt,
@@ -229,6 +231,10 @@ function makeDb(seed: Record<string, Row[]> = {}) {
       },
       lt: (c: string, v: unknown) => {
         st.filters.push((r) => String(r[c] ?? "") < String(v));
+        return b;
+      },
+      gte: (c: string, v: unknown) => {
+        st.filters.push((r) => String(r[c] ?? "") >= String(v));
         return b;
       },
       gt: (c: string, v: unknown) => {
@@ -1088,9 +1094,10 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
   it("E2 (구조 확인): a deferred admin notification is not created once the admin already answered", () => {
     const svc = src("lib/support/support-case-service.ts");
     // 남은 위험 ③④: 끝난 일 = 처리됨 재생 키만(알림 없음) · 상태를 못 읽으면 보내지 않음(재생 함수가 남은 일만 다시 만든다)
-    expect(svc).toContain('const workDone = liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN";');
+    expect(svc).toContain('const workDone = verdict === "skip";');
+    expect(svc).toContain("supportCustomerMessageNeedsAdmin(sb, { caseId: c.id, messageId: input.messageId })");
     expect(svc).toMatch(/if \(workDone\) \{[\s\S]{0,200}markCustomerMessageHandledForReplay\(sb,/);
-    expect(svc).toMatch(/if \(live\.error\) live = await readStatus\(\);[\s\S]{0,400}return;/);
+    expect(svc).toMatch(/if \(verdict === "retry"\) \{[\s\S]{0,300}return;/);
   });
 
   it("남은 위험 ④: admin work already finished at send time → no admin notification, only a handled replay key", async () => {
@@ -1115,10 +1122,14 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     );
     expect(marker?.status).toBe("delivered"); // 재생 함수가 이 키를 보고 건너뛴다
 
-    db.support_cases[0].status = "WAITING_ADMIN"; // 아직 어드민 일이 남은 경우 = 평소대로 발송
+    // 아직 어드민 일이 남은 새 고객 글 = 평소대로 발송
+    const next = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또" });
+    if (!next.ok) throw new Error(next.error);
+    await flush();
+    adminNotifyCalls.length = 0;
     await notifyAdminsOfCustomerMessage(sb, {
       caseRow: db.support_cases[0] as never,
-      messageId: "m-next",
+      messageId: String(next.message.id),
       body: "또",
       actorUserId: U,
       isNewCase: false,
@@ -1146,6 +1157,21 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(route).toContain("shownCustomerMessageIds: messages.messages");
     const svc = src("lib/support/support-case-service.ts");
     expect(svc).toContain("dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`)");
+  });
+
+  it("6차 2: an already-answered old message is not 'needed' even after a newer customer message reopens admin work (동작)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 글");
+    if (!a.ok) throw new Error(a.error);
+    const first = String(db.support_messages[0].id);
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: first })).toBe("send");
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
+    const later = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "새 글" });
+    if (!later.ok) throw new Error(later.error);
+    await flush();
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN"); // 다시 어드민 일이 생겼지만
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: first })).toBe("skip"); // 옛 글은 이미 답 받음
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: String(later.message.id) })).toBe("send");
   });
 
   it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {

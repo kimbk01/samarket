@@ -77,122 +77,128 @@ export async function PATCH(
     patch.nickname = name;
     patch.display_name = name;
   }
-  if (body.role && !isSuperAdminRole(effectiveRole)) {
-    if (body.role === "master") {
-      return NextResponse.json({ ok: false, error: "cannot_promote_to_super_admin" }, { status: 400 });
+  // 고객 문의 남은 위험 ⑤ (6차 재감사 1): 등급·권한을 바꿨으면 — 중간에 return·오류가 나도 — 끝에 **현재 권한**으로 한 번 판정해
+  // 고객지원 권한이 없으면 담당 문의를 미배정으로.
+  let privilegeChanged = false;
+  try {
+    if (body.role && !isSuperAdminRole(effectiveRole)) {
+      if (body.role === "master") {
+        return NextResponse.json({ ok: false, error: "cannot_promote_to_super_admin" }, { status: 400 });
+      }
+      await upsertActiveAdminMembership(sb, {
+        userId: staffId,
+        role: "admin",
+        adminTier: uiRoleToAdminTier(body.role),
+        grantedBy: actor.userId,
+      });
+      privilegeChanged = true;
     }
-    await upsertActiveAdminMembership(sb, {
-      userId: staffId,
-      role: "admin",
-      adminTier: uiRoleToAdminTier(body.role),
-      grantedBy: actor.userId,
-    });
-  }
-  if (body.disabled === true) {
-    if (staffId === actor.userId) {
-      return NextResponse.json({ ok: false, error: "self_mutation_forbidden" }, { status: 403 });
+    if (body.disabled === true) {
+      if (staffId === actor.userId) {
+        return NextResponse.json({ ok: false, error: "self_mutation_forbidden" }, { status: 403 });
+      }
+      if (isSuperAdminRole(effectiveRole)) {
+        return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
+      }
+      const revoked = await revokeActiveAdminMembership(sb, {
+        userId: staffId,
+        revokedBy: actor.userId,
+        reason: "staff_disabled",
+      });
+      if (!revoked.ok && revoked.error !== "not_admin") {
+        return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
+      }
+      // R6-B: privilege revoke only — do not withdraw the member profile.
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: actor.userId,
+        target_type: "staff",
+        target_id: staffId,
+        action: "revoke_admin_privilege",
+        after_json: {
+          membership_revoked: revoked.ok,
+          axis: "staff_privilege",
+          lifecycle_unchanged: true,
+          via: "staff_patch_disabled",
+        },
+      });
     }
-    if (isSuperAdminRole(effectiveRole)) {
-      return NextResponse.json({ ok: false, error: "cannot_disable_super_admin" }, { status: 403 });
+    // disabled=false does not re-grant membership or mutate profile lifecycle.
+
+    if (Object.keys(patch).length > 0) {
+      const { error: updateErr } = await sb.from("profiles").update(patch).eq("id", staffId);
+      if (updateErr) {
+        return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+      }
     }
-    const revoked = await revokeActiveAdminMembership(sb, {
-      userId: staffId,
-      revokedBy: actor.userId,
-      reason: "staff_disabled",
-    });
-    if (!revoked.ok && revoked.error !== "not_admin") {
-      return NextResponse.json({ ok: false, error: revoked.error }, { status: 400 });
+
+    if (body.permissions && !isSuperAdminRole(effectiveRole)) {
+      privilegeChanged = true; // 저장이 실패(throw)해도 아래 finally 에서 지금 권한으로 판정
+      await replaceStaffPermissions(sb, staffId, body.permissions, actor.userId);
     }
-    // R6-B: privilege revoke only — do not withdraw the member profile.
+
+    const passwordRaw = body.password;
+    const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
+    if (hasPassword) {
+      // Super Admin may reset any staff password (operator/manager/master), including other SA.
+      // Non-SA actors cannot reset a Super Admin password.
+      if (isSuperAdminRole(effectiveRole) && !actor.isSuperAdmin) {
+        return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
+      }
+      const pwd = String(passwordRaw);
+      const passwordRule = checkAdminSetPassword(pwd, "staff");
+      if (!passwordRule.ok) {
+        return NextResponse.json(
+          { ok: false, error: passwordRule.error, errorKey: passwordRule.errorKey },
+          { status: 400 },
+        );
+      }
+      const { error: pwdErr } = await sb.auth.admin.updateUserById(staffId, { password: pwd });
+      const weakPassword = pwdErr ? mapSupabaseWeakPasswordError(pwdErr) : null;
+      if (weakPassword) {
+        return NextResponse.json(
+          { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, errorKey: weakPassword.errorKey },
+          { status: 422 },
+        );
+      }
+      if (pwdErr) {
+        /** DB·Auth 원문은 화면에 보내지 않는다(가입 후속 감사) — 서버 로그에만 */
+        console.error("[admin/staff] password update failed", pwdErr.message);
+        return NextResponse.json(
+          { ok: false, error: "password_update_failed" },
+          { status: 500 },
+        );
+      }
+      void ensureManualLoginEmailAligned(sb, staffId);
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: actor.userId,
+        target_type: "staff",
+        target_id: staffId,
+        action: "admin_password_reset",
+        after_json: { via: "staff_patch" },
+      });
+    }
+
     void appendAuditLog(sb, {
       actor_type: "admin",
       actor_id: actor.userId,
       target_type: "staff",
       target_id: staffId,
-      action: "revoke_admin_privilege",
-      after_json: {
-        membership_revoked: revoked.ok,
-        axis: "staff_privilege",
-        lifecycle_unchanged: true,
-        via: "staff_patch_disabled",
-      },
+      action: "update_staff",
+      after_json: { ...patch, permissions: body.permissions },
     });
-  }
-  // disabled=false does not re-grant membership or mutate profile lifecycle.
 
-  if (Object.keys(patch).length > 0) {
-    const { error: updateErr } = await sb.from("profiles").update(patch).eq("id", staffId);
-    if (updateErr) {
-      return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+    const permissions = isSuperAdminRole(effectiveRole)
+      ? []
+      : body.permissions ?? (await loadStaffPermissionKeys(sb, staffId));
+
+    return NextResponse.json({ ok: true, permissions });
+  } finally {
+    if (privilegeChanged && !isSuperAdminRole(effectiveRole)) {
+      await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: staffId, changedBy: actor.userId });
     }
   }
-
-  if (body.permissions && !isSuperAdminRole(effectiveRole)) {
-    await replaceStaffPermissions(sb, staffId, body.permissions, actor.userId);
-  }
-
-  // 고객 문의 남은 위험 ⑤ (5차 재감사 7): 등급·권한을 다 바꾼 **뒤** 한 번 — 새 권한으로 판정한다
-  if ((body.role || body.permissions) && !isSuperAdminRole(effectiveRole)) {
-    await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId: staffId, changedBy: actor.userId });
-  }
-
-  const passwordRaw = body.password;
-  const hasPassword = passwordRaw !== undefined && passwordRaw !== null && String(passwordRaw).length > 0;
-  if (hasPassword) {
-    // Super Admin may reset any staff password (operator/manager/master), including other SA.
-    // Non-SA actors cannot reset a Super Admin password.
-    if (isSuperAdminRole(effectiveRole) && !actor.isSuperAdmin) {
-      return NextResponse.json({ ok: false, error: "forbidden_super_admin_target" }, { status: 403 });
-    }
-    const pwd = String(passwordRaw);
-    const passwordRule = checkAdminSetPassword(pwd, "staff");
-    if (!passwordRule.ok) {
-      return NextResponse.json(
-        { ok: false, error: passwordRule.error, errorKey: passwordRule.errorKey },
-        { status: 400 },
-      );
-    }
-    const { error: pwdErr } = await sb.auth.admin.updateUserById(staffId, { password: pwd });
-    const weakPassword = pwdErr ? mapSupabaseWeakPasswordError(pwdErr) : null;
-    if (weakPassword) {
-      return NextResponse.json(
-        { ok: false, error: weakPassword.error, reasons: weakPassword.reasons, errorKey: weakPassword.errorKey },
-        { status: 422 },
-      );
-    }
-    if (pwdErr) {
-      /** DB·Auth 원문은 화면에 보내지 않는다(가입 후속 감사) — 서버 로그에만 */
-      console.error("[admin/staff] password update failed", pwdErr.message);
-      return NextResponse.json(
-        { ok: false, error: "password_update_failed" },
-        { status: 500 },
-      );
-    }
-    void ensureManualLoginEmailAligned(sb, staffId);
-    void appendAuditLog(sb, {
-      actor_type: "admin",
-      actor_id: actor.userId,
-      target_type: "staff",
-      target_id: staffId,
-      action: "admin_password_reset",
-      after_json: { via: "staff_patch" },
-    });
-  }
-
-  void appendAuditLog(sb, {
-    actor_type: "admin",
-    actor_id: actor.userId,
-    target_type: "staff",
-    target_id: staffId,
-    action: "update_staff",
-    after_json: { ...patch, permissions: body.permissions },
-  });
-
-  const permissions = isSuperAdminRole(effectiveRole)
-    ? []
-    : body.permissions ?? (await loadStaffPermissionKeys(sb, staffId));
-
-  return NextResponse.json({ ok: true, permissions });
 }
 
 /**
