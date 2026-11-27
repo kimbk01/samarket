@@ -59,6 +59,7 @@ vi.mock("@/lib/ads/feed-ad-event-client", () => ({
 }));
 vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({
   recordPromotionContentVisitClient: () => {},
+  notePromotionDeviceStateWrite: () => {},
 }));
 vi.mock("@/components/stores/advertising/useDeliveryAdEvents", () => ({
   reportDeliveryAdClick: () => {},

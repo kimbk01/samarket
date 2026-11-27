@@ -32,7 +32,7 @@ vi.mock("@/lib/ads/feed-ad-event-client", () => ({
   feedAdCreativeIdOfSlide: (id: string) => id,
   sendFeedAdEvent: () => {},
 }));
-vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({ recordPromotionContentVisitClient: () => {} }));
+vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({ recordPromotionContentVisitClient: () => {}, notePromotionDeviceStateWrite: () => {} }));
 
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import type { FeedAdPublicCampaign } from "@/lib/ads/feed-ad-public-projection";

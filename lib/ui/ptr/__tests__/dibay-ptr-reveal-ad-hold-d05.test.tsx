@@ -57,6 +57,7 @@ vi.mock("@/lib/auth/client-instance-id", () => ({ ensureClientInstanceId: () => 
 vi.mock("@/hooks/use-client-membership-state", () => ({ useClientMembershipState: () => ({ status: "anonymous" }) }));
 vi.mock("@/lib/platform-promotion-lifecycle/client-record-content-visit", () => ({
   recordPromotionContentVisitClient: () => {},
+  notePromotionDeviceStateWrite: () => {},
 }));
 vi.mock("@/lib/destination/open-destination", () => ({
   openDestination: () => true,
