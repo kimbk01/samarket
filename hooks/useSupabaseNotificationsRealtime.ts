@@ -95,16 +95,24 @@ export function useSupabaseNotificationsRealtime(
 
     let cancelled = false;
     let currentSub: { stop: () => void; markSignal: () => void } | null = null;
+    /**
+     * 지금 가입한 계정. 로그인 라이브러리는 앱이 다시 열릴 때마다 같은 계정의 `SIGNED_IN` 을 다시 알린다 — 그때 채널을
+     * 끊고 새로 가입하면 새 채널의 첫 SUBSCRIBED 는 재연결로 세지 않아, 끊긴 동안 놓친 변경을 따라잡지 못한다.
+     * 같은 계정이면 채널을 그대로 둔다(친구요청 피드와 같은 규칙).
+     */
+    let subscribedUid = "";
     const offResync = onMessengerRealtimeResynced(() => {
       if (!cancelled && currentSub) onChangeRef.current({ eventType: "RESYNC" });
     });
 
     const subscribeForUser = (uid: string) => {
       if (cancelled || !uid) return;
+      if (currentSub && uid === subscribedUid) return;
       if (currentSub) {
         currentSub.stop();
         currentSub = null;
       }
+      subscribedUid = uid;
       let markRealtimeSignal = () => {};
       /** D-5: 첫 SUBSCRIBED 는 앱 부팅 조회가 맡고, 재연결 SUBSCRIBED 에서만 끊긴 동안 놓친 변경을 1회 따라잡는다. */
       let subscribedOnce = false;
@@ -222,6 +230,7 @@ export function useSupabaseNotificationsRealtime(
       if (event === "SIGNED_OUT") {
         currentSub?.stop();
         currentSub = null;
+        subscribedUid = "";
         return;
       }
       if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {

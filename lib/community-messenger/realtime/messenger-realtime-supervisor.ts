@@ -60,6 +60,8 @@ type Entry = {
   parked: boolean;
   stopped: boolean;
   seq: number;
+  /** 지금 가입 중인 채널이 마지막으로 받은 상태 — 멈추거나 새로 가입하면 비운다 */
+  lastStatus: string | null;
 };
 
 export type RtSupervisorDeps = {
@@ -83,6 +85,11 @@ export type RtSupervisor = {
   state: () => RtSupervisorState;
   /** 지금 가입해도 되는가 — 닫힘이고 오프라인 일시정지가 아님 */
   isJoinAllowed: () => boolean;
+  /**
+   * 감독하는 채널이 하나 이상 있고 **모두** 지금 SUBSCRIBED 인가 — 차단·시험·오프라인 일시정지·쉼·재시도 중이면 false.
+   * 앱 다시 열기 때 「실시간이 이미 따라잡는 값」을 또 조회할지 판정하는 데 쓴다(resume-resync-gate.ts).
+   */
+  allChannelsLive: () => boolean;
   /** 자체 재시도 루프(presence·read-ack)의 가입 실패 — 같은 창에 센다(2차 감사 F-E) */
   noteSelfLoopFailure: () => void;
   /** 차단이 열릴 때 — 자체 루프가 가입된 채널을 놓는다(2차 감사 F-E). 반환 = 등록 해제 */
@@ -165,6 +172,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
   const stopInner = (e: Entry, notifyCaller: boolean) => {
     const inner = e.inner;
     e.inner = null;
+    e.lastStatus = null;
     if (!inner) return;
     inner.stop();
     if (notifyCaller && !e.stopped) {
@@ -178,9 +186,11 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
 
   const start = (e: Entry) => {
     if (e.stopped || e.inner || offlinePaused) return;
+    e.lastStatus = null;
     const inner = deps.subscribe({
       ...e.args,
       onStatus: (status) => {
+        e.lastStatus = status;
         /** 호출부 먼저 — 이 실패로 차단·쉼이 되면 호출부가 마지막에 받는 상태가 감독의 CLOSED 가 되게(2차 감사 F-D) */
         e.args.onStatus?.(status);
         onEntryStatus(e, status);
@@ -360,6 +370,7 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
         parked: false,
         stopped: false,
         seq: (seq += 1),
+        lastStatus: null,
       };
       entries.add(e);
       if (state === "closed") start(e);
@@ -415,6 +426,12 @@ export function createMessengerRealtimeSupervisor(deps: RtSupervisorDeps): RtSup
     },
     state: () => state,
     isJoinAllowed: () => state === "closed" && !offlinePaused,
+    allChannelsLive() {
+      if (state !== "closed" || offlinePaused) return false;
+      const live = [...entries].filter((e) => !e.stopped);
+      if (!live.length) return false;
+      return live.every((e) => e.inner != null && !e.parked && e.lastStatus === "SUBSCRIBED");
+    },
     noteSelfLoopFailure() {
       if (state === "closed" && !isOnline()) {
         pauseForOffline();
@@ -499,6 +516,12 @@ export function superviseMessengerChannel(args: SubscribeWithRetryArgs): Subscri
 export function messengerRealtimeSupervisorAllowsJoin(): boolean {
   if (!supervisorEnabled()) return true;
   return getDefaultSupervisor().isJoinAllowed();
+}
+
+/** 감독하는 채널이 모두 지금 연결돼 있는가 — 감독을 끈 경우(롤백 스위치)는 알 수 없으므로 false */
+export function messengerRealtimeAllSupervisedChannelsLive(): boolean {
+  if (!supervisorEnabled()) return false;
+  return getDefaultSupervisor().allChannelsLive();
 }
 
 /** 자체 재시도 루프용 — 상한·차단으로 멈춘 뒤 다시 가입해도 될 때 1번 */
