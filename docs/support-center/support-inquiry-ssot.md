@@ -33,10 +33,11 @@
 | 답변 | 어드민 | → WAITING_USER, 고객 미읽음 +1 | `adminReplySupportCase` |
 | 확인했어요 | 고객 | → RESOLVED (알림 없음) | `requesterCloseSupportCase` |
 | 상담 종료 | 어드민 | → RESOLVED, 고객 「종료」 알림 (F3) | `adminUpdateSupportCaseStatus` |
-| 재오픈 | 어드민 | RESOLVED/ARCHIVED → OPEN, 고객 알림 | `reopenSupportCase` |
+| 재오픈 | **어드민만** (고객 API 의 reopen = 400, 재감사 D12) | RESOLVED/ARCHIVED → OPEN, 고객 알림 | `reopenSupportCase` |
 | 보관 / 보관 해제 | 어드민 | RESOLVED ↔ ARCHIVED (알림 없음) | 같은 함수 |
 
-★ 목표 추가 전이 (**Owner 결정 2026-11-27 「7일로 정하기」**): WAITING_USER 이고 마지막 글(`last_message_at`) 뒤 **7일** 동안 고객 글이 없으면 자동 RESOLVED (F7).
+★ 목표 추가 전이 (**Owner 결정 2026-11-27 「7일로 정하기」**): WAITING_USER 이고 마지막 **공개 글**(`last_message_at`) 뒤 **7일** 동안 고객 글이 없으면 자동 RESOLVED (F7).
+- 「마지막 글」 = 고객·어드민 **공개 글**만. 어드민 메모(INTERNAL_NOTE)는 시계를 다시 시작하지 않는다(재감사 D13 — DB 함수 `20271127230000`, 운영 적용 전에는 메모도 시계를 다시 시작한다).
 - 고객 알림 없음(고객 「확인했어요」와 같은 취급). 사건 기록 `status_changed` · `by: "auto_7d"`.
 - 고객이 답변을 아직 안 읽었으면(`requester_unread_count>0`) §3-1 규칙대로 내용이 보이고, 읽으면 사라진다.
 - 종료 시 `admin_unread_count = 0` (F6 와 같은 규칙).
@@ -66,6 +67,12 @@
 | 담당 지정 | 지정된 어드민에게 알림 없음(종류 `support_case_assigned` 정의만 있고 만드는 곳 0 — F14). 대신 5분 주기 재생 함수가 지난 72시간 고객 글(**최초 문의 포함**)을 새 담당자에게 한꺼번에 보냄 — 이미 읽은 글도 (F13) | 지정 시 「담당 지정」 1건만, 재생은 지정 이후 글만 |
 | 어드민이 문의를 열면 | 미읽음 0 · 그 어드민의 알림 읽음 | 그대로 |
 | 종료 | 미읽음 숫자 그대로 남음 (F6) | 종료·보관 시 `admin_unread_count = 0` |
+
+어드민 알림 행의 수명 (재감사 D3 — 계약 빈칸 보완):
+- 받는 사람 = 담당자(support 권한 필수) 또는 support 권한 전원. 보낸 사람 본인은 받지 않는다(D10).
+- 어드민이 그 문의를 열면 → 그 어드민 것만 읽음.
+- 그 문의의 어드민 일이 끝나면(공개 답변·종료·보관·고객 「확인했어요」·자동 종료) → **받은 어드민 전원** 읽음.
+- 발송(권한 확인·저장·푸시)은 고객 응답 뒤에 끝까지 진행(재감사 D6). 실패분은 outbox·5분 재생 함수가 다시 만든다.
 
 토스트·소리 규칙(현행 유지): 고객 PUBLIC 글 INSERT 1건 = 토스트 1 + 소리 1, 어드민 자신의 행동은 0 (`lib/admin/admin-ops-sound-decision.ts`).
 
@@ -165,3 +172,28 @@
 | F12 | 안내 API 2개 — AI 결정 때까지 그대로 | — |
 
 시험: `lib/support/__tests__/support-audit-phase1-regression.test.ts` 「support inquiry SSOT 2026-11-27」 9건.
+
+## 12. 수정 후 재감사 기록 (2026-11-27, `fix/support-inquiry-reaudit2`)
+
+근거 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/final-reaudit.md`. Owner 「수정 진행」.
+
+| # | 수정 | DB |
+|---|---|---|
+| D1 | 상세 조회는 문의 id 가 바뀔 때만(콜백 고정) · 늦게 온 옛 응답 무시 · 「종료+안 읽은 답변」 내용은 앱 실행 동안 기억(다시 그려도 빈 화면 아님) | 없음 |
+| D2 | 담당 지정·담당자 알림 모두 support 권한 필수 (`assignee_not_support_admin`) | 없음 |
+| D3 | §3-2 「어드민 알림 행의 수명」 | 없음 |
+| D4 | 종료 문의 공개 글은 DB 함수가 잠금 안에서 거부 → `case_closed` | **DB 함수 적용 승인 필요** |
+| D5 | 「확인했어요」는 마지막 글 시각도 같을 때만 종료(그사이 답변 오면 다시 읽게) | 없음 |
+| D6 | 어드민 알림 발송을 응답 뒤로(`keepAliveAfterResponse`) | 없음 |
+| D7 | FAB 숫자: 실시간 재연결(RESYNC)·앱 복귀 따라잡기 때도 다시 읽음 | 없음 |
+| D8 | 어드민 대화에 「고객이 고른 세부」 표시 (`followupIssues`) | 없음 |
+| D9 | 첫 글 저장 실패 = 접수 실패(`first_message_failed`, 빈 문의 삭제) | 없음 |
+| D10 | 보낸 사람 본인 제외 (`excludeRecipientIds`) | 없음 |
+| D11 | 같은 사람 재지정 = 변화 없음·알림 없음 | 없음 |
+| D12 | 고객 재오픈 API 제거(400) | 없음 |
+| D13 | 메모는 「마지막 글」이 아님 | **DB 함수 적용 승인 필요**(D4 와 같은 파일) |
+| D14 | 쓰기 화면 「진행 중인 문의」에도 종료+안 읽은 답변 문의 포함(맨 위) | 없음 |
+| D15 | 고객 열람 때 어드민 알림 UPDATE 생략 · 어드민 상세 인증 1번 · 작업 직후 목록 중복 조회 생략 | 없음 |
+| D16 | 안 읽은 공개 답변 삭제 시 고객 미읽음 −1·그 알림 읽음 | 없음 |
+
+시험: `support-audit-phase1-regression.test.ts` 「post-fix reaudit D1~D16」 8건.

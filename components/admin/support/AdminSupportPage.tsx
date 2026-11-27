@@ -290,6 +290,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [activeCase, setActiveCase] = useState<SupportCaseAdminDisplayRow | null>(null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
+  /** 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부) */
+  const [followupIssues, setFollowupIssues] = useState<Record<string, string>>({});
   const [detailLoading, setDetailLoading] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
 
@@ -354,6 +356,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         ok?: boolean;
         case?: SupportCaseAdminDisplayRow;
         messages?: SupportMessageRow[];
+        followupIssues?: { messageId: string; issueType: string }[];
         error?: string;
       };
       if (!res.ok || !json.ok || !json.case) {
@@ -362,6 +365,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       }
       setActiveCase(json.case);
       setMessages(json.messages ?? []);
+      setFollowupIssues(
+        Object.fromEntries((json.followupIssues ?? []).map((f) => [f.messageId, f.issueType]))
+      );
     } catch {
       setError("network_error");
     } finally {
@@ -410,6 +416,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
    * coalesced). The conversation reloads only for the open case.
    */
   const activeIdRef = useRef<string | null>(activeId);
+  /** 재감사 D15: 내 작업 직후 목록을 이미 다시 읽었으면, 같은 작업의 Realtime 신호로 또 읽지 않는다 */
+  const manualListLoadAtRef = useRef(0);
   const loadListRef = useRef(loadList);
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -423,6 +431,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (listTimer != null) window.clearTimeout(listTimer);
       listTimer = window.setTimeout(() => {
         listTimer = null;
+        if (Date.now() - manualListLoadAtRef.current < 1500) return;
         void loadListRef.current();
       }, 300);
     };
@@ -463,6 +472,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         return false;
       }
       await loadDetail(activeId);
+      manualListLoadAtRef.current = Date.now();
       await loadList();
       return true;
     } catch {
@@ -1021,6 +1031,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           {senderLabel(m)} · {formatAdminManilaDateTime(m.created_at)}
                           {m.edited_at && !m.deleted_at ? ` · ${t("admin_support_edited")}` : ""}
                         </p>
+                        {followupIssues[m.id] && activeCase ? (
+                          <p className="mb-1 text-[12px] font-medium text-sam-fg" data-admin-support-followup-issue={m.id}>
+                            {t("admin_support_followup_issue", {
+                              issue: supportIssueLabel(safeT, activeCase.category, followupIssues[m.id]) ?? followupIssues[m.id],
+                            })}
+                          </p>
+                        ) : null}
                         {m.deleted_at ? (
                           <p className="text-xs italic text-sam-muted">
                             {t("admin_support_deleted_hidden_from_customer")}

@@ -296,16 +296,19 @@ export function isSupportTicketAnsweredStatus(status: string | null | undefined)
 /** 쓰기 화면 「진행 중인 문의」 최대 줄 수 */
 export const SUPPORT_TICKET_ACTIVE_LIST_MAX = 5;
 
-/** 진행 중인 문의 정렬 — 종료 문의 제외, 답변 완료(고객 확인 대기) 먼저, 그다음 최근 순 */
-export function sortActiveSupportTickets<T extends { status: string; last_message_at?: string | null }>(
-  rows: readonly T[]
-): T[] {
+/** 진행 중인 문의 정렬 — 종료 문의 제외(안 읽은 답변 있는 종료 문의는 포함), 답변 완료(고객 확인 대기) 먼저, 그다음 최근 순 */
+export function sortActiveSupportTickets<
+  T extends { status: string; last_message_at?: string | null; requester_unread_count?: number | null },
+>(rows: readonly T[]): T[] {
   return rows
-    .filter((r) => !isSupportTicketClosedStatus(r.status))
+    // 고객 문의 SSOT §3-1 (재감사 D14): 종료됐어도 안 읽은 답변이 있으면 남긴다(FAB·내 문의와 같은 기준)
+    .filter((r) => !isSupportTicketClosedStatus(r.status) || Number(r.requester_unread_count ?? 0) > 0)
     .slice()
     .sort((a, b) => {
-      const aa = isSupportTicketAnsweredStatus(a.status) ? 0 : 1;
-      const bb = isSupportTicketAnsweredStatus(b.status) ? 0 : 1;
+      const answeredFirst = (r: T) =>
+        isSupportTicketAnsweredStatus(r.status) || Number(r.requester_unread_count ?? 0) > 0 ? 0 : 1;
+      const aa = answeredFirst(a);
+      const bb = answeredFirst(b);
       if (aa !== bb) return aa - bb;
       return String(b.last_message_at ?? "").localeCompare(String(a.last_message_at ?? ""));
     });

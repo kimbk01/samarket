@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
@@ -13,6 +12,7 @@ import {
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
   getSupportCaseForAdmin,
+  listSupportFollowupIssueSelections,
   listSupportMessages,
   markSupportCaseNotificationsRead,
   markSupportCaseReadForAdmin,
@@ -46,12 +46,23 @@ export async function GET(
   }
   await markSupportCaseReadForAdmin(sb, caseId);
   // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
-  const viewer = await requireAuthenticatedUserId();
-  if (viewer.ok) await markSupportCaseNotificationsRead(sb, { userId: viewer.userId, caseId });
+  // 재감사 D15: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번).
+  await markSupportCaseNotificationsRead(sb, {
+    userId: adminGate.actor.userId,
+    caseId,
+    includeAdmin: true,
+  });
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.
   const [displayCase] = await enrichSupportCasesForAdminDisplay(sb, [gate.case]);
-  return NextResponse.json({ ok: true, case: displayCase ?? gate.case, messages: messages.messages });
+  // 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부)
+  const followupIssues = await listSupportFollowupIssueSelections(sb, caseId);
+  return NextResponse.json({
+    ok: true,
+    case: displayCase ?? gate.case,
+    messages: messages.messages,
+    followupIssues,
+  });
 }
 
 export async function PATCH(
@@ -61,8 +72,8 @@ export async function PATCH(
   // RS-04: 고객지원 케이스 조회·처리 = `support` 키
   const adminGate = await requireAdminPermission("support");
   if (!adminGate.ok) return adminGate.response;
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  // 재감사 D15: 권한 확인이 본 관리자 id 를 그대로 쓴다(인증 조회 1번)
+  const auth = { userId: adminGate.actor.userId };
   const { caseId } = await context.params;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

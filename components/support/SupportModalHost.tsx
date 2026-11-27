@@ -184,6 +184,9 @@ export function SupportModalHost() {
     closeSupportModal();
   }, []);
 
+  /** 재감사 D1: 고정 함수 — 매 렌더 새 함수면 문의 상세가 다시 조회된다(종료+안 읽은 답변이 빈 화면으로 덮임) */
+  const handleUnauthorized = useCallback(() => setAuth("out"), []);
+
   const handleSubmit = useCallback(
     async (state: SupportTicketFormState, draftKey: string) => {
       if (submitting) return;
@@ -337,7 +340,7 @@ export function SupportModalHost() {
           onClose={handleClose}
           onClosedByRequester={handleClose}
           onNewInquiry={handleNewInquiry}
-          onUnauthorized={() => setAuth("out")}
+          onUnauthorized={handleUnauthorized}
           onBack={
             modal.context && isSupportContextEnabled(modal.context) ? () => setSupportModalCaseId(null) : null
           }
