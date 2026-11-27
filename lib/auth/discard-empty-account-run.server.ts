@@ -11,7 +11,7 @@ import "server-only";
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { checkEmptyAccountForDiscard } from "@/lib/auth/discard-empty-account.server";
-import { purgeAuthUserById } from "@/lib/admin/admin-user-deletion";
+import { prepareAuthUserPurge, purgeAuthUserById } from "@/lib/admin/admin-user-deletion";
 import { deactivateAllUserPushTokensForAccountRemoval } from "@/lib/push/dispatch/deactivate-failed-token";
 import {
   revokeAppleSigninTokenForUser,
@@ -98,7 +98,9 @@ export async function runDiscardEmptyAccount(
       return NOT_EMPTY;
     }
 
-    const purged = await purgeAuthUserById(sb, uid);
+    /** 기기 행이 지워질 때 캠페인 발송 기록 고유키가 겹치지 않게 겹칠 행만 정리(어드민 영구 삭제와 같은 준비 · 2026-11-27) */
+    const prepared = await prepareAuthUserPurge(sb, uid);
+    const purged = prepared.ok ? await purgeAuthUserById(sb, uid) : { ok: false as const, error: `purge_prepare_failed:${prepared.error}` };
     if (!purged.ok) {
       void appendAuditLog(sb, {
         actor_type: "user",

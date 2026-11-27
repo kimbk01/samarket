@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingRelation } from "@/lib/admin-users/member-tab-query";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 export type MemberOpsHistorySource =
   | "user_moderation_events"
@@ -76,8 +77,10 @@ const ACTION_LABEL_KO: Record<string, string> = {
   deletion_request_cancelled: "삭제 요청(취소)",
 };
 
-function labelForAction(action: string, source: MemberOpsHistorySource): string {
+export function labelForAction(action: string, source: MemberOpsHistorySource): string {
   if (ACTION_LABEL_KO[action]) return ACTION_LABEL_KO[action];
+  /** 새 라벨은 카탈로그 키로만(인라인 한국어 신규 금지) — 이 표의 다른 라벨처럼 한국어로 보인다 */
+  if (action === "user_purge_failed") return translateBy("ko", "admin_member_ops_user_purge_failed");
   if (source === "account_deletion_requests") {
     return `삭제 요청 · ${action}`;
   }

@@ -12,6 +12,8 @@ type Check = { ok: true; empty: true } | { ok: true; empty: false; reasons: stri
 const state = vi.hoisted(() => ({
   checks: [] as Check[],
   purgeCalls: 0,
+  prepareCalls: 0,
+  prepareResult: { ok: true, deliveriesDeleted: 0 } as { ok: true; deliveriesDeleted: number } | { ok: false; error: string },
   audits: [] as Array<{ action: string; after_json: Record<string, unknown> | null | undefined }>,
   purgeGate: null as null | Promise<void>,
 }));
@@ -20,6 +22,10 @@ vi.mock("@/lib/auth/discard-empty-account.server", () => ({
   checkEmptyAccountForDiscard: async () => state.checks.shift() ?? { ok: true, empty: true },
 }));
 vi.mock("@/lib/admin/admin-user-deletion", () => ({
+  prepareAuthUserPurge: async () => {
+    state.prepareCalls += 1;
+    return state.prepareResult;
+  },
   purgeAuthUserById: async () => {
     state.purgeCalls += 1;
     if (state.purgeGate) await state.purgeGate;
@@ -45,6 +51,8 @@ const sb = {} as never;
 beforeEach(() => {
   state.checks = [];
   state.purgeCalls = 0;
+  state.prepareCalls = 0;
+  state.prepareResult = { ok: true, deliveriesDeleted: 0 };
   state.audits = [];
   state.purgeGate = null;
 });
@@ -92,6 +100,7 @@ describe("B12 빈 계정 지우기", () => {
     const r = await runDiscardEmptyAccount(sb, "u1", "09170000000");
     expect(r).toEqual({ status: 200, body: { ok: true } });
     expect(state.purgeCalls).toBe(1);
+    expect(state.prepareCalls).toBe(1);
     expect(state.audits.map((a) => a.action)).toEqual(["user_discard_empty_account"]);
     expect(isDiscardEmptyAccountInFlight("u1")).toBe(false);
   });
@@ -107,6 +116,16 @@ describe("B12 빈 계정 지우기", () => {
     release();
     expect(await first).toEqual({ status: 200, body: { ok: true } });
     expect(state.purgeCalls).toBe(1);
+    expect(isDiscardEmptyAccountInFlight("u1")).toBe(false);
+  });
+
+  it("삭제 전 준비(발송 기록 겹침 정리)가 실패하면 지우지 않고 실패 기록 · 500", async () => {
+    state.prepareResult = { ok: false, error: "statement timeout" };
+    const r = await runDiscardEmptyAccount(sb, "u1", "09170000000");
+    expect(r).toEqual({ status: 500, body: { ok: false, error: "auth_user_delete_failed" } });
+    expect(state.purgeCalls).toBe(0);
+    expect(state.audits.map((a) => a.action)).toEqual(["user_discard_empty_account_failed"]);
+    expect(state.audits[0]?.after_json?.error).toBe("purge_prepare_failed:statement timeout");
     expect(isDiscardEmptyAccountInFlight("u1")).toBe(false);
   });
 

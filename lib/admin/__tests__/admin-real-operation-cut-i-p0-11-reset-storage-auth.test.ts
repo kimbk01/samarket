@@ -197,7 +197,12 @@ describe("CUT I-P0-11 Reset Storage/Auth", () => {
       appendAuditLog: async () => undefined,
     }));
 
+    const prepared: string[] = [];
     const sb = {
+      rpc: async (name: string, args: { p_user_id: string }) => {
+        if (name === "admin_prepare_auth_user_purge") prepared.push(args.p_user_id);
+        return { data: { ok: true, deliveries_deleted: 0 }, error: null };
+      },
       storage: {
         from: (bucket: string) => ({
           remove: async (paths: string[]) => {
@@ -236,6 +241,8 @@ describe("CUT I-P0-11 Reset Storage/Auth", () => {
     expect(removed).toContain(`post-images/${targetPath}`);
     expect(removed).not.toContain(`post-images/${unrelatedPath}`);
     expect(deletedUsers).toEqual([targetUser]);
+    /** 삭제 전 준비 함수(발송 기록 고유키 겹침 정리)를 지울 회원에게만 부른다 — 2026-11-27 */
+    expect(prepared).toEqual([targetUser]);
     expect(deletedUsers).not.toContain(actor);
     expect(result.phases.find((p) => p.phase === "STORAGE")?.status).toBe("PASS");
     expect(result.phases.find((p) => p.phase === "AUTH")?.status).toBe("PASS");
