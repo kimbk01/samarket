@@ -554,12 +554,20 @@ export async function listMoimPosts(
   sb: SupabaseServer,
   access: MoimAccess,
   viewerId: string | null,
-  opts: { boardId?: string | null; before?: string | null; limit?: number }
-): Promise<{ items: MoimPostDto[]; nextBefore: string | null }> {
+  opts: { boardId?: string | null; before?: string | null; limit?: number; pinnedNotice?: boolean }
+): Promise<{ items: MoimPostDto[]; nextBefore: string | null; noticeBoardId?: string | null }> {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
+  /** 모임 방 메뉴의 「모임 공지」(4번 묶음 D1) — 공지 게시판의 고정 글만, 공지 게시판 id 도 함께 */
+  let noticeBoardId: string | null | undefined;
+  if (opts.pinnedNotice) {
+    const { data: nb } = await sb.from("moim_boards").select("id").eq("moim_id", access.moim.id).eq("kind", "notice").eq("is_active", true).limit(1);
+    noticeBoardId = ((nb ?? []) as { id: string }[])[0]?.id ?? null;
+    if (!noticeBoardId) return { items: [], nextBefore: null, noticeBoardId: null };
+  }
   let q = sb.from("moim_posts").select(POST_COLS).eq("moim_id", access.moim.id).eq("status", "active");
   if (!access.role) q = q.eq("visibility", "public");
-  if (opts.boardId) q = q.eq("board_id", opts.boardId);
+  if (noticeBoardId) q = q.eq("board_id", noticeBoardId).eq("is_pinned", true);
+  else if (opts.boardId) q = q.eq("board_id", opts.boardId);
   if (opts.before) q = q.lt("created_at", opts.before);
   const { data } = await q.order("created_at", { ascending: false }).limit(limit + 1);
   const rows = (data ?? []) as PostRow[];
@@ -567,6 +575,7 @@ export async function listMoimPosts(
   return {
     items: await toPosts(sb, access.moim.id, page, viewerId),
     nextBefore: rows.length > limit ? page[page.length - 1]?.created_at ?? null : null,
+    ...(opts.pinnedNotice ? { noticeBoardId } : {}),
   };
 }
 

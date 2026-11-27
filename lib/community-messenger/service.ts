@@ -12178,7 +12178,7 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
     const [{ data: room, error: roomErr }, { data: me, error: meErr }] = await Promise.all([
       (sb as any)
         .from("community_messenger_rooms")
-        .select("id, room_type, allow_admin_edit_notice")
+        .select("id, room_type, allow_admin_edit_notice, owner_domain")
         .eq("id", roomId)
         .maybeSingle(),
       (sb as any)
@@ -12193,6 +12193,10 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
     if (!lookupErr) {
       if (!room || !me) return { ok: false, error: "room_not_found" };
       if (room.room_type !== "private_group") return { ok: false, error: "not_group_room" };
+      /** 모임 방 공지 = 모임 게시판 공지 하나 — 메신저 방 공지는 쓰지 않는다 (모임 4번 묶음 D1 · hard-lock §MOIM-owned GROUP rooms) */
+      if (trimText((room as { owner_domain?: string | null }).owner_domain) === "moim") {
+        return { ok: false, error: "moim_room_settings_managed_by_moim" };
+      }
       const role = trimText(me.role);
       if (!(role === "owner" || (role === "admin" && room.allow_admin_edit_notice === true))) {
         return { ok: false, error: "forbidden" };

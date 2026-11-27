@@ -14,6 +14,10 @@ export const moimCoreMessages = {
     moim_room_go_home: "모임 홈으로 가기",
     moim_room_managed_in_moim: "멤버 초대·내보내기·나가기는 모임 홈에서 할 수 있어요",
     moim_chat_list_badge: "모임",
+    moim_chat_list_badge_schedule: "일정",
+    moim_room_schedule_btn: "일정 보기",
+    moim_room_notice_label: "모임 공지",
+    moim_room_notice_empty: "모임 공지 보기",
 
     moim_role_host: "모임장",
     moim_role_co_host: "부모임장",
@@ -214,6 +218,10 @@ export const moimCoreMessages = {
     moim_room_go_home: "Go to group home",
     moim_room_managed_in_moim: "Invite, remove or leave from the group home",
     moim_chat_list_badge: "Group",
+    moim_chat_list_badge_schedule: "Meetup",
+    moim_room_schedule_btn: "View meetup",
+    moim_room_notice_label: "Group notice",
+    moim_room_notice_empty: "View group notices",
 
     moim_role_host: "Organizer",
     moim_role_co_host: "Co-organizer",

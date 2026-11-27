@@ -6,7 +6,8 @@ import { isUuidString } from "@/lib/shared/uuid-string";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export type MoimRoomOwnerDto = { moimId: string; kind: "moim" | "schedule"; moimName: string };
+/** scheduleId = 일정 방이면 그 일정 id (방 머리글 「일정 보기」 · 4번 묶음 D2) */
+export type MoimRoomOwnerDto = { moimId: string; kind: "moim" | "schedule"; moimName: string; scheduleId?: string };
 
 /**
  * 메신저 방 → 소유 모임 (보는 사람이 참여 중인 방만). 채팅 목록 「모임」 배지 · 방 「모임 홈」 버튼 · 관리 메뉴 숨김용.
@@ -51,7 +52,9 @@ export async function GET(req: NextRequest) {
   for (const r of roomRows) {
     const scheduleOf = scheduleMoim.get(r.owner_ref_id);
     const moimId = scheduleOf ?? r.owner_ref_id;
-    owners[r.id] = { moimId, kind: scheduleOf ? "schedule" : "moim", moimName: moimName.get(moimId) ?? "" };
+    owners[r.id] = scheduleOf
+      ? { moimId, kind: "schedule", moimName: moimName.get(moimId) ?? "", scheduleId: r.owner_ref_id }
+      : { moimId, kind: "moim", moimName: moimName.get(moimId) ?? "" };
   }
   return NextResponse.json({ ok: true, owners });
 }

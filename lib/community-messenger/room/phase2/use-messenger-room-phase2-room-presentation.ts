@@ -279,8 +279,9 @@ export function useMessengerRoomPhase2RoomPresentation({
       : t("nav_messenger_my_role_label", { role: snapshot.myRole })
     : "";
   const privateGroupNotice = snapshot?.room.noticeText?.trim() ?? "";
+  /** 모임 방 공지는 모임 게시판 공지 하나 — 메신저 방 공지 편집 없음 (모임 4번 묶음 D1) */
   const canEditGroupNotice = Boolean(
-    (isPrivateGroupRoom || isOpenGroupRoom) && groupCaps?.canEditNotice
+    (isPrivateGroupRoom || isOpenGroupRoom) && !isMoimRoom && groupCaps?.canEditNotice
   );
   const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canEditGroupInfo);
   /** 메시지 고정은 모임 방에서도 그대로 (방 설정이 아님) */

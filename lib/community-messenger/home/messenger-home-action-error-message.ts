@@ -8,6 +8,9 @@ export function messengerHomeActionErrorMessage(
   error?: string
 ): string {
   switch (error) {
+    /** 모임 채팅방은 모임에서 나간다 (서버 409 · 모임 4번 묶음 D7) */
+    case "moim_room_membership_managed_by_moim":
+      return t("moim_err_moim_room_membership_managed_by_moim");
     case "bad_peer":
       return t("nav_messenger_direct_target_invalid");
     case "blocked_target":

@@ -56,6 +56,7 @@ import {
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
+import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
 
 /** 통화 선택 시트 — 📞 를 누를 때만 불러온다 (방 첫 화면 번들·방 진입 경로에 연락처 코드를 넣지 않음) */
 const MessengerCallChoiceSheetLazy = lazy(
@@ -516,10 +517,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <button
               type="button"
               data-moim-room-home="header"
-              onClick={() => vm.router.push(`/moim/${vm.moimRoomOwner!.moimId}`)}
+              onClick={() => vm.router.push(moimRoomOwnerHref(vm.moimRoomOwner!))}
               className="mr-1 shrink-0 rounded-full border border-sam-border px-2.5 py-1 sam-text-helper font-semibold text-sam-fg"
             >
-              {vm.t("moim_room_home_btn")}
+              {/* 일정 방 = 「일정 보기」 → 일정 상세 · 모임 방 = 「모임 홈」 (설계 §2 · 4번 묶음 D2) */}
+              {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_home_btn")}
             </button>
           ) : null}
           {vm.isGroupRoom ? (

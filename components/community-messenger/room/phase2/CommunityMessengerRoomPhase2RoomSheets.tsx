@@ -58,6 +58,8 @@ import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
+import { MoimRoomNoticeMenuItem } from "@/components/moim/MoimRoomNoticeMenuItem";
+import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
@@ -501,6 +503,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </span>
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
+                  {/* 모임 방 공지 = 모임 게시판 공지 하나 (모임 4번 묶음 D1 · hard-lock §MOIM-owned GROUP rooms) */}
+                  {vm.isMoimRoom && vm.moimRoomOwner ? (
+                    <MoimRoomNoticeMenuItem moimId={vm.moimRoomOwner.moimId} trailingClassName={GROUP_MENU_TRAILING_CLASS} />
+                  ) : (
                   <button
                     type="button"
                     onClick={() =>
@@ -523,6 +529,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </span>
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -716,8 +723,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 {vm.isMoimRoom && vm.moimRoomOwner ? (
                   <div className="mt-3">
                     <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
-                      <a href={`/moim/${vm.moimRoomOwner.moimId}`} data-moim-room-home="menu" className="dibay-overlay-menu__item">
-                        <span className="dibay-overlay-menu__label">{vm.t("moim_room_go_home")}</span>
+                      <a href={moimRoomOwnerHref(vm.moimRoomOwner)} data-moim-room-home="menu" className="dibay-overlay-menu__item">
+                        <span className="dibay-overlay-menu__label">
+                          {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                        </span>
                       </a>
                     </div>
                     <p className={`${OverlayUi.caption} mt-1 px-1`}>{vm.t("moim_room_managed_in_moim")}</p>
@@ -1149,7 +1158,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   </div>
 
-                  {vm.isPrivateGroupRoom ? (
+                  {/* 모임 방: 메신저 운영 칸(공지·권한·기록·멤버/위임) 대신 모임 홈·일정 보기 (시안 U8 · 4번 묶음 D6) */}
+                  {vm.isPrivateGroupRoom && !vm.isMoimRoom ? (
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1236,9 +1246,17 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         )}
                       </div>
                     </div>
+                  ) : vm.isMoimRoom && vm.moimRoomOwner ? (
+                    <div data-moim-room-info="" className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
+                      <a href={moimRoomOwnerHref(vm.moimRoomOwner)} className={`${OverlayUi.btn.secondary} block text-center`}>
+                        {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                      </a>
+                      <p className={`${OverlayUi.caption} mt-2`}>{vm.t("moim_room_managed_in_moim")}</p>
+                    </div>
                   ) : null}
 
-                  {vm.isPrivateGroupRoom || vm.isOpenGroupRoom ? (
+                  {/* 모임 방에는 메신저 방 공지가 없다 — 모임 게시판 공지 하나 (4번 묶음 D1) */}
+                  {(vm.isPrivateGroupRoom && !vm.isMoimRoom) || vm.isOpenGroupRoom ? (
                     <div ref={vm.groupNoticeSectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>

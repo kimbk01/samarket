@@ -53,7 +53,12 @@ export async function POST(
       if (groupLeave.ok) {
         return NextResponse.json({ ok: true }, { status: 200 });
       }
-      const err = groupLeave.error ?? GROUP_ROOM_ERROR.LEAVE_FAILED;
+      const rawErr = groupLeave.error ?? GROUP_ROOM_ERROR.LEAVE_FAILED;
+      /** 모임 방은 모임에서만 나간다 — DB 트리거 거부를 일반 오류(500) 대신 정확한 코드로 (모임 4번 묶음 D7 · hard-lock §MOIM-owned GROUP rooms) */
+      if (/moim_room_membership_managed_by_moim/.test(rawErr)) {
+        return NextResponse.json({ ok: false, error: "moim_room_membership_managed_by_moim" }, { status: 409 });
+      }
+      const err = rawErr;
       const status =
         err === GROUP_ROOM_ERROR.OWNER_CANNOT_LEAVE
           ? 400
