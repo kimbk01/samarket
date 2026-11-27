@@ -59,6 +59,10 @@
 	<string>$(FACEBOOK_CLIENT_TOKEN)</string>
 	<key>FacebookDisplayName</key>
 	<string>DIBAY</string>
+	<key>TikTokAppIdIOS</key>
+	<string>$(TIKTOK_APP_ID_IOS)</string>
+	<key>TikTokAppSecretIOS</key>
+	<string>$(TIKTOK_APP_SECRET_IOS)</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>kakaokompassauth</string>

@@ -3,6 +3,8 @@ import Capacitor
 import KakaoSDKAuth
 import KakaoSDKCommon
 import FBSDKCoreKit
+import FirebaseCore
+import TikTokBusinessSDK
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,6 +12,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     private static let lifecycleWasInBackgroundKey = "dibay_lifecycle_was_in_background"
+
+    /// 구글(Firebase Analytics)·틱톡 앱 설치 측정 — 설계 docs/audit/ads-sdk-google-tiktok-design-2026-11-27.md
+    /// 설정 파일·값이 없으면(CI 빌드 등) 초기화하지 않는다 — 없을 때 FirebaseApp.configure() 를 부르면 앱이 멈춘다.
+    private static func initAdsMeasurementSDKs() {
+        if FirebaseApp.app() == nil,
+           Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+            FirebaseApp.configure()
+        }
+        let info = Bundle.main.infoDictionary ?? [:]
+        let ttAppId = (info["TikTokAppIdIOS"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let ttSecret = (info["TikTokAppSecretIOS"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let missing = { (v: String) in v.isEmpty || v.hasPrefix("$(") || v.contains("YOUR_TIKTOK") }
+        if !missing(ttAppId), !missing(ttSecret),
+           let config = TikTokConfig(accessToken: ttSecret, appId: "6831952401", tiktokAppId: ttAppId) {
+            TikTokBusiness.initializeSdk(config)
+        }
+    }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Lifecycle SSOT §5.2: only emit restore|fresh when OS restore vs cold is actually
@@ -50,6 +69,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 ApplicationDelegate.shared.application(application, didFinishLaunchingWithOptions: launchOptions)
             }
         }
+        Self.initAdsMeasurementSDKs()
         VoIPPushRegistry.shared.start()
         Self.logDibayBuildFingerprint()
         return true

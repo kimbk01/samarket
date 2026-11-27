@@ -1,0 +1,5 @@
+// TikTok App Events SDK — copy TikTok.local.xcconfig.example → TikTok.local.xcconfig (gitignored)
+// 설계: docs/audit/ads-sdk-google-tiktok-design-2026-11-27.md
+#include? "TikTok.local.xcconfig"
+TIKTOK_APP_ID_IOS = $(inherited)
+TIKTOK_APP_SECRET_IOS = $(inherited)

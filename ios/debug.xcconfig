@@ -1,3 +1,4 @@
 #include "App/App/kakao.xcconfig"
 #include "App/App/facebook.xcconfig"
+#include "App/App/tiktok.xcconfig"
 CAPACITOR_DEBUG = true
