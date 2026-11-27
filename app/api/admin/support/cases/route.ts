@@ -87,15 +87,3 @@ export async function GET(req: NextRequest) {
   const cases = await enrichSupportCasesForAdminDisplay(sb, res.cases);
   return NextResponse.json({ ok: true, cases, counts, total: res.total, limit: res.limit, offset: res.offset });
 }
-
-export async function POST(req: NextRequest) {
-  // E-7: 고객지원 = support 키 (GET 과 같은 키)
-  const gate = await requireAdminPermission("support");
-  if (!gate.ok) return gate.response;
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  return NextResponse.json(
-    { ok: false, error: "use_case_detail_route" },
-    { status: 405 }
-  );
-}

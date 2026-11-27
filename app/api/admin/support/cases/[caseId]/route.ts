@@ -21,6 +21,9 @@ import {
 } from "@/lib/support/support-case-service";
 import type { SupportCasePriority, SupportCaseStatus } from "@/lib/support/support-case-types";
 
+/** DB CHECK `support_cases.priority IN ('NORMAL','HIGH','URGENT')` (20261202170000) — 최종 감사 L4 */
+const SUPPORT_CASE_PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH", "URGENT"];
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -38,7 +41,7 @@ export async function GET(
   }
   const gate = await getSupportCaseForAdmin(sb, caseId);
   if (!gate.ok) {
-    const status = gate.error === "not_found" ? 404 : 400;
+    const status = gate.error === "not_found" ? 404 : gate.error === "case_fetch_failed" ? 500 : 400;
     return NextResponse.json({ ok: false, error: gate.error }, { status });
   }
   const messages = await listSupportMessages(sb, { caseId, includeInternal: true });
@@ -60,9 +63,12 @@ export async function GET(
   });
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.
-  const [displayCase] = await enrichSupportCasesForAdminDisplay(sb, [gate.case]);
   // 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부)
-  const followupIssues = await listSupportFollowupIssueSelections(sb, caseId);
+  // 최종 감사 L11: 서로 무관한 두 읽기는 동시에
+  const [[displayCase], followupIssues] = await Promise.all([
+    enrichSupportCasesForAdminDisplay(sb, [gate.case]),
+    listSupportFollowupIssueSelections(sb, caseId),
+  ]);
   return NextResponse.json({
     ok: true,
     case: displayCase ?? gate.case,
@@ -95,6 +101,8 @@ export async function PATCH(
     internalNote?: boolean;
     messageId?: string;
     reason?: unknown;
+    /** 최종 감사 D1: 답변할 때 화면이 보여 준 문의 `last_message_at` */
+    seenLastMessageAt?: unknown;
   };
 
   // F3: 성공한 변경만 관리자 감사 로그에 남긴다 (메시지 본문은 기록하지 않음).
@@ -108,17 +116,28 @@ export async function PATCH(
     });
 
   if (body.action === "reply") {
+    // 최종 감사 D1: 본 마지막 글 시각 — 없으면(옛 화면) 예전 동작. 있는데 시각이 아니면 400(잘못 보내면 알림을 덜 남길 수 있어 거부).
+    let seenLastMessageAt: string | null = null;
+    if (body.seenLastMessageAt != null && body.seenLastMessageAt !== "") {
+      const raw = typeof body.seenLastMessageAt === "string" ? body.seenLastMessageAt.trim() : "";
+      if (!raw || !Number.isFinite(Date.parse(raw))) {
+        return NextResponse.json({ ok: false, error: "invalid_seen_last_message_at" }, { status: 400 });
+      }
+      seenLastMessageAt = raw;
+    }
     const res = await adminReplySupportCase(sb, {
       adminUserId: auth.userId,
       caseId,
       body: String(body.body ?? ""),
       internalNote: body.internalNote === true,
+      seenLastMessageAt,
     });
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
     await audit("reply", { internalNote: body.internalNote === true });
-    return NextResponse.json({ ok: true, message: res.message });
+    // unseenCustomerMessages > 0 = 답을 쓰는 사이 온 고객 글이 있어 문의가 「답변 필요」로 남았다(화면이 다시 읽는다)
+    return NextResponse.json({ ok: true, message: res.message, unseenCustomerMessages: res.unseenCustomerMessages });
   }
 
   if (body.action === "assign") {
@@ -148,6 +167,9 @@ export async function PATCH(
   }
 
   if (body.action === "priority" && body.priority) {
+    if (!(SUPPORT_CASE_PRIORITIES as readonly string[]).includes(body.priority)) {
+      return NextResponse.json({ ok: false, error: "invalid_priority" }, { status: 400 });
+    }
     const res = await adminSetSupportCasePriority(sb, {
       adminUserId: auth.userId,
       caseId,

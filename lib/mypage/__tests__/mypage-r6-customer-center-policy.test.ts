@@ -451,8 +451,10 @@ describe("S63 상담 내역 — 상태 탭 · 커서 · OWNER 불변", () => {
 
   it("공유 목록: 회원 = 진행 중 + 커서 더 보기(상태 탭 없음) · OWNER 요청 불변 · 목록 안 숫자 없음", () => {
     const src = read("components/support/SupportCasesHistoryList.tsx");
-    expect(src).toContain('if (audience === "MEMBER") return <MemberSupportCasesList />');
-    expect(src).toContain('const qs = new URLSearchParams({ audience });');
+    // 최종 감사 U-5 (2026-11-28): 회원·사장님 한 구현 — 사장님은 같은 커서 목록에 그 매장만(audience=OWNER&storeId)
+    expect(src).not.toContain("MemberSupportCasesList");
+    expect(src).not.toContain("SupportCasesFlatList");
+    expect(src).toContain("supportHistoryActiveUrl(cursor, { audience, storeId: ownerStoreId })");
     expect(src).not.toContain("useMypageTabParam");
     expect(src).toContain('status: "active"');
     expect(src).toContain("MyListPager");

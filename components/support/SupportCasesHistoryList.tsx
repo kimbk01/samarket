@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyListPager } from "@/components/mypage/ds/MyListPager";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { SupportCaseRowButton } from "@/components/support/SupportCaseRow";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
-import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
-import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
 import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
-import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import {
   fetchMypageListJson,
@@ -24,14 +22,25 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 /** 내 문의 목록 캐시 키 접두 (S63) */
 export const SUPPORT_HISTORY_CACHE_PREFIX = "me:support:cases:";
 
+export type SupportHistoryScope = { audience: "MEMBER" | "OWNER"; storeId?: string | null };
+
 /**
- * `GET /api/support/cases` 고객 「내 문의」 요청 주소 — 첫 페이지 20건.
- * 접수형 문의(Owner 2026-11-10): 종료된 문의는 목록에서 사라진다 → 진행 중만.
+ * `GET /api/support/cases` 고객 「내 문의」 요청 주소 — 한 페이지 20건 · 커서 더 보기.
+ * 접수형 문의(Owner 2026-11-10): 진행 중 문의만(종료 문의는 답변을 확인하면 사라진다).
+ * 최종 감사 U-5: 회원·사장님(그 매장) 같은 주소 모양 — 사장님은 `audience=OWNER&storeId=`.
  */
-export function supportHistoryActiveUrl(cursor: string | null): string {
-  const qs = new URLSearchParams({ audience: "MEMBER", status: "active", limit: String(MYPAGE_LIST_PAGE_DEFAULT) });
+export function supportHistoryActiveUrl(cursor: string | null, scope: SupportHistoryScope = { audience: "MEMBER" }): string {
+  const qs = new URLSearchParams({ audience: scope.audience, status: "active", limit: String(MYPAGE_LIST_PAGE_DEFAULT) });
+  if (scope.audience === "OWNER" && scope.storeId) qs.set("storeId", scope.storeId);
   if (cursor) qs.set("cursor", cursor);
   return `/api/support/cases?${qs.toString()}`;
+}
+
+/** 목록 캐시 키 — 회원 `…active` (예전 키 유지) · 사장님 `…owner:<storeId>` */
+export function supportHistoryCacheKey(scope: SupportHistoryScope): string | null {
+  if (scope.audience === "MEMBER") return `${SUPPORT_HISTORY_CACHE_PREFIX}active`;
+  const storeId = String(scope.storeId ?? "").trim();
+  return storeId ? `${SUPPORT_HISTORY_CACHE_PREFIX}owner:${storeId}` : null;
 }
 
 /** DEF-16: re-read after the Support sheet closes so status reflects the visit. */
@@ -47,54 +56,9 @@ function useOnSupportModalClosed(onClosed: () => void): void {
 }
 
 /**
- * 행 60px — 1줄: 「분야 · 세부」(말줄임) + 오른쪽 상태 / 2줄: 접수 번호 · 시각.
- * 숫자 뱃지는 고객센터 FAB 아이콘에만(Owner 2026-11-10) — 목록 안에는 숫자를 그리지 않는다.
- */
-function SupportCaseHistoryRow({ c }: { c: SupportCaseRow }) {
-  const { safeT } = useI18n();
-  // DEF-08: labels from SSOT (status label module + category registry), never raw enums.
-  // UI U1·U2: 상태 알약 = 고객 화면 공용 정의(색은 상태 기준, 종료+안 읽은 답변 = 「새 답변」)
-  const pill = supportRequesterStatusPill(c.status, c.requester_unread_count);
-  const statusLabel = safeT(pill.key);
-  // 분야·세부 이름 = 어드민 「문의 유형 관리」 이름 우선, 없으면 코드 기본 이름
-  const labels = useSupportCategoryLabels();
-  const categoryLabel = labels.categoryLabel(c.audience, c.category);
-  const issueLabel = labels.issueLabel(c.audience, c.category, c.issue_type);
-  const answered = pill.tone === "answered";
-  return (
-    <li>
-      <button
-        type="button"
-        className="grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto] grid-rows-[22px_18px] content-center gap-x-2 px-4 text-left transition active:bg-sam-surface-muted"
-        data-support-history-row={c.id}
-        onClick={() => {
-          deliverSupportOpen({ caseId: c.id, source: "history" });
-        }}
-      >
-        <span className="truncate text-[14px] font-semibold text-sam-fg">
-          {/* Never `subject` — it is an internal "CATEGORY · surface" token (B5). */}
-          {[categoryLabel, issueLabel].filter(Boolean).join(" · ")}
-        </span>
-        <span
-          className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${pill.className}`}
-          data-support-history-answered={answered ? "1" : "0"}
-        >
-          {statusLabel}
-        </span>
-        <span className="col-start-1 truncate text-[12px] text-sam-muted">
-          {/* UI U3: 시각 = 마지막 글 시각(쓰기 화면 「진행 중인 문의」와 같은 기준) */}
-          {[c.public_case_no, c.last_message_at ? formatMypageDate(c.last_message_at, { style: "datetime" }) : ""]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
-      </button>
-    </li>
-  );
-}
-
-/**
- * 내 문의 목록 — **사장님 고객센터와 공유**(`OwnerCustomerCenterView`).
- * 회원 = 커서 더 보기, 사장님 = 그 매장 문의. 둘 다 진행 중 문의만(서버가 종료 문의를 돌려주지 않음).
+ * 내 문의 목록 — 회원 「내 문의」와 **사장님 고객센터**(`OwnerCustomerCenterView`)가 같은 구현 (최종 감사 U-5).
+ * 로딩 = 스켈레톤 · 오류 = 같은 오류 화면(44px 다시 시도) · 빈 목록 · 더 보기 모두 같다.
+ * 빈 목록만 다르다: 회원 = 안내 + 「문의하기」, 사장님 = 안내만(목록 위 「문의하기」 1개 — Owner 「아래 것 빼기」 2026-11-27).
  */
 export function SupportCasesHistoryList({
   audience,
@@ -103,116 +67,27 @@ export function SupportCasesHistoryList({
   audience: "MEMBER" | "OWNER";
   storeId?: string | null;
 }) {
-  if (audience === "MEMBER") return <MemberSupportCasesList />;
-  return <SupportCasesFlatList audience={audience} storeId={storeId} />;
-}
-
-function ListHint() {
   const { safeT } = useI18n();
-  return <p className="px-1 text-[12px] text-sam-muted">{safeT("support_ticket_list_hint")}</p>;
-}
+  const owner = audience === "OWNER";
+  const ownerStoreId = owner ? String(storeId ?? "").trim() || null : null;
+  const cacheKey = supportHistoryCacheKey({ audience, storeId: ownerStoreId });
 
-function SupportCasesFlatList({ audience, storeId }: { audience: "MEMBER" | "OWNER"; storeId?: string | null }) {
-  const { safeT } = useI18n();
-  const [cases, setCases] = useState<SupportCaseRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const qs = new URLSearchParams({ audience });
-      if (audience === "OWNER" && storeId) qs.set("storeId", storeId);
-      const res = await fetch(`/api/support/cases?${qs.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        cases?: SupportCaseRow[];
-        error?: string;
+  const fetchPage = useCallback(
+    async (cursor: string | null): Promise<MypageCursorPage<SupportCaseRow>> => {
+      const json = await fetchMypageListJson<CasesPageJson>(
+        supportHistoryActiveUrl(cursor, { audience, storeId: ownerStoreId })
+      );
+      if (!json.ok) throw new Error("support_cases_not_ok");
+      return {
+        items: Array.isArray(json.cases) ? json.cases : [],
+        next_cursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
       };
-      if (!res.ok || !json.ok) {
-        setError(json.error ?? "load_failed");
-        setCases([]);
-        return;
-      }
-      setCases(json.cases ?? []);
-    } catch {
-      setError("network_error");
-      setCases([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [audience, storeId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const reloadOnClose = useCallback(() => void load(), [load]);
-  useOnSupportModalClosed(reloadOnClose);
-
-  if (loading) {
-    return <p className="px-4 py-6 text-sm text-sam-muted">{safeT("common_loading")}</p>;
-  }
-  if (error) {
-    return (
-      <div className="px-4 py-6">
-        <p className="text-sm text-sam-danger">{supportErrorLabel(safeT, error)}</p>
-        <button type="button" className="mt-2 text-sm underline" onClick={() => void load()}>
-          {safeT("common_retry")}
-        </button>
-      </div>
-    );
-  }
-  if (cases.length === 0) {
-    // UI U5 (Owner 「아래 것 빼기」 2026-11-27): 사장님 화면은 목록 위에 「문의하기」가 이미 있다 — 빈 목록에는 안내만(버튼 1개)
-    return (
-      <p className="px-4 py-6 text-center text-sm text-sam-muted" data-support-cases-history-empty="1">
-        {safeT("support_history_empty")}
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {/* UI U5: 회원 「내 문의」와 같은 카드 모양 */}
-      <ul
-        className="divide-y divide-sam-border-soft overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface"
-        data-support-cases-history="1"
-      >
-        {cases.map((c) => (
-          <SupportCaseHistoryRow key={c.id} c={c} />
-        ))}
-      </ul>
-      <ListHint />
-    </div>
+    },
+    [audience, ownerStoreId]
   );
-}
-
-type CasesPageJson = {
-  ok?: boolean;
-  cases?: SupportCaseRow[];
-  nextCursor?: string | null;
-};
-
-/** 고객 「내 문의」 — 진행 중 문의 + 커서 더 보기 (상태 탭 없음: 종료 문의는 사라진다) */
-function MemberSupportCasesList() {
-  const { safeT } = useI18n();
-
-  const fetchPage = useCallback(async (cursor: string | null): Promise<MypageCursorPage<SupportCaseRow>> => {
-    const json = await fetchMypageListJson<CasesPageJson>(supportHistoryActiveUrl(cursor));
-    if (!json.ok) throw new Error("support_cases_not_ok");
-    return {
-      items: Array.isArray(json.cases) ? json.cases : [],
-      next_cursor: typeof json.nextCursor === "string" && json.nextCursor ? json.nextCursor : null,
-    };
-  }, []);
 
   const list = useMypageCursorList<SupportCaseRow>({
-    cacheKey: `${SUPPORT_HISTORY_CACHE_PREFIX}active`,
+    cacheKey,
     fetchPage,
     getId: (c) => c.id,
   });
@@ -224,6 +99,10 @@ function MemberSupportCasesList() {
     void reload();
   }, [reload]);
   useOnSupportModalClosed(reloadOnClose);
+
+  const openCase = useCallback((caseId: string) => {
+    deliverSupportOpen({ caseId, source: "history" });
+  }, []);
 
   let body: ReactNode;
   if (list.status === "loading") {
@@ -237,7 +116,11 @@ function MemberSupportCasesList() {
       />
     );
   } else if (list.items.length === 0) {
-    body = (
+    body = owner ? (
+      <p className="px-4 py-6 text-center text-sm text-sam-muted" data-support-cases-history-empty="1">
+        {safeT("support_history_empty")}
+      </p>
+    ) : (
       <MyStateView
         kind="empty"
         template="list"
@@ -263,7 +146,9 @@ function MemberSupportCasesList() {
           data-support-cases-history="1"
         >
           {list.items.map((c) => (
-            <SupportCaseHistoryRow key={c.id} c={c} />
+            <li key={c.id}>
+              <SupportCaseRowButton c={c} surface="page" onOpen={openCase} />
+            </li>
           ))}
         </ul>
         <MyListPager
@@ -277,9 +162,15 @@ function MemberSupportCasesList() {
   }
 
   return (
-    <div className="flex flex-col gap-3" data-support-history-list="active">
+    <div className="flex flex-col gap-3" data-support-history-list="active" data-support-history-audience={audience}>
       {body}
-      <ListHint />
+      <p className="px-1 text-[12px] text-sam-muted">{safeT("support_ticket_list_hint")}</p>
     </div>
   );
 }
+
+type CasesPageJson = {
+  ok?: boolean;
+  cases?: SupportCaseRow[];
+  nextCursor?: string | null;
+};

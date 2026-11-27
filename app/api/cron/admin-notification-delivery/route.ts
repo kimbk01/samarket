@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { runAdminNotificationDeliveryWorker } from "@/lib/admin/notifications/admin-notification-service";
+import {
+  purgeDeliveredSupportOutbox,
+  runAdminNotificationDeliveryWorker,
+} from "@/lib/admin/notifications/admin-notification-service";
 import { runAdminNotificationCronTick } from "@/lib/admin/notifications/admin-notification-cron-tick";
 import { ADMIN_NOTIFICATION_RETENTION_DAYS } from "@/lib/admin/notifications/admin-notification-kinds";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
@@ -21,6 +24,7 @@ export const dynamic = "force-dynamic";
  *   3) push retries (authority re-verified; unknown outcomes never resent)
  *   4) 90-day archive — OFF unless ADMIN_NOTIFICATION_ARCHIVE_ENABLED=1 (separate approval)
  *   5) 고객 문의 SSOT §2 (F7) — 답변 후 7일 고객 글 없는 문의 자동 종료(새 cron 없이 매시 첫 실행만).
+ *   6) 고객 문의 최종 감사 L9 — 고객센터 발송 대기열 처리됨 행 30일 보관 뒤 삭제(매시 첫 실행만, 1회 최대 1000행).
  */
 async function runAdminNotificationDelivery(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -37,6 +41,9 @@ async function runAdminNotificationDelivery(req: Request) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+
+  // 최종 감사 L14: 매시 첫 실행 판정은 **시작 시각**으로 — 대기열 작업이 길어져 UTC 분 5 를 넘겨도 그 시간 자동 종료를 건너뛰지 않는다.
+  const hourlySupportRun = shouldRunSupportAutoClose(new Date());
 
   // Settlement financial exceptions → outbox (idempotent per event) before the worker drains it.
   /**
@@ -64,17 +71,21 @@ async function runAdminNotificationDelivery(req: Request) {
   }
 
   let supportAutoClosed: number | null = null;
-  if (shouldRunSupportAutoClose(new Date())) {
+  let supportOutboxPurged: number | null = null;
+  if (hourlySupportRun) {
     const auto = await autoCloseStaleAnsweredSupportCases(sb);
     if (auto.ok) supportAutoClosed = auto.closed;
     else summary.errors.push(`support_auto_close:${auto.error}`);
+    const purge = await purgeDeliveredSupportOutbox(sb);
+    if (purge.ok) supportOutboxPurged = purge.deleted;
+    else summary.errors.push(`support_outbox_purge:${purge.error}`);
   }
 
   const ok = summary.errors.length === 0;
   // 감사 2026-11-24 S9: 단계 실패(DB 호출 오류)도 200 이라 Vercel cron 이 실패로 기록하지 않았다 → 500.
   // 본문은 그대로 (어느 단계가 실패했는지). 개별 푸시 실패는 errors 에 들어가지 않는다(재시도·dead 로 관리).
   return NextResponse.json(
-    { ok, ...summary, archived, supportAutoClosed, settlementScan: settlementScan.data ?? null },
+    { ok, ...summary, archived, supportAutoClosed, supportOutboxPurged, settlementScan: settlementScan.data ?? null },
     { status: ok ? 200 : 500 }
   );
 }

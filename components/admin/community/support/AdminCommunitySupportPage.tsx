@@ -24,13 +24,16 @@ import {
   useCommunityQueryState,
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { ADMIN_SUPPORT_TAB_LABEL_KEY, adminSupportStatusTone } from "@/components/admin/support/admin-support-status";
+import type { AdminSupportTab } from "@/lib/support/support-case-types";
 import { supportCategoryLabel } from "@/lib/support/support-display-labels";
 import { supportAdminStatusLabel } from "@/lib/support/support-status-label";
 import { resolveSupportReferenceAdminHref } from "@/lib/support/support-reference-admin-href";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 
-const STATUS_TAB: Record<string, string> = {
+/** 주소 값(status=…) → 고객센터 탭 — 탭 이름·상태 색은 고객센터 콘솔과 같은 정의(`admin-support-status`, U-6) */
+const STATUS_TAB: Record<string, AdminSupportTab> = {
   waiting: "ACTIONABLE",
   waiting_user: "WAITING_USER",
   resolved: "RESOLVED",
@@ -38,14 +41,6 @@ const STATUS_TAB: Record<string, string> = {
 };
 const STATUS_KEYS = Object.keys(STATUS_TAB);
 const SUPPORT_EXTRAS = ["reference_type", "reference_id"] as const;
-
-const STATUS_TONE: Record<string, AdminTone> = {
-  OPEN: "waiting",
-  WAITING_ADMIN: "waiting",
-  WAITING_USER: "progress",
-  RESOLVED: "success",
-  ARCHIVED: "neutral",
-};
 
 /** 참조 대상 — 커뮤니티 화면 이름으로 */
 const REFERENCE_LABEL: Record<string, MessageKey> = {
@@ -95,7 +90,7 @@ type CaseRow = {
 type ListResponse = { ok?: boolean; error?: string; cases?: CaseRow[]; total?: number; limit?: number; offset?: number };
 
 export function AdminCommunitySupportPage({ scope = "community" }: { scope?: SupportScope } = {}) {
-  const { safeT, t } = useI18n();
+  const { safeT, t, language } = useI18n();
   /** 문의/이의신청 탭(`type`)은 [초기화] 후에도 유지 — 조회 조건 밖 키 */
   const tabQ = useCommunityQueryState();
   const q = useCommunityListQuery({ statuses: STATUS_KEYS, defaults: { status: "waiting" }, extras: SUPPORT_EXTRAS });
@@ -147,12 +142,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
           <CommunityTabs
             value={status}
             onChange={(v) => q.setStatus(v === "all" ? "" : v)}
-            tabs={[
-              { value: "waiting", label: t("admin_community_support_status_waiting") },
-              { value: "waiting_user", label: t("admin_community_support_status_waiting_user") },
-              { value: "resolved", label: t("admin_community_support_status_resolved") },
-              { value: "all", label: t("admin_community_support_status_all") },
-            ]}
+            tabs={STATUS_KEYS.map((value) => ({ value, label: t(ADMIN_SUPPORT_TAB_LABEL_KEY[STATUS_TAB[value]]) }))}
           />
         </div>
       }
@@ -242,7 +232,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                 </td>
                 <td className={COMMUNITY_TD}>{c.assigned_admin_id ? t("admin_community_support_assigned") : <span className="text-sam-muted">{t("admin_community_support_unassigned")}</span>}</td>
                 <td className={COMMUNITY_TD}>
-                  <AdminToneBadge tone={STATUS_TONE[c.status] ?? "neutral"}>{supportAdminStatusLabel(c.status, true)}</AdminToneBadge>
+                  <AdminToneBadge tone={adminSupportStatusTone(c.status)}>{supportAdminStatusLabel(c.status, language !== "en")}</AdminToneBadge>
                 </td>
                 <td className={COMMUNITY_TD}>
                   <CommunityTimeCell iso={c.last_message_at || c.created_at} />

@@ -72,7 +72,7 @@ describe("B2 error labels — customers never see an API code", () => {
     expect(views).not.toMatch(/\{error\}<\/p>/);
     expect(views).toContain("supportReferenceLabel(safeT, state.referenceType)");
     expect(views).not.toMatch(/\{state\.referenceType\}/);
-    expect(hist).toContain("supportErrorLabel(safeT, error)");
+    expect(hist).toContain('supportErrorLabel(safeT, "load_failed")');
     expect(hist).not.toContain("c.subject");
     expect(enter).not.toContain("(${error})");
   });
@@ -127,8 +127,11 @@ describe("B4/B5/B6 lists and badges", () => {
 
   it("고객센터 답변 숫자 = 고객센터 FAB 아이콘에만 (Owner 2026-11-10) — 허브·탭 행에는 없음", () => {
     const hook = read("lib/support/use-support-requester-unread.ts");
-    expect(hook).toContain("/api/support/cases?");
-    expect(hook).toContain("requester_unread_count");
+    expect(hook).toContain("fetchSupportRequesterUnread(");
+    // 최종 감사 L10: 숫자 전용 응답(목록 전체 대신) — 요청은 공유 모듈 하나
+    expect(hook).toContain('summary: "unread"');
+    expect(read("lib/support/support-requester-unread-fetch.ts")).toContain("/api/support/cases?");
+    expect(read("lib/support/support-case-service.ts")).toContain('.select("requester_unread_count")');
     const fab = read("components/support/SupportFab.tsx");
     expect(fab).toContain("useSupportRequesterUnread({");
     expect(fab).toContain('audience: owner ? "OWNER" : "MEMBER"');

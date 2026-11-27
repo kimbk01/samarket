@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { appendAdminRouteAudit } from "@/lib/admin/audit/append-admin-route-audit";
 import { validateSupportCategoryForOpen } from "@/lib/support/support-category-registry";
@@ -15,9 +14,9 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/admin/support/guidance?audience=&category=&issueType= */
 export async function GET(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  // 고객 문의 최종 감사 D4: 고객 접수 검증에 쓰이는 안내문 = `support` 키 (다른 고객지원 API 와 같다)
+  const gate = await requireAdminPermission("support");
+  if (!gate.ok) return gate.response;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -55,11 +54,10 @@ type UpsertBody = {
 
 /** POST /api/admin/support/guidance — Admin server authority upsert */
 export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  // 고객 문의 최종 감사 D4: 쓰기도 `support` 키 · 권한 확인이 본 관리자 id 를 그대로 쓴다
+  const gate = await requireAdminPermission("support");
+  if (!gate.ok) return gate.response;
+  const auth = { userId: gate.actor.userId };
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {

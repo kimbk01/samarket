@@ -1,6 +1,6 @@
 "use client";
 
-import { OWNER_SUPPORT_CTA_CLASS } from "@/lib/support/support-owner-cta";
+import { OWNER_SUPPORT_CTA_CLASS, OWNER_SUPPORT_TAB_SELECTED_CLASS } from "@/lib/support/support-owner-cta";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -82,20 +82,23 @@ export function OwnerCustomerCenterView({
   const body = (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-center="1" data-support-entry-ssot="1">
 
+      {/* 최종 감사 U-12 · 계약 §6: 매장 없는 사장님 = 「문의하기」 비활성으로 보이고, 안내는 이 1번만 */}
       {!storeId ? (
-        <p className="mb-3 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg">
+        <p
+          className="mb-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg"
+          data-owner-support-store-required="1"
+        >
           {safeT("support_owner_store_required")}
         </p>
-      ) : (
-        <SupportGenericHubInquireGate
-          audience="OWNER"
-          sourceSurface="owner_customer_center"
-          storeId={storeId}
-          className="mb-3 w-full"
-          buttonClassName={OWNER_SUPPORT_CTA_CLASS}
-          inquireDataAttr="data-owner-support-inquire"
-        />
-      )}
+      ) : null}
+      <SupportGenericHubInquireGate
+        audience="OWNER"
+        sourceSurface="owner_customer_center"
+        storeId={storeId ?? undefined}
+        className="mb-3 w-full"
+        buttonClassName={OWNER_SUPPORT_CTA_CLASS}
+        inquireDataAttr="data-owner-support-inquire"
+      />
 
       <div className="mb-3 grid min-w-0 grid-cols-2 gap-2" data-owner-customer-center-tabs="1">
         {tabs.map((t) => {
@@ -106,7 +109,7 @@ export function OwnerCustomerCenterView({
               href={t.href}
               data-owner-care-tab={t.id}
               className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-ui-rect px-2 text-center text-sm font-medium ${
-                selected ? "bg-signature text-sam-on-primary" : "border border-sam-border bg-sam-surface text-sam-fg"
+                selected ? OWNER_SUPPORT_TAB_SELECTED_CLASS : "border border-sam-border bg-sam-surface text-sam-fg"
               }`}
             >
               <span className="truncate">{t.label}</span>
@@ -127,11 +130,7 @@ export function OwnerCustomerCenterView({
       {tab === "history" ? (
         storeId ? (
           <SupportCasesHistoryList audience="OWNER" storeId={storeId} />
-        ) : (
-          <p className="text-sm text-sam-muted">
-            {safeT("support_owner_store_required")}
-          </p>
-        )
+        ) : null
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-sam-muted">

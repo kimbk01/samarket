@@ -4,7 +4,9 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import {
   countSupportCasesForRequester,
   listSupportCasesForRequester,
+  sumSupportRequesterUnread,
 } from "@/lib/support/support-case-service";
+import { toSupportRequesterCaseView } from "@/lib/support/support-requester-view";
 import { parseSupportCaseHistoryTab } from "@/lib/support/support-status-label";
 import { parseMypageListCursor, parseMypageListLimit } from "@/lib/mypage/mypage-list-cursor";
 
@@ -18,6 +20,8 @@ export const dynamic = "force-dynamic";
  * 접수형 문의(Owner 2026-11-10): 요청자 화면에는 **진행 중 문의만** — 종료(RESOLVED·ARCHIVED)는 사라진다.
  * `status` 는 호환용으로 받기만 하고(active|done 외 400) 항상 진행 중만 돌려준다.
  * 페이지 모드 응답 `{ ok, cases, nextCursor, counts? }` — 첫 페이지(커서 없음)에만 `counts.active`.
+ * 고객 문의 최종 감사 L10: `?summary=unread` = FAB 숫자 전용 `{ ok, unread }` (안 읽은 답변 수 열 1개만 읽는다 · 같은 범위).
+ * 최종 감사 L3: 문의 행은 고객용 필드만(`toSupportRequesterCaseView`).
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -32,6 +36,19 @@ export async function GET(req: NextRequest) {
   const audience: "MEMBER" | "OWNER" | undefined =
     audienceRaw === "MEMBER" || audienceRaw === "OWNER" ? audienceRaw : undefined;
   const storeId = String(sp.get("storeId") ?? "").trim() || null;
+
+  if (sp.get("summary") === "unread") {
+    const sum = await sumSupportRequesterUnread(sb, {
+      userId: auth.userId,
+      audience,
+      storeId: audience === "OWNER" ? storeId : null,
+    });
+    if (!sum.ok) {
+      const status = sum.error === "missing_table" ? 503 : 500;
+      return NextResponse.json({ ok: false, error: sum.error }, { status });
+    }
+    return NextResponse.json({ ok: true, unread: sum.unread });
+  }
 
   const statusRaw = sp.get("status");
   const status = parseSupportCaseHistoryTab(statusRaw);
@@ -65,11 +82,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "cases_fetch_failed" }, { status: 500 });
   }
   if (!paged) {
-    return NextResponse.json({ ok: true, cases: res.cases });
+    return NextResponse.json({ ok: true, cases: res.cases.map(toSupportRequesterCaseView) });
   }
   return NextResponse.json({
     ok: true,
-    cases: res.cases,
+    cases: res.cases.map(toSupportRequesterCaseView),
     nextCursor: res.nextCursor,
     ...(activeCount && activeCount.ok ? { counts: { active: activeCount.count } } : {}),
   });

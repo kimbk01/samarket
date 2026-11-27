@@ -270,8 +270,10 @@ describe("G-03 — 거래 신고 처리 = 진입점과 무관하게 requireTrade
 describe("E-7 — 고객지원 = support (GET 과 같은 키)", () => {
   it.each([
     ["support/cases/route.ts", "GET"],
-    ["support/cases/route.ts", "POST"],
-    ["support/summary/route.ts", "GET"],
+    // 최종 감사 L12 (2026-11-28): POST 405 껍데기·summary(호출처 0) 삭제 — 남은 support 어드민 경로
+    ["support-control-plane/route.ts", "GET"],
+    ["support/guidance/route.ts", "GET"],
+    ["support/guidance/route.ts", "POST"],
   ])("%s %s", (route, method) => {
     expectHandlerKey(route, method, "support");
   });

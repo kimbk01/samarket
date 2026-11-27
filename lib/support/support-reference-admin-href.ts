@@ -4,6 +4,7 @@
  */
 
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { adsBoostOrderDeepLinkHref } from "@/lib/admin/ads-exposure/boost-order-deep-link";
 import type { SupportReferenceType } from "@/lib/support/support-reference-authority";
@@ -11,8 +12,8 @@ import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-
 
 export type SupportAdminContextLink = {
   href: string;
-  labelKo: string;
-  labelEn: string;
+  /** 링크 이름 — 화면은 `t(labelKey)` (최종 감사 2026-11-28 U-9: 코드 안 문구·개발 용어 금지) */
+  labelKey: MessageKey;
   /** Domain mutation lives elsewhere — Support is navigation only. */
   mutationOwner:
     | "ADS"
@@ -45,146 +46,126 @@ export function resolveSupportReferenceAdminHref(
     case "DELIVERY_AD_CAMPAIGN":
       return {
         href: DELIVERY_AD_ADMIN_ROUTES.detail(id),
-        labelKo: "광고 상세 보기",
-        labelEn: "Open ad detail",
+        labelKey: "admin_support_link_ad_detail",
         mutationOwner: "ADS",
       };
     case "FEED_AD_REQUEST":
       return {
         href: `/admin/feed-ad-requests/${encodeURIComponent(id)}`,
-        labelKo: "피드 광고 신청 보기",
-        labelEn: "Open feed ad request",
+        labelKey: "admin_support_link_feed_ad_request",
         mutationOwner: "ADS",
       };
     case "POINT_PROMOTION_ORDER":
       return {
         href: adsBoostOrderDeepLinkHref(id),
-        labelKo: "Boost 주문 보기",
-        labelEn: "Open Boost order",
+        labelKey: "admin_support_link_boost_order",
         mutationOwner: "ADS",
       };
     case "PLATFORM_POPUP_OWNER_REQUEST":
       return {
         href: `/admin/platform-popup/requests/${encodeURIComponent(id)}`,
-        labelKo: "팝업 신청 보기",
-        labelEn: "Open popup request",
+        labelKey: "admin_support_link_popup_request",
         mutationOwner: "ADS",
       };
     // 광고 원장 §2 (2026-11-07): 운영자 팝업 · PTR · 피드 운영자 캠페인 · 이벤트 배너 참조
     case "PLATFORM_POPUP_CAMPAIGN":
       return {
         href: `/admin/platform-popup/${encodeURIComponent(id)}`,
-        labelKo: "운영자 팝업 보기",
-        labelEn: "Open operator popup",
+        labelKey: "admin_support_link_operator_popup",
         mutationOwner: "ADS",
       };
     case "PTR_REVEAL_CAMPAIGN":
       return {
         href: `/admin/ptr-reveal-ads/${encodeURIComponent(id)}`,
-        labelKo: "PTR 띠 광고 보기",
-        labelEn: "Open PTR band ad",
+        labelKey: "admin_support_link_ptr_band_ad",
         mutationOwner: "ADS",
       };
     case "FEED_AD_CAMPAIGN":
       return {
         href: `/admin/feed-ads/${encodeURIComponent(id)}/edit`,
-        labelKo: "피드 배너(운영자) 보기",
-        labelEn: "Open operator feed banner",
+        labelKey: "admin_support_link_operator_feed_banner",
         mutationOwner: "ADS",
       };
     case "EVENT_BANNER":
       // 이벤트 배너 = 이벤트 배포 행 id — 원장에서 그 광고 행을 연다
       return {
         href: `/admin/advertising?kind=event_hero`,
-        labelKo: "이벤트 배너 보기",
-        labelEn: "Open event banner",
+        labelKey: "admin_support_link_event_banner",
         mutationOwner: "ADS",
       };
     case "STORE_ORDER":
       return {
         href: `/admin/stores/orders/${encodeURIComponent(id)}`,
-        labelKo: "주문 상세 보기",
-        labelEn: "Open order",
+        labelKey: "admin_support_link_order",
         mutationOwner: "STORE",
       };
     case "STORE_PRODUCT":
       return {
         href: `/admin/store-products?productId=${encodeURIComponent(id)}`,
-        labelKo: "상품 보기",
-        labelEn: "Open product",
+        labelKey: "admin_support_link_product",
         mutationOwner: "STORE",
       };
     case "STORE_SETTLEMENT":
       return {
         href: `/admin/store-settlements?id=${encodeURIComponent(id)}`,
-        labelKo: "정산 보기",
-        labelEn: "Open settlement",
+        labelKey: "admin_support_link_settlement",
         mutationOwner: "FINANCE",
       };
     case "GIFT_INSTANCE":
       return {
         href: `/admin/gift-certificates?instanceId=${encodeURIComponent(id)}`,
-        labelKo: "상품권 보기",
-        labelEn: "Open gift certificate",
+        labelKey: "admin_support_link_gift_certificate",
         mutationOwner: "FINANCE",
       };
     case "POINT_CHARGE_REQUEST":
       return {
         href: `/admin/point-charges/${encodeURIComponent(id)}`,
-        labelKo: "Point 충전 요청 보기",
-        labelEn: "Open Point charge request",
+        labelKey: "admin_support_link_point_charge",
         mutationOwner: "FINANCE",
       };
     case "BUSINESS_CASH_CHARGE_REQUEST":
       return {
         href: `/admin/delivery-ads/cash-charges?requestId=${encodeURIComponent(id)}`,
-        labelKo: "Cash 충전 대기열",
-        labelEn: "Open Cash charge queue",
+        labelKey: "admin_support_link_cash_charge_queue",
         mutationOwner: "FINANCE",
       };
     case "COIN_WITHDRAWAL_REQUEST":
       return {
         href: `/admin/finance?coinWithdrawalRequestId=${encodeURIComponent(id)}#coin-withdrawals`,
-        labelKo: "Coin 출금 요청 보기",
-        labelEn: "Open Coin withdrawal request",
+        labelKey: "admin_support_link_coin_withdrawal",
         mutationOwner: "FINANCE",
       };
     case "PARTNER_MEMBERSHIP":
       return {
         href: `${DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}?membershipId=${encodeURIComponent(id)}&status=PENDING_REVIEW`,
-        labelKo: "Partner 멤버십 검토",
-        labelEn: "Open Partner membership",
+        labelKey: "admin_support_link_partner_membership",
         mutationOwner: "PARTNER",
       };
     case "COMMUNITY_POST":
       return {
         href: `/admin/community/posts/${encodeURIComponent(id)}`,
-        labelKo: "게시글 보기",
-        labelEn: "Open community post",
+        labelKey: "admin_support_link_community_post",
         mutationOwner: "COMMUNITY",
         requiredPermissions: ["boards", "reports"],
       };
     case "COMMUNITY_COMMENT":
       return {
         href: `/admin/community/comments?commentId=${encodeURIComponent(id)}`,
-        labelKo: "댓글 보기",
-        labelEn: "Open community comment",
+        labelKey: "admin_support_link_community_comment",
         mutationOwner: "COMMUNITY",
         requiredPermissions: ["boards", "reports"],
       };
     case "COMMUNITY_REPORT":
       return {
         href: `/admin/community/reports?reportId=${encodeURIComponent(id)}`,
-        labelKo: "신고 보기",
-        labelEn: "Open community report",
+        labelKey: "admin_support_link_community_report",
         mutationOwner: "COMMUNITY",
         requiredPermissions: ["reports"],
       };
     case "COMMUNITY_SANCTION":
       return {
         href: `/admin/community/restrictions?sanctionId=${encodeURIComponent(id)}`,
-        labelKo: "활동 제한 보기",
-        labelEn: "Open community restriction",
+        labelKey: "admin_support_link_community_restriction",
         mutationOwner: "COMMUNITY",
         requiredPermissions: ["reports"],
       };
@@ -205,27 +186,23 @@ export function resolveSupportCaseContextLinks(input: {
   if (storeId) {
     links.push({
       href: `/admin/business/${encodeURIComponent(storeId)}`,
-      labelKo: "매장 보기",
-      labelEn: "Open store",
+      labelKey: "admin_support_link_store",
       mutationOwner: "STORE",
     });
     links.push({
       href: businessCcFinancialStatementHref(storeId),
-      labelKo: "매장 재무 명세서 (B3)",
-      labelEn: "Store financial statement (B3)",
+      labelKey: "admin_support_link_store_statement",
       mutationOwner: "FINANCE",
     });
     links.push({
       href: `/admin/finance?storeId=${encodeURIComponent(storeId)}#action-required`,
-      labelKo: "재무 관제 (B4)",
-      labelEn: "Finance control plane (B4)",
+      labelKey: "admin_support_link_finance_overview",
       mutationOwner: "FINANCE",
     });
     // 광고 원장 §2 반대 방향 (2026-11-07): 문의 상세 → 「이 광고주의 광고」 = 같은 원장 + 광고주 거름
     links.push({
       href: `/admin/advertising?advertiser=${encodeURIComponent(storeId)}`,
-      labelKo: "이 광고주의 광고",
-      labelEn: "This advertiser's ads",
+      labelKey: "admin_support_link_advertiser_ads",
       mutationOwner: "ADS",
     });
   }
@@ -233,21 +210,18 @@ export function resolveSupportCaseContextLinks(input: {
   if (userId) {
     links.push({
       href: `/admin/users?userId=${encodeURIComponent(userId)}`,
-      labelKo: "회원 보기",
-      labelEn: "Open member",
+      labelKey: "admin_support_link_member",
       mutationOwner: "MEMBER",
     });
     links.push({
       href: `/admin/advertising?advertiser=${encodeURIComponent(userId)}`,
-      labelKo: "이 광고주의 광고",
-      labelEn: "This advertiser's ads",
+      labelKey: "admin_support_link_advertiser_ads",
       mutationOwner: "ADS",
     });
     // 채팅 Admin 설계 §2-3: 요청자의 거래·주문 채팅방 (본문 열람은 방 권한 규칙 그대로).
     links.push({
       href: `/admin/chats?user_id=${encodeURIComponent(userId)}`,
-      labelKo: "요청자 채팅방",
-      labelEn: "Requester chat rooms",
+      labelKey: "admin_support_link_requester_chats",
       mutationOwner: "CHAT",
       // 전체 채팅방 목록 API(`/api/admin/community-messenger/rooms?type=all`)와 같은 권한.
       requiredPermissions: ["chats"],
@@ -258,8 +232,7 @@ export function resolveSupportCaseContextLinks(input: {
 
   links.push({
     href: "/admin/support/archive",
-    labelKo: "이전 문의 기록",
-    labelEn: "Legacy inquiry archive",
+    labelKey: "admin_support_link_past_inquiries",
     mutationOwner: "SUPPORT_ARCHIVE",
   });
 

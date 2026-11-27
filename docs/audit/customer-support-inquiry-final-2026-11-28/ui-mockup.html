@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>고객센터 문의 — 최종 화면·버튼 시안 (운영 63057603f 코드 기준, 2026-11-28)</title>
+<style>
+  /* 앱 토큰 실제 값 (app/design-tokens.css · app/dibay-overlay.css) */
+  :root {
+    --green:#0B421A; --green-active:#09341a; --brown:#362415; --muted:#604C4C; --cream:#FFFCFC;
+    --surface:#ffffff; --ov-border:#e5e7e8; --ov-secondary:#f5f7f6; --danger:#d45252;
+    --primary-soft:#eef1ee; --warning-soft:#f6ecd8; --warning:#8f7a52; --danger-soft:#fdf0f0;
+    --icon-surface:#D4E9E2; --disabled-bg:#c9c3c3;
+    --adm-border:#d0d7e2; --adm-fg:#1f2937; --adm-muted:#667085; --adm-accent:#1d4ed8; --adm-primary:#111827;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; background:#efedea; color:#222; }
+  header.doc { padding:24px 28px 4px; max-width:1500px; }
+  header.doc h1 { margin:0 0 6px; font-size:22px; }
+  header.doc p { margin:3px 0; font-size:13.5px; color:#555; line-height:1.55; }
+  h2.sec { margin:26px 28px 4px; font-size:18px; }
+  p.secd { margin:0 28px 6px; font-size:13px; color:#555; }
+  .row { display:flex; gap:26px; padding:12px 28px 18px; overflow-x:auto; align-items:flex-start; }
+  .col { flex:0 0 auto; width:375px; }
+  .cap { font-size:13px; font-weight:700; margin:0 0 8px; }
+  .cap small { display:block; font-weight:400; color:#666; margin-top:2px; }
+  .phone { width:375px; height:740px; border-radius:22px; border:1px solid #c9c9c9; background:var(--cream); position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  .phone.short { height:auto; min-height:300px; }
+  /* 문의 창 머리글 48px (SupportTicketHeader) */
+  .hd { height:48px; flex:0 0 48px; display:grid; grid-template-columns:48px 1fr 48px; align-items:center; border-bottom:1px solid var(--ov-border); background:var(--surface); }
+  .hd .t { text-align:center; font-size:16px; font-weight:600; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hd .ic { display:flex; align-items:center; justify-content:center; font-size:20px; color:var(--brown); }
+  /* 앱 화면 머리글 (MyScreen) — 높이 코드 미확인, 52px 로 그림 */
+  .bar { height:52px; flex:0 0 52px; display:flex; align-items:center; justify-content:center; position:relative; background:#ECEAF4; border-bottom:1px solid #e3dfdc; }
+  .bar .back { position:absolute; left:10px; width:36px; height:36px; border-radius:50%; background:#fff; border:1px solid #e3dfdc; display:flex; align-items:center; justify-content:center; color:var(--brown); }
+  .bar .t { font-size:16px; font-weight:700; color:var(--brown); }
+  /* 상단 줄 44px (TopRow) */
+  .top { height:44px; flex:0 0 44px; display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; padding:0 16px; border-bottom:1px solid var(--ov-border); background:var(--surface); }
+  .top .l { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .top .v { font-size:14px; font-weight:600; color:var(--brown); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .tag { border-radius:4px; padding:2px 8px; font-size:11px; font-weight:700; }
+  .tag.m { background:var(--primary-soft); color:var(--green); }
+  .tag.o { background:var(--brown); color:var(--cream); }
+  .tag.w { background:var(--warning-soft); color:var(--brown); }
+  .scroll { flex:1; overflow:hidden; padding-top:12px; }
+  .lab { padding:12px 16px 6px; font-size:12px; font-weight:600; color:var(--muted); }
+  .grp { border-top:1px solid var(--ov-border); border-bottom:1px solid var(--ov-border); background:var(--surface); }
+  .fr { height:44px; display:grid; grid-template-columns:64px 1fr 16px; gap:8px; align-items:center; padding:0 16px; border-bottom:1px solid var(--ov-border); font-size:14px; color:var(--brown); }
+  .fr:last-child { border-bottom:0; }
+  .fr .k { font-size:12px; color:var(--muted); }
+  .fr .ph { color:var(--muted); }
+  .fr .ch { color:var(--muted); }
+  .ta { margin:12px 16px 0; min-height:120px; border:1px solid var(--ov-border); border-radius:4px; background:#fff; padding:10px 12px; font-size:14px; color:var(--muted); }
+  .cnt { text-align:right; font-size:11px; color:var(--muted); padding:4px 16px 12px; }
+  .help { padding:12px 16px; font-size:12px; line-height:1.55; color:var(--muted); }
+  .ft { flex:0 0 auto; border-top:1px solid var(--ov-border); background:var(--surface); padding:10px 16px 6px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  /* DibayOverlayButton + SUPPORT_BTN: min-h 44, radius 4px (U6·U9 반영), 15px/600 */
+  .ob { min-height:44px; border-radius:4px; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:center; border:1px solid transparent; }
+  .ob.p { background:var(--green); color:#fff; }
+  .ob.s { background:#fff; color:var(--muted); border-color:var(--ov-border); }
+  .ob.d { background:var(--danger); color:#fff; }
+  .ob.dis { background:var(--disabled-bg); color:var(--muted); }
+  .ob.brown { background:var(--brown); color:#fff; }
+  .ob.h48 { min-height:48px; }
+  /* sam-btn (앱 화면 버튼) radius 4px, 14px/500 */
+  .sb { min-height:44px; border-radius:4px; background:var(--green); color:var(--cream); font-size:14px; font-weight:500; display:flex; align-items:center; justify-content:center; }
+  .center { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:0 24px; text-align:center; }
+  .center .h { font-size:17px; font-weight:600; color:var(--brown); }
+  .center .b { font-size:13px; line-height:1.55; color:var(--muted); }
+  .chk { width:56px; height:56px; border-radius:50%; background:var(--primary-soft); color:var(--green); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; }
+  .qa .h { display:flex; justify-content:space-between; padding:0 16px 6px; font-size:12px; font-weight:600; color:var(--muted); }
+  .qa .h span:last-child { font-weight:400; font-size:11px; }
+  .qa .b { border-top:1px solid var(--ov-border); border-bottom:1px solid var(--ov-border); background:#fff; padding:12px 16px; font-size:14px; line-height:1.6; color:var(--brown); margin-bottom:12px; }
+  .qa .b.ans { border-left:3px solid var(--green); }
+  .hrow { height:60px; display:grid; grid-template-columns:1fr auto 16px; grid-template-rows:22px 18px; align-content:center; column-gap:8px; padding:0 16px; border-bottom:1px solid var(--ov-border); }
+  .hrow.noarrow { grid-template-columns:1fr auto; }
+  .hrow .a { font-size:14px; font-weight:600; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hrow .s { grid-row:span 2; align-self:center; }
+  .hrow .c { grid-row:span 2; align-self:center; color:var(--muted); }
+  .hrow .d { font-size:12px; color:var(--muted); grid-column:1; }
+  .note { margin:10px 16px; border:1px solid var(--ov-border); border-radius:4px; background:#fff; padding:10px 12px; font-size:13px; line-height:1.55; color:var(--muted); }
+  .fab { position:absolute; right:16px; bottom:76px; height:44px; border-radius:999px; padding:0 16px 0 12px; display:flex; align-items:center; gap:6px; color:#fff; font-size:14px; font-weight:600; box-shadow:0 4px 12px rgba(16,24,40,.08); }
+  .fab .dot { position:relative; }
+  .fab .bd { position:absolute; right:-10px; top:-10px; min-width:18px; height:18px; border-radius:999px; background:var(--danger); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px; box-shadow:0 0 0 2px currentColor; }
+  .num { display:inline-flex; width:18px; height:18px; border-radius:50%; background:#2563eb; color:#fff; font-size:11px; font-weight:700; align-items:center; justify-content:center; margin-right:4px; vertical-align:middle; flex:0 0 18px; }
+  .mark { outline:2px dashed #dc2626; outline-offset:2px; }
+  .flag { color:#b91c1c !important; }
+  .spec { margin-top:10px; font-size:12px; border-collapse:collapse; width:100%; background:#fff; }
+  .spec th, .spec td { border:1px solid #ddd; padding:5px 6px; text-align:left; vertical-align:top; line-height:1.45; }
+  .spec th { background:#f6f6f6; font-weight:700; }
+  .flag { font-size:11px; color:#b45309; font-weight:700; }
+  /* 어드민 */
+  .adm { width:980px; border:1px solid #c9c9c9; border-radius:8px; background:#f4f6f9; padding:12px; font-size:13px; color:var(--adm-fg); }
+  .adm .tabs { display:flex; gap:4px; border-bottom:1px solid var(--adm-border); height:40px; align-items:flex-end; }
+  .adm .tab { padding:0 12px 8px; color:var(--adm-muted); font-size:14px; }
+  .adm .tab.on { color:var(--adm-fg); font-weight:600; border-bottom:2px solid var(--adm-accent); }
+  .adm .pill { display:inline-block; min-width:20px; border-radius:999px; padding:0 6px; font-size:12px; font-weight:600; background:#e7edfb; color:var(--adm-accent); margin-left:4px; }
+  .adm .cols { display:grid; grid-template-columns:320px 1fr; gap:8px; margin-top:8px; }
+  .adm .card { background:#fff; border:1px solid var(--adm-border); border-radius:4px; }
+  .adm .q { padding:10px 12px; border-bottom:1px solid var(--adm-border); }
+  .adm .q.sel { background:#e8ecea; }
+  .ab { display:inline-flex; align-items:center; height:32px; padding:0 10px; font-size:13px; font-weight:600; border-radius:4px; border:1px solid var(--adm-border); background:#fff; color:var(--adm-fg); }
+  .ab.p { background:var(--adm-primary); color:#fff; border-color:var(--adm-primary); }
+  .ab.md { height:40px; font-size:14px; }
+  .ab.g { border:0; background:transparent; color:var(--adm-accent); height:24px; padding:0 4px; }
+  .chip { display:inline-flex; align-items:center; height:32px; border-radius:999px; border:1px solid var(--adm-border); padding:0 12px; font-size:13px; background:#fff; }
+  .chip.on { border-color:var(--adm-accent); background:#e7edfb; color:var(--adm-accent); font-weight:600; }
+  .st { display:inline-block; border-radius:4px; border:1px solid; padding:0 4px; font-size:12px; }
+  .st.r { background:var(--danger-soft); color:var(--danger); border-color:var(--danger); }
+  .st.w { background:var(--warning-soft); color:var(--warning); border-color:var(--warning); }
+  .bub { max-width:80%; border-radius:4px; padding:8px 12px; margin-bottom:10px; font-size:14px; }
+  .bub .m { font-size:12px; color:var(--adm-muted); margin-bottom:2px; }
+  .toast { width:380px; border:1px solid rgba(11,66,26,.4); border-radius:4px; background:#fff; padding:12px 16px; display:flex; gap:8px; box-shadow:0 10px 15px rgba(0,0,0,.1); font-size:14px; font-weight:500; }
+  table.list { border-collapse:collapse; margin:8px 28px 24px; font-size:13px; background:#fff; max-width:1400px; }
+  table.list th, table.list td { border:1px solid #ddd; padding:6px 8px; text-align:left; vertical-align:top; line-height:1.5; }
+  table.list th { background:#f3f3f3; }
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>고객센터 문의 — 최종 화면·버튼 시안 (현재 운영 코드 그대로)</h1>
+  <p>기준: 운영 main <b>63057603f</b>(고객센터 마지막 변경 = PR #678 ece96be, U1~U9 반영 뒤) 코드. 폭 375px. 색·크기·문구는 코드 값(<code>app/design-tokens.css</code>·<code>dibay-overlay.css</code>·카탈로그)을 그대로 옮겼다. 각 버튼 번호 = 아래 표의 「형태 · 누르면 · 비활성」.</p>
+  <p><span class="mark" style="padding:0 4px">빨간 점선</span> = 2026-11-28 최종 감사에서 찾은 결함(맨 아래 5절 표 번호) — 위 화면은 수정 전, 고친 모습은 5절 「수정 후」 열. 이전 시안(54bc4d3)은 U1~U9 수정 <b>전</b> 모습이라 코드와 달랐다 — 작업자가 갱신하지 않은 실수(보고서 W1).</p>
+  <p>확인 못 한 값: 앱 머리글(MyScreen) 높이·사장님 셸 머리글·확인 창 모양 — 52px 머리글은 그림용 가정이다. 화면 캡처가 아니라 코드 판독으로 그렸다(실기 NOT_PROVEN).</p>
+</header>
+
+<!-- ───────────── 1. 진입 ───────────── -->
+<h2 class="sec">1. 진입 — 고객지원 허브 · FAB · 로그인 확인 · 비로그인</h2>
+<div class="row">
+  <div class="col">
+    <p class="cap">1-A 고객지원 허브 <small>/mypage/customer-center · FAB 없음</small></p>
+    <div class="phone short">
+      <div class="bar"><div class="back">‹</div><div class="t">고객지원</div></div>
+      <div style="padding:12px 16px; display:flex; flex-direction:column; gap:12px">
+        <div style="background:#fff; border:1px solid #ece7e4; border-radius:4px; padding:32px 16px; text-align:center">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--icon-surface);color:var(--green);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:24px">🎧</div>
+          <div style="margin-top:12px;font-size:18px;font-weight:600;color:var(--brown)">무엇이 궁금하신가요?</div>
+          <div class="sb" style="margin-top:16px"><span class="num">1</span>문의하기</div>
+        </div>
+        <div style="background:#fff;border:1px solid #ece7e4;border-radius:4px">
+          <div style="height:52px;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid #ece7e4;font-size:15px;font-weight:600;color:var(--brown)">⚑ 신고 내역</div>
+          <div style="height:52px;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid #ece7e4;font-size:15px;font-weight:600;color:var(--brown)"><span class="num">2</span>💬 내 문의 <span style="margin-left:auto;color:#aaa">›</span></div>
+          <div style="height:52px;display:flex;align-items:center;padding:0 14px;font-size:15px;font-weight:600;color:var(--brown)">↺ 이전 문의 기록</div>
+        </div>
+      </div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>형태</th><th>누르면</th></tr>
+      <tr><td>1</td><td>「문의하기」 sam-btn primary · 높이 44 · <b>모서리 4px</b> · 14px/500 · 초록 바탕 크림 글자</td><td>문의 창(전체 화면) → 쓰기 화면, 분야 빈 칸 (문의 창 버튼도 4px — U9 반영)</td></tr>
+      <tr><td>2</td><td>「내 문의」 메뉴 줄 · 숫자 배지 없음</td><td>/mypage/support-history 페이지로 이동</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">1-B FAB — 회원 / 사장님 <small>허용 화면만(포인트 충전·쿠폰·주문 상세 등)</small></p>
+    <div class="phone short" style="min-height:260px;background:#f7f5f3">
+      <div class="fab" style="background:var(--green); bottom:150px"><span class="dot">🎧<span class="bd" style="color:var(--green)">2</span></span>고객센터</div>
+      <div class="fab" style="background:var(--brown); bottom:80px"><span class="dot">🎧<span class="bd" style="color:var(--brown)">1</span></span>매장 고객센터</div>
+      <div style="position:absolute;left:16px;top:16px;font-size:12px;color:#666;line-height:1.6">높이 44 · 알약(rounded-full)<br>회원 = 초록 · 사장님 = 갈색<br>빨간 숫자 = 진행 중 문의의<br>고객 미읽음 합(99+)</div>
+    </div>
+    <table class="spec">
+      <tr><th>누르면</th><td>그 화면 맥락으로 쓰기 화면(맥락 화면이면 분야 고정 + 「관련」 줄)</td></tr>
+      <tr><th>숫자 다시 읽음</th><td>창 닫힐 때 · 고객지원 알림 도착 · 실시간 재연결 · 앱 복귀</td></tr>
+      <tr><th>숨김</th><td>문의 창이 열려 있을 때 · 키보드 올라올 때 · 허용 안 된 화면</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">1-C 로그인 확인 중 <small>열 때 로컬 사용자 정보가 없으면</small></p>
+    <div class="phone" style="height:340px">
+      <div class="hd"><div></div><div class="t">고객센터 문의</div><div class="ic">✕</div></div>
+      <div class="center"><div style="width:44px;height:44px;border-radius:50%;border:3px dotted var(--green)"></div></div>
+    </div>
+    <p class="cap" style="margin-top:18px">1-D 비로그인 안내</p>
+    <div class="phone" style="height:360px">
+      <div class="hd"><div></div><div class="t">고객센터 문의</div><div class="ic">✕</div></div>
+      <div class="center"><div class="h">로그인 후 문의할 수 있어요</div><div class="b">문의와 답변은 계정에 저장돼요. 로그인하면 이 화면으로 돌아와요.</div></div>
+      <div class="ft"><div class="two"><div class="ob s"><span class="num">1</span>회원가입</div><div class="ob p"><span class="num">2</span>로그인</div></div></div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>형태</th><th>누르면</th></tr>
+      <tr><td>1</td><td>secondary · 44 · 모서리 4 · 흰 바탕 #604C4C 글자 · 테두리 #e5e7e8</td><td>맥락 저장 → 창 닫고 /signup?next=현재 주소 (기록 교체)</td></tr>
+      <tr><td>2</td><td>primary · 44 · 모서리 4 · 초록 바탕 흰 글자</td><td>같은 방식 /login → 로그인 뒤 같은 쓰기 화면 다시 열림</td></tr>
+      <tr><td>✕</td><td>48×48 칸 · X 20px</td><td>창 닫기 (기기 ◁ 도 닫기)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ───────────── 2. 쓰기 ───────────── -->
+<h2 class="sec">2. 쓰기 (접수형 한 화면) · 분야 선택 · 접수 완료</h2>
+<div class="row">
+  <div class="col">
+    <p class="cap">2-A 쓰기 — 회원, 진행 중 문의 1건 있음</p>
+    <div class="phone">
+      <div class="hd"><div></div><div class="t">고객센터 문의</div><div class="ic">✕</div></div>
+      <div class="top"><span class="l">문의하는 사람</span><span class="v">홍길동</span><span class="tag m">회원</span></div>
+      <div class="scroll">
+        <div class="lab">진행 중인 문의</div>
+        <div class="grp"><div class="hrow"><span class="a">결제·충전 · 포인트 미반영</span><span class="s tag m">답변 완료</span><span class="c">›</span><span class="d">SC-100041 · 11. 27. 오후 3:10 (마지막 글 시각)</span></div></div>
+        <div class="lab"><span class="num">1</span>무엇을 문의하시나요?</div>
+        <div class="grp">
+          <div class="fr"><span class="k">분야</span><span class="ph">선택해 주세요</span><span class="ch">›</span></div>
+          <div class="fr"><span class="k">세부</span><span class="ph">선택해 주세요</span><span class="ch">›</span></div>
+        </div>
+        <div class="lab">내용</div>
+        <div class="grp" style="padding-bottom:0"><div class="ta" style="margin-top:12px">문의 내용을 적어 주세요.</div><div class="cnt">0 / 1000 · 자동 저장</div></div>
+        <div class="help">답변은 바로 오지 않을 수 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div>
+      </div>
+      <div class="ft"><div class="ob dis"><span class="num">2</span>문의 접수</div></div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>형태</th><th>누르면 / 비활성</th></tr>
+      <tr><td>행</td><td>진행 중 문의 줄 60px · 알약 4px · 화살표</td><td>같은 창에서 문의 상세(머리글 ‹ = 쓰기로). <b class="flag">U-3: ‹ 로 돌아오면 쓰기 화면이 새로 만들어져, 입력하던 글이 폼이 아닌 「작성 중인 문의가 있어요」 카드로 바뀜(저장 300ms 전 입력은 사라질 수 있음)</b></td></tr>
+      <tr><td>1</td><td>분야·세부 줄 44px · 라벨 칸 64px · 화살표</td><td>분야 → 분야 선택 → 곧바로 세부 선택 → 쓰기. 분야 고정(맥락 화면)이면 누를 수 없음</td></tr>
+      <tr><td>2</td><td>primary 44 · 모서리 4 · 사장님 활성 = 갈색 (비활성 = 회색 #c9c3c3 바탕, 갈색 글자)</td><td><code>POST /api/support/cases/open</code> → 접수 완료. 비활성: 분야·세부·내용 빈칸 / 사장님 매장 없음 / 보내는 중(스피너). 오류는 버튼 위 빨간 12px 글자</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">2-B 쓰기 — 작성 중 저장본 있음 · 매장 있는 회원(전환)</p>
+    <div class="phone">
+      <div class="hd"><div></div><div class="t">고객센터 문의</div><div class="ic">✕</div></div>
+      <div class="top"><span class="l">문의하는 사람</span><span class="v">홍길동</span>
+        <span class="mark" style="display:inline-flex;border:1px solid var(--ov-border);border-radius:4px;overflow:hidden;font-size:11px;font-weight:700"><span style="padding:4px 8px;background:var(--green);color:#fff"><span class="num">1</span>회원으로</span><span style="padding:4px 8px;color:var(--muted)">매장으로</span></span></div>
+      <div class="scroll">
+        <div style="margin:12px 16px 0;border:1px solid var(--warning);border-radius:4px;overflow:hidden;background:#fff">
+          <div style="height:36px;display:flex;align-items:center;padding:0 12px;background:var(--warning-soft);font-size:13px;font-weight:600;color:var(--brown)">작성 중인 문의가 있어요</div>
+          <div class="fr"><span class="k">분야</span><span>계정 · 로그인</span><span></span></div>
+          <div class="fr"><span class="k">내용</span><span>비밀번호를 바꿨는데 로그인이…</span><span></span></div>
+          <div class="fr"><span class="k">저장</span><span>11. 27. 오후 4:02</span><span></span></div>
+          <div class="two" style="padding:12px"><div class="ob p"><span class="num">2</span>이어 쓰기</div><div class="ob d"><span class="num">3</span>지우기</div></div>
+        </div>
+        <div class="lab">새로 문의하기</div>
+        <div class="grp"><div class="fr"><span class="k">분야</span><span class="ph">선택해 주세요</span><span class="ch">›</span></div><div class="fr"><span class="k">세부</span><span class="ph">선택해 주세요</span><span class="ch">›</span></div></div>
+      </div>
+      <div class="ft"><div class="ob dis">문의 접수</div></div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>형태</th><th>누르면</th></tr>
+      <tr><td>1</td><td>묶음 4px 테두리 · 11px 굵게 · 선택 = 초록(회원)/갈색(매장)</td><td>대상 전환 — 분야·세부 비움, 내용 유지. 매장이 있는 회원·분야 고정 아님일 때만 보임. <b class="flag">U-4: 누르는 영역 약 24px(px-2 py-1) — 44px 미달</b></td></tr>
+      <tr><td>2</td><td>primary 44</td><td>저장본을 폼에 넣고 카드 닫기</td></tr>
+      <tr><td>3</td><td>destructive 44 (빨강 #d45252)</td><td>확인 창 「작성 중인 문의를 지울까요?」 [취소][지우기] → 저장본 삭제</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">2-C 분야 선택 (같은 창 안 화면 전환)</p>
+    <div class="phone" style="height:520px">
+      <div class="hd"><div class="ic">‹</div><div class="t">분야 선택</div><div class="ic">✕</div></div>
+      <div class="top"><span class="l">문의하는 사람</span><span class="v">홍길동</span><span class="tag m">회원</span></div>
+      <div class="scroll"><div class="grp">
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>계정</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span style="color:var(--green);font-weight:600">결제·충전</span><span style="color:var(--green)">✓</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>상품권</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>쿠폰</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>신고</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>거래 (중고·알바)</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>광고</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>매장 입점 문의</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>기술</span><span class="ch">›</span></div>
+        <div class="fr" style="grid-template-columns:1fr 16px"><span>기타</span><span class="ch">›</span></div>
+      </div></div>
+    </div>
+    <table class="spec">
+      <tr><th>줄</th><td>44px · 선택 = 초록 굵게 + ✓, 그 밖 = 갈색 + ›</td></tr>
+      <tr><th>누르면</th><td>분야 → 세부 선택 화면 → 세부 누르면 쓰기 화면. ‹ = 쓰기 화면</td></tr>
+      <tr><th>목록</th><td>코드 기본값 + 어드민 「문의 유형 관리」(운영 설정 0행 = 기본값). 「주문」 분야는 고객 목록에서 뺌</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">2-D 접수 완료 — 새 문의 / 진행 중 문의에 추가</p>
+    <div class="phone" style="height:360px">
+      <div class="hd"><div></div><div class="t">문의 접수 완료</div><div class="ic">✕</div></div>
+      <div class="center"><div class="chk">✓</div><div class="h">문의가 접수되었어요</div><div class="b">결제·충전 · 포인트 미반영<br>접수 번호 SC-100042 · 11. 27. 오후 4:10</div><div class="b" style="margin-top:8px">답변을 기다리고 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div></div>
+      <div class="ft"><div class="two"><div class="ob s"><span class="num">1</span>내 문의 보기</div><div class="ob p"><span class="num">2</span>확인</div></div></div>
+    </div>
+    <div class="phone" style="height:360px;margin-top:14px">
+      <div class="hd"><div></div><div class="t">문의 접수 완료</div><div class="ic">✕</div></div>
+      <div class="center"><div class="chk">✓</div><div class="h">진행 중인 문의에 추가했어요</div><div class="b">같은 분야의 진행 중인 문의가 있어 그 문의에 이어서 접수했어요.</div><div class="b">결제·충전 · 충전 상태 확인 <span class="flag">(기존 문의 세부)</span><br>접수 번호 SC-100041 · 기존 접수 시각</div></div>
+      <div class="ft"><div class="two"><div class="ob s">내 문의 보기</div><div class="ob p">확인</div></div></div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>누르면</th></tr>
+      <tr><td>1</td><td>창 닫고 기록 교체: 회원 → /mypage/support-history · 사장님 → 사장님 고객센터 내 문의 탭</td></tr>
+      <tr><td>2</td><td>창 닫기</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ───────────── 3. 내 문의 · 상세 ───────────── -->
+<h2 class="sec">3. 내 문의 목록 · 문의 상세 (4가지 상태)</h2>
+<div class="row">
+  <div class="col">
+    <p class="cap">3-A 내 문의 — 회원 <small>/mypage/support-history</small></p>
+    <div class="phone short">
+      <div class="bar"><div class="back">‹</div><div class="t">내 문의</div></div>
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px">
+        <div style="background:#fff;border:1px solid #ece7e4;border-radius:4px">
+          <div class="hrow noarrow"><span class="a">결제·충전 · 포인트 미반영</span><span class="s tag m">답변 완료</span><span class="d">SC-100041 · 11. 27. 오후 3:10 (마지막 글 시각)</span></div>
+          <div class="hrow noarrow" style="border-bottom:0"><span class="a">기술 · 앱 오류</span><span class="s tag w">답변 대기</span><span class="d">SC-100042 · 11. 27. 오후 4:10</span></div>
+          <div class="hrow noarrow" style="border-bottom:0;border-top:1px solid var(--ov-border)"><span class="a">계정 · 로그인</span><span class="s tag m">새 답변</span><span class="d">SC-100039 · 종료 + 안 읽은 답변</span></div>
+        </div>
+        <div class="mark" style="font-size:12px;color:#7a6a6a">종료된 문의는 이 목록에서 사라져요. <span class="flag">U-8: 바로 위 「새 답변」(종료 문의)이 목록에 있음 — 문구와 동작 다름</span></div>
+      </div>
+    </div>
+    <table class="spec">
+      <tr><th>행</th><td>60px · 화살표 없음 <span class="flag">(쓰기 화면 같은 행은 › 있음 — U-10)</span> · 알약: 답변 완료·새 답변 = 연초록/초록, 답변 대기 = 연노랑, 종료 = 회색</td></tr>
+      <tr><th>누르면</th><td>문의 창 → 상세 (‹ 없음, ✕ 만)</td></tr>
+      <tr><th>빈 목록</th><td>「진행 중인 문의가 없어요.」 + 「문의하기」(sam-btn, 최대 240px) · 로딩 = 뼈대 · 오류 = MyStateView · 「더 보기」</td></tr>
+    </table>
+    <p class="cap" style="margin-top:16px">3-B 내 문의 — 사장님 <small>U4·U5 반영 · 빈 목록 버튼 뺌(Owner 「아래 것 빼기」)</small></p>
+    <div class="phone short" style="min-height:220px">
+      <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px">
+        <div class="sb" style="font-size:14px;background:var(--brown)">문의하기 (갈색 44px·4px)</div>
+        <div class="two mark"><div class="sb" style="font-size:14px">내 문의 <span class="flag" style="color:#fde68a">U-7 선택 탭 = 초록</span></div><div style="min-height:44px;border:1px solid #e3dfdc;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px">이전 문의 기록</div></div>
+        <div style="background:#fff;border:1px solid #ece7e4;border-radius:4px;font-size:14px;color:#7a6a6a;padding:16px">진행 중인 문의가 없어요.</div>
+        <div class="mark" style="font-size:12px;color:#7a6a6a">로딩 = 「불러오는 중」 글자 · 오류 = 밑줄 글자 버튼 · 더 보기 없음 <span class="flag">U-5 (회원 목록과 다른 컴포넌트)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <p class="cap">3-C 상세 — 답변 대기</p>
+    <div class="phone">
+      <div class="hd"><div></div><div class="t">SC-100042 · 기술</div><div class="ic">✕</div></div>
+      <div class="top"><span class="l">상태</span><span class="v">11. 27. 오후 4:10</span><span class="tag w">답변 대기</span></div>
+      <div class="scroll"><div class="qa"><div class="h"><span>내 문의</span><span>11. 27. 오후 4:10</span></div><div class="b">앱이 사진 올릴 때 꺼집니다.</div></div>
+        <div class="help">답변을 기다리고 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div></div>
+      <div class="ft"><div class="ob s"><span class="num">1</span>확인</div></div>
+    </div>
+    <table class="spec"><tr><td>1</td><td>secondary 44 → 창 닫기</td></tr></table>
+  </div>
+
+  <div class="col">
+    <p class="cap">3-D 상세 — 답변 완료 (+ 추가 문의 입력)</p>
+    <div class="phone">
+      <div class="hd"><div></div><div class="t">SC-100041 · 결제·충전</div><div class="ic">✕</div></div>
+      <div class="top"><span class="l">상태</span><span class="v">11. 27. 오후 3:10</span><span class="tag m">답변 완료</span></div>
+      <div class="scroll">
+        <div class="qa"><div class="h"><span>내 문의</span><span>오후 2:01</span></div><div class="b">충전했는데 포인트가 안 들어와요.</div></div>
+        <div class="qa"><div class="h"><span>DIBAY 고객센터 답변</span><span>오후 3:10</span></div><div class="b ans">확인해 보니 입금자명이 달라 확인이 늦어졌습니다. 지금 반영해 드렸어요.</div></div>
+      </div>
+      <div class="ft"><div class="two"><div class="ob s"><span class="num">1</span>추가 문의</div><div class="ob p"><span class="num">2</span>확인했어요</div></div></div>
+    </div>
+    <table class="spec">
+      <tr><th>#</th><th>누르면</th></tr>
+      <tr><td>1</td><td>하단에 입력칸(3줄) + [취소 secondary][보내기 primary] → <code>POST …/cases/{id} {body}</code> → 답변 대기로</td></tr>
+      <tr><td>2</td><td><code>POST …/cases/{id} {action:"close", seenLastMessageAt}</code> → 종료·창 닫기. 화면에 없는 새 글이 있으면 <code>case_updated</code> → 다시 읽기(결함 A 고침)</td></tr>
+    </table>
+  </div>
+
+  <div class="col">
+    <p class="cap">3-E 상세 — 종료 + 안 읽은 답변 / 3-F 종료(숨김)</p>
+    <div class="phone" style="height:380px">
+      <div class="hd"><div></div><div class="t">SC-100041 · 결제·충전</div><div class="ic">✕</div></div>
+      <div class="top mark"><span class="l">상태</span><span class="v flag">상태 줄 없음 (U-2)</span><span></span></div>
+      <div class="scroll"><div class="note">종료된 문의예요. 답변을 확인하면 목록에서 사라져요.</div>
+        <div class="qa"><div class="h"><span>DIBAY 고객센터 답변</span><span>오후 3:10</span></div><div class="b ans">지금 반영해 드렸어요.</div></div></div>
+      <div class="ft"><div class="ob p"><span class="num">1</span>확인</div></div>
+    </div>
+    <div class="phone" style="height:340px;margin-top:14px">
+      <div class="hd"><div></div><div class="t">SC-100041 · 결제·충전</div><div class="ic">✕</div></div>
+      <div class="center"><div class="h">종료된 문의예요</div><div class="b">종료된 문의는 내용이 보이지 않아요. 궁금한 점이 있으면 새로 문의해 주세요.</div></div>
+      <div class="ft"><div class="ob p"><span class="num">2</span>새 문의 쓰기</div></div>
+    </div>
+    <table class="spec">
+      <tr><td>1</td><td>primary → 창 닫기 (서버는 이 내용을 1번만 주고 읽음 처리, 앱 실행 동안 기억)</td></tr>
+      <tr><td>2</td><td>primary → 같은 대상(회원/매장)으로 새 쓰기 화면</td></tr>
+      <tr><td>오류</td><td>상자 안 빨간 글 + 「다시 시도」 secondary 44px (U6 반영)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ───────────── 4. 어드민 ───────────── -->
+<h2 class="sec">4. 어드민 — 콘솔 · 토스트 · 알림함</h2>
+<p class="secd">/admin/support (넓은 화면 320px 목록 + 대화). 어드민 버튼 = AdminActionButton(모서리 4px, sm 32px · md 40px), primary = 검정 #111827. 상태 알약: 답변 필요 = 빨강 · 고객 확인 대기 = 노랑 · 종료 = 회색 <span class="flag">(커뮤니티 문의 화면은 파랑·초록·「처리 대기/완료」 — U-6)</span></p>
+<div class="row">
+  <div class="adm">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:20px;font-weight:700">고객지원 관제</div><div style="font-size:12px;color:var(--adm-muted)">회원·사장님 문의 처리</div></div><div style="font-size:12px;color:var(--adm-muted);text-decoration:underline">이전 문의 기록 (레거시)</div></div>
+    <div style="margin:8px 0"><span class="chip on">고객지원 문의</span> <span class="chip">매장 문의 (조회 전용)</span></div>
+    <div class="tabs"><span class="tab on">답변 필요<span class="pill">2</span></span><span class="tab">고객 확인 대기 <span class="pill" style="background:#eef1f6;color:var(--adm-muted)">1</span></span><span class="tab">종료</span><span class="tab">보관</span><span class="tab">전체</span></div>
+    <div class="cols">
+      <div class="card">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--adm-border);font-size:12px;font-weight:600;color:var(--adm-muted)">답변 필요 · 2건</div>
+        <div class="q sel"><div style="display:flex;gap:6px;align-items:center"><b style="font-size:12px">SC-100042</b><span class="st" style="color:var(--adm-muted);border-color:var(--adm-border)">회원</span><span style="background:var(--danger);color:#fff;border-radius:999px;padding:0 6px;font-size:12px;font-weight:700">1</span><span style="margin-left:auto;font-size:12px;color:var(--adm-muted)">5분 전</span></div>
+          <div style="font-size:12px;font-weight:500;margin-top:2px">홍길동 · 회원</div><div style="font-size:12px;color:var(--adm-muted)">기술 · 앱 오류</div><div style="font-size:12px">앱이 사진 올릴 때 꺼집니다.</div>
+          <div style="margin-top:4px"><span class="st r">접수</span> <span style="font-size:12px;color:var(--adm-muted)">미배정</span></div></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--adm-border)">
+          <div><b style="font-size:16px">SC-100042</b> <span class="st r">접수</span> <span style="font-size:12px;color:var(--adm-muted)">담당자: 미배정</span></div>
+          <div style="font-size:14px;margin:4px 0 8px">홍길동 · 회원 · 기술 · 앱 오류</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="ab"><span class="num">1</span>나에게 배정</span><span class="ab" style="font-size:12px">우선순위 일반 ▾</span><span class="chip">문의 정보</span><span style="margin-left:auto" class="ab"><span class="num">2</span>상담 종료</span></div>
+        </div>
+        <div style="background:#f7f6f3;padding:12px 16px;flex:1">
+          <div class="bub" style="background:#fff;border:1px solid var(--adm-border)"><div class="m">홍길동 · 11. 27. 16:10</div>앱이 사진 올릴 때 꺼집니다.</div>
+          <div class="bub" style="margin-left:auto;background:#e3ebe5"><div class="m">나 (관리자) · 16:12</div>확인 중입니다.<div style="text-align:right"><span class="ab g">수정</span><span class="ab g">삭제</span></div></div>
+          <div class="bub" style="margin-left:auto;background:var(--warning-soft);border:1px dashed var(--warning)"><div class="m">관리자 내부 메모 · 16:13</div>이미지 업로드 크래시 로그 확인 필요</div>
+        </div>
+        <div style="border-top:1px solid var(--adm-border);padding:12px">
+          <div style="margin-bottom:8px"><span class="chip on"><span class="num">3</span>공개 답변</span> <span class="chip">내부 메모 (회원 비노출)</span></div>
+          <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1;min-height:72px;border:1px solid var(--adm-border);border-radius:4px;background:#fff;padding:8px;color:var(--adm-muted)">고객에게 보낼 답변 (Ctrl/⌘+Enter 전송)</div><span class="ab p md mark"><span class="num">4</span>답변</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="list">
+  <tr><th>#</th><th>버튼 · 형태</th><th>누르면 (API)</th><th>보이는 조건 / 비활성</th></tr>
+  <tr><td>1</td><td>「나에게 배정」 secondary sm 32px · 「배정 해제」 같음</td><td>PATCH <code>{action:"assign"}</code> — support 권한 없으면 거부, 같은 사람 재지정은 변화 없음</td><td>진행 중 · 담당이 내가 아닐 때 / 바쁨</td></tr>
+  <tr><td>2</td><td>「상담 종료」 secondary sm → 확인 창(L1)</td><td>PATCH <code>{action:"status",status:"RESOLVED"}</code> → 고객 「종료」 푸시. 종료 뒤 「보관」 secondary · 「재오픈」 <b>primary</b>(검정) · 보관 중 「보관 해제」 primary</td><td>진행 중 / 바쁨</td></tr>
+  <tr><td>3</td><td>공개 답변 / 내부 메모 칩(32px, 선택 = 파랑)</td><td>작성 모드 전환 (메모 = 노란 입력칸)</td><td>종료 문의 + 공개 모드면 입력칸 대신 「종료된 상담입니다… 재오픈」 안내</td></tr>
+  <tr><td>4</td><td>「답변」(메모 모드 「메모 저장」) primary md 40px</td><td>PATCH <code>{action:"reply"}</code> → 고객 푸시·알림함 · 그 문의 어드민 알림 전원 읽음 <b class="flag">S-1: 어드민이 답을 쓰는 동안 들어온 고객 글 알림까지 읽음 + 상태 「고객 확인 대기」 → 답 안 된 글이 「답변 필요」·알림함·푸시에서 빠짐</b></td><td>바쁨 · 빈칸</td></tr>
+  <tr><td>수정/삭제</td><td>ghost(파란 글자) 24px, 내 글만</td><td>수정 = 같은 말풍선 편집 [취소 quiet][저장 secondary] · 삭제 = 확인 L3(사유·「삭제」 재입력) · 읽은 답변 삭제는 미읽음 그대로(결함 B 고침) <b class="flag">S-3: 삭제된 답변 원문이 고객 Supabase 직접 조회로 읽힘</b></td><td>삭제된 글은 취소선 + 「삭제된 메시지 (고객에게 숨김)」</td></tr>
+</table>
+<div class="row">
+  <div><p class="cap">4-B 토스트 (콘솔 열려 있을 때만 · 8초 · 소리 1회)</p>
+    <div class="toast"><div style="flex:1">고객지원 문의 · 회원 · SC-100042 · 앱이 사진 올릴 때 꺼집니다.<div style="color:var(--green);text-decoration:underline;font-size:12px;margin-top:4px">문의 열기</div></div><div style="color:var(--adm-muted)">×</div></div></div>
+  <div><p class="cap">4-C 관리자 알림함 행 (/admin/inbox) · 푸시 같은 내용</p>
+    <table class="spec" style="width:560px"><tr><th>상태</th><th>알림</th><th>일시</th><th></th></tr>
+      <tr style="background:#fffcfc"><td><span style="background:#eef1f6;border-radius:999px;padding:2px 8px;font-size:12px;color:var(--adm-muted)">안 읽음</span></td><td><b>새 고객 문의 · SC-100042</b><br><span style="color:var(--adm-muted)">앱이 사진 올릴 때 꺼집니다.</span></td><td style="font-size:12px;color:var(--adm-muted)">11-27 16:10</td><td><span class="ab g">업무 열기</span><span class="ab g">읽음</span></td></tr>
+      <tr><td colspan="4" style="font-size:12px;color:#555">받는 사람: 담당자(support 권한) · 없으면 support 권한 어드민 전원(운영 5명, 푸시 가능 기기 2명) · 보낸 사람 본인 제외. 추가 글 = 「고객 추가 문의 · SC」, 담당 지정 = 「담당 문의 지정 · SC」.</td></tr>
+    </table></div>
+</div>
+
+<!-- ───────────── 5. 최종 감사 결함 ───────────── -->
+<h2 class="sec">5. 최종 감사(2026-11-28) 결함 — 화면에 닿는 것 · 수정 후 모습</h2>
+<p class="secd">전체 결함·근거·작업자 실수는 같은 폴더 <code>final-audit.md</code>. 여기는 화면·버튼에 표시한 것만.</p>
+<table class="list">
+  <tr><th>#</th><th>사실 (코드 근거)</th><th>영향</th><th>수정 후 (fix/support-final-audit-2026-11-28)</th></tr>
+  <tr><td>S-1</td><td>답변 전송 시 그 문의 고객 글 알림 전부 읽음 (<code>support-case-service.ts:1373</code>) + DB 함수가 어드민 공개 글이면 무조건 WAITING_USER</td><td>답 쓰는 동안 온 고객 추가 글이 「답변 필요」 탭·알림함·푸시에서 빠짐</td><td>어드민이 본 글까지만 읽음 · 뒤에 온 글 있으면 「답변 필요」 유지</td></tr>
+  <tr><td>S-3</td><td>RLS <code>support_messages_requester_select</code> 에 <code>deleted_at</code> 조건 없음 (운영 정책 조회로 확인)</td><td>삭제한 어드민 답변·종료 문의 글을 고객이 직접 조회로 읽음</td><td>고객 직접 SELECT 정책 삭제(마이그레이션 · 운영 적용 승인 대기)</td></tr>
+  <tr><td>U-2</td><td>종료 문의 상세에 상태 줄 없음 (<code>SupportTicketViews.tsx:1046</code> <code>!closedView</code>)</td><td>목록 「새 답변」 → 상세엔 상태 표시 없음 (계약 §14 U1 「상세 상태 줄도 같은 알약」과 다름)</td><td>종료 문의 상세에도 같은 상태 줄(「새 답변」/「종료」)</td></tr>
+  <tr><td>U-3</td><td>쓰기 → 진행 중 문의 → ‹ 시 쓰기 컴포넌트 재생성 (<code>SupportModalHost.tsx:334·349</code>)</td><td>입력 중 글이 카드로 바뀜 · 300ms 안 입력 유실 가능</td><td>쓰기 화면을 숨긴 채 유지 → ‹ 로 돌아오면 입력 그대로</td></tr>
+  <tr><td>U-4</td><td>회원/매장 전환 버튼 <code>px-2 py-1</code> 11px (<code>SupportTicketViews.tsx:462·474</code>)</td><td>누르는 영역 약 24px</td><td>누르는 영역 44px(보이는 칸은 그대로 작게)</td></tr>
+  <tr><td>U-5</td><td>사장님 목록 <code>SupportCasesFlatList</code> ≠ 회원 목록 <code>MemberSupportCasesList</code></td><td>로딩·오류·더 보기 다름, 오류 버튼 44px 미만</td><td>한 컴포넌트 — 뼈대 로딩·같은 오류 화면·더 보기</td></tr>
+  <tr><td>U-6</td><td>어드민 문의 화면 두 개의 상태 색·탭 이름 다름 (<code>AdminSupportPage.tsx:112</code> / <code>AdminCommunitySupportPage.tsx:41</code>)</td><td>같은 상태가 화면마다 다른 색·이름</td><td>한 정의: 답변 필요 빨강 · 고객 확인 대기 노랑 · 종료/보관 회색</td></tr>
+  <tr><td>U-7</td><td>사장님 화면: 문의하기 갈색, 선택 탭 초록 <code>bg-signature</code></td><td>색 혼재</td><td>선택 탭 갈색</td></tr>
+  <tr><td>U-8</td><td>목록 안내 「종료된 문의는 사라져요」 vs 종료+새 답변 행 표시</td><td>문구와 동작 다름</td><td>「종료된 문의는 답변을 확인하면 목록에서 사라져요.」</td></tr>
+  <tr><td>U-9</td><td>코드 안 한국어·언어 삼항 (<code>support-reference-admin-href.ts:207-240</code> 「(B3)」 등, <code>support-category-groups.ts</code>, 허브 게시판 이름)</td><td>i18n SSOT 위반 · 영어에 개발 용어</td><td>모두 i18n 키 · 「(B3)」 등 개발 용어 삭제</td></tr>
+  <tr><td>U-10</td><td>같은 문의 행: 쓰기 화면 › 있음 / 내 문의 목록 › 없음</td><td>모양 불일치</td><td>한 행(SupportCaseRow) · 둘 다 ›</td></tr>
+</table>
+</body>
+</html>

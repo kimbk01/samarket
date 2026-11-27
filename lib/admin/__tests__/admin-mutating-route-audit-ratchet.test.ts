@@ -213,7 +213,6 @@ const NON_MUTATING_ADMIN_ROUTES: Readonly<Record<string, string>> = {
   "app/api/admin/prelaunch-reset/dry-run/route.ts": "인증·DB 접근 전 항상 410",
   "app/api/admin/prelaunch-reset/execute/route.ts": "인증·DB 접근 전 항상 410",
   "app/api/admin/store-point-policies/route.ts": "POST = 관리자 확인 후 410 만",
-  "app/api/admin/support/cases/route.ts": "POST = 405 만",
   "app/api/admin/trade-completion/route.ts": "POST = product_chats·posts 조회만",
   "app/api/admin/trade-flow/route.ts": "POST = 조회만",
   "app/api/admin/transaction-reviews/route.ts": "POST = 조회만",

@@ -146,7 +146,8 @@ describe("연결 — DB 파일·API·어드민 화면·앱", () => {
     const v = read("components/support/SupportTicketViews.tsx");
     expect(v).toContain("visibleSupportCategories(");
     expect(v).toContain("visibleSupportIssues(");
-    expect(read("components/support/SupportCasesHistoryList.tsx")).toContain("useSupportCategoryLabels()");
+    // 최종 감사 U-10: 내 문의 행 = 공용 행(SupportCaseRow.tsx)
+    expect(read("components/support/SupportCaseRow.tsx")).toContain("useSupportCategoryLabels()");
     expect(read("components/support/SupportModalHost.tsx")).toContain("labels.categoryLabel(state.audience, shownCategory)");
   });
 });

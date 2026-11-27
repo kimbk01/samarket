@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { adminMenu } from "@/components/admin/admin-menu";
 import { requireAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
@@ -25,11 +25,10 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     expect(paths).not.toContain("/admin/platform-inquiries");
   });
 
-  it("summary API and actionable badge authority exist", () => {
-    expect(read("app/api/admin/support/summary/route.ts")).toContain("getAdminSupportSummary");
+  it("(구조 확인) actionable badge authority exists — 화면 호출처 0 이던 summary API 는 제거(최종 감사 L12, 벨 숫자와 중복)", () => {
+    expect(existsSync(join(process.cwd(), "app/api/admin/support/summary/route.ts"))).toBe(false);
     const svc = read("lib/support/support-case-service.ts");
-    expect(svc).toContain("getAdminSupportSummary");
-    expect(svc).toContain('in("status", ["OPEN", "WAITING_ADMIN"])');
+    expect(svc).not.toContain("getAdminSupportSummary");
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
     expect(sidebar).toContain("sumAdminQueueCountsForMenuKey(item.key, queueCategories)");
     const registry = read("lib/admin/admin-action-queue-registry.ts");

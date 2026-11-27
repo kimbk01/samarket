@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { ChevronRight, Check, X } from "lucide-react";
 import { HeaderBackRoundButton } from "@/components/navigation/HeaderBackRoundButton";
+import { SupportCaseRowButton } from "@/components/support/SupportCaseRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayButton, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
@@ -25,7 +26,7 @@ import { listIssueTypesForCategory } from "@/lib/support/support-category-regist
 import { visibleSupportCategories, visibleSupportIssues } from "@/lib/support/support-category-settings";
 import { useSupportCategoryLabels } from "@/lib/support/use-support-category-settings";
 import type { SupportContext } from "@/lib/support/support-context";
-import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
+import { supportErrorLabel, supportErrorNeedsReload, supportReferenceLabel } from "@/lib/support/support-display-labels";
 import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
 import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
 import {
@@ -56,6 +57,10 @@ import type { AdPricingGuide } from "@/lib/ads/ad-pricing-guide";
 
 
 const OWNER_TONE_BG = "bg-[var(--dibay-brown)]";
+/** 최종 감사 U-4: 회원/매장 전환 — 누르는 영역 44px · 보이는 칸은 작게 */
+/** 재감사 U-4-a: 높이·너비 모두 44px 이상(「회원」·「매장」 두 글자는 그대로면 약 42px) */
+const SWITCH_HIT = "touch-manipulation flex min-h-11 min-w-11 items-center justify-center";
+const SWITCH_SEG = "border border-[var(--overlay-border)] px-2 py-1";
 
 /* ───────────── 공통 격자 ───────────── */
 
@@ -229,71 +234,78 @@ function useViewerOwnerStores() {
 function ActiveTicketList({
   audience,
   storeId,
+  refreshKey,
   onOpenCase,
 }: {
   audience: "MEMBER" | "OWNER";
   storeId: string | null;
+  /** 최종 감사 U-3: 문의 상세에서 쓰기로 돌아오면 다시 읽는다(쓰기 화면은 그대로 유지되므로) */
+  refreshKey: number;
   onOpenCase: (caseId: string) => void;
 }) {
   const { t } = useI18n();
-  const labels = useSupportCategoryLabels();
   const [rows, setRows] = useState<SupportCaseRow[]>([]);
+  /** 최종 감사 U-14: 불러오기 실패를 숨기지 않는다 — 작은 오류 줄 + 다시 시도 */
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (audience === "OWNER" && !storeId) {
       setRows([]);
+      setFailed(false);
       return;
     }
     let cancelled = false;
+    setFailed(false);
     const qs = new URLSearchParams({ audience });
     if (audience === "OWNER" && storeId) qs.set("storeId", storeId);
     void fetch(`/api/support/cases?${qs.toString()}`, { credentials: "include", cache: "no-store" })
       .then((r) => r.json().catch(() => null))
       .then((j: { ok?: boolean; cases?: SupportCaseRow[] } | null) => {
-        if (cancelled || !j?.ok || !Array.isArray(j.cases)) return;
+        if (cancelled) return;
+        if (!j?.ok || !Array.isArray(j.cases)) {
+          setFailed(true);
+          return;
+        }
         setRows(sortActiveSupportTickets(j.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [audience, storeId]);
+  }, [audience, storeId, attempt, refreshKey]);
 
+  if (failed && rows.length === 0) {
+    return (
+      <div
+        className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[var(--overlay-border)] bg-[var(--overlay-surface)] pl-4"
+        data-support-ticket-active-error="1"
+        role="alert"
+      >
+        <span className="truncate text-[12px] text-[var(--overlay-text-secondary)]">
+          {t("support_ticket_active_load_failed")}
+        </span>
+        <button
+          type="button"
+          data-support-ticket-active-retry="1"
+          className="min-h-11 px-4 text-[13px] font-semibold text-sam-primary active:bg-[var(--overlay-secondary)]"
+          onClick={() => setAttempt((n) => n + 1)}
+        >
+          {t("common_retry")}
+        </button>
+      </div>
+    );
+  }
   if (rows.length === 0) return null;
   return (
     <div data-support-ticket-active-list="1">
       <SectionLabel>{t("support_ticket_active_section")}</SectionLabel>
       <div className="border-y border-[var(--overlay-border)] bg-[var(--overlay-surface)]">
-        {rows.map((c) => {
-          return (
-            <button
-              key={c.id}
-              type="button"
-              data-support-ticket-active-row={c.id}
-              onClick={() => onOpenCase(c.id)}
-              className="grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto_16px] grid-rows-[22px_18px] content-center gap-x-2 border-b border-[var(--overlay-border)] px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
-            >
-              <span className="truncate text-[14px] font-semibold text-[var(--overlay-text-primary)]">
-                {[labels.categoryLabel(c.audience, c.category), labels.issueLabel(c.audience, c.category, c.issue_type)]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-              <span
-                className={`row-span-2 self-center rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
-                  supportRequesterStatusPill(c.status, c.requester_unread_count).className
-                }`}
-              >
-                {t(supportRequesterStatusPill(c.status, c.requester_unread_count).key)}
-              </span>
-              <span className="row-span-2 flex items-center justify-end text-[var(--overlay-text-secondary)]" aria-hidden>
-                <ChevronRight className="h-4 w-4" strokeWidth={2} />
-              </span>
-              <span className="col-start-1 truncate text-[12px] text-[var(--overlay-text-secondary)]">
-                {[c.public_case_no, formatMypageDate(c.last_message_at, { style: "datetime" })].filter(Boolean).join(" · ")}
-              </span>
-            </button>
-          );
-        })}
+        {rows.map((c) => (
+          <SupportCaseRowButton key={c.id} c={c} surface="overlay" onOpen={onOpenCase} />
+        ))}
       </div>
     </div>
   );
@@ -381,6 +393,7 @@ export function SupportTicketCompose({
   context,
   viewerName,
   titleId,
+  hidden = false,
   submitting,
   submitError,
   onClose,
@@ -391,6 +404,8 @@ export function SupportTicketCompose({
   context: SupportContext;
   viewerName: string;
   titleId: string;
+  /** 최종 감사 U-3: 문의 상세가 위에 열려 있어 숨긴 채 유지 중 — 입력 내용·화면 단계는 그대로 둔다 */
+  hidden?: boolean;
   submitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -409,6 +424,13 @@ export function SupportTicketCompose({
   const draftKey = useMemo(() => supportTicketDraftKey(context), [context]);
   const [draft, setDraft] = useState<SupportTicketDraft | null>(() => readSupportTicketDraft(draftKey));
   const touchedRef = useRef(false);
+  /** 최종 감사 U-3: 상세에서 돌아오면 「진행 중인 문의」 상태가 바뀌었을 수 있다 — 그 목록만 다시 읽는다 */
+  const [activeRefreshKey, setActiveRefreshKey] = useState(0);
+  const wasHiddenRef = useRef(hidden);
+  useEffect(() => {
+    if (wasHiddenRef.current && !hidden) setActiveRefreshKey((n) => n + 1);
+    wasHiddenRef.current = hidden;
+  }, [hidden]);
 
   // 쓰는 대로 저장 — 이어 쓰기 카드가 떠 있는 동안(아직 고르지 않음)은 저장본을 덮지 않는다.
   //   고객이 「이어 쓰기」 또는 「지우기」를 고른 뒤부터 저장한다(새로 쓰기 시작해도 예전 저장본은 묻지 않고 지우지 않음).
@@ -455,23 +477,32 @@ export function SupportTicketCompose({
       owner={isOwner}
       right={
         switchable && switchStore ? (
-          <span className="inline-flex overflow-hidden rounded-ui-rect border border-[var(--overlay-border)] text-[11px] font-bold">
+          /* 최종 감사 U-4: 누르는 영역 44px(SWITCH_HIT) — 보이는 묶음 모양은 그대로 작게(SWITCH_SEG) */
+          <span className="-my-px inline-flex items-center text-[11px] font-bold" data-support-ticket-switch-group="1">
             <button
               type="button"
               data-support-ticket-switch="MEMBER"
-              className={`px-2 py-1 ${!isOwner ? "bg-sam-primary text-sam-on-primary" : "text-[var(--overlay-text-secondary)]"}`}
+              aria-pressed={!isOwner}
+              className={`${SWITCH_HIT} pl-1`}
               onClick={() =>
                 update((s) =>
                   switchSupportTicketAudience(s, { audience: "MEMBER", sourceSurface: "mypage_customer_center" })
                 )
               }
             >
-              {t("support_ticket_switch_member")}
+              <span
+                className={`${SWITCH_SEG} rounded-l-ui-rect ${
+                  !isOwner ? "bg-sam-primary text-sam-on-primary" : "text-[var(--overlay-text-secondary)]"
+                }`}
+              >
+                {t("support_ticket_switch_member")}
+              </span>
             </button>
             <button
               type="button"
               data-support-ticket-switch="OWNER"
-              className={`px-2 py-1 ${isOwner ? `${OWNER_TONE_BG} text-sam-on-primary` : "text-[var(--overlay-text-secondary)]"}`}
+              aria-pressed={isOwner}
+              className={`${SWITCH_HIT} pr-1`}
               onClick={() =>
                 update((s) =>
                   switchSupportTicketAudience(s, {
@@ -482,7 +513,13 @@ export function SupportTicketCompose({
                 )
               }
             >
-              {t("support_ticket_switch_owner")}
+              <span
+                className={`${SWITCH_SEG} -ml-px rounded-r-ui-rect ${
+                  isOwner ? `${OWNER_TONE_BG} text-sam-on-primary` : "text-[var(--overlay-text-secondary)]"
+                }`}
+              >
+                {t("support_ticket_switch_owner")}
+              </span>
             </button>
           </span>
         ) : undefined
@@ -556,7 +593,12 @@ export function SupportTicketCompose({
       <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} />
       {whoRow}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-form-keyboard-scroll-root="1">
-        <ActiveTicketList audience={state.audience} storeId={state.storeId ?? null} onOpenCase={onOpenCase} />
+        <ActiveTicketList
+          audience={state.audience}
+          storeId={state.storeId ?? null}
+          refreshKey={activeRefreshKey}
+          onOpenCase={onOpenCase}
+        />
 
         {draft ? (
           <div
@@ -989,8 +1031,8 @@ export function SupportTicketDetail({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setActionError(json.error ?? "send_failed");
-        if (json.error === "case_closed") void load();
+        setActionError(json.error ?? (res.status === 429 ? "rate_limited" : "send_failed"));
+        if (supportErrorNeedsReload(json.error)) void load();
         return;
       }
       setFollowUp(null);
@@ -1016,9 +1058,9 @@ export function SupportTicketDetail({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setActionError(json.error ?? "update_failed");
-        // 새 답변이 와서 닫지 않았다 → 다시 읽어 새 답변을 보여 준다(안내 문구는 그대로 둔다)
-        if (json.error === "case_updated") void load();
+        setActionError(json.error ?? (res.status === 429 ? "rate_limited" : "update_failed"));
+        // 새 답변이 와서 닫지 않았다·상태가 바뀌었다 → 다시 읽어 최신 상태를 보여 준다(안내 문구는 그대로 둔다)
+        if (supportErrorNeedsReload(json.error)) void load();
         return;
       }
       onClosedByRequester();
@@ -1043,7 +1085,8 @@ export function SupportTicketDetail({
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="detail">
       <SupportTicketHeader titleId={titleId} title={headerTitle} onBack={onBack ?? null} onClose={onClose} />
-      {supportCase && !closedView ? (
+      {/* 최종 감사 U-2: 종료 문의도 같은 상태 줄 — 종료+안 읽은 답변 = 「새 답변」, 종료 = 「종료」(계약 §14 U1) */}
+      {supportCase ? (
         <TopRow
           label={t("support_ticket_status_label")}
           value={lastAt}

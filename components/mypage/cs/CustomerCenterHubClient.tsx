@@ -14,13 +14,24 @@ import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { CUSTOMER_CENTER_HREF, customerCenterChildHref } from "@/lib/mypage/customer-center-paths";
 import { CC_HERO_SECTION_CLASS, CC_ICON_WELL_CLASS, CC_TITLE_CLASS } from "@/lib/mypage/customer-center-ui";
-import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
+import type { CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { supportPolicyRows } from "@/lib/mypage/mypage-ia";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
+
+/**
+ * 게시판 타일 이름 = 카탈로그 키 (최종 감사 U-9 · i18n SSOT — 언어 삼항·{ko,en} 쌍 금지).
+ * 어드민 게시판 이름(`BOARD_LABEL`)과 같은 키.
+ */
+export const CUSTOMER_CENTER_BOARD_LABEL_KEYS: Record<CustomerCenterContentType, MessageKey> = {
+  notice: "notices_notices",
+  system: "notices_system_notices",
+  marketing: "notices_benefits_events",
+  update: "notices_update_history",
+};
 
 const BOARD_TABS: {
   type: CustomerCenterContentType;
@@ -71,7 +82,7 @@ const SUPPORT_POLICY_ROWS = supportPolicyRows();
  * 최종 설계 S60(K8/X12): 고객센터 SSOT(LOCKED) 허브 항목 유지 — 상담 내역·이전 문의·포인트·충전 신청.
  */
 export function CustomerCenterHubClient() {
-  const { safeT, language } = useI18n();
+  const { safeT } = useI18n();
   const { balance, loading, error: balanceError } = useUserPointBalance();
   const points = customerCenterHubPointsValue({ balance, loading, error: balanceError });
   /** 알림 최종 설계 §3·§5 — 게시판 타일의 안 읽은 글 수 (서버 = 열람 기록 기준) */
@@ -167,7 +178,7 @@ export function CustomerCenterHubClient() {
             data-route={CUSTOMER_CENTER_HREF}
           >
             {BOARD_TABS.map(({ type, icon }) => {
-              const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
+              const label = safeT(CUSTOMER_CENTER_BOARD_LABEL_KEYS[type]);
               return (
                 <Link
                   key={type}

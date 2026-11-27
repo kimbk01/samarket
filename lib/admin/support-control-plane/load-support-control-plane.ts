@@ -72,8 +72,8 @@ function toRow(c: SupportCaseRow): SupportActionRow {
     adminUnread: Number(c.admin_unread_count) || 0,
     href: buildAdminSupportCaseRoute(c.id),
     contextHref: ref?.href ?? null,
-    contextLabelKo: ref?.labelKo ?? null,
-    contextLabelEn: ref?.labelEn ?? null,
+    contextLabelKo: ref ? catalogPair(ref.labelKey).ko : null,
+    contextLabelEn: ref ? catalogPair(ref.labelKey).en : null,
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     financeHref: storeId
       ? `/admin/finance?storeId=${encodeURIComponent(storeId)}#action-required`

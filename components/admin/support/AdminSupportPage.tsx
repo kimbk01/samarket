@@ -52,8 +52,19 @@ import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
 import { resolveAdminSupportDetailPane } from "@/lib/support/admin-support-detail-pane";
-import { catalogPair } from "@/lib/i18n/catalog-pair";
 import { translateBy } from "@/lib/i18n/translate-by";
+import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { ADMIN_SUPPORT_TAB_LABEL_KEY, adminSupportStatusTone } from "@/components/admin/support/admin-support-status";
+import {
+  ADMIN_SUPPORT_OWN_WRITE_GRACE_MS,
+  ADMIN_SUPPORT_OFF_LIST_REFRESH_MS,
+  isOffListSupportCaseUpdate,
+  isAdminSupportOwnWriteEcho,
+  shouldRefetchSupportListForCaseChange,
+  type AdminSupportOwnWrite,
+} from "@/components/admin/support/admin-support-realtime";
+import { buildAdminSupportPublicReplyPayload } from "@/components/admin/support/admin-support-reply";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
 const SUPPORT_LIST_EXTRAS = [
@@ -85,14 +96,6 @@ type SupportListExtra = (typeof SUPPORT_LIST_EXTRAS)[number];
  *  - Message CTAs: admin's OWN messages → 수정 / 삭제 (soft, audited; customer sees 삭제된 메시지).
  */
 
-const TAB_LABEL: Record<AdminSupportTab, { ko: string; en: string }> = {
-  ACTIONABLE: catalogPair("admin_needs_reply"),
-  WAITING_USER: catalogPair("admin_waiting_customer"),
-  RESOLVED: catalogPair("admin_stores_inquiries_status_closed"),
-  ARCHIVED: catalogPair("admin_trade_flow_status_archived"),
-  ALL: catalogPair("admin_all"),
-};
-
 const PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH", "URGENT"];
 
 type Audience = "ALL" | "MEMBER" | "OWNER";
@@ -107,20 +110,6 @@ function waitingAgeLabel(iso: string, ko: boolean): string {
   if (hours < 24) return translateBy(ko ? "ko" : "en", "admin_support_hours_ago", { hours });
   const days = Math.floor(hours / 24);
   return translateBy(ko ? "ko" : "en", "admin_support_days_ago", { days });
-}
-
-function statusTone(status: string): string {
-  switch (status) {
-    case "OPEN":
-    case "WAITING_ADMIN":
-      return "bg-sam-danger-soft text-sam-danger border-sam-danger";
-    case "WAITING_USER":
-      return "bg-sam-warning-soft text-sam-warning border-sam-warning";
-    case "RESOLVED":
-      return "bg-sam-surface-muted text-sam-muted border-sam-border";
-    default:
-      return "bg-sam-surface-muted text-sam-muted border-sam-border";
-  }
 }
 
 function Seg<T extends string>({
@@ -412,25 +401,49 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   }, [messages, activeId]);
 
   /**
-   * Queue-wide Realtime: any case's new message or case-row change refreshes the list (300ms
-   * coalesced). The conversation reloads only for the open case.
+   * Queue-wide Realtime: a new message, or a case change that the list shows (최종 감사 D6 —
+   * `shouldRefetchSupportListForCaseChange`: 읽음 숫자 같은 변경은 다시 읽지 않는다), refreshes the list
+   * (300ms coalesced). The conversation reloads only for the open case.
+   * 내가 방금 보낸 변경의 실시간 메아리는 건너뛴다 — patchCase 가 상세·목록을 이미 다시 읽는다.
    */
   const activeIdRef = useRef<string | null>(activeId);
   const loadListRef = useRef(loadList);
+  const casesRef = useRef(cases);
+  const tabRef = useRef(tab);
+  const ownWriteRef = useRef<AdminSupportOwnWrite>(null);
   useEffect(() => {
     activeIdRef.current = activeId;
     loadListRef.current = loadList;
+    casesRef.current = cases;
+    tabRef.current = tab;
   });
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
     let listTimer: number | null = null;
+    let slowTimer: number | null = null;
+    let lastListAt = Date.now();
     const scheduleList = () => {
       if (listTimer != null) window.clearTimeout(listTimer);
+      if (slowTimer != null) {
+        window.clearTimeout(slowTimer);
+        slowTimer = null;
+      }
       listTimer = window.setTimeout(() => {
         listTimer = null;
+        lastListAt = Date.now();
         void loadListRef.current();
       }, 300);
+    };
+    // 재감사 D6-a: 목록 밖 문의 변경 → 탭 숫자 맞춤용으로 30초에 1번만
+    const scheduleSlowList = () => {
+      if (slowTimer != null || listTimer != null) return;
+      const wait = Math.max(0, lastListAt + ADMIN_SUPPORT_OFF_LIST_REFRESH_MS - Date.now());
+      slowTimer = window.setTimeout(() => {
+        slowTimer = null;
+        lastListAt = Date.now();
+        void loadListRef.current();
+      }, wait);
     };
     const channel = sb
       .channel("admin-support-queue", privateRealtimeChannelOptions())
@@ -438,16 +451,49 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "support_messages" },
         (payload) => {
-          const caseId = String((payload.new as { case_id?: unknown })?.case_id ?? "");
+          const row = payload.new as { case_id?: unknown; sender_admin_id?: unknown } | null;
+          const caseId = String(row?.case_id ?? "");
+          const echo = isAdminSupportOwnWriteEcho({
+            ownWrite: ownWriteRef.current,
+            caseId,
+            now: Date.now(),
+            kind: "message",
+            senderAdminId: row?.sender_admin_id == null ? null : String(row.sender_admin_id),
+            selfAdminId: getCurrentUser()?.id ?? null,
+          });
+          if (echo) return;
           const open = activeIdRef.current;
           if (open && caseId === open) void loadDetail(open);
           scheduleList();
         }
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_cases" }, scheduleList)
+      .on("postgres_changes", { event: "*", schema: "public", table: "support_cases" }, (payload) => {
+        const newRow = (payload.new ?? null) as Record<string, unknown> | null;
+        const oldRow = (payload.old ?? null) as Record<string, unknown> | null;
+        const caseId = String(newRow?.id ?? oldRow?.id ?? "");
+        if (
+          isAdminSupportOwnWriteEcho({ ownWrite: ownWriteRef.current, caseId, now: Date.now(), kind: "case" })
+        ) {
+          return;
+        }
+        if (
+          shouldRefetchSupportListForCaseChange({
+            eventType: payload.eventType,
+            newRow,
+            oldRow,
+            listed: casesRef.current,
+            tab: tabRef.current,
+          })
+        ) {
+          scheduleList();
+        } else if (isOffListSupportCaseUpdate({ eventType: payload.eventType, newRow, listed: casesRef.current })) {
+          scheduleSlowList();
+        }
+      })
       .subscribe();
     return () => {
       if (listTimer != null) window.clearTimeout(listTimer);
+      if (slowTimer != null) window.clearTimeout(slowTimer);
       void sb.removeChannel(channel);
     };
   }, [loadDetail]);
@@ -456,6 +502,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     if (!activeId || busy) return false;
     setBusy(true);
     setError(null);
+    const writeCaseId = activeId;
+    // 진행 중에는 끝없이, 끝난 뒤 잠깐 — 그 사이 같은 문의의 내 변경 실시간 메아리는 다시 읽지 않는다 (D6).
+    ownWriteRef.current = { caseId: writeCaseId, until: Number.POSITIVE_INFINITY };
     try {
       const res = await fetch(`/api/admin/support/cases/${encodeURIComponent(activeId)}`, {
         method: "PATCH",
@@ -463,19 +512,22 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as { ok?: boolean; error?: string; unseenCustomerMessages?: number };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "action_failed");
         return false;
       }
       await loadDetail(activeId);
       await loadList();
+      // 재감사 D1-b: 답을 쓰는 사이 고객 글이 더 왔다 — 문의는 「답변 필요」에 남았다는 것을 알린다
+      if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
       return true;
     } catch {
       // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
       setError("network_error");
       return false;
     } finally {
+      ownWriteRef.current = { caseId: writeCaseId, until: Date.now() + ADMIN_SUPPORT_OWN_WRITE_GRACE_MS };
       setBusy(false);
     }
   };
@@ -512,7 +564,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     if (!text) return;
     const ok =
       composerMode === "public"
-        ? await patchCase({ action: "reply", body: text })
+        ? await patchCase(buildAdminSupportPublicReplyPayload(text, activeCase?.last_message_at))
         : await patchCase({ action: "reply", body: text, internalNote: true });
     if (ok) setDraft("");
   };
@@ -557,7 +609,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const groupOptions = [
     { id: "ALL", label: t("admin_support_all_topics") },
-    ...SUPPORT_CATEGORY_GROUPS.map((g) => ({ id: g.id, label: ko ? g.labelKo : g.labelEn })),
+    ...SUPPORT_CATEGORY_GROUPS.map((g) => ({ id: g.id, label: t(g.labelKey) })),
     // G-08: 커뮤니티 도메인 범위 — API `group=COMMUNITY` → 커뮤니티 문의 화면과 같은 범위 필터(parseSupportCaseScope).
     // (「거래」 TRADE 도 서버에서 같은 방식으로 거래 도메인 범위가 된다.)
     { id: "COMMUNITY", label: t("admin_support_community") },
@@ -627,7 +679,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           ariaLabel={t("admin_menu_cp_support_center")}
           tabs={ADMIN_SUPPORT_TABS.map((id) => ({
             id,
-            label: ko ? TAB_LABEL[id].ko : TAB_LABEL[id].en,
+            label: t(ADMIN_SUPPORT_TAB_LABEL_KEY[id]),
             count: typeof counts[id] === "number" ? counts[id] : null,
           }))}
           value={tab}
@@ -728,7 +780,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           data-admin-support-queue="1"
         >
           <div className="shrink-0 border-b border-sam-border px-3 py-2 text-xs font-semibold text-sam-muted">
-            {ko ? TAB_LABEL[tab].ko : TAB_LABEL[tab].en} · {t("admin_count_items", { n: formatAdminNumber(listTotal) })}
+            {t(ADMIN_SUPPORT_TAB_LABEL_KEY[tab])} · {t("admin_count_items", { n: formatAdminNumber(listTotal) })}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {listError ? (
@@ -782,9 +834,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           <p className="mt-0.5 line-clamp-1 text-[12px] text-sam-fg">{c.initial_summary}</p>
                         ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-1">
-                          <span className={`rounded border px-1 text-[12px] ${statusTone(c.status)}`}>
+                          <AdminToneBadge tone={adminSupportStatusTone(c.status)}>
                             {supportAdminStatusLabel(c.status, ko)}
-                          </span>
+                          </AdminToneBadge>
                           {c.priority !== "NORMAL" ? (
                             <span className="rounded border border-sam-danger px-1 text-[12px] text-sam-danger">
                               {supportPriorityLabel(c.priority, ko)}
@@ -849,9 +901,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     ← {t("admin_support_list")}
                   </AdminActionButton>
                   <h2 className="text-base font-bold text-sam-fg">{activeCase.public_case_no}</h2>
-                  <span className={`rounded border px-1.5 text-[12px] ${statusTone(activeCase.status)}`}>
+                  <AdminToneBadge tone={adminSupportStatusTone(activeCase.status)}>
                     {supportAdminStatusLabel(activeCase.status, ko)}
-                  </span>
+                  </AdminToneBadge>
                   {activeCase.priority !== "NORMAL" ? (
                     <span className="rounded border border-sam-danger px-1.5 text-[12px] text-sam-danger">
                       {supportPriorityLabel(activeCase.priority, ko)}
@@ -978,6 +1030,26 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       </>
                     ) : null}
                     {st === "ARCHIVED" ? (
+                      <>
+                      {/* U-11 (계약 §2): 보관 문의도 바로 재오픈 — 보관 해제 → 재오픈 2단계를 거치지 않는다 */}
+                      <AdminActionButton
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy}
+                        data-admin-support-reopen="1"
+                        onClick={() =>
+                          void confirmThenPatch(
+                            { action: "reopen" },
+                            {
+                              title: safeT("admin_support_reopen"),
+                              description: t("admin_support_reopens", { public_case_no: String(activeCase.public_case_no) }),
+                              confirmLabel: safeT("admin_support_reopen"),
+                            }
+                          )
+                        }
+                      >
+                        {safeT("admin_support_reopen")}
+                      </AdminActionButton>
                       <AdminActionButton
                         variant="primary"
                         size="sm"
@@ -996,6 +1068,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       >
                         {t("admin_support_unarchive")}
                       </AdminActionButton>
+                      </>
                     ) : null}
                   </div>
                 </div>
@@ -1069,7 +1142,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             </div>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap">{m.body}</p>
+                          <p className="whitespace-pre-wrap">{resolveSupportMessageDisplayBody(safeT, m.body)}</p>
                         )}
                       </div>
                       {own && editingId !== m.id ? (
@@ -1153,12 +1226,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     <AdminActionButton
                       variant="primary"
                       disabled={busy || !draft.trim()}
+                      aria-busy={busy || undefined}
+                      data-admin-support-send-busy={busy ? "1" : undefined}
                       className="shrink-0"
                       onClick={() => void sendComposer()}
                     >
-                      {composerMode === "public"
-                        ? safeT("admin_support_reply")
-                        : safeT("admin_support_save_note")}
+                      {busy
+                        ? t("admin_support_sending")
+                        : composerMode === "public"
+                          ? safeT("admin_support_reply")
+                          : safeT("admin_support_save_note")}
                     </AdminActionButton>
                   </div>
                 )}
@@ -1236,11 +1313,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         className="text-xs font-semibold text-sam-primary underline underline-offset-2"
                         data-admin-support-context-link={link.mutationOwner}
                       >
-                        {ko ? link.labelKo : link.labelEn}
+                        {t(link.labelKey)}
                       </Link>
                     ) : (
                       <span className="text-xs text-sam-muted" data-admin-support-context-link-locked={link.mutationOwner}>
-                        {t("admin_support_link_permission_required", { label: ko ? link.labelKo : link.labelEn })}
+                        {t("admin_support_link_permission_required", { label: t(link.labelKey) })}
                       </span>
                     )}
                   </li>

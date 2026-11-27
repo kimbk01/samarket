@@ -88,6 +88,12 @@ export function SupportModalHost() {
   const [submitted, setSubmitted] = useState<SupportTicketSubmittedInfo | null>(null);
   /** 「새 문의 쓰기」마다 쓰기 화면을 새로 만든다 */
   const [composeNonce, setComposeNonce] = useState(0);
+  /**
+   * 최종 감사 U-3: 쓰기 화면의 「진행 중인 문의」로 상세를 열면 쓰기 화면을 **숨긴 채 유지**한다 —
+   * 상세 ‹ 로 돌아오면 입력하던 내용 그대로(이어 쓰기 카드로 바뀌지 않음 · 300ms 저장 전 입력도 그대로).
+   * 쓰기 화면을 거치지 않고 연 상세(푸시·목록)는 쓰기 화면을 만들지 않는다(불필요한 목록 요청 없음).
+   */
+  const [composeKept, setComposeKept] = useState(false);
   const historyPushed = useRef(false);
   const closingFromPop = useRef(false);
   /**
@@ -130,6 +136,7 @@ export function SupportModalHost() {
 
   useEffect(() => {
     if (!open) {
+      setComposeKept(false);
       setSubmitting(false);
       setSubmitError(null);
       setSubmitted(null);
@@ -221,7 +228,7 @@ export function SupportModalHost() {
           error?: string;
         };
         if (!res.ok || !json.ok || !json.case?.id) {
-          setSubmitError(json.error ?? "open_failed");
+          setSubmitError(json.error ?? (res.status === 429 ? "rate_limited" : "open_failed"));
           return;
         }
         clearPendingSupportContext();
@@ -265,6 +272,7 @@ export function SupportModalHost() {
       );
       setSubmitted(null);
       setSubmitError(null);
+      setComposeKept(false);
       setComposeNonce((n) => n + 1);
     },
     []
@@ -331,42 +339,62 @@ export function SupportModalHost() {
           </div>
         </div>
       );
-    } else if (modal.caseId) {
+    } else {
+      const composeEnabled = Boolean(modal.context && isSupportContextEnabled(modal.context));
+      const detailOpen = Boolean(modal.caseId);
+      const showCompose = composeEnabled && (!detailOpen || composeKept);
+      // 같은 자리(첫 칸 = 쓰기, 둘째 칸 = 상세)에 그려 상세를 열고 닫아도 쓰기 화면이 새로 만들어지지 않는다(U-3).
       body = (
-        <SupportTicketDetail
-          key={modal.caseId}
-          caseId={modal.caseId}
-          titleId={titleId}
-          onClose={handleClose}
-          onClosedByRequester={handleClose}
-          onNewInquiry={handleNewInquiry}
-          onUnauthorized={handleUnauthorized}
-          onBack={
-            modal.context && isSupportContextEnabled(modal.context) ? () => setSupportModalCaseId(null) : null
-          }
-        />
-      );
-    } else if (modal.context && isSupportContextEnabled(modal.context)) {
-      body = (
-        <SupportTicketCompose
-          key={`compose-${composeNonce}`}
-          context={modal.context as SupportContext}
-          viewerName={viewerName}
-          titleId={titleId}
-          submitting={submitting}
-          submitError={submitError}
-          onClose={handleClose}
-          onSubmit={(state, draftKey) => void handleSubmit(state, draftKey)}
-          onOpenStoreChat={closeAndNavigate}
-          onOpenCase={(caseId) => setSupportModalCaseId(caseId)}
-        />
+        <>
+          {showCompose ? (
+            <div
+              className={
+                detailOpen
+                  ? "pointer-events-none invisible absolute inset-0 flex flex-col"
+                  : "flex min-h-0 flex-1 flex-col"
+              }
+              aria-hidden={detailOpen || undefined}
+              inert={detailOpen || undefined}
+              data-support-compose-kept={detailOpen ? "1" : undefined}
+            >
+              <SupportTicketCompose
+                key={`compose-${composeNonce}`}
+                context={modal.context as SupportContext}
+                viewerName={viewerName}
+                titleId={detailOpen ? `${titleId}-kept` : titleId}
+                hidden={detailOpen}
+                submitting={submitting}
+                submitError={submitError}
+                onClose={handleClose}
+                onSubmit={(state, draftKey) => void handleSubmit(state, draftKey)}
+                onOpenStoreChat={closeAndNavigate}
+                onOpenCase={(caseId) => {
+                  setComposeKept(true);
+                  setSupportModalCaseId(caseId);
+                }}
+              />
+            </div>
+          ) : null}
+          {modal.caseId ? (
+            <SupportTicketDetail
+              key={modal.caseId}
+              caseId={modal.caseId}
+              titleId={titleId}
+              onClose={handleClose}
+              onClosedByRequester={handleClose}
+              onNewInquiry={handleNewInquiry}
+              onUnauthorized={handleUnauthorized}
+              onBack={composeEnabled ? () => setSupportModalCaseId(null) : null}
+            />
+          ) : null}
+        </>
       );
     }
   }
 
   return (
     <SupportSheetShell open={open} onClose={handleClose} dismissible={false} ariaLabel={ariaLabel}>
-      <div className="flex min-h-0 flex-1 flex-col" data-support-sheet-chrome="1">
+      <div className="relative flex min-h-0 flex-1 flex-col" data-support-sheet-chrome="1">
         {body}
       </div>
     </SupportSheetShell>
