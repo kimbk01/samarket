@@ -3,9 +3,13 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  RESUME_REFETCH_WAIT_FOR_RESYNC_MS,
   RESUME_RESYNC_SKIP_MAX_HIDDEN_MS,
+  createResumeRefetchScheduler,
+  resumeRefetchPlan,
+  type ResumeRefetchPlan,
   RESUME_SIGNAL_WINDOW_MS,
   hiddenSpanFrom,
   lastHiddenSpanMs,
@@ -111,6 +115,24 @@ describe("감독 allChannelsLive", () => {
     a.stop();
     expect(sup.allChannelsLive()).toBe(true);
   });
+  it("onAllChannelsLive — 마지막 채널이 붙는 순간·남은 채널만 남기고 멈출 때 알림, 해제 뒤 안 옴", () => {
+    const { sup, subs, args } = supervisorHarness();
+    const cb = vi.fn();
+    const off = sup.onAllChannelsLive(cb);
+    const a = sup.supervise(args("a"));
+    sup.supervise(args("b"));
+    subs[0].onStatus?.("SUBSCRIBED");
+    expect(cb).toHaveBeenCalledTimes(0);
+    subs[1].onStatus?.("SUBSCRIBED");
+    expect(cb).toHaveBeenCalledTimes(1);
+    subs[0].onStatus?.("CHANNEL_ERROR");
+    a.stop(); // 붙지 않은 채널을 멈추면 남은 채널이 모두 연결
+    expect(cb).toHaveBeenCalledTimes(2);
+    off();
+    subs[1].onStatus?.("CLOSED");
+    subs[1].onStatus?.("SUBSCRIBED");
+    expect(cb).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("호출부 연결 (소스)", () => {
@@ -141,4 +163,144 @@ describe("호출부 연결 (소스)", () => {
     /** 확인 실패(네트워크 오류)면 통과 표시를 지워 다음 복귀에 다시 묻는다 */
     expect(gate).toMatch(/catch \{[\s\S]{0,120}lastPassedRef\.current = false;/);
   });
+});
+
+describe("resumeRefetchPlan — 재연결이 곧 오면 기다린다 (설계 resume-reconnect-wait-design-2026-11-27 §3-1)", () => {
+  const base = { allChannelsLive: true, socketConnected: true, hiddenSpanMs: 1_000, reconnectExpected: true };
+  it("① 모두 연결·소켓 열림·짧게 숨김 → skip", () => {
+    expect(resumeRefetchPlan(base)).toBe("skip");
+  });
+  it("연결은 살아 보이나 25초 이상 숨김 → now (겉으로만 열린 소켓)", () => {
+    expect(resumeRefetchPlan({ ...base, hiddenSpanMs: RESUME_RESYNC_SKIP_MAX_HIDDEN_MS })).toBe("now");
+  });
+  it("② 소켓 닫힘(Samsung 1006)·가입 허용 → wait_resync", () => {
+    expect(resumeRefetchPlan({ ...base, socketConnected: false })).toBe("wait_resync");
+    expect(resumeRefetchPlan({ ...base, allChannelsLive: false })).toBe("wait_resync");
+    expect(resumeRefetchPlan({ ...base, allChannelsLive: false, hiddenSpanMs: 60_000 })).toBe("wait_resync");
+  });
+  it("③ 재연결을 기대할 수 없음(차단·오프라인·감독 꺼짐) → now", () => {
+    expect(resumeRefetchPlan({ ...base, socketConnected: false, reconnectExpected: false })).toBe("now");
+    expect(resumeRefetchPlan({ ...base, allChannelsLive: false, reconnectExpected: false })).toBe("now");
+  });
+  it("기다림 창 = 재동기화 상한 8초 + 1초 = 9초", () => {
+    expect(RESUME_REFETCH_WAIT_FOR_RESYNC_MS).toBe(9_000);
+  });
+});
+
+describe("createResumeRefetchScheduler", () => {
+  function sched(plan: ResumeRefetchPlan, pending: { v: boolean } = { v: false }) {
+    const resyncListeners = new Set<() => void>();
+    const timers = new Map<number, { fn: () => void; ms: number }>();
+    let id = 1;
+    const schedule = createResumeRefetchScheduler({
+      plan: () => plan,
+      onResynced: (cb) => {
+        resyncListeners.add(cb);
+        return () => {
+          resyncListeners.delete(cb);
+        };
+      },
+      resyncPending: () => pending.v,
+      setTimer: (fn, ms) => {
+        timers.set(id, { fn, ms });
+        return id++;
+      },
+      clearTimer: (t) => {
+        timers.delete(t as number);
+      },
+    });
+    const runTimers = () => {
+      for (const [k, t] of [...timers]) {
+        timers.delete(k);
+        t.fn();
+      }
+    };
+    const resync = () => {
+      for (const cb of [...resyncListeners]) cb();
+    };
+    return { schedule, runTimers, resync, timers, resyncListeners };
+  }
+
+  it("skip → 조회 0, 기다림 없음", () => {
+    const s = sched("skip");
+    const f = vi.fn();
+    s.schedule(f);
+    expect(f).not.toHaveBeenCalled();
+    expect(s.timers.size).toBe(0);
+    expect(s.resyncListeners.size).toBe(0);
+  });
+  it("now → 바로 1번", () => {
+    const s = sched("now");
+    const f = vi.fn();
+    s.schedule(f);
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(s.timers.size).toBe(0);
+  });
+  it("wait_resync · 창 안에 재동기화 → 조회 0, 타이머·구독 정리", () => {
+    const s = sched("wait_resync");
+    const f = vi.fn();
+    s.schedule(f);
+    expect([...s.timers.values()][0]?.ms).toBe(RESUME_REFETCH_WAIT_FOR_RESYNC_MS);
+    s.resync();
+    s.runTimers();
+    expect(f).not.toHaveBeenCalled();
+    expect(s.timers.size).toBe(0);
+    expect(s.resyncListeners.size).toBe(0);
+  });
+  it("wait_resync · 창 끝까지 재동기화 없음 → 1번, 구독 정리", () => {
+    const s = sched("wait_resync");
+    const f = vi.fn();
+    s.schedule(f);
+    s.runTimers();
+    expect(f).toHaveBeenCalledTimes(1);
+    s.resync();
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(s.resyncListeners.size).toBe(0);
+  });
+  it("wait_resync · 9초 끝에 재동기화 묶음이 기다리는 중 → 조회 0, 묶음 실행으로 끝·정리", () => {
+    const pending = { v: true };
+    const s = sched("wait_resync", pending);
+    const f = vi.fn();
+    s.schedule(f);
+    s.runTimers();
+    expect(f).not.toHaveBeenCalled();
+    expect(s.resyncListeners.size).toBe(1);
+    pending.v = false;
+    s.resync();
+    expect(f).not.toHaveBeenCalled();
+    expect(s.resyncListeners.size).toBe(0);
+    expect(s.timers.size).toBe(0);
+  });
+  it("wait_resync · 9초 끝에 묶음 대기 중 · 그 뒤 취소 → 구독 정리", () => {
+    const s = sched("wait_resync", { v: true });
+    const f = vi.fn();
+    const cancel = s.schedule(f);
+    s.runTimers();
+    cancel();
+    expect(s.resyncListeners.size).toBe(0);
+    expect(f).not.toHaveBeenCalled();
+  });
+  it("wait_resync · 취소(화면 해제·새 다시 열기) → 조회 0, 정리", () => {
+    const s = sched("wait_resync");
+    const f = vi.fn();
+    const cancel = s.schedule(f);
+    cancel();
+    s.runTimers();
+    expect(f).not.toHaveBeenCalled();
+    expect(s.timers.size).toBe(0);
+    expect(s.resyncListeners.size).toBe(0);
+  });
+});
+
+describe("호출처 — 다시 열기 조회는 scheduleResumeRefetch 로, 해제 때 취소", () => {
+  for (const rel of [
+    "lib/community-messenger/realtime/use-global-friend-request-feed.ts",
+    "components/notifications/NotificationsBadgeRealtimeBridge.tsx",
+  ]) {
+    it(rel, () => {
+      const src = read(rel);
+      expect(src).toContain("scheduleResumeRefetch(");
+      expect(src).toMatch(/cancelled = true;\s*cancelPendingResume\?\.\(\);/);
+    });
+  }
 });
