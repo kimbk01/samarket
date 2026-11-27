@@ -97,6 +97,74 @@ export async function loadStoreImageReferencedPaths(
   return { ok: true, paths: collectStoreImagePathsFromValues(storeId, values), storeExists };
 }
 
+/** GC 참조 묶음 읽기 — 매장 이만큼씩 표마다 1번(+쪽 넘김) */
+const REF_STORE_CHUNK = 100;
+/** 쪽 크기 — 서버 최대 행 수가 더 작아도 빈 쪽이 나올 때까지 실제 받은 행 수만큼 넘긴다 */
+const REF_PAGE = 1000;
+
+type StoreRefs = { paths: Set<string>; storeExists: boolean };
+
+/**
+ * 2026-11-27 최종 설계 단계 2 — GC 전용 참조 묶음 읽기.
+ * 이전: 매장마다 표 6개를 따로 읽음(운영 11-26 하루 826번 · 매장 폴더 약 118개 × 7).
+ * 지금: 매장 id 묶음(최대 100)으로 표마다 1번, 1,000행씩 빈 쪽이 나올 때까지 끝까지 읽는다(잘린 응답으로 참조를 놓치지 않게).
+ * 판정은 `loadStoreImageReferencedPaths` 와 같다(같은 참조 소스·없는 표는 참조 0·그 밖의 오류는 묶음 전체 건너뜀 = fail-closed).
+ * 매장 1곳 정리(O-03)는 기존 `loadStoreImageReferencedPaths` 를 그대로 쓴다.
+ */
+export async function loadStoreImageReferencedPathsForStores(
+  sb: SupabaseClient<any>,
+  storeIds: readonly string[]
+): Promise<Map<string, StoreRefs> | null> {
+  const values = new Map<string, unknown[]>();
+  for (const id of storeIds) values.set(id, []);
+  const existing = new Set<string>();
+  if (!storeIds.length) return new Map();
+
+  for (const src of REFERENCE_SOURCES) {
+    const select = src.select === "*" || src.select.split(",").map((c) => c.trim()).includes(src.column)
+      ? src.select
+      : `${src.select}, ${src.column}`;
+    let from = 0;
+    let missingTable = false;
+    for (;;) {
+      const { data, error } = await sb
+        .from(src.table)
+        .select(select)
+        .in(src.column, [...storeIds])
+        .order("id", { ascending: true })
+        .range(from, from + REF_PAGE - 1);
+      if (error) {
+        if (isMissingTableError(error)) {
+          missingTable = true;
+          break;
+        }
+        console.error("[store-images-orphan-gc] batched reference query failed", src.table, error.message);
+        return null;
+      }
+      const rows = (data ?? []) as unknown as Record<string, unknown>[];
+      if (rows.length === 0) break;
+      for (const r of rows) {
+        const sid = String(r?.[src.column] ?? "");
+        const bucket = values.get(sid);
+        if (!bucket) continue;
+        bucket.push(r);
+        if (src.table === "stores") existing.add(sid);
+      }
+      from += rows.length;
+    }
+    if (missingTable) continue;
+  }
+
+  const out = new Map<string, StoreRefs>();
+  for (const id of storeIds) {
+    out.set(id, {
+      paths: collectStoreImagePathsFromValues(id, values.get(id) ?? []),
+      storeExists: existing.has(id),
+    });
+  }
+  return out;
+}
+
 export async function runStoreProductImagesOrphanGc(input: {
   sb: SupabaseClient<any>;
   dryRun: boolean;
@@ -134,7 +202,12 @@ export async function runStoreProductImagesOrphanGc(input: {
     stores: [],
   };
 
-  for (const storeId of folders) {
+  let chunkRefs: Map<string, StoreRefs> | null = null;
+  for (let index = 0; index < folders.length; index++) {
+    const storeId = folders[index];
+    if (index % REF_STORE_CHUNK === 0) {
+      chunkRefs = await loadStoreImageReferencedPathsForStores(sb, folders.slice(index, index + REF_STORE_CHUNK));
+    }
     const row: StoreImagesOrphanGcStoreResult = {
       store_id: storeId,
       objects: 0,
@@ -144,9 +217,9 @@ export async function runStoreProductImagesOrphanGc(input: {
       orphan_sample: [],
       removed: 0,
     };
-    const refs = await loadStoreImageReferencedPaths(sb, storeId);
-    if (!refs.ok || !refs.storeExists) {
-      row.skipped = !refs.ok ? "reference_query_failed" : "store_missing";
+    const refs = chunkRefs?.get(storeId) ?? null;
+    if (!refs || !refs.storeExists) {
+      row.skipped = !refs ? "reference_query_failed" : "store_missing";
       result.stores_skipped++;
       result.stores.push(row);
       continue;

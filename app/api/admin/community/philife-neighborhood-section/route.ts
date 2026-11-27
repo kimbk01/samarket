@@ -13,6 +13,7 @@ import {
 import { planPhilifeNeighborhoodSectionPatch } from "@/lib/community-feed/plan-philife-neighborhood-section-patch";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { revalidatePath } from "next/cache";
+import { invalidateAdminSettingSharedCache } from "@/lib/admin-settings/admin-setting-shared-cache.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ export async function GET() {
   if (!gate.ok) return gate.response;
   try {
     const [slug, show, showNeighbor] = await Promise.all([
-      getPhilifeNeighborhoodSectionSlugServer(),
-      getPhilifeShowAllFeedTabServer(),
-      getPhilifeShowNeighborOnlyFilterServer(),
+      getPhilifeNeighborhoodSectionSlugServer(undefined, { fresh: true }),
+      getPhilifeShowAllFeedTabServer(undefined, { fresh: true }),
+      getPhilifeShowNeighborOnlyFilterServer(undefined, { fresh: true }),
     ]);
     return NextResponse.json({
       ok: true,
@@ -65,7 +66,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unknown_or_inactive_section" }, { status: 400 });
     }
 
-    const prev = await getPhilifeNeighborhoodSectionSettingsV1Server(sb);
+    const prev = await getPhilifeNeighborhoodSectionSettingsV1Server(sb, { fresh: true });
     const { error } = await sb.from("admin_settings").upsert(
       {
         key: PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
@@ -80,6 +81,7 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    invalidateAdminSettingSharedCache(PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY);
     const audit = await appendCommunityAdminAudit(sb, req, {
       actorId: gate.userId,
       targetType: "community_settings",
@@ -115,7 +117,7 @@ export async function PATCH(req: NextRequest) {
   }
   try {
     const sb = getSupabaseServer();
-    const prev = await getPhilifeNeighborhoodSectionSettingsV1Server(sb);
+    const prev = await getPhilifeNeighborhoodSectionSettingsV1Server(sb, { fresh: true });
     const value_json: Record<string, unknown> = {
       ...prev,
       show_neighbor_only_filter: plan.write.show_neighbor_only_filter,
@@ -134,6 +136,7 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    invalidateAdminSettingSharedCache(PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY);
     const audit = await appendCommunityAdminAudit(sb, req, {
       actorId: gate.userId,
       targetType: "community_settings",

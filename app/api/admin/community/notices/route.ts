@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
   const { summarizeCommunityPostContent } = await import("@/lib/philife/interleaved-body-markdown");
   const { COMMUNITY_PUBLIC_REGION_FALLBACK } = await import("@/lib/addresses/community-public-region-label");
 
-  const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
+  const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb, { fresh: true });
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort || meta.id !== topicId) {
     return NextResponse.json({ ok: false, error: "invalid_topic" }, { status: 400 });

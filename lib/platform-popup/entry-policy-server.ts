@@ -33,8 +33,9 @@ export async function loadPlatformPopupEntryPolicyFromStore(): Promise<PlatformP
   };
 }
 
+/** 어드민 저장은 태그로 즉시 만료 — 자연 만료는 안전망(1시간). 2026-11-27 운영: 60초 자연 만료로 16.9시간 153번 읽음 */
 const cached = unstable_cache(async () => loadPlatformPopupEntryPolicyFromStore(), ["platform-popup:entry-policy:v1"], {
-  revalidate: 60,
+  revalidate: 3600,
   tags: [PLATFORM_POPUP_ENTRY_POLICY_CACHE_TAG],
 });
 

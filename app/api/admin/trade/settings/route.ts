@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateAdminSettingSharedCache } from "@/lib/admin-settings/admin-setting-shared-cache.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireTradeAdmin } from "@/lib/admin/trade-admin/trade-admin-guards";
 import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community-admin-audit";
@@ -145,6 +146,7 @@ export async function PUT(req: NextRequest) {
       }
     }
     invalidateTradeSoldVisibleWindowCache();
+    invalidateAdminSettingSharedCache(TRADE_SETTINGS_KEY);
 
     const audit = await appendCommunityAdminAudit(sb, req, {
       actorId: admin.userId,

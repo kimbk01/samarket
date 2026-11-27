@@ -6,6 +6,10 @@ import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sameRevision } from "@/lib/admin/same-revision";
 import {
+  invalidateAdminSettingSharedCache,
+  readAdminSettingShared,
+} from "@/lib/admin-settings/admin-setting-shared-cache.server";
+import {
   LAUNCH_INTRO_DRAFT_BUCKET,
   LAUNCH_INTRO_PUBLIC_BUCKET,
   inspectLaunchIntroAsset,
@@ -97,6 +101,16 @@ export async function writeLaunchIntroPoolWithKindTolerance<T>(
   return { ...second, kindMissing: false };
 }
 
+function interpretLaunchIntroPoolPolicyRead(
+  data: { value_json?: unknown; updated_at?: string | null } | null,
+  error: unknown
+): R<{ policy: LaunchIntroPoolPolicy; revision: string | null }> {
+  if (error) return { ok: false, error: "policy_read_failed", status: 503 };
+  if (!data?.value_json) return { ok: true, policy: { ...DEFAULT_LAUNCH_INTRO_POOL_POLICY }, revision: null };
+  return { ok: true, policy: normalizeLaunchIntroPoolPolicy(data.value_json), revision: data.updated_at ?? null };
+}
+
+/** 캐시 없이 — 관리자 화면·저장 직전 판 비교 */
 export async function loadLaunchIntroPoolPolicy(
   sb: Sb
 ): Promise<R<{ policy: LaunchIntroPoolPolicy; revision: string | null }>> {
@@ -105,10 +119,18 @@ export async function loadLaunchIntroPoolPolicy(
     .select("value_json, updated_at")
     .eq("key", LAUNCH_INTRO_POOL_POLICY_KEY)
     .maybeSingle();
-  if (error) return { ok: false, error: "policy_read_failed", status: 503 };
-  const row = data as { value_json?: unknown; updated_at?: string | null } | null;
-  if (!row?.value_json) return { ok: true, policy: { ...DEFAULT_LAUNCH_INTRO_POOL_POLICY }, revision: null };
-  return { ok: true, policy: normalizeLaunchIntroPoolPolicy(row.value_json), revision: row.updated_at ?? null };
+  return interpretLaunchIntroPoolPolicyRead(
+    data as { value_json?: unknown; updated_at?: string | null } | null,
+    error
+  );
+}
+
+/** 기기 발견 응답 — 인스턴스 공유 캐시(저장 시 즉시 만료). 공유 캐시 실패 시 `sb` 로 직접. */
+async function loadLaunchIntroPoolPolicyShared(
+  sb: Sb
+): Promise<R<{ policy: LaunchIntroPoolPolicy; revision: string | null }>> {
+  const { data, error } = await readAdminSettingShared(LAUNCH_INTRO_POOL_POLICY_KEY, sb);
+  return interpretLaunchIntroPoolPolicyRead(data, error);
 }
 
 /** 저장 — 읽은 판과 다르면 409(다른 관리자 저장 덮어쓰기 금지) */
@@ -136,6 +158,7 @@ export async function saveLaunchIntroPoolPolicy(
     if (error) return { ok: false, error: "save_failed", status: 500 };
     if (!data?.length) return { ok: false, error: "stale_revision", status: 409 };
   }
+  invalidateAdminSettingSharedCache(LAUNCH_INTRO_POOL_POLICY_KEY);
   return { ok: true, revision: now, before: cur.policy };
 }
 
@@ -199,7 +222,7 @@ export async function listLiveLaunchIntroPoolRows(sb: Sb): Promise<R<{ rows: Lau
 
 /** 발견 응답의 `pool` — 읽기 실패면 null(기기는 이전 저장을 유지) */
 export async function buildLaunchIntroPoolPayload(sb: Sb): Promise<LaunchIntroPoolPayload | null> {
-  const [policy, rows] = await Promise.all([loadLaunchIntroPoolPolicy(sb), listLiveLaunchIntroPoolRows(sb)]);
+  const [policy, rows] = await Promise.all([loadLaunchIntroPoolPolicyShared(sb), listLiveLaunchIntroPoolRows(sb)]);
   if (!policy.ok || !rows.ok) return null;
   const live = policy.policy.enabled ? selectLiveLaunchIntroPoolRows(rows.rows) : [];
   const entries = live.map((r) => ({
