@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ moimId: string }> };
 
-/** 글 목록 — ?board=<id>&before=<iso>. 비멤버는 공개 글만 */
+/** 글 목록 — ?board=<id>&before=<iso> · ?pinned=1(공지 고정 글 + noticeBoardId). 비멤버는 공개 글만 */
 export async function GET(req: NextRequest, { params }: Ctx) {
   const moimId = requireUuid((await params).moimId);
   if (!moimId) return moimNotFound();
@@ -24,6 +24,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     boardId: board && isUuidString(board) ? board : null,
     before: sp.get("before"),
     limit: Number(sp.get("limit") ?? 20) || 20,
+    /** ?pinned=1 — 공지 게시판 고정 글 (메신저 모임 방 메뉴 「모임 공지」, 4번 묶음 D1) */
+    pinnedNotice: sp.get("pinned") === "1",
   });
   return NextResponse.json({ ok: true, ...page });
 }

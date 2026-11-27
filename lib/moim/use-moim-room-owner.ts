@@ -6,7 +6,12 @@ import { useEffect, useState } from "react";
  * 메신저 방이 모임 방인지 (GET /api/moim/rooms). 세션 동안 방별로 한 번만 묻고(없음도 기억), 여러 방은 한 요청으로 묶는다.
  * 채팅 목록 핫 경로를 막지 않도록 화면이 그려진 뒤 조용히 채운다.
  */
-export type MoimRoomOwner = { moimId: string; kind: "moim" | "schedule"; moimName: string };
+export type MoimRoomOwner = { moimId: string; kind: "moim" | "schedule"; moimName: string; scheduleId?: string };
+
+/** 모임 방 → 모임 홈 · 일정 방 → 일정 상세 (메신저 머리글·메뉴·방 정보 공용 · 4번 묶음 D2) */
+export function moimRoomOwnerHref(owner: MoimRoomOwner): string {
+  return owner.kind === "schedule" && owner.scheduleId ? `/moim/${owner.moimId}/schedules/${owner.scheduleId}` : `/moim/${owner.moimId}`;
+}
 
 const cache = new Map<string, MoimRoomOwner | null>();
 const listeners = new Set<() => void>();

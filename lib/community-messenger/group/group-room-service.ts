@@ -517,6 +517,13 @@ export async function updateGroupRoomSettings(input: {
   if ((wantsNotice || wantsTitle) && !canEditGroupRoomMeta(permCtx)) {
     return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
   }
+  /** 모임 방 공지 = 모임 게시판 공지 하나 — 메신저 방 공지 저장 거부 (모임 4번 묶음 D1 · hard-lock §MOIM-owned GROUP rooms). DB 트리거도 막는다 */
+  if (wantsNotice) {
+    const { data: owner } = await sb.from("community_messenger_rooms").select("owner_domain").eq("id", roomId).maybeSingle();
+    if (trimText((owner as { owner_domain?: string | null } | null)?.owner_domain) === "moim") {
+      return { ok: false, error: "moim_room_settings_managed_by_moim" };
+    }
+  }
   if (wantsPermissions && normalizeRole(me.role) !== "owner") {
     return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
   }

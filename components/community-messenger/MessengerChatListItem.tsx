@@ -1151,7 +1151,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               data-cm-list-moim-badge=""
               className="shrink-0 rounded-[6px] bg-sam-primary-soft px-1 py-px sam-text-xxs font-semibold text-sam-primary"
             >
-              {t("moim_chat_list_badge")}
+              {/* 일정 방 = 「일정」 · 모임 방 = 「모임」 (설계 §2 · 4번 묶음 D2) */}
+              {t(moimRoomOwner.kind === "schedule" ? "moim_chat_list_badge_schedule" : "moim_chat_list_badge")}
             </span>
           ) : null}
           {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (

@@ -180,6 +180,9 @@ export const moimApi = {
     if (q.before) sp.set("before", q.before);
     return call<{ items: MoimPostDto[]; nextBefore: string | null }>(`/api/moim/${enc(moimId)}/posts?${sp}`);
   },
+  /** 공지 게시판의 최신 고정 공지 1건 + 공지 게시판 id (메신저 모임 방 메뉴, 4번 묶음 D1) */
+  latestNotice: (moimId: string) =>
+    call<{ items: MoimPostDto[]; nextBefore: string | null; noticeBoardId: string | null }>(`/api/moim/${enc(moimId)}/posts?pinned=1&limit=1`),
   createPost: (moimId: string, input: { boardId: string; title?: string; body: string; images?: string[]; visibility?: "members" | "public" }) =>
     call<{ post_id: string; board_kind: string }>(`/api/moim/${enc(moimId)}/posts`, { method: "POST", json: input }),
   post: (postId: string) => call<{ post: MoimPostDto; comments: MoimCommentDto[]; viewerIsMember: boolean }>(`/api/moim/posts/${enc(postId)}`),
