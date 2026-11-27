@@ -34,9 +34,10 @@ let lastDiscoveryOkAt: number | null = null;
 /** 다시 열기 발견 최소 간격 — 인트로는 「완전히 껐다 켬」에만 보이므로 반영 지연은 그 사이 새로 켠 1번뿐 */
 export const LAUNCH_INTRO_RESUME_DISCOVERY_MIN_INTERVAL_MS = 30 * 60 * 1000;
 
-/** 순수 판정 — 다시 열기 발견을 할 때인가(한 번도 성공 못 했으면 한다) */
+/** 순수 판정 — 다시 열기 발견을 할 때인가(한 번도 성공 못 했으면 한다 · 기기 시계가 거꾸로 갔으면 한다) */
 export function launchIntroResumeDiscoveryDue(lastOkAt: number | null, now: number): boolean {
   if (lastOkAt == null) return true;
+  if (now < lastOkAt) return true;
   return now - lastOkAt >= LAUNCH_INTRO_RESUME_DISCOVERY_MIN_INTERVAL_MS;
 }
 
@@ -61,6 +62,9 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
   const epoch = readLaunchEpoch();
   if (!epoch || inflight) return;
   inflight = true;
+  /** 색인 반영이 끝까지 됐는가 · 소재 묶음 동기화 — 둘 다 성공해야 다시 열기 30분 대기를 시작한다 */
+  let indexOk = false;
+  let poolSync: Promise<boolean> | null = null;
   try {
     const res = await fetch("/api/launch-intro/live", {
       cache: "no-store",
@@ -76,9 +80,8 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
     if (!res.ok) return;
     const live = (await res.json()) as unknown;
     if (!isPayload(live)) return;
-    lastDiscoveryOkAt = Date.now();
     // 진입 감사 5단계 IN-3: 소재 묶음 → 네이티브 저장소(다음 「새로 켬」의 로딩 시간 안 인트로). 게시본 판과 별개로 맞춘다.
-    void syncNativeIntroPool((live as { pool?: LaunchIntroPoolPayload | null }).pool ?? null);
+    poolSync = syncNativeIntroPool((live as { pool?: LaunchIntroPoolPayload | null }).pool ?? null);
 
     const current = readLaunchIntroIndex();
     // IN-P10: 게시본 손상은 revision 을 올리지 않는다(게시본 행만 손상) — 같은 revision 이어도 state 가 다르면 반영한다.
@@ -86,7 +89,7 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
       // 빌드 전 감사 W2: 시작 시각 없는 예전 비활성 색인 — 보관 기간을 지금부터 센다(7일 뒤 아래에서 지워짐).
       const clocked = startInactiveRetentionClock(current, new Date().toISOString());
       if (clocked) {
-        promoteLaunchIntroIndex(clocked);
+        indexOk = promoteLaunchIntroIndex(clocked);
         return;
       }
       // 진입 감사 IN-6: 바뀐 것이 없어도 보관 기간이 지난 비활성 게시본은 지운다.
@@ -96,6 +99,10 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
         for (const a of getLaunchDestination().snapshot?.publication.assets ?? []) keep.add(a.sha256);
         await collectLaunchIntroAssetGarbage(keep);
         console.info(`[dibay-launch-intro] expired_inactive revision=${current.revision}`);
+        indexOk = true;
+      } else {
+        /** 만료할 것이 없으면 끝(바뀐 것 없음). 만료해야 하는데 저장 실패면 다음에 다시 */
+        indexOk = expired == null;
       }
       return;
     }
@@ -151,10 +158,16 @@ export async function runLaunchIntroDiscovery(reason: "launch" | "resume"): Prom
     const keep = new Set<string>((next.publication?.assets ?? []).map((a) => a.sha256));
     for (const a of getLaunchDestination().snapshot?.publication.assets ?? []) keep.add(a.sha256);
     await collectLaunchIntroAssetGarbage(keep);
+    indexOk = true;
   } catch {
     /* network / storage failure: nothing changes, previous cache kept */
   } finally {
-    inflight = false;
+    try {
+      const poolOk = poolSync ? await poolSync.catch(() => false) : false;
+      if (indexOk && poolOk) lastDiscoveryOkAt = Date.now();
+    } finally {
+      inflight = false;
+    }
   }
 }
 
@@ -168,9 +181,17 @@ export function startLaunchIntroDiscovery(): void {
   onLaunchOsReleased(() => {
     void runLaunchIntroDiscovery("launch");
   });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
-    if (!launchIntroResumeDiscoveryDue(lastDiscoveryOkAt, Date.now())) return;
-    void runLaunchIntroDiscovery("resume");
-  });
+  document.addEventListener("visibilitychange", onForegroundDiscovery);
+}
+
+function onForegroundDiscovery(): void {
+  if (document.visibilityState !== "visible") return;
+  if (!launchIntroResumeDiscoveryDue(lastDiscoveryOkAt, Date.now())) return;
+  void runLaunchIntroDiscovery("resume");
+}
+
+/** 시험 전용 — 모듈마다 붙는 다시 열기 리스너를 떼어 다른 시험에 새지 않게 한다 */
+export function __stopLaunchIntroDiscoveryForTests(): void {
+  if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onForegroundDiscovery);
+  started = false;
 }

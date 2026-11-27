@@ -12,9 +12,15 @@ function setVisibility(v: "visible" | "hidden") {
   document.dispatchEvent(new Event("visibilitychange"));
 }
 
+/** 발견 한 번(fetch → json → 색인 → 그림 정리 → 묶음 동기화 → finally)이 모두 끝날 때까지 */
 async function flush() {
-  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 0));
 }
+
+let current: { stop?: () => void } = {};
+let poolSyncResult = true;
+let acquireResult = true;
+
 
 async function loadDiscovery() {
   vi.resetModules();
@@ -25,11 +31,11 @@ async function loadDiscovery() {
   vi.doMock("@/lib/launch-intro/os-release-owner", () => ({
     onLaunchOsReleased: (cb: () => void) => cb(),
   }));
-  vi.doMock("@/lib/launch-intro/native-intro-client", () => ({ syncNativeIntroPool: async () => {} }));
+  vi.doMock("@/lib/launch-intro/native-intro-client", () => ({ syncNativeIntroPool: async () => poolSyncResult }));
   vi.doMock("@/lib/launch-intro/cache", () => ({
     readLaunchIntroIndex: () => ({ schema: 1, revision: 7, state: "active", publication: null, promotedAt: "x" }),
     promoteLaunchIntroIndex: () => true,
-    acquireLaunchIntroAssets: async () => true,
+    acquireLaunchIntroAssets: async () => acquireResult,
     collectLaunchIntroAssetGarbage: async () => {},
     expireInactiveLaunchIntroIndex: () => null,
     startInactiveRetentionClock: () => null,
@@ -37,8 +43,11 @@ async function loadDiscovery() {
   vi.doMock("@/lib/launch-intro/startup-destination", () => ({
     getLaunchDestination: () => ({ destination: "community", reason: "x", snapshot: null }),
   }));
-  return import("@/lib/launch-intro/discovery");
+  const m = await import("@/lib/launch-intro/discovery");
+  current = { stop: m.__stopLaunchIntroDiscoveryForTests };
+  return m;
 }
+
 
 describe("launchIntroResumeDiscoveryDue (순수 판정)", () => {
   it("성공한 적 없으면 한다 · 30분 미만이면 안 한다 · 30분 이상이면 한다", async () => {
@@ -47,6 +56,8 @@ describe("launchIntroResumeDiscoveryDue (순수 판정)", () => {
     expect(m.launchIntroResumeDiscoveryDue(null, 0)).toBe(true);
     expect(m.launchIntroResumeDiscoveryDue(0, 30 * 60 * 1000 - 1)).toBe(false);
     expect(m.launchIntroResumeDiscoveryDue(0, 30 * 60 * 1000)).toBe(true);
+    /** 기기 시계가 거꾸로 갔으면 한다(오래 막히지 않게) */
+    expect(m.launchIntroResumeDiscoveryDue(10_000, 5_000)).toBe(true);
   });
 });
 
@@ -54,9 +65,12 @@ describe("다시 열기 발견 간격 (동작)", () => {
   let now = 1_000_000;
   beforeEach(() => {
     now = 1_000_000;
+    poolSyncResult = true;
+    acquireResult = true;
     vi.spyOn(Date, "now").mockImplementation(() => now);
   });
   afterEach(() => {
+    current.stop?.();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.doUnmock("@/lib/launch-intro/launch-epoch");
@@ -106,6 +120,44 @@ describe("다시 열기 발견 간격 (동작)", () => {
     await flush();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     /** 이번엔 성공 — 이후 30분 안 다시 열기는 안 한다 */
+    now += 5_000;
+    setVisibility("hidden");
+    setVisibility("visible");
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("받아 오기는 됐지만 새 게시본 그림 받기가 실패하면 30분을 기다리지 않고 다음 다시 열기에 재시도", async () => {
+    acquireResult = false;
+    const withNewPublication = {
+      ...LIVE_OK,
+      revision: 8,
+      publication: {
+        id: "pub-new",
+        document: {},
+        assets: [{ sha256: "a".repeat(64), mime: "image/png", bytes: 1, path: "x.png", url: "https://x/x.png" }],
+        eligibility: { frequency: "every_launch" },
+      },
+    };
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(withNewPublication), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const m = await loadDiscovery();
+    m.startLaunchIntroDiscovery();
+    await flush();
+    now += 5_000;
+    setVisibility("hidden");
+    setVisibility("visible");
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("소재 묶음 동기화가 실패하면 다음 다시 열기에 재시도", async () => {
+    poolSyncResult = false;
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(LIVE_OK), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const m = await loadDiscovery();
+    m.startLaunchIntroDiscovery();
+    await flush();
     now += 5_000;
     setVisibility("hidden");
     setVisibility("visible");
