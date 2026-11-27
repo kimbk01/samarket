@@ -46,6 +46,7 @@
 3. **다른 언어로 대체하지 않는다.** 영어 화면에 한국어, 한국어 화면에 영어가 나오면 결함이다. 영어 키가 없거나 치환값이 안 맞는 경우는 검사에서 막는다.
    - 실행 중(S2 구현): `translate`·`safeTranslate` 는 같은 언어 안에서만 대체한다 — 카탈로그 → 같은 언어 `fallbackKo`/`fallbackEn` → 같은 언어 공통 문장 `common_content_unavailable`. 반대 언어 값·반대 언어 fallback 은 쓰지 않는다.
    - 서버 API 는 화면 문장 대신 **오류 코드**를 보내고, 문구는 클라이언트 카탈로그가 정한다(예: 탈퇴 요청 `confirmation_invalid`).
+   - 응답 형태: `{ ok:false, error:"<code>", code:"<code>", params? }`. 화면은 `resolveApiErrorText`(`lib/i18n/api-error-text.ts`) — 코드 → 도메인 표 키 → 상태 번호 키 → 기본 키 순서이고, **서버 문장은 어떤 경우에도 화면에 내보내지 않는다**(재감사 2026-11-27).
    - 사용자가 입력해야 하는 확인어는 언어별 계약 상수 1곳에 둔다: 탈퇴 ko `계정삭제` · en `DELETE` (`lib/account/account-deletion-contract.ts`). 서버는 둘 중 하나면 통과.
 4. **ko·en 치환값(`{name}`)은 같아야 한다.**
 5. **DB 에 화면 문장을 저장하지 않는다**(메시지 미리보기·포인트 내역 설명 등). 종류 코드 + 값을 저장하고 화면에서 키로 그린다(S7).
@@ -119,6 +120,8 @@
 | `hardcoded-korean` · `jsx-text-korean` | 화면 파일의 영어 짝 없는 한국어(JSX 글자·속성·토스트·여러 줄 JSX) | 파일별 증가 실패 |
 | `admin-hangul-literal` | 어드민 경로 코드의 한국어 문자열 | 파일별 증가 실패 |
 | `user-hangul-literal` | **어드민 밖** 코드의 한국어 문자열(함수가 돌려주는 화면 문구·서버가 채우는 안내 등 — 재감사 2026-11-08 추가). 주석·`console`·`throw` 줄, `ko:`·`…Ko:` 표 값은 세지 않는다 | 파일별 증가 실패 — 새 화면 문구는 키로. 데이터(금칙어·시드 등)로 꼭 필요하면 이유를 적어 Owner 확인 후 기준선 갱신 |
+| `ko-latin-only` | 고객·사장님 키의 **ko 값에 한글이 없고 영어 단어만** 있음(한국어 화면에 영어 — 재감사 2026-11-27). 브랜드·고유명사·언어 이름·업계 약어는 허용 목록 `KO_LATIN_ALLOWED_WORDS` | 새 항목 실패 |
+| `client-raw-server-error` | 고객·사장님 화면 파일이 서버 `error`·`message` 문장을 그대로 보여 주는 형태(`data.error ?? t(…)`·`setError(json.error)`). 화면은 `resolveApiErrorText`(`lib/i18n/api-error-text.ts`)로만 그린다 | 파일별 증가 실패 |
 
 - 「고객·사장님 키」 판정(S3 정밀화 — `areaFromUsage`·`libReachAreas`):
   - 고객·사장님 화면 파일(`app`·`components`·`hooks`, 어드민 경로 밖)이 직접 쓰면 고객·사장님 키.

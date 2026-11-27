@@ -17,6 +17,7 @@ export const KEY_RULE_IDS = [
   "jargon-ko",
   "glossary",
   "key-echo-en",
+  "ko-latin-only",
 ] as const;
 export type KeyRuleId = (typeof KEY_RULE_IDS)[number];
 
@@ -34,6 +35,7 @@ export const FILE_RULE_IDS = [
   "admin-hangul-literal",
   "user-hangul-literal",
   "jsx-text-korean",
+  "client-raw-server-error",
 ] as const;
 export type FileRuleId = (typeof FILE_RULE_IDS)[number];
 
@@ -156,6 +158,32 @@ export function isKeyEchoEnglish(key: string, en: string): boolean {
   return vw.every((w, i) => w === kw[kw.length - vw.length + i]);
 }
 
+/**
+ * 재감사 2026-11-27 — 한국어 값에 한글이 없고 영어 단어만 있음(한국어 화면에 영어가 나옴, 예: 주소 「House」).
+ * 브랜드·고유명사·단위 약어는 허용 — 이유는 `docs/i18n-ssot.md` §4-4(고유명사)·용어집.
+ */
+export const KO_LATIN_ALLOWED_WORDS: ReadonlySet<string> = new Set([
+  // 서비스·브랜드 이름
+  "DIBAY", "dibaY", "telRING", "LOUNGE", "DIPICK", "CREW", "REP", "MARKET", "HOME", "SAMessenger", "Coin",
+  // 결제·은행·기기·스토어 고유명사
+  "GCash", "BDO", "Philippines", "iPhone", "COD",
+  // 언어 이름은 그 언어로 쓴다(언어 선택 「English」)
+  "English",
+  // 업계 약어(카탈로그 값 그대로 쓰는 지표·규격)
+  "NEW", "SUV", "CTR", "ROAS", "SLA", "UTC", "PTR",
+]);
+/** 단어가 아니라 묶음으로만 허용(「Store」 단독은 결함 — 주소 「Store」) */
+const KO_LATIN_ALLOWED_PHRASES: readonly string[] = ["App Store"];
+const KO_LATIN_WORD = /[A-Za-z]{3,}/g;
+export function isKoLatinOnly(ko: string): boolean {
+  if (!ko || HANGUL.test(ko)) return false;
+  let rest = ko.replace(/\{[^}]*\}/g, " ");
+  for (const phrase of KO_LATIN_ALLOWED_PHRASES) rest = rest.split(phrase).join(" ");
+  const words = rest.match(KO_LATIN_WORD);
+  if (!words) return false;
+  return words.some((w) => !KO_LATIN_ALLOWED_WORDS.has(w));
+}
+
 /** 키 규칙 — 값은 사람이 읽는 근거(파일·단어) */
 export function collectKeyRuleFindings(input: KeyRuleInput): KeyRuleFindings {
   const f = Object.fromEntries(KEY_RULE_IDS.map((id) => [id, new Map<string, string>()])) as KeyRuleFindings;
@@ -196,6 +224,7 @@ export function collectKeyRuleFindings(input: KeyRuleInput): KeyRuleFindings {
     if (jk) f["jargon-ko"].set(key, jk);
     const g = glossaryHits(ko, en);
     if (g.length) f.glossary.set(key, g.join(","));
+    if (isKoLatinOnly(ko)) f["ko-latin-only"].set(key, ko.slice(0, 60));
   }
   return f;
 }
@@ -284,6 +313,26 @@ export function countJsxTextKorean(text: string): number {
   return n;
 }
 
+/**
+ * 재감사 2026-11-27 — 고객·사장님 화면이 서버 `error`·`message` 문장을 그대로 보여 주는 형태.
+ * 서버 문장은 한국어로 고정돼 영어 화면에 한국어가 나왔다. 화면은 `resolveApiErrorText`(`lib/i18n/api-error-text.ts`) 로만 그린다.
+ * - `data?.error ?? t(…)` · `json.error || t(…)` · `setError(json.error)` 형태.
+ */
+const RAW_SERVER_ERROR_PATTERNS: readonly RegExp[] = [
+  /\b\w+\??\.(?:error|message)\s*(?:\?\?|\|\|)\s*(?:t|safeT|tt|translate\w*)\(/g,
+  /\bset\w*(?:Error|Err|Message|Msg)\(\s*\w+\??\.(?:error|message)\s*\)/g,
+];
+const USER_SCREEN_PATH = /^(app\/|components\/|hooks\/)/;
+export function countClientRawServerError(text: string): number {
+  let n = 0;
+  for (const raw of text.split("\n")) {
+    const t = raw.trimStart();
+    if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) continue;
+    for (const re of RAW_SERVER_ERROR_PATTERNS) n += count(re, raw);
+  }
+  return n;
+}
+
 export function countBoolLangTernary(text: string): number {
   return count(BOOL_KO_TERNARY, text) + count(BOOL_EN_TERNARY, text);
 }
@@ -335,6 +384,9 @@ export function addFileRuleCounts(target: FileRuleCounts, rel: string, text: str
      */
     else put("user-hangul-literal", countAdminHangulLiterals(text));
     if (rel.endsWith(".tsx")) put("jsx-text-korean", countJsxTextKorean(text));
+    if (USER_SCREEN_PATH.test(rel) && !ADMIN_PATH.test(rel) && !rel.startsWith("app/api/")) {
+      put("client-raw-server-error", countClientRawServerError(text));
+    }
   }
 }
 

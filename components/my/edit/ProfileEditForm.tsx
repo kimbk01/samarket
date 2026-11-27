@@ -28,6 +28,7 @@ import {
 } from "@/lib/addresses/mandatory-address-gate-client";
 import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
 import { hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
+import { profileSaveErrorText, profileSaveWarningText } from "@/lib/profile/profile-save-error-text";
 import { REGISTRATION_DONE_DEFAULT_PATH } from "@/lib/auth/dibay-registration-steps";
 import {
   isProfileSetupMode,
@@ -459,7 +460,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     const result = await updateMyProfile(payload, { expected });
     setSaving(false);
     if (result.ok) {
-      const warn = "warning" in result && result.warning ? result.warning : "";
+      const warn = profileSaveWarningText(result.warningCode, t) ?? "";
       setMessage({
         type: "ok",
         text: warn ? t("profile_edit_saved_with_warn", { warn }) : t("profile_edit_saved"),
@@ -488,8 +489,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         router.push(backHref);
       }
     } else {
-      setMessage({ type: "error", text: result.error });
-      if ("code" in result && result.code === PROFILE_CONFLICT_ERROR_CODE) {
+      setMessage({ type: "error", text: profileSaveErrorText(result, t) });
+      if (result.code === PROFILE_CONFLICT_ERROR_CODE) {
         /** 다른 곳에서 먼저 바뀜 — 최신 값을 다시 불러와 같은 기대값으로 409 가 반복되지 않게 한다 */
         await load({ freshProfile: true });
       }

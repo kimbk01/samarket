@@ -81,3 +81,14 @@ describe("refresh-oauth-nickname-if-legacy", () => {
     ).toBe(false);
   });
 });
+
+describe("재감사 A1 — 영어 임시 닉네임도 교체", () => {
+  it("「DIBAY user」 는 SNS 이름으로 교체", () => {
+    expect(
+      shouldRefreshNicknameFromOAuth(
+        { onboarding_completed_at: "2026-11-27T00:00:00Z", nickname: "DIBAY user", display_name: "DIBAY user" },
+        "Kim"
+      )
+    ).toBe(true);
+  });
+});

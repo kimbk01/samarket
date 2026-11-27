@@ -29,6 +29,7 @@ import { useRepresentativeAddressLine } from "@/hooks/use-representative-address
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 import { getMypageHomeProjection, patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
+import { profileSaveErrorText } from "@/lib/profile/profile-save-error-text";
 
 /** 저장 직후 서버 재조회 값 — 화면·boot 스냅샷·홈 projection 을 같은 원본으로 맞춘다 */
 function applyFreshProfileEverywhere(fresh: ProfileRow): void {
@@ -168,7 +169,7 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
           setNotice(t("mypage_s01_conflict_reloaded"));
           return;
         }
-        setError(result.error || t("profile_edit_save_failed"));
+        setError(profileSaveErrorText(result, t));
         showMypageToast(t("profile_edit_save_failed"), "error");
         return;
       }

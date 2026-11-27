@@ -31,7 +31,8 @@ export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
   otp_ttl_seconds: DEFAULT_PHONE_OTP_TTL_SECONDS,
   resend_cooldown_seconds: 60,
   max_attempts: 5,
-  guide_text: "필리핀 휴대폰 번호만 인증 가능합니다. 예: 0917 123 4567",
+  /** 운영 저장값과 같게 (2026-11-27 조회) — 실제 허용 국가 PH·KR (`phone-otp-service`) */
+  guide_text: "필리핀(+63)·한국(+82) 휴대폰 번호만 인증할 수 있습니다.",
   updated_by: null,
   change_reason: null,
   row_version: 1,

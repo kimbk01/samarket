@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-26 18:27 PHT",
+ "generatedAtPht": "2026-11-27 13:21 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -17,7 +17,29 @@
    "stores_ledger_anomaly"
   ],
   "glossary": [],
-  "key-echo-en": []
+  "key-echo-en": [],
+  "ko-latin-only": [
+   "addr_ui_kind_home",
+   "addr_ui_kind_office",
+   "addr_ui_kind_other",
+   "addr_ui_kind_shop",
+   "addr_ui_kind_store",
+   "addr_ui_preset_custom",
+   "addr_ui_preset_home",
+   "addr_ui_preset_office",
+   "addr_ui_preset_shop",
+   "addr_ui_shop_prefix",
+   "finance_coin_out_meta",
+   "finance_partner",
+   "owner_ads_business_cash_label",
+   "owner_ads_confirm_cash_balance_ad",
+   "owner_ads_confirm_cash_wallet_title",
+   "owner_bc_convert_title",
+   "owner_bc_page_title",
+   "owner_bc_title",
+   "owner_copy_finance_cash_ledger_partner_spend",
+   "profile_guest_name"
+  ]
  },
  "fileRules": {
   "foreign-script-code": {},
@@ -219,8 +241,7 @@
    "app/api/me/notification-targets/clear/route.ts": 3,
    "app/api/me/notifications/route.ts": 1,
    "app/api/me/posts/bulk-region/route.ts": 1,
-   "app/api/me/profile/avatar/route.ts": 6,
-   "app/api/me/profile/route.ts": 19,
+   "app/api/me/profile/route.ts": 1,
    "app/api/me/push/subscribe/route.ts": 1,
    "app/api/me/rider/location/route.ts": 1,
    "app/api/me/rider/orders/[orderId]/pod-upload/route.ts": 1,
@@ -362,7 +383,6 @@
    "lib/auth/phone-otp-server-sync.ts": 1,
    "lib/auth/phone-otp-service.ts": 14,
    "lib/auth/phone-verification-required-detect.ts": 4,
-   "lib/auth/post-login-profile-policy.ts": 1,
    "lib/auth/provider-identity/link-provider.server.ts": 7,
    "lib/auth/provider-identity/native-session-bridge.server.ts": 1,
    "lib/auth/provider-identity/oauth-rebind-safety.server.ts": 1,
@@ -619,8 +639,6 @@
    "lib/profile/ensure-profile-for-user-id.ts": 1,
    "lib/profile/handle-profile-incomplete-api-response.ts": 1,
    "lib/profile/member-nickname-policy.ts": 3,
-   "lib/profile/profile-patch-concurrency.ts": 1,
-   "lib/profile/updateMyProfile.ts": 5,
    "lib/promotion/apply-community-paid-exposure.ts": 1,
    "lib/promotion/apply-trade-paid-exposure.ts": 1,
    "lib/promotion/community-paid-exposure-feed.ts": 2,
@@ -738,6 +756,39 @@
   },
   "jsx-text-korean": {
    "components/dev/PromotionEventOperationProofClient.tsx": 12
+  },
+  "client-raw-server-error": {
+   "components/auth/usePasswordLogin.ts": 2,
+   "components/business/owner/ads/OwnerBannerCreateView.tsx": 1,
+   "components/business/owner/ads/OwnerPlatformPopupApplyView.tsx": 1,
+   "components/business/owner/OwnerCoinConvertSection.tsx": 1,
+   "components/business/owner/OwnerProductForm.tsx": 2,
+   "components/business/owner/OwnerStoreOrderChatsView.tsx": 1,
+   "components/business/OwnerStoreProfileForm.tsx": 1,
+   "components/chats/ChatDetailView.tsx": 5,
+   "components/community-messenger/CommunityMessengerTradeProcessSection.tsx": 1,
+   "components/community-messenger/room/CommunityMessengerRoomBootstrapGate.tsx": 1,
+   "components/community/CommunityDetail.tsx": 2,
+   "components/community/CommunityFeed.tsx": 1,
+   "components/community/CommunityMyHubClient.tsx": 1,
+   "components/moim/MoimDetailScreen.tsx": 1,
+   "components/moim/MoimInviteLanding.tsx": 1,
+   "components/moim/MoimNotificationSettingsScreen.tsx": 1,
+   "components/moim/MoimPostDetailScreen.tsx": 1,
+   "components/moim/MoimScheduleDetailScreen.tsx": 1,
+   "components/moim/MoimScheduleFormScreen.tsx": 1,
+   "components/moim/MoimWriteScreen.tsx": 1,
+   "components/my/settings/LogoutContent.tsx": 2,
+   "components/philife/PhilifeNeighborhoodWriteForm.tsx": 12,
+   "components/post/PostCommunityCommentsSection.tsx": 3,
+   "components/post/ReportReasonModal.tsx": 1,
+   "components/reports/BlockActionSheet.tsx": 2,
+   "components/reports/ReportActionSheet.tsx": 1,
+   "components/rider/RiderHomeClient.tsx": 2,
+   "components/rider/RiderOrderDetailClient.tsx": 2,
+   "components/rider/RiderOrdersClient.tsx": 1,
+   "components/trade/location/TradeBrowseLocationSheet.tsx": 1,
+   "components/trade/TradeFlowBanner.tsx": 1
   }
  }
 }
