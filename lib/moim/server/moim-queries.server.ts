@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { lguPublicName } from "@/lib/neighborhood/lgu-location.server";
+import { resolveMasterAddressLgu } from "@/lib/addresses/master-address-lgu.server";
 import { listUpcomingScheduleTeasers } from "@/lib/moim/server/moim-schedule-queries.server";
 import {
   MOIM_ACTIONS,
@@ -26,6 +27,7 @@ import type {
   MoimMemberDto,
   MoimPostDto,
   MoimReceivedInviteDto,
+  MoimViewerAreaDto,
 } from "@/lib/moim/moim-api-types";
 
 /**
@@ -107,19 +109,19 @@ async function categoryMap(sb: SupabaseServer, ids: string[]): Promise<Map<strin
   return map;
 }
 
-/** 보는 사람의 대표 주소 시/군 (모임 동네 = 같은 LGU, 설계 §6 P2 · D3) */
-export async function loadViewerMoimLgu(sb: SupabaseServer, userId: string | null): Promise<string | null> {
+/**
+ * 보는 사람의 모임 동네 = 대표 주소의 시/군 LGU (설계 §6 P1·P2 · D3).
+ * 주소 위치 단일 정의(`resolveMasterAddressLgu`)로 판정한다 — 저장 칸이 비어 있어도 주소 문장으로 시/군을 정한다
+ * (2026-11-27 감사 A1: 대표 주소가 있는데 「대표 주소를 등록」을 요구하던 결함). 로그인 안 함 = `null`.
+ */
+export async function loadViewerMoimArea(
+  sb: SupabaseServer,
+  userId: string | null
+): Promise<{ lguId: string | null; dto: MoimViewerAreaDto } | null> {
   if (!userId) return null;
-  const { data } = await sb
-    .from("user_addresses")
-    .select("canonical_lgu_id")
-    .eq("user_id", userId)
-    .eq("is_active", true)
-    .eq("is_default_master", true)
-    .limit(1)
-    .maybeSingle();
-  const id = ((data as { canonical_lgu_id?: string | null } | null)?.canonical_lgu_id ?? "").trim();
-  return id || null;
+  const r = await resolveMasterAddressLgu(sb, userId);
+  if (r.status === "ok") return { lguId: r.lguId, dto: { status: "ok", cityLabel: cityLabel(r.lguId) } };
+  return { lguId: null, dto: { status: r.status } };
 }
 
 async function viewerMemberships(sb: SupabaseServer, userId: string | null, moimIds: string[]) {

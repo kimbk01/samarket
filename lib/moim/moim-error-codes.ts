@@ -4,6 +4,7 @@
  */
 export const MOIM_ERROR_CODES = [
   "moim_actor_invalid",
+  "moim_address_city_unresolved",
   "moim_address_required",
   "moim_admin_reason_required",
   "moim_age_not_allowed",

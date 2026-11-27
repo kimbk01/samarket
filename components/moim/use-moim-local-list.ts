@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { moimApi } from "@/lib/moim/moim-client-api";
-import type { MoimCardDto } from "@/lib/moim/moim-api-types";
+import type { MoimCardDto, MoimViewerAreaDto } from "@/lib/moim/moim-api-types";
 
 export type MoimLocalListState = {
   status: "idle" | "loading" | "ready" | "error";
   items: MoimCardDto[];
   hasAddress: boolean;
+  /** 주소 안내 구분 — `no_address` 대표 주소 없음 · `city_unresolved` 시/군 미확정(다시 저장 필요) */
+  areaStatus: MoimViewerAreaDto["status"];
   nextBefore: string | null;
   loadingMore: boolean;
   reload: () => void;
@@ -20,6 +22,7 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
   const [status, setStatus] = useState<MoimLocalListState["status"]>("idle");
   const [items, setItems] = useState<MoimCardDto[]>([]);
   const [hasAddress, setHasAddress] = useState(true);
+  const [areaStatus, setAreaStatus] = useState<MoimViewerAreaDto["status"]>("ok");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -42,6 +45,7 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
       }
       setItems(r.items);
       setHasAddress(r.hasAddress);
+      setAreaStatus(r.areaStatus ?? (r.hasAddress ? "ok" : "no_address"));
       setNextBefore(r.nextBefore);
       setStatus("ready");
     });
@@ -64,5 +68,5 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  return { status, items, hasAddress, nextBefore, loadingMore, reload, loadMore };
+  return { status, items, hasAddress, areaStatus, nextBefore, loadingMore, reload, loadMore };
 }

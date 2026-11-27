@@ -47,12 +47,17 @@ export type MoimCreateInput = {
   bio?: string;
 };
 
-export function moimCreate(actorId: string, input: MoimCreateInput, sb?: SupabaseServer) {
+/**
+ * `masterLguId` = 서버가 주소 위치 단일 정의로 판정한 개설자 대표 주소의 시/군 LGU (요청 본문에서 받지 않는다).
+ * DB 는 대표 주소 행에 저장된 LGU 가 있으면 그 값을, 없을 때만 이 값을 쓴다 (마이그레이션 20271128100000).
+ */
+export function moimCreate(actorId: string, input: MoimCreateInput, sb?: SupabaseServer, opts?: { masterLguId?: string | null }) {
   return callMoimRpc<{ moim_id: string; room_id: string }>(
     "moim_create",
     {
       p_actor: actorId,
       p: {
+        master_lgu_id: opts?.masterLguId ?? null,
         name: input.name,
         intro: input.intro,
         category_id: input.categoryId,
