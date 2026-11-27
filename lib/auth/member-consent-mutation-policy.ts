@@ -66,6 +66,7 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("DELETE", "/api/me/auth-providers/[provider]", "session_identity"),
   R("POST", "/api/account/phone/send-otp", "session_identity"),
   R("POST", "/api/account/phone/verify-otp", "session_identity"),
+  // F4: 아래 OTP 경로(및 회원 상태 EXEMPT `account/phone/*`)의 동의 확인은 라우트의 `requireMemberConsent` 가 한다
   R("POST", "/api/me/phone-verification/send", "session_identity"),
   R("POST", "/api/me/phone-verification/verify", "session_identity"),
   R("POST", "/api/me/dibay-id/assign-auto", "session_identity"),
@@ -87,7 +88,7 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("PATCH", "/api/me/profile", "profile_address_correction"),
   R("POST", "/api/me/profile/avatar", "profile_address_correction"),
   R("PATCH", "/api/me/profile/notification-email", "profile_address_correction"),
-  R("POST", "/api/me/addresses", "profile_address_correction"),
+  // F4 (2026-11-27): 새 주소 등록 `POST /api/me/addresses` 는 정정이 아니라 「주소 저장」 — 동의 필요 (C4 B6). 수정·삭제만 예외
   R("PATCH", "/api/me/addresses/[id]", "profile_address_correction"),
   R("POST", "/api/me/addresses/[id]/mark-used", "profile_address_correction"),
   R("DELETE", "/api/me/addresses/[id]", "profile_address_correction"),

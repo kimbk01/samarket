@@ -146,7 +146,7 @@ describe("B3 central consent gate — enforce", () => {
       expect(await enforce(req(m, p)), `${m} ${p}`).toBeNull();
     }
     expect(registrationSpy).not.toHaveBeenCalled();
-    // 동의 예외(전화 OTP·주소 정정)는 가입 검사 전에 통과
+    // 새 주소 등록(가입 3단계)은 규칙표 manage — 동의한 가입 진행 회원은 통과 (F4)
     expect(await enforce(req("POST", "/api/me/addresses"))).toBeNull();
     expect(await enforce(req("POST", "/api/account/phone/send-otp"))).toBeNull();
   });
@@ -168,12 +168,22 @@ describe("B3 central consent gate — enforce", () => {
     expect(res!.status).toBe(503);
   });
 
+  it("F4: 새 주소 등록은 동의 필요 — 미동의 403 signup_incomplete (step 없음)", async () => {
+    const { enforce, consentSpy } = await loadGate(REQUIRED);
+    const res = await enforce(req("POST", "/api/me/addresses"));
+    expect(res!.status).toBe(403);
+    const body = (await res!.json()) as { code?: string; step?: string };
+    expect(body.code).toBe("signup_incomplete");
+    expect(body.step).toBeUndefined();
+    expect(consentSpy).toHaveBeenCalled();
+    expect(resolveMemberConsentClassForApiMutation("POST", "/api/me/addresses")).toBe("CONSENT_REQUIRED");
+  });
+
   it("4. profile & address correction allowed without consent", async () => {
     const { enforce, consentSpy } = await loadGate(REQUIRED);
     for (const [m, p] of [
       ["PATCH", "/api/me/profile"],
       ["POST", "/api/me/profile/avatar"],
-      ["POST", "/api/me/addresses"],
       ["PATCH", "/api/me/addresses/a1"],
       ["DELETE", "/api/me/addresses/a1"],
     ] as const) {

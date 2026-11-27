@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
 import { validateActiveSession } from "@/lib/auth/server-guards";
+import { requireMemberConsent } from "@/lib/auth/require-member-consent.server";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { enforcePhoneVerificationCheckQuota } from "@/lib/security/rate-limit-presets";
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
+  /** F4 — OTP 는 동의 뒤 (C4 B6 · SG-06). 발송 한도·SMS 전에 거절 */
+  const consentDenied = await requireMemberConsent(auth.userId);
+  if (consentDenied) return consentDenied;
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return jsonError("supabase_service_unconfigured", 503);

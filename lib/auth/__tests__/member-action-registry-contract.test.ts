@@ -136,5 +136,7 @@ describe("분류 — 설계 §4 대표", () => {
   ])("%s %s = new (F2 계약 §4 A)", (m, p) => expect(kind(m, p)).toBe("new"));
   it("안 쓴 사진 정리(discard) 는 계약 §4 B 그대로 manage (F2)", () => {
     expect(kind("POST", "/api/community/upload-image/discard")).toBe("manage");
+    // F4 2026-11-27 — 새 주소 등록: 동의는 필요(동의 예외에서 뺌), 가입 3단계가 쓰므로 가입은 보지 않음
+    expect(kind("POST", "/api/me/addresses")).toBe("manage");
   });
 });

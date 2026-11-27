@@ -88,6 +88,8 @@
   - 그래서 동의하지 않은 회원도 API 를 직접 부르면 번호가 SMS 업체로 간다.
 - 운영 흔적: 11-20 이후 OTP 발송 9건은 모두 동의 기록(`member_consent_events`) 뒤에 있었다. 동의 전 주소 저장은 0건이다.
 
+- **정정 (2026-11-27 F4 설계 §0):** 앱이 쓰는 OTP 경로는 `POST /api/account/phone/send-otp`·`verify-otp` 다(`/api/me/phone-verification/*` 는 호출처 없는 옛 경로). 이 경로는 회원 상태 EXEMPT 라 중앙 게이트를 통째로 건너뛰고, 미동의 회원도 프로필 수정 화면(동의 화면 관문 예외)에서 닿는다. 판정 FAIL 그대로. 수정: `docs/audit/f4-otp-address-consent-design-2026-11-27.md`.
+
 ### F5. 전화번호 없이 「전화 인증 완료」인 SNS 회원 13명 — 이 중 12명이 가입 완료로 판정된다
 - 계약:
   - C3 Owner 원문 「회원 가입 … 전화 번호 주소 인증」.
