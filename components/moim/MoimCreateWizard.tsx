@@ -1,13 +1,15 @@
 "use client";
 
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
-import type { MoimCategoryDto } from "@/lib/moim/moim-api-types";
+import type { MoimCategoryDto, MoimViewerAreaDto } from "@/lib/moim/moim-api-types";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
@@ -38,11 +40,14 @@ function parseYear(v: string): number | null {
 export function MoimCreateWizard() {
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useMoimToast();
   const { uploading, upload } = useMoimImageUpload();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const [categories, setCategories] = useState<MoimCategoryDto[] | null>(null);
+  /** 개설자의 모임 동네 = 대표 주소의 시/군 (설계 P1 「활동 동네」) — 카테고리와 같은 요청 */
+  const [area, setArea] = useState<MoimViewerAreaDto | null>(null);
   const [catError, setCatError] = useState(false);
   const [catReload, setCatReload] = useState(0);
   const [step, setStep] = useState(1);
@@ -72,10 +77,12 @@ export function MoimCreateWizard() {
   useEffect(() => {
     let alive = true;
     setCatError(false);
-    void moimApi.categories().then((r) => {
+    void moimApi.categoriesWithArea().then((r) => {
       if (!alive) return;
-      if (r.ok) setCategories(r.categories);
-      else setCatError(true);
+      if (r.ok) {
+        setCategories(r.categories);
+        setArea(r.viewerArea ?? { status: "unavailable" });
+      } else setCatError(true);
     });
     return () => {
       alive = false;
@@ -88,8 +95,12 @@ export function MoimCreateWizard() {
   const yMax = parseYear(ageMax);
   const ageValid = (!ageMin.trim() || yMin !== null) && (!ageMax.trim() || yMax !== null) && (yMin === null || yMax === null || yMin <= yMax);
 
+  /** 동네를 정할 수 없으면 첫 단계부터 막는다 — 입력한 뒤 마지막에 거절되지 않게 (감사 A1·A2) */
+  const areaOk = area?.status === "ok";
   const canNext =
-    step === 1
+    !areaOk
+      ? false
+      : step === 1
       ? isMoimCategoryInputValid(categories, categoryId, topic) && name.trim().length > 0 && intro.trim().length > 0 && !uploading
       : step === 2
         ? capValid
@@ -148,6 +159,29 @@ export function MoimCreateWizard() {
             <i key={i} className={`h-[3px] flex-1 rounded-full ${i < step ? "bg-sam-primary" : "bg-sam-border"}`} />
           ))}
         </div>
+
+        {area && area.status !== "ok" ? (
+          <div className={`${moimCls.noticeWarn} mx-4 mt-3 grid gap-2`}>
+            <p>
+              {t(
+                area.status === "no_address"
+                  ? "moim_create_area_no_address"
+                  : area.status === "city_unresolved"
+                    ? "moim_err_moim_address_city_unresolved"
+                    : "moim_create_area_unavailable"
+              )}
+            </p>
+            {area.status === "unavailable" ? (
+              <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} justify-self-start`} onClick={() => setCatReload((k) => k + 1)}>
+                {t("common_retry")}
+              </button>
+            ) : (
+              <Link href={buildMypageAddressesHrefFromPath(pathname)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} justify-self-start`}>
+                {t(area.status === "city_unresolved" ? "moim_address_check_cta" : "moim_home_address_cta")}
+              </Link>
+            )}
+          </div>
+        ) : null}
 
         {step === 1 ? (
           <section className="grid gap-4 px-4 pt-4">
@@ -208,6 +242,11 @@ export function MoimCreateWizard() {
           <section className="grid gap-4 px-4 pt-4">
             <div className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_create_area_label")}</span>
+              {area?.status === "ok" && area.cityLabel ? (
+                <p data-moim-create-area="" className="text-[15px] font-bold text-sam-fg">
+                  {area.cityLabel}
+                </p>
+              ) : null}
               <p className={moimCls.hint}>{t("moim_create_area_hint")}</p>
             </div>
             <label className="grid gap-1.5">

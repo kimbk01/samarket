@@ -2,8 +2,9 @@
 
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { MoimCard } from "@/components/moim/MoimCard";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls } from "@/components/moim/moim-ui";
 import type { MoimLocalListState } from "@/components/moim/use-moim-local-list";
@@ -11,18 +12,21 @@ import type { MoimLocalListState } from "@/components/moim/use-moim-local-list";
 /** 우리 동네 모임 목록 본문 — 로딩·오류·주소 없음·빈 목록·더 보기 */
 export function MoimLocalList({ list, emptyKey }: { list: MoimLocalListState; emptyKey: "moim_home_local_empty" | "moim_search_empty" }) {
   const { t } = useI18n();
+  const pathname = usePathname();
   if (list.status === "loading" || list.status === "idle") return <MoimListSkeleton />;
   if (list.status === "error") return <MoimErrorState onRetry={list.reload} />;
   if (!list.hasAddress) {
+    /** 대표 주소는 있으나 시/군을 정할 수 없음 → 「주소 확인하기」(다시 저장) · 대표 주소 없음 → 「주소 등록하기」. 저장 뒤 이 화면으로 돌아온다 */
+    const unresolved = list.areaStatus === "city_unresolved";
     return (
       <MoimEmptyState
         action={
-          <Link href={MYPAGE_ADDRESSES_HREF} className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}>
-            {t("moim_home_address_cta")}
+          <Link href={buildMypageAddressesHrefFromPath(pathname)} className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}>
+            {t(unresolved ? "moim_address_check_cta" : "moim_home_address_cta")}
           </Link>
         }
       >
-        {t("moim_home_no_address")}
+        {t(unresolved ? "moim_home_city_unresolved" : "moim_home_no_address")}
       </MoimEmptyState>
     );
   }

@@ -13,6 +13,16 @@ export type MoimCategoryDto = {
   allowCustomTopic: boolean;
 };
 
+/**
+ * 보는 사람의 모임 동네 (대표 주소의 시/군만 — 그 밖의 주소 정보는 넣지 않는다).
+ * `no_address` = 대표 주소 없음 · `city_unresolved` = 대표 주소는 있으나 시/군을 정할 수 없음(주소를 다시 저장해야 함)
+ */
+export type MoimViewerAreaDto =
+  | { status: "ok"; cityLabel: string | null }
+  | { status: "no_address" }
+  | { status: "city_unresolved" }
+  | { status: "unavailable" };
+
 export type MoimCardDto = {
   id: string;
   name: string;

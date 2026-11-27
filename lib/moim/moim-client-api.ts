@@ -18,6 +18,7 @@ import type {
   MoimNotificationPrefsDto,
   MoimScheduleDto,
   MoimScheduleParticipantDto,
+  MoimViewerAreaDto,
   MoimStaffReportDto,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
@@ -67,13 +68,15 @@ const enc = encodeURIComponent;
 
 export const moimApi = {
   categories: () => call<{ categories: MoimCategoryDto[] }>("/api/moim/categories"),
+  /** 만들기 화면 — 카테고리 + 개설자 모임 동네(대표 주소 시/군)를 한 요청으로 */
+  categoriesWithArea: () => call<{ categories: MoimCategoryDto[]; viewerArea: MoimViewerAreaDto }>("/api/moim/categories?withArea=1"),
   listMine: () => call<{ items: MoimCardDto[] }>("/api/moim?scope=mine"),
   listLocal: (q: { category?: string | null; q?: string | null; before?: string | null }) => {
     const sp = new URLSearchParams({ scope: "local" });
     if (q.category) sp.set("category", q.category);
     if (q.q) sp.set("q", q.q);
     if (q.before) sp.set("before", q.before);
-    return call<{ items: MoimCardDto[]; nextBefore: string | null; hasAddress: boolean }>(`/api/moim?${sp}`);
+    return call<{ items: MoimCardDto[]; nextBefore: string | null; hasAddress: boolean; areaStatus?: MoimViewerAreaDto["status"] }>(`/api/moim?${sp}`);
   },
   create: (input: {
     name: string;
