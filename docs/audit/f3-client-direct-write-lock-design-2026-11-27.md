@@ -242,3 +242,18 @@ CREATE POLICY ad_payment_requests_insert_owner ON public.ad_payment_requests FOR
   - 실제 구멍은 이 경로였다: ① DB 에 자기 자신을 참여자로 넣기(INSERT 정책은 자기 표를 조회하지 않아 성공) → ② 앱 API `GET` 거래 채팅 메시지가 참여자 행만 보고 service_role 로 메시지를 돌려줌(`lib/chats/server/load-chat-room-messages.ts:203-232`).
   - 이번 잠금으로 ① 이 막혀 이 경로도 닫혔다.
 - **범위 밖 결함 (보고만)**: 위 SELECT 정책 무한 재귀 때문에 회원 토큰으로 거래 채팅 표를 조회하는 기능은 모두 실패한다. 브라우저 Realtime 구독(`use-chat-room-realtime.ts`·`use-integrated-chat-room-list-realtime.ts` 의 `chat_messages`·`chat_room_participants`)이 실제로 이벤트를 받는지는 확인하지 않았다(NOT_PROVEN).
+
+### 10-2. 실기 (Samsung RFCY40PY2CA · 운영 앱 · 로그인 계정 `46a41536` · 앱 실행 0회 · 예상 추가 요청 0 × 195)
+- 방법: 다른 세션이 이미 연결해 둔 WebView CDP 에서 앱 자신의 API 를 회원 쿠키로 호출했다. 화면 탭·앱 재실행 없음. 기기 사용은 사용 중인 세션 2곳에 확인을 받은 뒤 했다.
+- 매장 찜·글 저장은 **API 200 → 운영 DB 행 생성**, 해제도 **API 200 → 운영 DB 0행**(처음 상태와 같음)이었다.
+
+| 시각 (PHT) | 호출 | 결과 | 운영 DB |
+|---|---|---|---|
+| 13:24:17 | `POST /api/stores/sample-389a6a2d/favorite` | 200 `favorited:true` | `store_favorites` 새 행 1 |
+| 13:24:17 | `POST /api/community/posts/e350d3e4…/save` | 200 `saved:true` | `community_post_saves` 새 행 1 |
+| 13:24:54 | 위 둘 `DELETE` | 200 `favorited:false` · `saved:false` | 둘 다 0행 (처음 상태와 같음) |
+
+- 적용 뒤 운영 Postgres 오류 기록(13:19~13:26): 거부·재귀 오류 4건 = 모두 작업자 시험 시각. 앱 사용자에게서 난 오류 0건.
+- NOT_PROVEN: 거래 채팅 시작·전송·약속, 가격 제안 수락, 일자리 지원, 광고 신청, 친구 즐겨찾기.
+  - 실제 상대가 있거나 돈·심사가 걸린 운영 데이터를 만들어야 해서 시험하지 않았다.
+  - 같은 service_role 경로라는 근거: §2 코드 전수 + §10 service_role 시험.
