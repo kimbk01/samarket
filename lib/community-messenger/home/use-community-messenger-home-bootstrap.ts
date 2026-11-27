@@ -1761,25 +1761,23 @@ export function useCommunityMessengerHomeBootstrap({
     await mergeDeferredMessengerCallLogs();
   }, [mergeDeferredMessengerCallLogs]);
 
-  /** 친구 탭 — Contact SSOT + pending friend requests (Realtime 누락 복구) */
+  /** 친구 탭 — Contact SSOT (대기 친구 요청은 전역 피드 동기화가 넣는다) */
   const mergeDeferredMessengerFriends = useCallback(async () => {
     const requestId = ++friendsHydrateRequestIdRef.current;
     friendsHydrateAbortRef.current?.abort();
     const controller = new AbortController();
     friendsHydrateAbortRef.current = controller;
     try {
-      const [friendsRes, requestsRes] = await Promise.all([
-        fetch("/api/community-messenger/friends", {
-          cache: "no-store",
-          credentials: "include",
-          signal: controller.signal,
-        }),
-        fetch("/api/community-messenger/friend-requests", {
-          cache: "no-store",
-          credentials: "include",
-          signal: controller.signal,
-        }),
-      ]);
+      /**
+       * 친구 요청 목록은 여기서 다시 받지 않는다 — 전역 피드(`use-global-friend-request-feed`)가 시작·실시간·복귀·재연결마다
+       * 받아 `CM_FRIEND_REQUESTS_SYNCED_EVENT` 로 홈에 넣고, 홈이 열릴 때도 동기화 요청으로 받는다(2026-11-27 ·
+       * docs/audit/supabase-request-surge-2026-11-18/messenger-refetch-amplification-2026-11-27.md §2 — 홈 열기마다 같은 목록 2번 조회).
+       */
+      const friendsRes = await fetch("/api/community-messenger/friends", {
+        cache: "no-store",
+        credentials: "include",
+        signal: controller.signal,
+      });
       if (controller.signal.aborted || requestId !== friendsHydrateRequestIdRef.current) return;
       const friendsJson = (await friendsRes.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -1788,10 +1786,6 @@ export function useCommunityMessengerHomeBootstrap({
         me?: CommunityMessengerBootstrap["me"];
         /** §15-3: 내 요청을 거절한 상대 id(null = 서버도 모름) */
         rejectedByPeerIds?: string[] | null;
-      };
-      const requestsJson = (await requestsRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        requests?: CommunityMessengerBootstrap["requests"];
       };
       /** F-11 — 실패 시 기존 friends 캐시 유지 · 빈 목록으로 덮지 않음 · 사용자 안내 */
       if (!friendsRes.ok || !friendsJson.ok) {
@@ -1806,7 +1800,8 @@ export function useCommunityMessengerHomeBootstrap({
           {
             kind: "home_sync",
             friends: incomingFriends,
-            requests: requestsRes.ok && requestsJson.ok ? requestsJson.requests ?? [] : undefined,
+            /** 요청 목록은 전역 피드 동기화가 넣는다 — 여기서는 그대로 둔다 */
+            requests: undefined,
             roomMode: "replace",
             friendsMode: "replace",
           },
