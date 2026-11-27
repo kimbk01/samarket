@@ -39,7 +39,8 @@ export function MoimProfileScreen({ moimId }: { moimId: string }) {
     if (!f) return;
     const r = await upload([f]);
     if (r.urls[0]) setAvatar(r.urls[0]);
-    if (r.failed) toast.show(t("moim_screen_upload_failed"), "error");
+    /** 가입 진행 중 거절은 「가입 이어하기」 창이 이미 떠 있다 — 실패 토스트를 겹치지 않는다 (F2 2026-11-27) */
+    if (r.failed && !r.registrationRequired) toast.show(t("moim_screen_upload_failed"), "error");
   };
 
   const save = async () => {

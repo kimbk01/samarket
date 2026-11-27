@@ -123,9 +123,18 @@ describe("분류 — 설계 §4 대표", () => {
     ["PATCH", "/api/community-messenger/rooms/r1"],
     ["POST", "/api/trade/chat/entry/resolve"],
   ])("%s %s = split", (m, p) => expect(kind(m, p)).toBe("split"));
+  it.each([["POST", "/api/community-messenger/direct/start"]])("%s %s = manage (재감사3 #6)", (m, p) =>
+    expect(kind(m, p)).toBe("manage"),
+  );
+  /** 계약 §4 A 「글 사진 올리기 = 가입 필요」 — F2 2026-11-27 (재감사3 #7 의 manage 를 되돌림) */
   it.each([
-    ["POST", "/api/community-messenger/direct/start"],
-    ["POST", "/api/philife/upload-image"],
     ["POST", "/api/posts/upload-image"],
-  ])("%s %s = manage (재감사3 #6·#7)", (m, p) => expect(kind(m, p)).toBe("manage"));
+    ["POST", "/api/community/upload-image"],
+    ["POST", "/api/community/upload-image-from-url"],
+    ["POST", "/api/philife/upload-image"],
+    ["POST", "/api/philife/upload-image-from-url"],
+  ])("%s %s = new (F2 계약 §4 A)", (m, p) => expect(kind(m, p)).toBe("new"));
+  it("안 쓴 사진 정리(discard) 는 계약 §4 B 그대로 manage (F2)", () => {
+    expect(kind("POST", "/api/community/upload-image/discard")).toBe("manage");
+  });
 });

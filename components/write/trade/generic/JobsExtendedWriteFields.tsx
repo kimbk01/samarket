@@ -15,7 +15,7 @@ import { usePathname } from "next/navigation";
 import { WriteSelectSheetField } from "@/components/write/shared/WriteSelectSheetField";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { uploadPostImages } from "@/lib/posts/uploadPostImages";
+import { isRegistrationRequiredUploadFailure, uploadPostImagesDetailed } from "@/lib/posts/uploadPostImages";
 import {
   peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
@@ -838,10 +838,13 @@ export function JobsExtendedWriteFields({
         await dibayAlert({ title: t("popup_login_required_title"), description: t("popup_login_required_desc") });
         return false;
       }
-      const uploaded = await uploadPostImages(files, user.id);
+      const uploadResults = await uploadPostImagesDetailed(files);
+      const uploaded = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
       if (uploaded.length !== files.length) {
         /** 업로드 실패해도 기기 보관 사진으로 남겨 복귀 때 복원 */
         persistJobsWriteBeforeMeetSpot(category.id, buildJobsStagingData(workingImages));
+        /** 가입 진행 중 거절은 「가입 이어하기」 창이 이미 떠 있다 — 실패 확인창을 겹치지 않는다 (F2 2026-11-27) */
+        if (isRegistrationRequiredUploadFailure(uploadResults)) return false;
         await dibayAlert({
           title: t("popup_upload_partial_title", {
             total: String(files.length),

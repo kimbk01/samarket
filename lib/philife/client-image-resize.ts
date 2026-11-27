@@ -8,6 +8,8 @@
  * - 4MB 기준: 서버 한도 5MB · Vercel 요청 본문 4.5MB 보다 낮게.
  * GIF(애니메이션)·디코딩 불가(HEIC 미지원 WebView 등)는 원본 그대로 두고 서버 판정에 맡긴다.
  */
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
+
 const MAX_EDGE_PX = 2560;
 const JPEG_QUALITY = 0.92;
 const SKIP_BELOW_BYTES = 4 * 1024 * 1024;
@@ -121,6 +123,8 @@ export async function uploadCommunityImageFile(
   if (res.ok && j.ok && typeof j.url === "string" && j.url) return { ok: true, url: j.url };
   /** 서버 문구는 쓰지 않는다 — 코드로 화면 언어 문구를 고른다 (감사 §11 R4) */
   const code = typeof j.code === "string" ? j.code : "";
+  /** 가입 진행 중 거절 — 「가입 이어하기」 창과 같은 문장 (F2 2026-11-27, 설계 C2 §5-3: 창과 다른 「올리기 실패」 금지) */
+  if (code === "signup_incomplete") return { ok: false, error: registrationGuidanceMessage(), code };
   const byCode = code ? messages.byCode?.(code, res.status) : undefined;
   return {
     ok: false,

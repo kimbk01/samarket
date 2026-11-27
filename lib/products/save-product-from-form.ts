@@ -2,7 +2,8 @@
 
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { createPost } from "@/lib/posts/createPost";
-import { uploadPostImages } from "@/lib/posts/uploadPostImages";
+import { isRegistrationRequiredUploadFailure, uploadPostImagesDetailed } from "@/lib/posts/uploadPostImages";
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import type { ProductFormPayload } from "@/lib/types/product-form";
 
 /**
@@ -20,8 +21,11 @@ export async function saveProductTradeFromForm(
   const existingUrls = payload.images.filter(
     (x): x is string => typeof x === "string" && x.trim().length > 0
   );
-  const uploaded = await uploadPostImages(files, userId);
+  const uploadResults = await uploadPostImagesDetailed(files);
+  const uploaded = uploadResults.flatMap((r) => (r.ok ? [r.url] : []));
   if (files.length > 0 && uploaded.length !== files.length) {
+    /** 가입 진행 중 거절 — 「가입 이어하기」 창과 같은 문장 (F2 2026-11-27, 설계 C2 §5-3) */
+    if (isRegistrationRequiredUploadFailure(uploadResults)) throw new Error(registrationGuidanceMessage());
     throw new Error(
       `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
     );
