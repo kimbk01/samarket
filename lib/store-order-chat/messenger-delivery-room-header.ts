@@ -1,4 +1,7 @@
 import type { StoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
@@ -234,8 +237,12 @@ export function resolveDeliveryPeerUserId(input: {
 export function resolveStoreOrderBuyerVoicePeerLabel(input: {
   headerMode: StoreOrderDeliveryHeaderMode;
   storeDisplayName: string;
+  /** 보는 사람 언어 — 없으면 앱 실행 언어. 매장명이 없을 때의 대체 이름(`common_store`)에만 쓴다. */
+  language?: AppLanguageCode;
 }): string {
   if (input.headerMode !== "buyer_store") return "";
   const name = input.storeDisplayName.trim();
-  return name && !isStoreTechnicalIdentifier(name) ? name : "매장";
+  return name && !isStoreTechnicalIdentifier(name)
+    ? name
+    : safeTranslate(input.language ?? getRuntimeAppLanguage(), "common_store");
 }

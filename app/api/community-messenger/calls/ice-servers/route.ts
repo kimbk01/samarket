@@ -20,7 +20,8 @@ export async function GET(req: NextRequest) {
     key: `community-messenger:ice-servers:${getRateLimitKey(req, auth.userId)}`,
     limit: 60,
     windowMs: 60_000,
-    message: "ICE 서버 정보를 너무 자주 요청하고 있습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_ice_servers_rate_limited",
     code: "community_messenger_ice_servers_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

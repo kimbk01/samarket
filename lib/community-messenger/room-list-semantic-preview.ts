@@ -35,7 +35,8 @@ export const ROOM_LIST_PREVIEW_FILE_TOKEN = "파일";
 export const ROOM_LIST_PREVIEW_VIDEO_TOKEN: string = cmHomeListMessages.ko.cm_home_preview_video;
 export const ROOM_LIST_PREVIEW_VOICE_TOKEN = "음성 메시지";
 export const ROOM_LIST_PREVIEW_STICKER_TOKEN = "스티커";
-export const ROOM_LIST_PREVIEW_CALL_TOKEN = "통화";
+/** 저장 호환 토큰(값은 예전 그대로 「통화」 = 카탈로그 ko `cm_home_preview_call`). 화면은 `getRoomPreviewText` 가 보는 사람 언어로 그린다. */
+export const ROOM_LIST_PREVIEW_CALL_TOKEN: string = cmHomeListMessages.ko.cm_home_preview_call;
 export const ROOM_LIST_PREVIEW_SYSTEM_TOKEN = "알림";
 
 export function canonicalRoomListPreviewFromMessageFields(input: {

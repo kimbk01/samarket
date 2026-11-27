@@ -23,7 +23,8 @@ export async function GET(
     key: `community-messenger:call-signals:get:${getRateLimitKey(req, auth.userId)}`,
     limit: 240,
     windowMs: 60_000,
-    message: "통화 시그널 조회가 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_call_signals_get_rate_limited",
     code: "community_messenger_call_signals_get_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
@@ -44,7 +45,8 @@ export async function POST(
     key: `community-messenger:call-signals:post:${getRateLimitKey(req, auth.userId)}`,
     limit: 600,
     windowMs: 60_000,
-    message: "통화 시그널 전송이 너무 잦습니다. 잠시 후 다시 시도해 주세요.",
+    /** 문구는 클라이언트 카탈로그가 정한다(SSOT §3-3) — `error` = 코드 */
+    message: "community_messenger_call_signals_post_rate_limited",
     code: "community_messenger_call_signals_post_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;

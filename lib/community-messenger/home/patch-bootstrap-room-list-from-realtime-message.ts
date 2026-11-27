@@ -9,7 +9,10 @@ import {
   cmRoomLastMessageMetaFromMessage,
   type CmRoomLastMessageMeta,
 } from "@/lib/community-messenger/system-message-i18n";
-import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
+import {
+  canonicalRoomListPreviewFromMessageFields,
+  ROOM_LIST_PREVIEW_CALL_TOKEN,
+} from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerMessage,
@@ -105,7 +108,7 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   if (messageType === "voice") lastMessage = lastMessage || "음성 메시지";
   if (messageType === "sticker") lastMessage = lastMessage || "스티커";
   if (messageType === "call_stub") {
-    lastMessage = callStubRoomTipFromMessage({ content, metadata: row.metadata }) || "통화";
+    lastMessage = callStubRoomTipFromMessage({ content, metadata: row.metadata }) || ROOM_LIST_PREVIEW_CALL_TOKEN;
   }
   /** system·text 빈 내용은 빈 값 그대로 — 화면 문장(한 언어 고정)을 넣지 않는다 */
   const lastMessageMeta =
