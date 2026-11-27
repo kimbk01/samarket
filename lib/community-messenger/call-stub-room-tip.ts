@@ -96,8 +96,14 @@ type LegacyTable = {
   missed: Map<string, CommunityMessengerCallKind>;
   results: Map<string, CallEventCanonicalResult>;
   durations: RegExp[];
+  /** 옛 서버가 붙인 영어 결과 글자(한국어 화면에서도 다시 그려야 하는 형태) */
+  englishResults: Set<string>;
+  englishDurations: RegExp[];
 };
 let legacyTable: LegacyTable | null = null;
+
+/** 11-08 이전 서버가 영어 시간 글자를 붙인 형태(「3m 51s」·「12s」) */
+const ENGLISH_DURATION_PATTERNS: RegExp[] = [/^(\d+)m (\d+)s$/, /^()(\d+)s$/];
 
 function escapeRegExp(v: string): string {
   return v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -130,10 +136,10 @@ function getLegacyTable(): LegacyTable {
     durations: [
       durationPattern(ko("cm_home_call_duration_mins")),
       durationPattern(ko("cm_home_call_duration_secs")),
-      /** 11-08 이전 서버가 영어 시간 글자를 붙인 형태(「3m 51s」·「12s」) */
-      /^(\d+)m (\d+)s$/,
-      /^()(\d+)s$/,
+      ...ENGLISH_DURATION_PATTERNS,
     ],
+    englishResults: new Set(["cancelled"]),
+    englishDurations: ENGLISH_DURATION_PATTERNS,
   };
   return legacyTable;
 }
@@ -142,6 +148,8 @@ export type LegacyCallStubLabel = {
   callKind: CommunityMessengerCallKind;
   canonical: CallEventCanonicalResult;
   durationSeconds: number;
+  /** 결과 자리가 영어(「cancelled」·「26m 55s」) — 한국어 화면에서도 다시 그린다 */
+  englishResult?: boolean;
 };
 
 export function parseLegacyCallStubLabel(text: string | null | undefined): LegacyCallStubLabel | null {
@@ -156,25 +164,35 @@ export function parseLegacyCallStubLabel(text: string | null | undefined): Legac
   if (!callKind) return null;
   const result = raw.slice(at + LEGACY_SEPARATOR.length);
   const canonical = table.results.get(result);
-  if (canonical) return { callKind, canonical, durationSeconds: 0 };
+  if (canonical) {
+    return { callKind, canonical, durationSeconds: 0, englishResult: table.englishResults.has(result) };
+  }
   for (const re of table.durations) {
     const m = re.exec(result);
     if (!m) continue;
     const seconds = Number(m[1] || 0) * 60 + Number(m[2]);
     if (!Number.isFinite(seconds) || seconds <= 0) return null;
-    return { callKind, canonical: "connected_ended", durationSeconds: seconds };
+    return {
+      callKind,
+      canonical: "connected_ended",
+      durationSeconds: seconds,
+      englishResult: table.englishDurations.includes(re),
+    };
   }
   return null;
 }
 
-/** 옛 한국어 통화 문장 → 보는 사람 언어. 한국어 화면·표에 없는 문장은 null(원문 그대로 쓰라는 뜻). */
+/**
+ * 옛 한국어 통화 문장 → 보는 사람 언어. 표에 없는 문장은 null(원문 그대로 쓰라는 뜻).
+ * 한국어 화면은 결과 자리가 영어인 형태(「영상 통화 · 26m 55s」)만 다시 그리고, 나머지는 null(원문 그대로).
+ */
 export function formatLegacyCallStubLabelForLang(
   text: string | null | undefined,
   lang: AppLanguageCode
 ): string | null {
-  if (lang === "ko") return null;
   const parsed = parseLegacyCallStubLabel(text);
   if (!parsed) return null;
+  if (lang === "ko" && !parsed.englishResult) return null;
   return buildCallEventPresentation({
     callKind: parsed.callKind,
     canonical: parsed.canonical,
@@ -210,7 +228,7 @@ export function formatCallStubRoomTipForViewer(
      * 보는 사람을 모를 때: 한국어는 저장된 공유 라벨 그대로(지금과 같음). 다른 언어는 토큰의 종류·결과·시간으로
      * 그 언어 문구를 만든다(종료 결과는 보는 사람과 무관 — 제품 결정 2026-10-16).
      */
-    if (lang === "ko") return tip.sharedLabel;
+    if (lang === "ko") return formatLegacyCallStubLabelForLang(tip.sharedLabel, lang) ?? tip.sharedLabel;
     return formatCallEventForViewer({
       callKind: tip.callKind,
       resolvedEvent: tip.resolvedEvent,

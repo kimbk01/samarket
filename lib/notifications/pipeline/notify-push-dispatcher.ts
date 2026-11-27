@@ -17,6 +17,9 @@ import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notification
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 import { resolveNotificationSoundEventKeyFromRow } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { resolveNotificationEventKind } from "@/lib/notifications/core/notification-event-kind";
+import { renderNotificationCopyFromMeta } from "@/lib/notifications/notification-stored-copy";
+import { buildLocalizedPushAlert } from "@/lib/push/dispatch/localized-push-alert";
+import type { LocalizedPushAlert } from "@/lib/push/dispatch/push-payload-types";
 
 function absolutizeLink(link: string): string | null {
   const base = getSiteOrigin();
@@ -146,6 +149,31 @@ export function buildPushPayload(row: NotificationEventRow, badgeCount: number):
   };
 }
 
+/**
+ * 2026-11-27 언어 사후 검토 C3 — 알림 행 meta(`display_payload.legacyMeta`)에 `titleKey`·`messageKey` 가 있으면
+ * ko·en 글자를 다시 만들어 발송부가 기기 앱 언어로 고르게 한다(조회 추가 없음). 키가 없거나 그릴 수 없는 자리는
+ * 저장된 `row.title`/`row.body` 그대로. 둘 다 그릴 수 없으면 null(지금과 같은 발송).
+ */
+export function buildNotificationLocalizedPushAlert(row: NotificationEventRow): LocalizedPushAlert | null {
+  const display =
+    row.display_payload && typeof row.display_payload === "object"
+      ? (row.display_payload as Record<string, unknown>)
+      : null;
+  const meta =
+    display?.legacyMeta && typeof display.legacyMeta === "object"
+      ? (display.legacyMeta as Record<string, unknown>)
+      : null;
+  if (!meta || (meta.titleKey == null && meta.messageKey == null)) return null;
+  let rendered = false;
+  const alert = buildLocalizedPushAlert((lang) => {
+    const title = renderNotificationCopyFromMeta(lang, meta, "title");
+    const body = renderNotificationCopyFromMeta(lang, meta, "body");
+    if (title || body) rendered = true;
+    return { title: title ?? row.title, body: body ?? row.body ?? "" };
+  });
+  return rendered ? alert : null;
+}
+
 export async function dispatchNotificationPushIfAllowed(
   sb: SupabaseClient<any>,
   row: NotificationEventRow,
@@ -187,6 +215,7 @@ export async function dispatchNotificationPushIfAllowed(
     appIconTotal: domain.projection?.appIconTotal,
   });
   const out = buildPushPayload(row, memberAppIconTotal);
+  const localizedAlert = buildNotificationLocalizedPushAlert(row);
 
   let dispatchResult;
   if (opts?.callPushKind === "missed_call") {
@@ -204,6 +233,7 @@ export async function dispatchNotificationPushIfAllowed(
       badge_count: memberAppIconTotal,
       notification_event_id: row.id,
       ...(opts?.preloadedChatFacts ? { preloaded_chat_facts: opts.preloadedChatFacts } : {}),
+      ...(localizedAlert ? { localized_alert: localizedAlert } : {}),
     });
   }
 

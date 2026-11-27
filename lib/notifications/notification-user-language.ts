@@ -12,8 +12,8 @@ import {
  * 2) 기기 언어 따름이면 → 최근 활성 기기의 앱 언어 `user_devices.app_language`(웹이 시작·변경 때 기록)
  * 3) 둘 다 없으면 → en
  * 폐기 열 `profiles.preferred_language` 는 읽지 않는다. 채팅 목록 DB 함수 `get_chat_rooms_snapshot.user_lang` 도 같은 순서.
- * 통화 푸시(수신·종료·부재중) 제목·본문도 2026-11-27 부터 이 순서를 쓴다(`lib/push/call-push-recipient-language.ts`) —
- * 설치된 구 빌드는 발신자 이름을 데이터 `caller_name` 에서 먼저 읽음을 확인(docs/audit/i18n-call-copy-plan-2026-11-27.md §2).
+ * 부재중 통화 알림(알림함 저장 글자)도 이 순서를 쓴다. 통화 신호 푸시(수신·취소·다른 기기 받음)와 알림 푸시의 글자는
+ * 조회 없이 대상 기기 행의 `app_language` 로 기기마다 고른다(`lib/push/dispatch/localized-push-alert.ts`, 2026-11-27 C2·C3).
  */
 export async function loadNotificationUserLanguage(
   sb: SupabaseClient,

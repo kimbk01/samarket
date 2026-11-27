@@ -32,8 +32,9 @@ export type LoadActivePushTargetsOptions = {
   environment?: PushEnvironment;
 };
 
+/** `app_language` — 기기별 알림 글자 언어(2026-11-27 C2·C3, `localized-push-alert.ts`). 같은 조회에 열 하나만 더한다. */
 const USER_DEVICE_TARGET_COLUMNS =
-  "id, platform, device_id, push_token, push_provider, environment, last_seen_at, updated_at";
+  "id, platform, device_id, push_token, push_provider, environment, last_seen_at, updated_at, app_language";
 
 /**
  * Active push targets for a user — `user_devices` + legacy `web_push_subscriptions`.

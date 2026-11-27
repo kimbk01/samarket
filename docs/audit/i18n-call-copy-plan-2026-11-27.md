@@ -143,3 +143,30 @@
 
 언어 조건: 각 행을 받는 사람 앱 언어 ko·en 두 번(최소 1·2·7 행은 둘 다).
 실행 상한: AGENTS 「실기기 반복 실행 시험 상한」 10회 — 넘으면 먼저 승인.
+
+## 7. 사후 검토 변경 (2026-11-27 · PR-C · 설계 `docs/audit/i18n-postmerge-fix-design-2026-11-27.md` §3)
+
+Owner 승인: 2026-11-27 「구현 진행」(§3 계획서), C1 결정 「보는 사람 언어로 바꿈 — 한국어 화면 「26분 55초」」.
+
+### 7-1. C1 — 2026-11-13 설계 D2 변경 기록 (허위 보고 금지 §7)
+
+- **바뀐 결정:** `docs/audit/call-record-en-korean-residual-design-2026-11-13.md` §2 D2 「`formatCallStubRoomTipForViewer` 가 토큰이 아닐 때 **ko 면 원문 그대로** · 한국어 화면 글자 0 변화」를 **일부 폐기**한다.
+- **새 규칙:** 옛 통화 문장의 결과 자리가 **영어**인 형태(`cancelled`·`3m 51s`·`12s` — 11-08 이전 서버가 붙인 영어 글자)만 한국어 화면에서도 다시 그린다(「영상 통화 · 26m 55s」 → 「영상 통화 · 26분 55초」, 「영상 통화 · cancelled」 → 「영상 통화 · 취소」). 결과 자리가 한국어인 옛 문장은 지금처럼 원문 그대로. 표에 없는 문장·부분 일치는 원문(D2 의 전체 일치 규칙 유지).
+- **근거:** 실기 FAIL — 운영 `b1a70f8`, Samsung, 16:44 PHT, 한국어 화면 메신저 목록 「영상 통화 · 26m 55s」.
+- **범위:** 표시만(`lib/community-messenger/call-stub-room-tip.ts` `parseLegacyCallStubLabel`·`formatLegacyCallStubLabelForLang`·`formatCallStubRoomTipForViewer` 의 보는 사람 모름 분기). DB·토큰 형식·viewer 판정 무변경. 메신저 목록 `cm-home-list-copy.ts` call_stub 갈래는 같은 함수를 부르므로 코드 변경 없음.
+
+### 7-2. C2 — §2-3·§2-4 의 인스턴스 메모리 캐시 폐기
+
+- **문제(M4):** 캐시는 인스턴스별 5분이라, 캐시가 빈 인스턴스에서는 영어 사용자도 첫 수신 푸시를 한국어로 받았다.
+- **바뀐 방식:** `lib/push/call-push-recipient-language.ts` 삭제. 발송 대상 조회(`load-active-push-targets.ts` `USER_DEVICE_TARGET_SELECT_COLUMNS` — 단건 `loadActivePushTargets`·묶음 `chat-push-facts-batch.ts` `loadTargetsBatch` 공용)에 `app_language` 열 하나를 더하고, 발송부(`dispatch-push-for-user.ts`)가 **기기마다** 그 기기 언어의 제목·본문을 고른다(`lib/push/dispatch/localized-push-alert.ts`).
+  - 통화 푸시 3종(수신·취소/거절/종료·다른 기기 받음)은 ko·en 두 벌을 `DispatchPushOptions.localized_alert` 로 넘긴다. 기본 글자(`out.title`/`out.body`)는 **변경 전 한국어 글자**(`CALL_PUSH_DEFAULT_ALERT_LANGUAGE = "ko"` — 「영상 통화/음성 통화」「{이름}님의 전화」「통화」).
+  - 기기 언어 순서: 그 기기 `app_language` → 같은 사람의 가장 최근 기기 `app_language`(이미 읽은 행 안, 토큰 없는 행 포함 · web_push_subscriptions 대상도 이것) → 모름이면 기본 글자(예전 한국어). en·ko 를 고르는 것은 그 기기나 같은 사람의 다른 행에 `app_language` 가 있을 때뿐이다. 발송 경로는 `user_settings` 를 읽지 않으므로(통화는 설정 게이트도 건너뜀) 계정 값 단계는 없다. 기기 `app_language` 는 웹이 계정 언어 선택을 반영해 기록하는 실효 언어다.
+  - 추가 DB 조회 0, 신호 경로 await 추가 0(수신 경로의 캐시 데우기 조회도 없어져 수신 통화 1건당 언어 조회 2건이 줄어든다).
+  - 부재중 알림 행(알림함 저장 글자)만 `loadNotificationUserLanguage` 를 직접 부른다(캐시 없음 · 프로필 조회와 병렬 · 통화 신호 아님). 부재중일 때만 1회.
+- **바뀐 것은 alert 글자(제목·본문)뿐**이다. 데이터 필드 이름·값(`caller_name`·`kind`·`call_kind`·`media_type`·`session_id` 등) 불변 → §2-1 의 구 바이너리(Android 39·54, iOS 21) 호환 근거 그대로. FCM data 의 `title`·`body` 값은 이전에도 언어별로 달랐다(캐시 적중 시).
+- **회귀 위험:** 활성 기기 중 어느 것도 `app_language` 가 없는 사람(운영에 있음 — Android 1.2.7(80)·옛 iOS 빌드)은 변경 전과 같은 한국어 글자를 받는다(영어 사용자라도 기기 언어 기록이 없으면 한국어 — 변경 전과 같음). 기기 언어가 ko 인 사람의 글자는 이전 ko 글자와 같다.
+- **시험:** `lib/push/__tests__/call-push-copy-language.test.ts`(두 벌·기본 = 예전 한국어·데이터 키 불변·DB 클라이언트 생성 0), `lib/push/dispatch/__tests__/localized-push-alert-dispatch.test.ts`(기기별 글자·기기 언어 전혀 없으면 한국어 그대로·대상 조회 수 불변). `call-push-language-no-wait.test.ts` 는 캐시와 함께 삭제.
+
+### 7-3. C3 — 일반 알림 푸시도 기기 언어
+
+- `lib/notifications/pipeline/notify-push-dispatcher.ts` `buildNotificationLocalizedPushAlert`: 알림 행 `display_payload.legacyMeta` 에 `titleKey`·`messageKey` 가 있으면 `renderNotificationCopyFromMeta` 로 ko·en 을 만들어 같은 방식으로 기기마다 고른다. 키가 없는 자리는 저장 `row.title`/`row.body`, 둘 다 없으면 지금과 같은 발송. 부재중 통화 분기는 넘기지 않는다(변경 없음).

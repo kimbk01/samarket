@@ -38,10 +38,24 @@ describe("D2 옛 통화 문장 — 정확 일치 표", () => {
     expect(formatCallStubRoomTipForViewer(ko, null, "en")).toBe(en);
   });
 
-  it.each(LEGACY_EN)("한국어 화면은 원문 그대로: %s", (ko) => {
+  /** 결과 자리가 영어인 옛 형태 — 한국어 화면에서도 한국어로 다시 그린다 (실기 2026-11-27 16:44 PHT 「영상 통화 · 26m 55s」) */
+  const KO_REDRAW: ReadonlyArray<readonly [string, string]> = [
+    ["영상 통화 · 3m 51s", "영상 통화 · 3분 51초"],
+    ["영상 통화 · 12s", "영상 통화 · 12초"],
+    ["영상 통화 · cancelled", "영상 통화 · 취소"],
+  ];
+  const KO_REDRAW_SET = new Set(KO_REDRAW.map(([raw]) => raw));
+
+  it.each(LEGACY_EN.filter(([ko]) => !KO_REDRAW_SET.has(ko)))("한국어 화면은 원문 그대로: %s", (ko) => {
     expect(formatLegacyCallStubLabelForLang(ko, "ko")).toBeNull();
     expect(resolveRoomLastMessageForViewer(ko, null, "ko")).toBe(ko);
     expect(formatCallStubRoomTipForViewer(ko, "viewer-1", "ko")).toBe(ko);
+  });
+
+  it.each(KO_REDRAW)("한국어 화면 — 영어 결과 글자만 한국어로: %s → %s", (raw, ko) => {
+    expect(formatLegacyCallStubLabelForLang(raw, "ko")).toBe(ko);
+    expect(resolveRoomLastMessageForViewer(raw, null, "ko")).toBe(ko);
+    expect(formatCallStubRoomTipForViewer(raw, "viewer-1", "ko")).toBe(ko);
   });
 
   it("표에 없는 문장·일반 글은 원문 그대로 (부분 일치로 바꾸지 않음)", () => {
@@ -60,8 +74,18 @@ describe("D2 옛 통화 문장 — 정확 일치 표", () => {
   });
 
   it("시간: 분·초 형태 모두 같은 초로 해석", () => {
-    expect(parseLegacyCallStubLabel("영상 통화 · 3m 51s")).toEqual({ callKind: "video", canonical: "connected_ended", durationSeconds: 231 });
-    expect(parseLegacyCallStubLabel("영상 통화 · 3분 51초")).toEqual({ callKind: "video", canonical: "connected_ended", durationSeconds: 231 });
+    expect(parseLegacyCallStubLabel("영상 통화 · 3m 51s")).toEqual({
+      callKind: "video",
+      canonical: "connected_ended",
+      durationSeconds: 231,
+      englishResult: true,
+    });
+    expect(parseLegacyCallStubLabel("영상 통화 · 3분 51초")).toEqual({
+      callKind: "video",
+      canonical: "connected_ended",
+      durationSeconds: 231,
+      englishResult: false,
+    });
   });
 });
 

@@ -305,11 +305,7 @@ import { runIncomingListReconcileIfDue } from "@/lib/community-messenger/call-in
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
-import {
-  loadCallPushRecipientLanguage,
-  peekCallPushRecipientLanguage,
-  warmCallPushRecipientLanguage,
-} from "@/lib/push/call-push-recipient-language";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import { prepareMessengerRoomSend } from "@/lib/community-messenger/server/prepare-messenger-room-send";
 import {
@@ -1430,8 +1426,12 @@ async function notifyRoomBoundMissedCallBestEffort(
   if (!decision.notify) return;
   const sb = getSupabaseOrNull();
   if (!sb) return;
-  /** 부재중 알림 제목·본문 = 받는 사람 언어 — 프로필 조회와 동시에. throw 없음. */
-  const recipientLanguagePromise = loadCallPushRecipientLanguage(decision.recipientUserId);
+  /**
+   * 부재중 알림 제목·본문(알림함 저장 글자) = 받는 사람 언어 — 프로필 조회와 동시에. throw 없음(읽기 실패 → en).
+   * 2026-11-27 C2: 인스턴스 메모리 캐시를 없앴다. 수신 신호는 더 이상 언어를 조회하지 않으므로(기기 행 언어 사용)
+   * 통화 1건당 언어 조회는 부재중일 때만 1번(user_settings 1 + user_devices 1)이다.
+   */
+  const recipientLanguagePromise = loadNotificationUserLanguage(sb as any, decision.recipientUserId);
   let callerDisplayName = "";
   try {
     const profiles = await hydrateProfiles(decision.recipientUserId, [decision.actorUserId]);
@@ -20684,16 +20684,14 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
   const callerId = trimText(input.callerId);
   if (!recipient || !sessionId || !roomId || !callerId) return;
   /**
-   * 받는 사람 언어(푸시 제목·본문 글자) — 차단 확인·프로필 조회와 동시에 뒤에서 캐시를 데운다. **기다리지 않는다**:
-   * 발송 직전 캐시에 있으면 그 언어, 없으면 예전 문구(ko)로 즉시 발송(docs/audit/i18n-call-copy-plan-2026-11-27.md §2-4).
+   * 받는 사람 언어(푸시 제목·본문 글자)는 여기서 조회하지 않는다 — 발송부가 대상 기기 행의 앱 언어로 기기마다 고른다
+   * (docs/audit/i18n-postmerge-fix-design-2026-11-27.md §3 C2).
    */
-  warmCallPushRecipientLanguage(recipient);
   // SSOT_CONTRACT: messenger-call-push-block ensureNoBlockedEitherWay
   if (!(await ensureNoBlockedEitherWay(recipient, callerId))) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
   const callerLabel = profileLabel(callerProfile, callerId);
-  const recipientLanguage = peekCallPushRecipientLanguage(recipient);
   await sendWebPushForCommunityMessengerIncomingCall({
     recipientUserId: recipient,
     sessionId,
@@ -20705,7 +20703,6 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
     startedAt: input.startedAt,
     domainEnvelope: input.domainEnvelope ?? null,
     waiting: input.waiting === true,
-    recipientLanguage,
   });
 }
 
