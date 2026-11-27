@@ -1285,6 +1285,40 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     expect(db.support_case_events.map((e) => e.event_type)).toContain("reply_left_unseen_customer_messages");
   });
 
+  it("D1-a: an alert already marked read by a racing settle is made unread again after the unseen record", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    const seen = String(db.support_cases[0].last_message_at);
+    const late = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "그사이 추가" });
+    if (!late.ok) throw new Error(late.error);
+    await flush();
+    // 경합 재현: 그 글 알림이 이미 「답 받음」 판정으로 읽음 처리돼 있다
+    db.admin_notifications = [
+      {
+        id: randomUUID(), recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases",
+        work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${late.message.id}`, read_at: "2026-11-28T00:00:00.000Z", archived_at: null,
+      },
+    ];
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변", seenLastMessageAt: seen });
+    expect(db.admin_notifications[0].read_at).toBeNull();
+  });
+
+  it("D1-b: a message another admin already answered after my stale view is not counted as unseen", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    const seen = String(db.support_cases[0].last_message_at); // 내 화면(오래됨)
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    await flush();
+    // 다른 어드민이 그 추가 글에 이미 답함
+    await adminReplySupportCase(sb, { adminUserId: OTHER_ADMIN, caseId: a.case.id, body: "다른 어드민 답" });
+    await flush();
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "내 답", seenLastMessageAt: seen });
+    expect(r.ok && r.unseenCustomerMessages).toBe(0);
+    expect(db.support_cases[0].status).toBe("WAITING_USER");
+  });
+
   it("D1: everything seen → WAITING_USER and every shown customer alert read; no seen value = legacy (all read)", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "문의");
@@ -1410,6 +1444,8 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     });
     adminNotifyCalls.length = 0;
     const r = await releaseSupportAssignmentsOnRevoke(sb, { userId: ADMIN, revokedBy: null });
+    // 재감사 L2-a: 재알림은 응답 뒤(after · 동적 import 2번) — 끝나기를 기다린다
+    for (let i = 0; i < 50 && adminNotifyCalls.length === 0; i++) await new Promise<void>((r) => setTimeout(r, 5));
     expect(r.released).toBe(2);
     expect(db.support_cases.every((c) => c.assigned_admin_id === null)).toBe(true);
     // 고치기 전: 알림 0 (옛 담당자 행만 남아 볼 사람 0명)

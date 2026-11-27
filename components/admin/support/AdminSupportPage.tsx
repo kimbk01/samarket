@@ -58,6 +58,8 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { ADMIN_SUPPORT_TAB_LABEL_KEY, adminSupportStatusTone } from "@/components/admin/support/admin-support-status";
 import {
   ADMIN_SUPPORT_OWN_WRITE_GRACE_MS,
+  ADMIN_SUPPORT_OFF_LIST_REFRESH_MS,
+  isOffListSupportCaseUpdate,
   isAdminSupportOwnWriteEcho,
   shouldRefetchSupportListForCaseChange,
   type AdminSupportOwnWrite,
@@ -419,12 +421,29 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     const sb = getSupabaseClient();
     if (!sb) return;
     let listTimer: number | null = null;
+    let slowTimer: number | null = null;
+    let lastListAt = Date.now();
     const scheduleList = () => {
       if (listTimer != null) window.clearTimeout(listTimer);
+      if (slowTimer != null) {
+        window.clearTimeout(slowTimer);
+        slowTimer = null;
+      }
       listTimer = window.setTimeout(() => {
         listTimer = null;
+        lastListAt = Date.now();
         void loadListRef.current();
       }, 300);
+    };
+    // 재감사 D6-a: 목록 밖 문의 변경 → 탭 숫자 맞춤용으로 30초에 1번만
+    const scheduleSlowList = () => {
+      if (slowTimer != null || listTimer != null) return;
+      const wait = Math.max(0, lastListAt + ADMIN_SUPPORT_OFF_LIST_REFRESH_MS - Date.now());
+      slowTimer = window.setTimeout(() => {
+        slowTimer = null;
+        lastListAt = Date.now();
+        void loadListRef.current();
+      }, wait);
     };
     const channel = sb
       .channel("admin-support-queue", privateRealtimeChannelOptions())
@@ -467,11 +486,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           })
         ) {
           scheduleList();
+        } else if (isOffListSupportCaseUpdate({ eventType: payload.eventType, newRow, listed: casesRef.current })) {
+          scheduleSlowList();
         }
       })
       .subscribe();
     return () => {
       if (listTimer != null) window.clearTimeout(listTimer);
+      if (slowTimer != null) window.clearTimeout(slowTimer);
       void sb.removeChannel(channel);
     };
   }, [loadDetail]);
@@ -490,13 +512,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as { ok?: boolean; error?: string; unseenCustomerMessages?: number };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "action_failed");
         return false;
       }
       await loadDetail(activeId);
       await loadList();
+      // 재감사 D1-b: 답을 쓰는 사이 고객 글이 더 왔다 — 문의는 「답변 필요」에 남았다는 것을 알린다
+      if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
       return true;
     } catch {
       // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.

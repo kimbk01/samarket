@@ -349,9 +349,29 @@ async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: stri
  */
 async function settleAdminWorkAfterSeenReply(
   sb: SupabaseClient,
-  input: { caseRow: SupportCaseRow; seenLastMessageAt: string }
+  input: { caseRow: SupportCaseRow; seenLastMessageAt: string; reply: { id: string; created_at: string } }
 ): Promise<number> {
   const c = input.caseRow;
+  // 재감사 D1-b: 화면이 오래돼 「본 시각」 뒤 글을 **다른 어드민이 이미 답했으면** 그 글은 못 본 글이 아니다.
+  //   기준 = max(본 시각, 이 답변 직전의 다른 어드민 공개 답변 시각).
+  const prevReply = await sb
+    .from("support_messages")
+    .select("created_at")
+    .eq("case_id", c.id)
+    .eq("sender_type", "ADMIN")
+    .eq("message_type", "PUBLIC")
+    .is("deleted_at", null)
+    .neq("id", input.reply.id)
+    .lt("created_at", input.reply.created_at)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (prevReply.error) {
+    console.error("[support] reply_seen_settle_read_failed", { caseId: c.id, error: prevReply.error.message });
+    return 0;
+  }
+  const prevAt = String(((prevReply.data ?? [])[0] as { created_at?: unknown } | undefined)?.created_at ?? "");
+  const threshold =
+    prevAt && Date.parse(prevAt) > Date.parse(input.seenLastMessageAt) ? prevAt : input.seenLastMessageAt;
   const customerPublic = (cols: string) =>
     sb
       .from("support_messages")
@@ -361,9 +381,9 @@ async function settleAdminWorkAfterSeenReply(
       .in("sender_type", ["MEMBER", "OWNER"])
       .is("deleted_at", null);
   const [seenRes, laterRes] = await Promise.all([
-    customerPublic("id").lte("created_at", input.seenLastMessageAt).limit(SUPPORT_MESSAGES_LIST_LIMIT),
+    customerPublic("id").lte("created_at", threshold).limit(SUPPORT_MESSAGES_LIST_LIMIT),
     customerPublic("id, body, sender_user_id, created_at")
-      .gt("created_at", input.seenLastMessageAt)
+      .gt("created_at", threshold)
       .order("created_at", { ascending: true })
       .limit(20),
   ]);
@@ -414,6 +434,19 @@ async function settleAdminWorkAfterSeenReply(
   if (unseenErr) {
     console.error("[support] reply_unseen_event_failed", { caseId: c.id, error: unseenErr.message });
   }
+  // 재감사 D1-a: 그 글의 응답 뒤 알림 작업이 이 답변 저장 뒤·위 기록 전에 판정을 돌렸으면 「답 받음」으로 읽음 처리됐을 수 있다
+  //   → 기록을 남긴 **뒤** 그 글 알림을 다시 안 읽음으로. (기록 뒤에 도는 판정은 send 라 다시 읽음 처리하지 않는다.)
+  const laterKeys = later.map((m) => `support_customer_replied:${m.id}`);
+  const unread = await sb
+    .from("admin_notifications")
+    .update({ read_at: null })
+    .eq("work_ref_table", "support_cases")
+    .eq("work_ref_id", c.id)
+    .eq("kind", "support_customer_replied")
+    .in("dedupe_key", laterKeys)
+    .not("read_at", "is", null)
+    .is("archived_at", null);
+  if (unread.error) console.error("[support] reply_unseen_unread_failed", { caseId: c.id, error: unread.error.message });
   for (const m of later) {
     notifyAdminsAfterResponse(sb, {
       caseRow: c,
@@ -995,12 +1028,14 @@ export async function listSupportMessages(
     .from("support_messages")
     .select("*")
     .eq("case_id", input.caseId)
-    .order("created_at", { ascending: true });
+    // 재감사 L11-a: 상한에 닿으면 **최신** 글을 남긴다(오래된 순 상한이면 최신 답변·읽음 기준 시각이 잘린다) — 아래에서 다시 오래된 순으로
+    .order("created_at", { ascending: false });
   if (!input.includeInternal) {
     query = query.eq("message_type", "PUBLIC");
   }
   // 최종 감사 L11: 상한 없이 읽지 않는다
-  const { data, error } = await query.limit(SUPPORT_MESSAGES_LIST_LIMIT);
+  const { data: newestFirst, error } = await query.limit(SUPPORT_MESSAGES_LIST_LIMIT);
+  const data = newestFirst ? [...newestFirst].reverse() : newestFirst;
   if (error) {
     if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
     console.error("[support] messages_fetch_failed", { caseId: input.caseId, error: error.message });
@@ -1527,7 +1562,11 @@ export async function adminReplySupportCase(
     const seen = typeof input.seenLastMessageAt === "string" ? input.seenLastMessageAt.trim() : "";
     if (seen) {
       // 최종 감사 D1: 본 글까지만 끝난 일 — 답을 쓰는 사이 온 고객 글은 남긴다
-      unseenCustomerMessages = await settleAdminWorkAfterSeenReply(sb, { caseRow: gate.case, seenLastMessageAt: seen });
+      unseenCustomerMessages = await settleAdminWorkAfterSeenReply(sb, {
+        caseRow: gate.case,
+        seenLastMessageAt: seen,
+        reply: { id: res.message.id, created_at: res.message.created_at },
+      });
     } else {
       // 재감사 D3 (옛 호출): 답했다 = 그때까지 고객 글 알림은 어드민 전원에게 끝난 일
       await resolveSupportAdminNotifications(sb, gate.case.id);

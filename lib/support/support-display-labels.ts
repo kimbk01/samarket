@@ -112,6 +112,8 @@ export function adminSupportErrorLabel(safeT: SafeT, code: string | null | undef
       return safeT("admin_support_error_status_conflict");
     case "case_updated": // 최종 감사 L1: 담당 지정 경합 — 다른 관리자가 먼저 바꿈
       return safeT("admin_support_error_case_updated");
+    case "reply_unseen_customer_messages": // 재감사 D1-b
+      return safeT("admin_support_notice_unseen_customer_messages");
     case "active_case_exists":
       return safeT("admin_support_error_active_case_exists");
     case "case_closed":

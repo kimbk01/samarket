@@ -401,9 +401,9 @@ describe("U-14 진행 중 문의 불러오기 실패 = 오류 줄 + 다시 시�
 });
 
 describe("U-4 회원/매장 전환 버튼 누르는 영역 44px", () => {
-  it("(구조 확인) 두 버튼 모두 SWITCH_HIT(min-h-11) · 보이는 칸은 작게", () => {
+  it("(구조 확인) 두 버튼 모두 SWITCH_HIT(min-h-11 · min-w-11 — 재감사 U-4-a) · 보이는 칸은 작게", () => {
     const v = src("components/support/SupportTicketViews.tsx");
-    expect(v).toContain('const SWITCH_HIT = "touch-manipulation flex min-h-11 items-center";');
+    expect(v).toContain('const SWITCH_HIT = "touch-manipulation flex min-h-11 min-w-11 items-center justify-center";');
     const buttons = v.match(/data-support-ticket-switch="(MEMBER|OWNER)"[\s\S]*?className=\{`\$\{SWITCH_HIT\}/g) ?? [];
     expect(buttons.length).toBe(2);
     expect(v).not.toMatch(/data-support-ticket-switch="(MEMBER|OWNER)"\s+className=\{`px-2 py-1/);

@@ -1089,7 +1089,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         return;
       }
 
-      const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(await fetchAdminMeSnapshot().catch(() => null));
+      // 재감사 D6-d: 권한 조회가 한 번 실패해도 support 어드민이 그 세션 내내 토스트·실시간을 잃지 않게 1회 다시 묻는다(3초 뒤).
+      let me = await fetchAdminMeSnapshot().catch(() => null);
+      if (!me && !cancelled) {
+        await new Promise((r) => window.setTimeout(r, 3000));
+        if (!cancelled) me = await fetchAdminMeSnapshot().catch(() => null);
+      }
+      const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(me);
       if (cancelled) return;
 
       const opsChannel = sb

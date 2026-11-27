@@ -114,21 +114,21 @@ CREATE POLICY support_cases_admin_select
   ON public.support_cases
   FOR SELECT
   TO authenticated
-  USING (internal.support_admin_has_support_permission(auth.uid()));
+  USING ((SELECT internal.support_admin_has_support_permission(auth.uid())));
 
 DROP POLICY IF EXISTS support_messages_admin_select ON public.support_messages;
 CREATE POLICY support_messages_admin_select
   ON public.support_messages
   FOR SELECT
   TO authenticated
-  USING (internal.support_admin_has_support_permission(auth.uid()));
+  USING ((SELECT internal.support_admin_has_support_permission(auth.uid())));
 
 DROP POLICY IF EXISTS support_sessions_admin_select ON public.support_sessions;
 CREATE POLICY support_sessions_admin_select
   ON public.support_sessions
   FOR SELECT
   TO authenticated
-  USING (internal.support_admin_has_support_permission(auth.uid()));
+  USING ((SELECT internal.support_admin_has_support_permission(auth.uid())));
 
 -- 사건 기록에는 수정 전 답변 원문(message_edited.previous_body)이 있다 → 같은 기준
 DROP POLICY IF EXISTS support_case_events_admin_select ON public.support_case_events;
@@ -136,7 +136,7 @@ CREATE POLICY support_case_events_admin_select
   ON public.support_case_events
   FOR SELECT
   TO authenticated
-  USING (internal.support_admin_has_support_permission(auth.uid()));
+  USING ((SELECT internal.support_admin_has_support_permission(auth.uid())));
 
 -- ---------------------------------------------------------------------------
 -- 3) 재생 함수용 부분 인덱스 (L14) — WHERE 가 admin_notification_replay_support_replies 와 같다

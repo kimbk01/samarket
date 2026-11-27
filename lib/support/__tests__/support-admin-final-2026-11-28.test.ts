@@ -10,6 +10,8 @@ import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { buildAdminSupportPublicReplyPayload } from "@/components/admin/support/admin-support-reply";
 import {
   ADMIN_SUPPORT_OWN_WRITE_GRACE_MS,
+  ADMIN_SUPPORT_OFF_LIST_REFRESH_MS,
+  isOffListSupportCaseUpdate,
   adminMeCanReceiveSupportRealtime,
   isAdminSupportOwnWriteEcho,
   shouldRefetchSupportListForCaseChange,
@@ -57,20 +59,21 @@ describe("D6(a) — 문의 행 변경은 목록에 보이는 값이 바뀔 때�
       assigned_admin_id: null,
       last_message_at: "2026-11-28T01:00:00Z",
       priority: "NORMAL",
+      admin_unread_count: 3,
     },
   ];
-  const row = (patch: Record<string, unknown>) => ({ ...listed[0], admin_unread_count: 3, ...patch });
+  const row = (patch: Record<string, unknown>) => ({ ...listed[0], ...patch });
 
   it("INSERT 는 다시 읽는다", () => {
     expect(
       shouldRefetchSupportListForCaseChange({ eventType: "INSERT", newRow: { id: "new" }, listed, tab: "ACTIONABLE" })
     ).toBe(true);
   });
-  it("읽음 숫자만 바뀐 UPDATE 는 다시 읽지 않는다", () => {
+  it("고객 쪽 읽음 숫자만 바뀐 UPDATE 는 다시 읽지 않는다 (어드민 미읽음은 목록 표시값 — 재감사 D6-b)", () => {
     expect(
       shouldRefetchSupportListForCaseChange({
         eventType: "UPDATE",
-        newRow: row({ admin_unread_count: 0, last_message_at: "2026-11-28T01:00:00.000+00:00" }),
+        newRow: row({ requester_unread_count: 0, last_message_at: "2026-11-28T01:00:00.000+00:00" }),
         listed,
         tab: "ACTIONABLE",
       })
@@ -151,6 +154,31 @@ describe("D6(b) — 내 답변의 실시간 메아리로 상세·목록을 두 �
       })
     ).toBe(true);
   });
+  it("재감사 D6-c: 보낸 뒤(유예 중)라도 문의 행 변경은 건너뛰지 않는다 — 다른 어드민 변경 반영", () => {
+    expect(
+      isAdminSupportOwnWriteEcho({
+        ownWrite: { caseId: "c1", until: now + ADMIN_SUPPORT_OWN_WRITE_GRACE_MS },
+        caseId: "c1",
+        now,
+        kind: "case",
+      })
+    ).toBe(false);
+  });
+  it("재감사 D6-a·D6-b: 목록 밖 문의 UPDATE = 느린 다시 읽기 대상 · 목록 안 미읽음 숫자 변경 = 바로 다시 읽기", () => {
+    const listed = [{ id: "c1", status: "OPEN", admin_unread_count: 2 }];
+    expect(isOffListSupportCaseUpdate({ eventType: "UPDATE", newRow: { id: "c9", status: "RESOLVED" }, listed })).toBe(true);
+    expect(isOffListSupportCaseUpdate({ eventType: "UPDATE", newRow: { id: "c1", status: "OPEN" }, listed })).toBe(false);
+    expect(isOffListSupportCaseUpdate({ eventType: "INSERT", newRow: { id: "c9" }, listed })).toBe(false);
+    expect(
+      shouldRefetchSupportListForCaseChange({
+        eventType: "UPDATE",
+        newRow: { id: "c1", status: "OPEN", admin_unread_count: 0 },
+        listed,
+        tab: "ACTIONABLE",
+      })
+    ).toBe(true);
+    expect(ADMIN_SUPPORT_OFF_LIST_REFRESH_MS).toBe(30_000);
+  });
   it("patchCase 가 보내기 전·후에 내 변경 표시를 남긴다 (구조 확인)", () => {
     const src = read(PAGE);
     const patch = src.slice(src.indexOf("const patchCase"), src.indexOf("const categoryLabel"));
@@ -180,7 +208,8 @@ describe("D6(c) — 고객센터 실시간은 support 권한 어드민만 받는
   it("벨 브리지는 support 표 구독을 권한 판정 뒤에만 붙인다 (구조 확인)", () => {
     const src = read(BRIDGE);
     const gate = src.indexOf("const withSupport = supportRealtimeAllowed");
-    expect(src).toContain("adminMeCanReceiveSupportRealtime(await fetchAdminMeSnapshot()");
+    expect(src).toContain("adminMeCanReceiveSupportRealtime(me)");
+    expect(src).toContain("me = await fetchAdminMeSnapshot()");
     expect(gate).toBeGreaterThan(0);
     const before = src.slice(0, gate);
     expect(before).not.toContain('table: "support_messages" }');
@@ -300,5 +329,19 @@ describe("U-14 — 어드민 글 표시·답변 전송 중", () => {
     expect(src).toContain("aria-busy={busy || undefined}");
     expect(translate("ko", "admin_support_sending")).toBe("보내는 중…");
     expect(translate("en", "admin_support_sending")).toBe("Sending…");
+  });
+});
+
+describe("재감사 D1-b — 답을 쓰는 사이 고객 글이 더 왔다는 안내", () => {
+  it("응답 값 → 안내 문구 (동작)", async () => {
+    const { adminSupportErrorLabel } = await import("@/lib/support/support-display-labels");
+    const safeT = (k: string) => translate("ko", k as MessageKey);
+    expect(adminSupportErrorLabel(safeT as never, "reply_unseen_customer_messages")).toBe(
+      "답을 쓰는 사이 고객 글이 더 왔어요. 아래에서 확인해 주세요."
+    );
+  });
+  it("(구조 확인) patchCase 가 unseenCustomerMessages > 0 이면 안내를 띄운다", () => {
+    const src = read(PAGE);
+    expect(src).toContain('if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");');
   });
 });

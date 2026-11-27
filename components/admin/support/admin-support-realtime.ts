@@ -6,7 +6,8 @@ import type { AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { ADMIN_SUPPORT_TAB_STATUSES, type AdminSupportTab } from "@/lib/support/support-case-types";
 
 /** 목록 표시에 쓰는 열 — 이 열이 바뀔 때만 목록을 다시 읽는다 */
-const LIST_RELEVANT_FIELDS = ["status", "assigned_admin_id", "last_message_at", "priority"] as const;
+/** 재감사 D6-b: 빨간 미읽음 숫자(`admin_unread_count`)도 목록에 보이는 값이다 */
+const LIST_RELEVANT_FIELDS = ["status", "assigned_admin_id", "last_message_at", "priority", "admin_unread_count"] as const;
 
 type CaseLike = { id: string } & Partial<Record<(typeof LIST_RELEVANT_FIELDS)[number], unknown>>;
 
@@ -55,6 +56,22 @@ export function shouldRefetchSupportListForCaseChange(input: {
   return LIST_RELEVANT_FIELDS.some((f) => f in next && !sameField(f, next[f], inList[f]));
 }
 
+/**
+ * 재감사 D6-a: 목록에 없는 문의의 UPDATE 가 지금 탭 밖 상태로 바뀐 경우 — 바뀌기 전 상태를 알 수 없어(실시간 old = id 만)
+ * 탭 숫자가 달라졌는지 모른다. 즉시 읽지 않고 **느리게(최대 30초에 1번)** 다시 읽어 탭 숫자·전체 수를 맞춘다.
+ */
+export function isOffListSupportCaseUpdate(input: {
+  eventType: string | null | undefined;
+  newRow: Record<string, unknown> | null | undefined;
+  listed: readonly CaseLike[];
+}): boolean {
+  if (norm(input.eventType).toUpperCase() !== "UPDATE") return false;
+  const id = norm(input.newRow?.id).trim();
+  return Boolean(id) && !input.listed.some((c) => c.id === id);
+}
+
+export const ADMIN_SUPPORT_OFF_LIST_REFRESH_MS = 30_000;
+
 /** 내가 방금 보낸 변경(답변·상태 등) — patchCase 가 상세·목록을 이미 다시 읽으니 실시간으로 또 읽지 않는다 */
 export type AdminSupportOwnWrite = { caseId: string; until: number } | null;
 
@@ -75,7 +92,10 @@ export function isAdminSupportOwnWriteEcho(input: {
     const self = norm(input.selfAdminId).trim();
     return Boolean(self) && norm(input.senderAdminId).trim() === self;
   }
-  return true;
+  // 재감사 D6-c: 문의 행 변경은 **보내는 중에만** 건너뛴다(끝나면 patchCase 가 다시 읽음).
+  // 끝난 뒤의 메아리는 목록 값과 같아 shouldRefetchSupportListForCaseChange 가 이미 걸러 주고,
+  // 다른 어드민의 변경은 그대로 반영된다.
+  return w.until === Number.POSITIVE_INFINITY;
 }
 
 /** 고객센터 실시간(support_messages·support_cases)을 받을 어드민인가 — 서버 `requireAdminPermission("support")` 와 같은 판정 */

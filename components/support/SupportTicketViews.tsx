@@ -58,7 +58,8 @@ import type { AdPricingGuide } from "@/lib/ads/ad-pricing-guide";
 
 const OWNER_TONE_BG = "bg-[var(--dibay-brown)]";
 /** 최종 감사 U-4: 회원/매장 전환 — 누르는 영역 44px · 보이는 칸은 작게 */
-const SWITCH_HIT = "touch-manipulation flex min-h-11 items-center";
+/** 재감사 U-4-a: 높이·너비 모두 44px 이상(「회원」·「매장」 두 글자는 그대로면 약 42px) */
+const SWITCH_HIT = "touch-manipulation flex min-h-11 min-w-11 items-center justify-center";
 const SWITCH_SEG = "border border-[var(--overlay-border)] px-2 py-1";
 
 /* ───────────── 공통 격자 ───────────── */

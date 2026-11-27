@@ -370,12 +370,15 @@ export async function releaseSupportAssignmentsOnRevoke(
     }
     // 고객 문의 최종 감사 L2: 풀린 진행 중 문의의 남은 고객 글을 support 어드민 전원에게 다시 알린다(볼 사람 0명 방지).
     // 동적 import — 고객센터 서비스 → 어드민 알림 서비스 → 이 파일 순환을 만들지 않는다. 실패는 기록만.
-    try {
+    // 재감사 L2-a: 문의 수·어드민 수에 비례하는 작업이라 권한 저장 응답을 기다리게 하지 않는다 — 응답 뒤 끝까지(`after`).
+    const renotify = (async () => {
       const { renotifyReleasedSupportCases } = await import("@/lib/support/support-released-case-renotify");
       await renotifyReleasedSupportCases(sb, ids);
-    } catch (e) {
+    })().catch((e) => {
       console.error("[admin-membership] support_release_renotify_failed", { error: (e as Error).message });
-    }
+    });
+    const { keepAliveAfterResponse } = await import("@/lib/push/keep-alive-after-response");
+    keepAliveAfterResponse(renotify);
   }
   return { released: ids.length };
 }
