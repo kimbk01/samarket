@@ -64,6 +64,7 @@ import type {
   MessengerNotificationSettings,
 } from "@/lib/community-messenger/home/community-messenger-home-types";
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
+import { OPEN_GROUP_PASSWORD_MAX_LENGTH } from "@/lib/community-messenger/open-group-password-rules";
 import { resolveGroupCreateResponse } from "@/lib/community-messenger/home/resolve-group-create-response";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
 import { attachMessengerHydrationSchedulerSurface } from "@/lib/community-messenger/background-hydration-scheduler";
@@ -2129,13 +2130,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        roomId?: string;
+        error?: string;
+        retryAfterSec?: number;
+      };
       if (res.ok && json.ok && json.roomId) {
         /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
         void refresh(false);
         closeJoinOpenGroupModal();
         closeHomeOverlay("public-group-find");
         navigateToCommunityRoomWithViewer(json.roomId);
+        return;
+      }
+      /** 모임 감사 5번 묶음 — 잠금 안내는 서버가 준 남은 시간(분)으로 */
+      const retryAfterSec = Number(json.retryAfterSec);
+      if (json.error === "password_locked" && Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+        setActionError(t("nav_messenger_password_locked_minutes", { minutes: Math.max(1, Math.ceil(retryAfterSec / 60)) }));
         return;
       }
       setActionError(getMessengerActionErrorMessage(json.error));
@@ -2154,6 +2166,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     joinTargetGroup,
     navigateToCommunityRoomWithViewer,
     refresh,
+    t,
   ]);
 
   const openJoinModal = useCallback(
@@ -4047,12 +4060,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     {openGroupJoinPolicy === "password" ? (
-                      <input
-                        value={openGroupPassword}
-                        onChange={(e) => setOpenGroupPassword(e.target.value)}
-                        placeholder={t("cm_ui_join_password_placeholder")}
-                        className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
-                      />
+                      <div>
+                        <input
+                          value={openGroupPassword}
+                          onChange={(e) => setOpenGroupPassword(e.target.value)}
+                          placeholder={t("cm_ui_join_password_placeholder")}
+                          maxLength={OPEN_GROUP_PASSWORD_MAX_LENGTH}
+                          className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
+                        />
+                        <p className="mt-1 sam-text-helper text-sam-muted">{t("nav_messenger_password_rule_hint")}</p>
+                      </div>
                     ) : (
                       <div className="flex h-11 items-center rounded-ui-rect bg-sam-app px-3 sam-text-body-secondary text-sam-muted">
                         {t("cm_ui_free_join_selected")}

@@ -94,6 +94,11 @@ export const navigationMessages = {
     nav_messenger_members_required: "그룹방에 초대할 사용자를 1명 이상 선택해 주세요.",
     nav_messenger_invalid_target: "초대할 수 없는 사용자입니다. 아이디를 다시 확인해 주세요.",
     nav_messenger_invalid_password: "비밀번호가 맞지 않습니다.",
+    nav_messenger_password_too_short: "비밀번호는 4자 이상이어야 해요.",
+    nav_messenger_password_too_long: "비밀번호는 32자까지 쓸 수 있어요.",
+    nav_messenger_password_locked: "비밀번호를 여러 번 틀려 잠시 입장할 수 없어요. 잠시 뒤 다시 시도해 주세요.",
+    nav_messenger_password_locked_minutes: "비밀번호를 여러 번 틀려 잠시 입장할 수 없어요. {minutes}분 뒤 다시 시도해 주세요.",
+    nav_messenger_password_rule_hint: "4자 이상 (숫자 6자리 권장)",
     nav_messenger_room_full: "정원이 가득 찬 그룹방입니다.",
     nav_messenger_open_group_only: "공개 그룹방만 비밀번호 입장이 가능합니다.",
     nav_messenger_owner_cannot_leave:
@@ -460,6 +465,11 @@ export const navigationMessages = {
     nav_messenger_members_required: "Select at least one user to invite to the group.",
     nav_messenger_invalid_target: "This user cannot be invited. Please check the ID and try again.",
     nav_messenger_invalid_password: "The password does not match.",
+    nav_messenger_password_too_short: "Use at least 4 characters.",
+    nav_messenger_password_too_long: "Use 32 characters or fewer.",
+    nav_messenger_password_locked: "Too many wrong tries. Try again later.",
+    nav_messenger_password_locked_minutes: "Too many wrong tries. Try again in {minutes} min.",
+    nav_messenger_password_rule_hint: "At least 4 characters (6 digits recommended)",
     nav_messenger_room_full: "This group room is full.",
     nav_messenger_open_group_only: "Password entry is available only for public group rooms.",
     nav_messenger_owner_cannot_leave:

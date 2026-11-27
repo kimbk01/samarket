@@ -79,6 +79,7 @@ import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { OPEN_GROUP_PASSWORD_MAX_LENGTH } from "@/lib/community-messenger/open-group-password-rules";
 
 /** 방 정보 시트 설정·나가기 행 — 눌림 = 배경 + 0.98 · 비활성 = 회색 토큰 (불투명도 금지, UI·CTA 공통 기준 §1-4) */
 /**
@@ -1478,12 +1479,18 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             />
                           </div>
                           {vm.openGroupJoinPolicy === "password" ? (
-                            <input
-                              value={vm.openGroupPassword}
-                              onChange={(e) => vm.setOpenGroupPassword(e.target.value)}
-                              placeholder={vm.t("nav_messenger_new_password_placeholder")}
-                              className={`${OverlayUi.input} !mt-0`}
-                            />
+                            <div>
+                              <input
+                                value={vm.openGroupPassword}
+                                onChange={(e) => vm.setOpenGroupPassword(e.target.value)}
+                                placeholder={vm.t("nav_messenger_new_password_placeholder")}
+                                maxLength={OPEN_GROUP_PASSWORD_MAX_LENGTH}
+                                className={`${OverlayUi.input} !mt-0`}
+                              />
+                              <p className="mt-1 sam-text-helper text-[color:var(--overlay-text-secondary)]">
+                                {vm.t("nav_messenger_password_rule_hint")}
+                              </p>
+                            </div>
                           ) : null}
                           <div className="grid grid-cols-2 gap-2 rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface p-2">
                             <button

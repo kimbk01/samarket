@@ -267,7 +267,12 @@ import {
   loadTradeProductChatExitSnapshotForMessengerRoom,
 } from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
 import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
-import { hashOpenGroupPassword, verifyOpenGroupPassword } from "@/lib/community-messenger/open-group-password";
+import {
+  hashOpenGroupPassword,
+  openGroupPasswordLengthError,
+  verifyOpenGroupPassword,
+} from "@/lib/community-messenger/open-group-password";
+import { beginOpenGroupJoinAttempt, clearOpenGroupJoinAttempts } from "@/lib/community-messenger/server/open-group-join-lock";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
@@ -11963,10 +11968,13 @@ export async function createOpenGroupRoom(input: {
     input.creatorIdentityMode === "alias" && identityPolicy === "alias_allowed" ? "alias" : "real_name";
   if (!title) return { ok: false, error: "title_required" };
   if (joinPolicy === "password" && !password) return { ok: false, error: "password_required" };
+  /** 모임 감사 5번 묶음 P2 — 4~32자 */
+  const passwordLengthError = joinPolicy === "password" ? openGroupPasswordLengthError(password) : null;
+  if (passwordLengthError) return { ok: false, error: passwordLengthError };
   if (creatorIdentityMode === "alias" && !trimText(input.creatorAliasProfile?.displayName)) {
     return { ok: false, error: "alias_name_required" };
   }
-  const passwordHash = joinPolicy === "password" ? hashOpenGroupPassword(password) : null;
+  const passwordHash = joinPolicy === "password" ? await hashOpenGroupPassword(password) : null;
   const sb = getSupabaseOrNull();
   if (sb) {
     /** Pre-allocate id so group:{roomId} + chat_domain are atomic (prod NOT NULL). */
@@ -12481,7 +12489,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
   password?: string;
   identityMode?: CommunityMessengerIdentityMode;
   aliasProfile?: Partial<CommunityMessengerRoomAliasProfile> | null;
-}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+}): Promise<{ ok: boolean; roomId?: string; error?: string; lockedUntil?: string }> {
   const roomId = trimText(input.roomId);
   const password = trimText(input.password);
   const identityMode = input.identityMode === "alias" ? "alias" : "real_name";
@@ -12505,7 +12513,24 @@ export async function joinOpenGroupRoomWithPassword(input: {
       const identityPolicy = normalizeRoomIdentityPolicy(room.identity_policy, "open_group");
       if (joinPolicy === "password") {
         if (!password) return { ok: false, error: "password_required" };
-        if (!verifyOpenGroupPassword(password, room.password_hash)) return { ok: false, error: "invalid_password" };
+        /**
+         * 모임 감사 5번 묶음 P3 — 방·계정마다 15분 안에 5번까지만 비밀번호를 검사, 5번째 시도에서 15분 잠금.
+         * 검사 **전에** DB 가 시도를 센다(재감사 M1: 동시 요청도 5번까지만 검사). 맞으면 기록을 지운다.
+         */
+        const attempt = await beginOpenGroupJoinAttempt(sb, roomId, input.userId);
+        if (!attempt.ok) return { ok: false, error: attempt.error };
+        if (!attempt.allowed) {
+          return attempt.lockedUntil
+            ? { ok: false, error: "password_locked", lockedUntil: attempt.lockedUntil }
+            : { ok: false, error: "password_locked" };
+        }
+        const matched = await verifyOpenGroupPassword(password, room.password_hash);
+        if (!matched) {
+          if (attempt.lockedUntil) return { ok: false, error: "password_locked", lockedUntil: attempt.lockedUntil };
+          return { ok: false, error: "invalid_password" };
+        }
+        const cleared = await clearOpenGroupJoinAttempts(sb, roomId, input.userId);
+        if (!cleared.ok) return { ok: false, error: cleared.error };
       }
       if (identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
       /**
@@ -12591,7 +12616,7 @@ export async function joinOpenGroupRoomWithPassword(input: {
   if (room.roomStatus !== "active" || room.isReadonly) return { ok: false, error: "room_unavailable" };
   if (room.joinPolicy === "password") {
     if (!password) return { ok: false, error: "password_required" };
-    if (!verifyOpenGroupPassword(password, room.passwordHash)) return { ok: false, error: "invalid_password" };
+    if (!(await verifyOpenGroupPassword(password, room.passwordHash))) return { ok: false, error: "invalid_password" };
   }
   if (room.identityPolicy !== "alias_allowed" && identityMode === "alias") return { ok: false, error: "forbidden" };
   const memberCount = dev.participants.filter((participant) => participant.roomId === roomId).length;
@@ -12641,7 +12666,9 @@ export async function updateOpenGroupRoomSettings(input: {
   };
   if (title) patch.title = title;
   if (typeof input.summary === "string") patch.summary = summary;
-  if (password) patch.password_hash = hashOpenGroupPassword(password);
+  /** 모임 감사 5번 묶음 P2 — 새 비밀번호는 4~32자. 해시(scrypt)는 방장 확인 뒤에 만든다 */
+  const passwordLengthError = password && input.joinPolicy !== "free" ? openGroupPasswordLengthError(password) : null;
+  if (passwordLengthError) return { ok: false, error: passwordLengthError };
   if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
     patch.member_limit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }
@@ -12665,6 +12692,7 @@ export async function updateOpenGroupRoomSettings(input: {
     if (room) {
       if (room.room_type !== "open_group") return { ok: false, error: "not_open_group_room" };
       if (trimText(room.owner_user_id) !== input.userId) return { ok: false, error: "forbidden" };
+      if (password && input.joinPolicy !== "free") patch.password_hash = await hashOpenGroupPassword(password);
       const { error } = await (sb as any).from("community_messenger_rooms").update(patch).eq("id", roomId);
       if (!error) return { ok: true };
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
@@ -12680,7 +12708,7 @@ export async function updateOpenGroupRoomSettings(input: {
   if (room.ownerUserId !== input.userId) return { ok: false, error: "forbidden" };
   if (title) room.title = title;
   if (typeof input.summary === "string") room.summary = summary;
-  if (password) room.passwordHash = hashOpenGroupPassword(password);
+  if (password && input.joinPolicy !== "free") room.passwordHash = await hashOpenGroupPassword(password);
   if (typeof input.memberLimit === "number" && Number.isFinite(input.memberLimit)) {
     room.memberLimit = Math.min(1000, Math.max(2, Math.floor(input.memberLimit)));
   }
