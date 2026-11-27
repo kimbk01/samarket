@@ -15,8 +15,8 @@ android {
         applicationId "com.dibay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 85
-        versionName "1.2.7"
+        versionCode 86
+        versionName "1.2.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         def localProperties = new Properties()
