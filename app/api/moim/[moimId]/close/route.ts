@@ -16,7 +16,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const body = await readMoimJson<{ confirmName?: unknown }>(req);
   if (typeof body?.confirmName !== "string") return moimBadRequest();
-  const [members, moim] = await Promise.all([listActiveMoimMemberIds(g.sb, moimId), loadMoimName(g.sb, moimId)]);
+  /** 종료로 취소될 일정(모집 중·정원·마감)과 그 확정·신청자 — 일정 취소 알림용 (설계 P15·§7 · 감사 B13). 일정 직접 취소와 같은 받는 사람 */
+  const [members, moim, openSchedules] = await Promise.all([
+    listActiveMoimMemberIds(g.sb, moimId),
+    loadMoimName(g.sb, moimId),
+    g.sb.from("moim_schedules").select("id, title").eq("moim_id", moimId).in("status", ["recruiting", "full", "closed"]),
+  ]);
+  const schedules = (openSchedules.data ?? []) as { id: string; title: string }[];
+  const participants = schedules.length
+    ? (((
+        await g.sb
+          .from("moim_schedule_participants")
+          .select("schedule_id, user_id")
+          .in("schedule_id", schedules.map((s) => s.id))
+          .in("status", ["confirmed", "requested"])
+      ).data ?? []) as { schedule_id: string; user_id: string }[])
+    : [];
   const result = await moimClose(g.userId, moimId, body.confirmName, g.sb);
   if (result.ok) {
     await notifyMoimMany(g.sb, members.filter((id) => id !== g.userId), {
@@ -26,6 +41,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       dedupeRef: moimId,
       vars: { moim },
     });
+    for (const s of schedules) {
+      const to = participants.filter((p) => p.schedule_id === s.id && p.user_id !== g.userId).map((p) => p.user_id);
+      if (!to.length) continue;
+      await notifyMoimMany(g.sb, to, {
+        kind: "moim_schedule_cancelled",
+        moimId,
+        linkUrl: moimPaths.schedule(moimId, s.id),
+        dedupeRef: s.id,
+        vars: { title: s.title },
+      });
+    }
   }
   return moimRpcResponse(result);
 }

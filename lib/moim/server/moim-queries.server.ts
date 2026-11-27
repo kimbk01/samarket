@@ -50,7 +50,8 @@ type MoimRow = {
   capacity: number | null;
   age_min_birth_year: number | null;
   age_max_birth_year: number | null;
-  host_user_id: string;
+  /** 종료된 모임의 모임장 계정이 영구 삭제되면 null (감사 B8) */
+  host_user_id: string | null;
   status: MoimStatus;
   platform_state: MoimPlatformState;
   member_count: number;
@@ -217,9 +218,16 @@ export async function listLocalMoims(
   };
 }
 
-async function authorMap(sb: SupabaseServer, moimId: string, userIds: string[]): Promise<Map<string, MoimAuthorDto>> {
+/** 작성자 계정이 영구 삭제된 기록(작성자 id null) = 「나간 멤버」 표시 (감사 B8) */
+const FORMER_MEMBER_AUTHOR: MoimAuthorDto = { userId: "", nickname: "", avatarUrl: null, role: null, isActiveMember: false };
+
+export function authorOrFormer(map: Map<string, MoimAuthorDto>, userId: string | null | undefined): MoimAuthorDto {
+  return (userId ? map.get(userId) : undefined) ?? FORMER_MEMBER_AUTHOR;
+}
+
+async function authorMap(sb: SupabaseServer, moimId: string, userIds: (string | null)[]): Promise<Map<string, MoimAuthorDto>> {
   const map = new Map<string, MoimAuthorDto>();
-  const uniq = [...new Set(userIds)].filter(Boolean);
+  const uniq = [...new Set(userIds)].filter((x): x is string => Boolean(x));
   if (!uniq.length) return map;
   const { data } = await sb.from("moim_members").select(MEMBER_COLS).eq("moim_id", moimId).in("user_id", uniq);
   for (const m of (data ?? []) as MemberRow[]) {
@@ -241,7 +249,8 @@ type PostRow = {
   id: string;
   moim_id: string;
   board_id: string;
-  author_id: string;
+  /** 회원 영구 삭제 뒤 null (작성 기록은 남김 — 설계 P5 · 감사 B8) */
+  author_id: string | null;
   title: string;
   body: string;
   images: unknown;
@@ -275,7 +284,7 @@ async function toPosts(sb: SupabaseServer, moimId: string, rows: PostRow[], view
     visibility: r.visibility,
     isPinned: r.is_pinned,
     commentCount: r.comment_count,
-    author: authors.get(r.author_id)!,
+    author: authorOrFormer(authors, r.author_id),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     viewerIsAuthor: !!viewerId && viewerId === r.author_id,
@@ -385,7 +394,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     createdAt: moim.created_at,
     updatedAt: moim.updated_at,
     lastActivityAt: moim.last_activity_at,
-    host: host.get(moim.host_user_id) ?? null,
+    host: moim.host_user_id ? host.get(moim.host_user_id) ?? null : null,
     joinQuestions: ((questions.data ?? []) as { question: string }[]).map((q) => q.question),
     boards: isMember ? boardRows.filter((b) => b.isActive) : [],
     pinnedNotices: await toPosts(sb, moim.id, (pinned.data ?? []) as PostRow[], viewerId),
@@ -440,6 +449,23 @@ export async function listMoimMembers(sb: SupabaseServer, access: MoimAccess): P
     }));
 }
 
+/**
+ * 가입 신청 답변 → [{질문, 답}] (감사 B10).
+ * 새 형식은 신청 시점 질문 문장과 짝으로 저장된다 — 질문을 고쳐도 다른 질문에 붙지 않는다.
+ * 예전 형식(답 문자열 배열)은 지금 질문 순서로 맞춘다.
+ */
+export function joinRequestAnswerPairs(raw: unknown, currentQuestions: string[]): { question: string; answer: string }[] {
+  if (!Array.isArray(raw)) return currentQuestions.map((q) => ({ question: q, answer: "" }));
+  if (raw.length > 0 && raw.every((a) => a !== null && typeof a === "object" && !Array.isArray(a))) {
+    return raw.map((a) => {
+      const o = a as { question?: unknown; answer?: unknown };
+      return { question: typeof o.question === "string" ? o.question : "", answer: typeof o.answer === "string" ? o.answer : "" };
+    });
+  }
+  const answers = raw.map((a) => (typeof a === "string" ? a : ""));
+  return currentQuestions.map((q, i) => ({ question: q, answer: answers[i] ?? "" }));
+}
+
 export async function listMoimJoinRequests(sb: SupabaseServer, access: MoimAccess): Promise<MoimJoinRequestDto[] | null> {
   if (!moimCanMap(access).decide_join) return null;
   const moimId = access.moim.id;
@@ -455,14 +481,13 @@ export async function listMoimJoinRequests(sb: SupabaseServer, access: MoimAcces
   const byUser = new Map(((mem ?? []) as MemberRow[]).map((m) => [m.user_id, m]));
   return list.map((r) => {
     const m = byUser.get(r.user_id);
-    const answers = Array.isArray(r.answers) ? r.answers.map((a) => (typeof a === "string" ? a : "")) : [];
     return {
       id: r.id,
       userId: r.user_id,
       nickname: m?.nickname ?? "",
       avatarUrl: m?.avatar_url ?? null,
       bio: m?.bio ?? "",
-      answers: questions.map((q, i) => ({ question: q, answer: answers[i] ?? "" })),
+      answers: joinRequestAnswerPairs(r.answers, questions),
       createdAt: r.created_at,
       rejoinCount: m?.rejoin_count ?? 0,
     };
@@ -546,13 +571,13 @@ export async function listMoimComments(sb: SupabaseServer, post: MoimPostDto, vi
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .limit(500);
-  const rows = (data ?? []) as { id: string; post_id: string; author_id: string; body: string; created_at: string }[];
+  const rows = (data ?? []) as { id: string; post_id: string; author_id: string | null; body: string; created_at: string }[];
   const authors = await authorMap(sb, post.moimId, rows.map((r) => r.author_id));
   return rows.map((r) => ({
     id: r.id,
     postId: r.post_id,
     body: r.body,
-    author: authors.get(r.author_id)!,
+    author: authorOrFormer(authors, r.author_id),
     createdAt: r.created_at,
     viewerIsAuthor: !!viewerId && viewerId === r.author_id,
   }));

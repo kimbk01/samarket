@@ -88,7 +88,8 @@ describe("어드민 영구 삭제 (설계 C1~C3)", () => {
     };
     const res = await call();
     expect(res.status).toBe(200);
-    expect(calls).toEqual(["admin_can_purge_auth_user", "admin_prepare_auth_user_purge"]);
+    /** 모임 정리(모임장 자동 위임·퇴장)는 점검·준비가 끝난 뒤 Auth 삭제 바로 앞 (모임 설계 P8 · 감사 B8) */
+    expect(calls).toEqual(["admin_can_purge_auth_user", "admin_prepare_auth_user_purge", "moim_account_cleanup"]);
     expect(deleteUser).toHaveBeenCalledTimes(1);
     expect(deletionRequestUpdates).toBe(1);
     expect(auditActions()).toEqual(["user_purge"]);
@@ -122,10 +123,30 @@ describe("어드민 영구 삭제 (설계 C1~C3)", () => {
     rpc = async (n) =>
       n === "admin_can_purge_auth_user"
         ? { data: { ok: true, blockers: [] }, error: null }
-        : { data: null, error: { message: "Could not find the function public.admin_prepare_auth_user_purge(p_user_id) in the schema cache" } };
+        : n === "moim_account_cleanup"
+          ? { data: { ok: true, handovers: [] }, error: null }
+          : { data: null, error: { message: "Could not find the function public.admin_prepare_auth_user_purge(p_user_id) in the schema cache" } };
     const res = await call();
     expect(res.status).toBe(200);
     expect(deleteUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("모임 정리 실패: 500 moim_cleanup_failed · 준비·Auth 삭제·기록 없음 (감사 B8)", async () => {
+    const calls: string[] = [];
+    rpc = async (n) => {
+      calls.push(n);
+      return n === "admin_can_purge_auth_user"
+        ? { data: { ok: true, blockers: [] }, error: null }
+        : n === "moim_account_cleanup"
+          ? { data: null, error: { message: "statement timeout" } }
+          : { data: { ok: true, deliveries_deleted: 0 }, error: null };
+    };
+    const res = await call();
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "moim_cleanup_failed" });
+    expect(calls).toEqual(["admin_can_purge_auth_user", "admin_prepare_auth_user_purge", "moim_account_cleanup"]);
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalled();
   });
 
   it("준비 함수 오류: 500 · 아무것도 바꾸지 않음", async () => {

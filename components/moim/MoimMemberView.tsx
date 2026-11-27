@@ -39,6 +39,8 @@ type MoimToast = (message: string, tone?: "default" | "success" | "error") => vo
 /** 보는 사람이 이 게시판에 글을 쓸 수 있는가 (화면 표시용 — 최종 판정은 서버) */
 export function canWriteMoimBoard(moim: MoimDetailDto, board: MoimBoardDto): boolean {
   if (!board.isActive || moim.status !== "active" || moim.platformState === "blocked") return false;
+  /** 공지 게시판 = 공지 작성·고정 권한 하나 (설계 §5.2 · 감사 D4 — 서버 moim_post_create 와 같은 판정) */
+  if (board.kind === "notice") return moim.can.pin_notice === true;
   return moimRoleRank(moim.viewer.role) >= moimRoleRank(board.writeMinRole);
 }
 

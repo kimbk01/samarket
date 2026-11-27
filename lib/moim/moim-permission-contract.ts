@@ -55,9 +55,11 @@ export const MOIM_PERMISSION_DEFAULTS: Readonly<Record<MoimAction, MoimPermissio
   manage_boards: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
   hide_post: { defaultMinRole: "staff", adjustable: false, floorRole: "staff" },
   create_schedule: { defaultMinRole: "member", adjustable: true, floorRole: "member" },
-  remove_member: { defaultMinRole: "co_host", adjustable: true, floorRole: "staff" },
-  ban_member: { defaultMinRole: "co_host", adjustable: true, floorRole: "staff" },
-  write_note: { defaultMinRole: "co_host", adjustable: true, floorRole: "staff" },
+  /** 설계 §5.2 「멤버 내보내기·차단 O O X X」(조정 없음) · 시안 U7 — 2026-11-27 감사 B6 */
+  remove_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
+  ban_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
+  /** 설계 §5.2 「운영진 메모 O / O(조정) / O(조정)」 — 운영진 기본 허용 */
+  write_note: { defaultMinRole: "staff", adjustable: true, floorRole: "staff" },
   set_role: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
   transfer_host: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
   close: { defaultMinRole: "host", adjustable: false, floorRole: "host" },

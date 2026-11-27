@@ -69,9 +69,9 @@ export async function listMoimStaffReports(
       ? sb.from("moim_album_items").select("id, uploader_id, url, status").eq("moim_id", moimId).in("id", albumIds)
       : Promise.resolve({ data: [] }),
   ]);
-  type PostRow = { id: string; author_id: string; title: string | null; body: string | null; images: unknown; status: string };
-  type CommentRow = { id: string; post_id: string; author_id: string; body: string | null; status: string };
-  type AlbumRow = { id: string; uploader_id: string; url: string; status: string };
+  type PostRow = { id: string; author_id: string | null; title: string | null; body: string | null; images: unknown; status: string };
+  type CommentRow = { id: string; post_id: string; author_id: string | null; body: string | null; status: string };
+  type AlbumRow = { id: string; uploader_id: string | null; url: string; status: string };
   const postMap = new Map(((posts.data ?? []) as PostRow[]).map((x) => [x.id, x]));
   const commentMap = new Map(((comments.data ?? []) as CommentRow[]).map((x) => [x.id, x]));
   const albumMap = new Map(((album.data ?? []) as AlbumRow[]).map((x) => [x.id, x]));
@@ -82,7 +82,7 @@ export async function listMoimStaffReports(
     ...[...albumMap.values()].map((x) => x.uploader_id),
   ];
   const nickMap = new Map<string, string>();
-  const uniqAuthors = [...new Set(authorIds)];
+  const uniqAuthors = [...new Set(authorIds)].filter((x): x is string => Boolean(x));
   if (uniqAuthors.length) {
     const { data: mem } = await sb.from("moim_members").select("user_id, nickname").eq("moim_id", moimId).in("user_id", uniqAuthors);
     for (const m of (mem ?? []) as { user_id: string; nickname: string }[]) nickMap.set(m.user_id, m.nickname);
@@ -106,7 +106,7 @@ export async function listMoimStaffReports(
         excerpt: excerpt(p?.body),
         imageUrl: firstImage,
         postId: p ? p.id : null,
-        authorNickname: p ? nickMap.get(p.author_id) ?? null : null,
+        authorNickname: p && p.author_id ? nickMap.get(p.author_id) ?? null : null,
       };
     }
     if (g.type === "comment") {
@@ -118,7 +118,7 @@ export async function listMoimStaffReports(
         excerpt: excerpt(c?.body),
         imageUrl: null,
         postId: c?.post_id ?? null,
-        authorNickname: c ? nickMap.get(c.author_id) ?? null : null,
+        authorNickname: c && c.author_id ? nickMap.get(c.author_id) ?? null : null,
       };
     }
     const a = albumMap.get(g.id);
@@ -129,7 +129,7 @@ export async function listMoimStaffReports(
       excerpt: null,
       imageUrl: a?.url ?? null,
       postId: null,
-      authorNickname: a ? nickMap.get(a.uploader_id) ?? null : null,
+      authorNickname: a && a.uploader_id ? nickMap.get(a.uploader_id) ?? null : null,
     };
   });
   // 숨길 수 있는 것(진행 중) 먼저 · 신고 많은 순 · 최근 순

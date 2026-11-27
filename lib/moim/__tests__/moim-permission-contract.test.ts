@@ -21,9 +21,24 @@ const ALL_MOIM_SQL = readdirSync(join(process.cwd(), "supabase/migrations"))
   .map((f) => readFileSync(join(process.cwd(), "supabase/migrations", f), "utf8"))
   .join("\n");
 
+/** 운영에 마지막으로 정의된 moim_permission_defaults() 본문 (뒤 마이그레이션이 앞 정의를 바꾼다) */
+function latestPermissionDefaultsBlock(): string {
+  const dir = join(process.cwd(), "supabase/migrations");
+  const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
+  let block = "";
+  for (const f of files) {
+    const sql = readFileSync(join(dir, f), "utf8");
+    const start = sql.toLowerCase().indexOf("create or replace function public.moim_permission_defaults()");
+    if (start < 0) continue;
+    const rest = sql.slice(start);
+    const end = Math.min(...["$$;", "$function$;"].map((t) => rest.indexOf(t)).filter((i) => i >= 0));
+    block = rest.slice(0, end);
+  }
+  return block;
+}
+
 function sqlPermissionRows(): Map<string, { min: string; adjustable: boolean; floor: string }> {
-  const start = MIGRATION.indexOf("create or replace function public.moim_permission_defaults()");
-  const block = MIGRATION.slice(start, MIGRATION.indexOf("$$;", start));
+  const block = latestPermissionDefaultsBlock();
   const rows = new Map<string, { min: string; adjustable: boolean; floor: string }>();
   for (const m of block.matchAll(/\('([a-z_]+)',\s*'([a-z_]+)',\s*(true|false),\s*'([a-z_]+)'\)/g)) {
     rows.set(m[1], { min: m[2], adjustable: m[3] === "true", floor: m[4] });
@@ -59,10 +74,17 @@ describe("moim permission contract — TS 표 = SQL moim_permission_defaults()",
   });
 
   it("조정: 하한 아래로 못 내리고, 조정 불가 행동은 무시된다", () => {
-    expect(isAllowedMoimPermissionOverride("remove_member", "staff")).toBe(true);
+    // 설계 §5.2 「멤버 내보내기·차단 O O X X」(조정 없음) — 운영진에게 열 수 없다 (2026-11-27 감사 B6)
+    expect(isAllowedMoimPermissionOverride("remove_member", "staff")).toBe(false);
+    expect(isAllowedMoimPermissionOverride("ban_member", "staff")).toBe(false);
     expect(isAllowedMoimPermissionOverride("remove_member", "member")).toBe(false);
     expect(isAllowedMoimPermissionOverride("edit_info", "co_host")).toBe(false);
-    expect(canMoimAction(active("staff", { overrides: { remove_member: "staff" } }), "remove_member")).toBe(true);
+    expect(canMoimAction(active("staff", { overrides: { remove_member: "staff" } }), "remove_member")).toBe(false);
+    expect(canMoimAction(active("staff", { overrides: { ban_member: "staff" } }), "ban_member")).toBe(false);
+    // 「운영진 메모 O / O(조정) / O(조정)」 — 운영진 기본 허용, 모임장이 부모임장 이상으로 올릴 수 있다
+    expect(canMoimAction(active("staff"), "write_note")).toBe(true);
+    expect(canMoimAction(active("member"), "write_note")).toBe(false);
+    expect(canMoimAction(active("staff", { overrides: { write_note: "co_host" } }), "write_note")).toBe(false);
     expect(canMoimAction(active("co_host", { overrides: { edit_info: "co_host" } }), "edit_info")).toBe(false);
   });
 

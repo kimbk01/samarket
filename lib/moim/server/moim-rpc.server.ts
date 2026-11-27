@@ -170,6 +170,15 @@ export function moimHostTransferRespond(actorId: string, transferId: string, acc
   );
 }
 
+/** 회원 탈퇴·영구 삭제 전 모임 정리 (설계 P8 · 감사 B8) — 어드민 회원 삭제 라우트만 부른다 */
+export function moimAccountCleanup(userId: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ transferred: number; closed: number; left: number; handovers: { moim_id: string; to_user_id: string }[] }>(
+    "moim_account_cleanup",
+    { p_user: userId },
+    sb
+  );
+}
+
 export function moimClose(actorId: string, moimId: string, confirmName: string, sb?: SupabaseServer) {
   return callMoimRpc("moim_close", { p_actor: actorId, p_moim: moimId, p_confirm_name: confirmName }, sb);
 }
