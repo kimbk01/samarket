@@ -50,6 +50,7 @@ import {
 } from "@/lib/messenger-policy/messenger-swipe-leave-visibility";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { messengerRoomDefaultTitleKey } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import { MessengerChatListTypingPreview } from "@/components/community-messenger/chat-list/MessengerChatListTypingPreview";
@@ -420,6 +421,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const listDisplayTitle = useMemo(() => {
     /** 거래 방 상대 이름이 빈 값이면 제목이 빈칸 — 거래 목록 행 모델과 같은 대체 키 (재감사 2026-11-27) */
     if (commerceMeta?.kind === "trade" && !room.title.trim()) return t("chats_trade_list_peer_fallback");
+    /** 서버 기본 제목 「새 대화」(저장 언어 고정) → 보는 사람 언어. 사람이 쓴 제목은 그대로 */
+    const defaultTitleKey = messengerRoomDefaultTitleKey(room.title);
+    if (defaultTitleKey) return t(defaultTitleKey);
     if (isPillarChatListVisual || room.roomType !== "direct") return room.title;
     return incomingCallPeerNicknameLabel(room.title) || room.title;
   }, [commerceMeta?.kind, isPillarChatListVisual, room.roomType, room.title, t]);

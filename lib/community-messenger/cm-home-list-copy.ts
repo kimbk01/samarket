@@ -131,6 +131,9 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary, viewerUs
      * "시스템 메시지"로 표기하지 않고 아래 빈 방/컨텍스트 안내로 내려간다.
      */
     if (lastMessage) {
+      /** 빈 방 안내(서버가 한 언어로 채움 — 새 방은 종류가 system) → 보는 사람 언어 */
+      const emptyRoomKey = messengerRoomLastMessagePlaceholderKey(lastMessage);
+      if (emptyRoomKey) return translateCmUi(emptyRoomKey);
       /** 언어 SSOT B3 — 종류 코드가 저장 글자와 맞으면 보는 사람 언어로, 아니면 저장 글자 */
       return (
         resolveCmSystemListPreview({ lastMessage, meta: room.lastMessageMeta }, translateCmUi) ??

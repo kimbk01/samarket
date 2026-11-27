@@ -6,6 +6,7 @@
  *
  * catalog: `cm_svc_last_msg_direct` · `cm_svc_last_msg_group` (ko/en)
  */
+import { translate } from "@/lib/i18n/messages";
 
 const MESSENGER_ROOM_LAST_MESSAGE_DISPLAY_PLACEHOLDERS = new Set([
   "메시지를 보내 보세요.",
@@ -40,4 +41,29 @@ export function messengerRoomLastMessagePlaceholderKey(
 ): "cm_svc_last_msg_direct" | "cm_svc_last_msg_group" | null {
   if (!isMessengerRoomLastMessageDisplayPlaceholder(lastMessage)) return null;
   return DIRECT_PLACEHOLDERS.has(String(lastMessage).trim()) ? "cm_svc_last_msg_direct" : "cm_svc_last_msg_group";
+}
+
+/**
+ * 서버가 상대 이름을 못 찾을 때 채운 기본 방 제목(`cm_ui_new_conversation` — 저장 언어 고정) → 보는 사람 언어 키.
+ * 정확히 기본 제목일 때만 키를 돌려주고, 사람이 쓴 제목은 null(그대로).
+ */
+let defaultRoomTitles: Set<string> | null = null;
+
+function getDefaultRoomTitles(): Set<string> {
+  if (!defaultRoomTitles) {
+    defaultRoomTitles = new Set(
+      [
+        translate("ko", "cm_ui_new_conversation"),
+        translate("en", "cm_ui_new_conversation"),
+        "cm_ui_new_conversation",
+      ].map((v) => v.trim().toLowerCase())
+    );
+  }
+  return defaultRoomTitles;
+}
+
+export function messengerRoomDefaultTitleKey(title: string | null | undefined): "cm_ui_new_conversation" | null {
+  const text = typeof title === "string" ? title.trim() : "";
+  if (!text) return null;
+  return getDefaultRoomTitles().has(text.toLowerCase()) ? "cm_ui_new_conversation" : null;
 }

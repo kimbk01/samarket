@@ -8,6 +8,10 @@ import {
   mapLegacyNotificationText,
   renderNotificationCopyFromMeta,
 } from "@/lib/notifications/notification-stored-copy";
+import {
+  mapLegacySupportNotificationBody,
+  mapLegacySupportNotificationTitle,
+} from "@/lib/notifications/support-legacy-notification-copy";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /** 저장 문장 — 알려진 알림 문구면 보는 사람 언어로(설계 §4-3 옛 행), 아니면 기존 처리(키 문자열 번역·그대로) */
@@ -400,6 +404,8 @@ export function resolveNotificationInboxTitle(
     title: string;
     body?: string | null;
     meta?: Record<string, unknown> | null;
+    /** 알면 넘긴다 — 옛 고객센터 문장 대응을 `support_*` 행으로 좁힌다 */
+    event_type?: string | null;
   }
 ): string {
   if (row.notification_type === "commerce") {
@@ -414,7 +420,10 @@ export function resolveNotificationInboxTitle(
   const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "title");
   if (fromMeta) return fromMeta;
   if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, row.title);
-  return resolveInboxNotificationDisplayText(lang, row.title);
+  return (
+    mapLegacySupportNotificationTitle(lang, row.title, row.event_type) ??
+    resolveInboxNotificationDisplayText(lang, row.title)
+  );
 }
 
 /**
@@ -434,6 +443,8 @@ export function resolveNotificationInboxBody(
     notification_type: string;
     body: string | null;
     meta?: Record<string, unknown> | null;
+    /** 알면 넘긴다 — 옛 고객센터 문장 대응을 `support_*` 행으로 좁힌다 */
+    event_type?: string | null;
   }
 ): string | null {
   if (row.notification_type === "commerce") {
@@ -445,5 +456,5 @@ export function resolveNotificationInboxBody(
   const fromMeta = renderNotificationCopyFromMeta(lang, row.meta, "body");
   if (fromMeta) return fromMeta;
   if (row.notification_type === "chat") return resolveStoredKeyOrText(lang, raw);
-  return resolveInboxNotificationDisplayText(lang, raw);
+  return mapLegacySupportNotificationBody(lang, raw, row.event_type) ?? resolveInboxNotificationDisplayText(lang, raw);
 }
