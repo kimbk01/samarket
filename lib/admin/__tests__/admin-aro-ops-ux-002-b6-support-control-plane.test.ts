@@ -48,7 +48,8 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(read("supabase/migrations/20270415120000_support_audit_phase2_atomic_append.sql")).toContain("SET status = 'WAITING_USER'");
     expect(svc).toContain("adminReplySupportCase");
     expect(svc).toContain("adminUpdateSupportCaseStatus");
-    expect(svc).toContain("closeAfter");
+    // 고객 문의 SSOT §8 F10 (2026-11-27): 답변과 종료는 별도 동작 — 답변 안에 종료 옵션이 없다.
+    expect(svc).not.toContain("closeAfter");
     expect(svc).toContain('case "ACTIONABLE"');
     expect(copyAdminB4Ops1Messages.en.admin_support_support_messenger_notifications_are_not_support).toContain(
       "Support ≠ Messenger"

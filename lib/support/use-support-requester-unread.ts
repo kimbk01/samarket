@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
-import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { SUPPORT_NOTIFICATION_ARRIVED_EVENT } from "@/lib/support/support-notification-events";
 import {
   getSupportModalState,
   subscribeSupportModalState,
@@ -24,7 +24,7 @@ export function useSupportRequesterUnread(input: {
   const [count, setCount] = useState(0);
   const [tick, setTick] = useState(0);
 
-  // A new support notification (admin reply / close) arrives via the Realtime bridge event.
+  // 고객 문의 SSOT §4 (F11): 고객지원 알림(답변·종료·재오픈)이 왔을 때만 다시 읽는다 — 다른 알림마다 읽지 않는다.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let t: number | null = null;
@@ -32,10 +32,10 @@ export function useSupportRequesterUnread(input: {
       if (t != null) window.clearTimeout(t);
       t = window.setTimeout(() => setTick((n) => n + 1), 500);
     };
-    window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    window.addEventListener(SUPPORT_NOTIFICATION_ARRIVED_EVENT, onUpdated);
     return () => {
       if (t != null) window.clearTimeout(t);
-      window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+      window.removeEventListener(SUPPORT_NOTIFICATION_ARRIVED_EVENT, onUpdated);
     };
   }, []);
 

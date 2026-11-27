@@ -729,6 +729,8 @@ export type SupportTicketSubmittedInfo = {
   createdAt: string;
   audience: "MEMBER" | "OWNER";
   storeId: string | null;
+  /** 고객 문의 SSOT §6 (F4): 같은 분야 진행 중 문의에 이어 붙었다 — 기존 문의의 번호·분야·세부를 보여 준다. */
+  merged?: boolean;
 };
 
 export function SupportTicketSubmitted({
@@ -751,8 +753,13 @@ export function SupportTicketSubmitted({
           <Check className="h-7 w-7" strokeWidth={2.5} aria-hidden />
         </span>
         <p className="mt-2 text-[17px] font-semibold text-[var(--overlay-text-primary)]">
-          {t("support_ticket_submitted_heading")}
+          {info.merged ? t("support_ticket_merged_heading") : t("support_ticket_submitted_heading")}
         </p>
+        {info.merged ? (
+          <p className="text-[13px] leading-relaxed text-[var(--overlay-text-secondary)]" data-support-ticket-merged="1">
+            {t("support_ticket_merged_hint")}
+          </p>
+        ) : null}
         <p className="text-[13px] text-[var(--overlay-text-secondary)]">
           {[info.categoryLabel, info.issueLabel].filter(Boolean).join(" · ")}
         </p>
@@ -1023,13 +1030,23 @@ export function SupportTicketDetail({
               </DibayOverlayButton>
             ) : null}
           </div>
-        ) : closedView ? (
+        ) : closedView && messages.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-6 pt-16 text-center" data-support-ticket-closed="1">
             <p className="text-[17px] font-semibold text-[var(--overlay-text-primary)]">{t("support_ticket_closed_title")}</p>
             <p className="text-[13px] leading-relaxed text-[var(--overlay-text-secondary)]">{t("support_ticket_closed_hint")}</p>
           </div>
         ) : (
-          messages.map((m) => {
+          <>
+            {closedView ? (
+              // 고객 문의 SSOT §3-1 (F3, Owner 2026-11-27): 안 읽은 답변이 있는 종료 문의 = 내용을 보여 주고, 읽으면 사라진다.
+              <p
+                className="mx-4 mb-3 rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-3 py-2.5 text-[13px] leading-relaxed text-[var(--overlay-text-secondary)]"
+                data-support-ticket-closed-unread="1"
+              >
+                {t("support_ticket_closed_unread_hint")}
+              </p>
+            ) : null}
+            {messages.map((m) => {
             const fromRequester = m.sender_type === "MEMBER" || m.sender_type === "OWNER";
             const label = fromRequester
               ? requesterSeen++ === 0
@@ -1046,7 +1063,8 @@ export function SupportTicketDetail({
                 deleted={Boolean(m.deleted_at)}
               />
             );
-          })
+          })}
+          </>
         )}
         {!loading && !error && !closedView && !answered ? (
           <p className="px-4 pb-4 text-[12px] leading-relaxed text-[var(--overlay-text-secondary)]">
@@ -1061,7 +1079,11 @@ export function SupportTicketDetail({
               {supportErrorLabel(safeT, actionError)}
             </p>
           ) : null}
-          {closedView ? (
+          {closedView && messages.length > 0 ? (
+            <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={onClose}>
+              {t("support_ticket_ok")}
+            </DibayOverlayButton>
+          ) : closedView ? (
             <DibayOverlayButton roleTone="primary" className="w-full !min-h-11" onClick={() => onNewInquiry(fromCase)}>
               {t("support_ticket_new_cta")}
             </DibayOverlayButton>

@@ -5,6 +5,10 @@ import { runAdminNotificationDeliveryWorker } from "@/lib/admin/notifications/ad
 import { runAdminNotificationCronTick } from "@/lib/admin/notifications/admin-notification-cron-tick";
 import { ADMIN_NOTIFICATION_RETENTION_DAYS } from "@/lib/admin/notifications/admin-notification-kinds";
 import { rejectCronIfSideEffectsBlocked } from "@/lib/security/cron-side-effect-gate";
+import {
+  autoCloseStaleAnsweredSupportCases,
+  shouldRunSupportAutoClose,
+} from "@/lib/support/support-case-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +20,7 @@ export const dynamic = "force-dynamic";
  *   2) outbox claim → idempotent re-create (UNIQUE(recipient, dedupe_key))
  *   3) push retries (authority re-verified; unknown outcomes never resent)
  *   4) 90-day archive — OFF unless ADMIN_NOTIFICATION_ARCHIVE_ENABLED=1 (separate approval)
+ *   5) 고객 문의 SSOT §2 (F7) — 답변 후 7일 고객 글 없는 문의 자동 종료(새 cron 없이 매시 첫 실행만).
  */
 async function runAdminNotificationDelivery(req: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -58,11 +63,18 @@ async function runAdminNotificationDelivery(req: Request) {
     else archived = Number(data) || 0;
   }
 
+  let supportAutoClosed: number | null = null;
+  if (shouldRunSupportAutoClose(new Date())) {
+    const auto = await autoCloseStaleAnsweredSupportCases(sb);
+    if (auto.ok) supportAutoClosed = auto.closed;
+    else summary.errors.push(`support_auto_close:${auto.error}`);
+  }
+
   const ok = summary.errors.length === 0;
   // 감사 2026-11-24 S9: 단계 실패(DB 호출 오류)도 200 이라 Vercel cron 이 실패로 기록하지 않았다 → 500.
   // 본문은 그대로 (어느 단계가 실패했는지). 개별 푸시 실패는 errors 에 들어가지 않는다(재시도·dead 로 관리).
   return NextResponse.json(
-    { ok, ...summary, archived, settlementScan: settlementScan.data ?? null },
+    { ok, ...summary, archived, supportAutoClosed, settlementScan: settlementScan.data ?? null },
     { status: ok ? 200 : 500 }
   );
 }

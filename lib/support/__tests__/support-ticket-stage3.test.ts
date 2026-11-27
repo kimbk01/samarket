@@ -147,6 +147,6 @@ describe("연결 — DB 파일·API·어드민 화면·앱", () => {
     expect(v).toContain("visibleSupportCategories(");
     expect(v).toContain("visibleSupportIssues(");
     expect(read("components/support/SupportCasesHistoryList.tsx")).toContain("useSupportCategoryLabels()");
-    expect(read("components/support/SupportModalHost.tsx")).toContain("labels.categoryLabel(state.audience, state.category)");
+    expect(read("components/support/SupportModalHost.tsx")).toContain("labels.categoryLabel(state.audience, shownCategory)");
   });
 });

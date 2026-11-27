@@ -94,6 +94,14 @@ export function createFakeSupabase(
     };
     q.or = (expr: string) => {
       rec("or", [expr]);
+      // 고객 문의 SSOT §3-1 (F3): `status.in.(A,B),requester_unread_count.gt.0` — 진행 중 또는 안 읽은 답변
+      const inGt = /^([a-z_]+)\.in\.\(([^)]*)\),([a-z_]+)\.gt\.(-?\d+)$/.exec(expr);
+      if (inGt) {
+        const [, inCol, list, gtCol, gtVal] = inGt;
+        const allowed = list.split(",");
+        filters.push((r) => allowed.includes(String(r[inCol])) || Number(r[gtCol] ?? 0) > Number(gtVal));
+        return q;
+      }
       const m = /^([a-z_]+)\.lt\."([^"]+)",and\(\1\.eq\."([^"]+)",([a-z_]+)\.lt\."([^"]+)"\)$/.exec(expr);
       if (!m) throw new Error(`fake or() unsupported: ${expr}`);
       const [, tsCol, ts, , idCol, id] = m;

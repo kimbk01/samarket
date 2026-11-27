@@ -76,7 +76,6 @@ export async function PATCH(
     priority?: string;
     assigneeAdminId?: string | null;
     internalNote?: boolean;
-    closeAfter?: boolean;
     messageId?: string;
     reason?: unknown;
   };
@@ -97,15 +96,11 @@ export async function PATCH(
       caseId,
       body: String(body.body ?? ""),
       internalNote: body.internalNote === true,
-      closeAfter: body.closeAfter === true,
     });
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
     }
-    await audit("reply", {
-      internalNote: body.internalNote === true,
-      closeAfter: body.closeAfter === true,
-    });
+    await audit("reply", { internalNote: body.internalNote === true });
     return NextResponse.json({ ok: true, message: res.message });
   }
 
