@@ -1,6 +1,7 @@
 import type { PushTarget } from "@/lib/push/dispatch/push-payload-types";
 import type { PushEnvironment } from "@/lib/push/push-environment";
 import { normalizeApnsEnvironment, type ApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
+import { parseExplicitAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 
 export type UserDevicePushRow = {
   id: string;
@@ -13,6 +14,8 @@ export type UserDevicePushRow = {
   apns_environment?: string | null;
   last_seen_at?: string | null;
   updated_at?: string | null;
+  /** 기기 앱 언어(ko/en) — 기기별 알림 글자 언어 */
+  app_language?: string | null;
 };
 
 export type FilterUserDevicePushTargetsOptions = {
@@ -72,6 +75,11 @@ export function filterUserDevicePushTargets(
   let fcmIncluded = false;
   const multiFcm = options?.fcmMode !== "single_fcm";
   const alertApnsEnvByDevice = alertApnsEnvironmentByDevice(rows);
+  /** 언어가 없는 행 → 같은 사람의 가장 최근 기기 언어(rows 는 최근 순, 토큰 없는 행 포함) — 조회 추가 없음 */
+  const recentAppLanguage = rows.reduce<AppLanguageCode | null>(
+    (found, row) => found ?? parseExplicitAppLanguage(row.app_language),
+    null
+  );
 
   for (const row of rows) {
     const provider = normalizeProvider(row.push_provider);
@@ -102,6 +110,7 @@ export function filterUserDevicePushTargets(
       platform: normalizePlatform(row.platform),
       device_id: row.device_id,
       environment: row.environment ?? undefined,
+      app_language: parseExplicitAppLanguage(row.app_language) ?? recentAppLanguage,
       ...(provider === "apns" ? { apns_environment: normalizeApnsEnvironment(row.apns_environment) } : {}),
       ...(provider === "voip_apns"
         ? {

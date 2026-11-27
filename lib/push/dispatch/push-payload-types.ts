@@ -1,6 +1,7 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import type { PushEnvironment } from "@/lib/push/push-environment";
 import type { ApnsEnvironment } from "@/lib/push/dispatch/apns-environment";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 export type PushProvider = "fcm" | "apns" | "voip_apns" | "web_push";
 
@@ -21,6 +22,11 @@ export type PushTarget = {
   environment?: PushEnvironment;
   /** PUSH-02 — APNs sandbox/production of this token (apns only; null = unknown → server default). */
   apns_environment?: ApnsEnvironment | null;
+  /**
+   * 이 기기의 앱 언어(`user_devices.app_language`) — 없으면 같은 사람의 가장 최근 기기 언어(이미 읽은 행 안에서).
+   * 알림 글자(제목·본문)를 기기마다 고를 때만 쓴다. web_push_subscriptions 행은 없음.
+   */
+  app_language?: AppLanguageCode | null;
   /** Web Push VAPID keys (web_push only) */
   key_p256dh?: string;
   key_auth?: string;
@@ -66,7 +72,16 @@ export type DispatchPushOptions = {
    * **통화 푸시(수신·취소·거절·종료·다른 기기 수락·부재중)는 넘기지 않는다** → 지금과 같은 조회.
    */
   preloaded_chat_facts?: PreloadedChatPushFacts;
+  /**
+   * 2026-11-27 언어 사후 검토 C2·C3 — 언어별 알림 글자(제목·본문). 있으면 발송부가 **기기마다** 그 기기 앱 언어
+   * (`PushTarget.app_language`) 의 글자로 바꿔 보낸다. 기기 언어를 모르면 `out.title`/`out.body` 그대로.
+   * 데이터 필드 이름·값(caller_name 등)은 바꾸지 않는다 — 글자만.
+   */
+  localized_alert?: LocalizedPushAlert;
 };
+
+/** 언어별 알림 글자 — `lib/push/dispatch/localized-push-alert.ts` */
+export type LocalizedPushAlert = Partial<Record<AppLanguageCode, { title: string; body: string }>>;
 
 export type PreloadedChatPushFacts = {
   /** 운영 notification_events 행 — null = 없음(기존 `notification_event_not_found` 와 같게 건너뜀) */

@@ -44,6 +44,7 @@ import {
 } from "@/lib/push/dispatch/missed-call-ios-hold";
 import { evaluateNotificationDeliverySafety } from "@/lib/push/dispatch/notification-delivery-safety-gate";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
+import { applyLocalizedPushAlert } from "@/lib/push/dispatch/localized-push-alert";
 
 export function isPushDispatchEnabled(): boolean {
   return process.env.PUSH_DISPATCH_ENABLED === "1" || process.env.WEB_PUSH_ENABLED === "1";
@@ -549,7 +550,14 @@ export async function dispatchPushForUser(
       }
     }
 
-    const result = await sendToTarget(target, withPushSoundMode(enrichedOut, pushSoundMode), opts);
+    /** 2026-11-27 C2·C3 — 언어별 글자가 있으면 이 기기 앱 언어 글자로(제목·본문만, 이미 읽은 대상 행 값) */
+    const targetOut = applyLocalizedPushAlert(
+      withPushSoundMode(enrichedOut, pushSoundMode),
+      target,
+      targets,
+      opts?.localized_alert
+    );
+    const result = await sendToTarget(target, targetOut, opts);
     if (target.push_provider === "voip_apns" && result.status === "sent") {
       const voipDeviceId = String(target.device_id ?? "").trim();
       if (voipDeviceId) iosVoipSentDeviceIds.add(voipDeviceId);
