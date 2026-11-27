@@ -173,9 +173,14 @@ async function notifyAdminsOfCustomerMessage(
   const c = input.caseRow;
   // 2차 재감사 E: 발송은 응답 뒤라 그사이 어드민이 답했거나 문의가 끝났을 수 있다 → 어드민 일이 남았을 때만 보낸다
   // (끝난 문의에 미읽음 알림이 새로 생기지 않게 — 답변·종료 때의 전원 읽음 처리보다 늦게 만들어지는 것 방지).
-  const { data: live } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
-  const liveStatus = String((live as { status?: unknown } | null)?.status ?? "");
-  if (liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN") return;
+  const { data: live, error: liveErr } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
+  if (liveErr) {
+    // 3차 재감사 1: 상태를 못 읽으면 조용히 버리지 않는다 — 기록하고 보낸다(놓치는 쪽보다 한 번 더 아는 쪽)
+    console.warn("[support] admin_notify_status_read_failed", { caseId: c.id, error: liveErr.message });
+  } else {
+    const liveStatus = String((live as { status?: unknown } | null)?.status ?? "");
+    if (liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN") return;
+  }
   const title = translateBy(
     "ko",
     input.isNewCase ? "admin_support_notify_new_title" : "admin_support_notify_followup_title",
@@ -896,7 +901,19 @@ export async function adminDeleteSupportMessage(
   }
   let q = sb.from("support_cases").update(patch).eq("id", input.caseId);
   if (casUnread != null) q = q.eq("requester_unread_count", casUnread);
-  await q;
+  const { data: patched } = await q.select("id");
+  if (casUnread != null && (!patched || patched.length === 0)) {
+    // 3차 재감사 2: 그사이 숫자가 바뀌었다(새 답변·고객 열람) — 최신 값으로 한 번 더 −1 (0 아래로는 안 내림)
+    const { data: c2 } = await sb.from("support_cases").select("requester_unread_count").eq("id", input.caseId).maybeSingle();
+    const now2 = Number((c2 as { requester_unread_count?: unknown } | null)?.requester_unread_count ?? 0);
+    if (Number.isFinite(now2) && now2 > 0) {
+      await sb
+        .from("support_cases")
+        .update({ requester_unread_count: now2 - 1, updated_at: now })
+        .eq("id", input.caseId)
+        .eq("requester_unread_count", now2);
+    }
+  }
   return { ok: true };
 }
 
@@ -1745,21 +1762,47 @@ export async function listSupportFollowupIssueSelections(
 
 export async function markSupportCaseNotificationsRead(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string; /** 재감사 D15: 어드민 상세에서만 어드민 알림도 읽음 */ includeAdmin?: boolean }
+  input: {
+    userId: string;
+    caseId: string;
+    /** 재감사 D15: 어드민 상세에서만 어드민 알림도 읽음 */
+    includeAdmin?: boolean;
+    /**
+     * 3차 재감사 2: 화면에 돌려준 글 id. 주면 답변 알림(`support_admin_replied:<글 id>`)은 이 글들 것만 읽음 —
+     * 목록을 읽은 뒤 도착한 답변의 알림은 남긴다(고객 미읽음 숫자와 같은 기준). 종료·재오픈 알림은 그대로 모두 읽음.
+     */
+    shownMessageIds?: readonly string[];
+  }
 ): Promise<number> {
   const uid = input.userId.trim();
   const caseId = input.caseId.trim();
   if (!uid || !caseId) return 0;
   const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from("notification_events")
-    .update({ unread: false, read_at: now, opened_at: now })
-    .eq("user_id", uid)
-    .eq("unread", true)
-    .is("read_at", null)
-    .like("type", "support_%")
-    .eq("display_payload->>supportCaseId", caseId)
-    .select("id");
+  const base = () =>
+    sb
+      .from("notification_events")
+      .update({ unread: false, read_at: now, opened_at: now })
+      .eq("user_id", uid)
+      .eq("unread", true)
+      .is("read_at", null)
+      .eq("display_payload->>supportCaseId", caseId);
+  let data: { id: string }[] | null = null;
+  let error: { message: string } | null = null;
+  if (input.shownMessageIds) {
+    const replyKeys = input.shownMessageIds.map((id) => `support_admin_replied:${id}`);
+    const [others, replies] = await Promise.all([
+      base().like("type", "support_%").neq("type", "support_admin_replied").select("id"),
+      replyKeys.length > 0
+        ? base().eq("type", "support_admin_replied").in("dedupe_key", replyKeys).select("id")
+        : Promise.resolve({ data: [] as { id: string }[], error: null }),
+    ]);
+    error = others.error ?? replies.error ?? null;
+    data = [...((others.data ?? []) as { id: string }[]), ...((replies.data ?? []) as { id: string }[])];
+  } else {
+    const r = await base().like("type", "support_%").select("id");
+    error = r.error;
+    data = (r.data ?? []) as { id: string }[];
+  }
   if (error) {
     console.warn("[support] notification_read_sync_failed", { caseId, error: error.message });
     return 0;

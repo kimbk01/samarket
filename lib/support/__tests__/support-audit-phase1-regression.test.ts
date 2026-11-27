@@ -226,6 +226,10 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         st.filters.push((r) => String(r[c] ?? "") < String(v));
         return b;
       },
+      neq: (c: string, v: unknown) => {
+        st.filters.push((r) => r[c] !== v);
+        return b;
+      },
       is: (c: string, v: unknown) => {
         st.filters.push((r) => (r[c] ?? null) === v);
         return b;
@@ -1008,6 +1012,37 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(db.support_cases[0].requester_unread_count).toBe(0);
   });
 
+  it("B+E: an answer that arrived after the shown list keeps its bell row unread, so deleting it still lowers the count", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const ra = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변 A" });
+    if (!ra.ok) throw new Error(ra.error);
+    const shownIds = db.support_messages.map((m) => String(m.id)); // 고객 화면이 받은 목록 (A 까지)
+    const shownAt = String(db.support_cases[0].last_message_at);
+    const rb = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변 B" }); // 목록을 읽은 뒤 도착
+    if (!rb.ok) throw new Error(rb.error);
+    const row = (id: string, msg: string) => ({
+      id,
+      user_id: U,
+      type: "support_admin_replied",
+      dedupe_key: `support_admin_replied:${msg}`,
+      unread: true,
+      read_at: null,
+      display_payload: { supportCaseId: a.case.id },
+    });
+    db.notification_events.push(row("ne-a", String(ra.message.id)), row("ne-b", String(rb.message.id)));
+
+    await markSupportCaseReadForRequester(sb, { userId: U, caseId: a.case.id, seenLastMessageAt: shownAt });
+    await markSupportCaseNotificationsRead(sb, { userId: U, caseId: a.case.id, shownMessageIds: shownIds });
+    expect(db.notification_events.find((n) => n.id === "ne-a")?.unread).toBe(false);
+    expect(db.notification_events.find((n) => n.id === "ne-b")?.unread).toBe(true);
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(2);
+
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: String(rb.message.id) });
+    expect(Number(db.support_cases[0].requester_unread_count)).toBe(1);
+  });
+
   it("E: mark-read never clears messages that arrived after the list the viewer was shown", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");
@@ -1027,12 +1062,12 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(Number(db.support_cases[0].admin_unread_count)).toBeGreaterThan(0);
   });
 
-  it("E2: a deferred admin notification is not created once the admin already answered", () => {
+  it("E2 (구조 확인): a deferred admin notification is not created once the admin already answered", () => {
     const svc = src("lib/support/support-case-service.ts");
     expect(svc).toMatch(/if \(liveStatus !== "OPEN" && liveStatus !== "WAITING_ADMIN"\) return;/);
   });
 
-  it("F/G: merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {
+  it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {
     const svc = src("lib/support/support-case-service.ts");
     expect(svc).toContain('if (continued.ok || continued.error !== "case_closed") return continued;');
     expect(svc).toMatch(/if \(!session\.ok\) \{\s*await discardFailedNewCase\(sb, created\.id\);/);
@@ -1050,17 +1085,20 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(assigned?.requiredPermission).toBe("support");
     expect(src("components/admin/store-points/AdminStorePointPendingProvider.tsx")).toContain("!fromSelf &&");
     const mig = src("supabase/migrations/20271127240000_support_replay_unassigned.sql");
-    expect(mig).toContain("c.assigned_admin_id is null and c.status in ('OPEN', 'WAITING_ADMIN')");
+    // 3차 재감사 1: 담당자 유무와 무관하게 어드민 일이 남은 문의만 재생(앱 응답 뒤 발송과 같은 조건)
+    expect(mig).toContain("and c.status in ('OPEN', 'WAITING_ADMIN')");
+    expect(mig).toContain("or c.assigned_admin_id is null");
+    expect(mig).toContain("case when r.is_first then '새 고객 문의 · ' else '고객 추가 문의 · ' end");
     expect(mig).toContain("'excludeRecipientIds', jsonb_build_array(r.sender_user_id)");
   });
 
-  it("J: reopen is admin-only (customer API has no reopen; service always uses the admin gate)", () => {
+  it("J (구조 확인): reopen is admin-only (customer API has no reopen; service always uses the admin gate)", () => {
     const svc = src("lib/support/support-case-service.ts");
     expect(svc).toMatch(/export async function reopenSupportCase[\s\S]{0,400}const gate = await getSupportCaseForAdmin\(sb, input\.caseId\);/);
     expect(src("app/api/support/cases/[caseId]/route.ts")).not.toContain("reopenSupportCase");
   });
 
-  it("H: the admin console uses the admin error copy, never raw codes or customer copy", () => {
+  it("H (구조 확인): the admin console uses the admin error copy, never raw codes or customer copy", () => {
     const page = src("components/admin/support/AdminSupportPage.tsx");
     expect(page).not.toContain("supportErrorLabel(safeT");
     expect(page).toContain("adminSupportErrorLabel(safeT, error)");

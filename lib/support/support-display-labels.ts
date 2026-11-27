@@ -108,6 +108,8 @@ export function adminSupportErrorLabel(safeT: SafeT, code: string | null | undef
       return safeT("admin_support_error_not_own_message");
     case "message_deleted":
       return safeT("admin_support_error_message_deleted");
+    case "invalid_message":
+      return safeT("admin_support_error_message_missing");
     case "empty_body":
       return safeT("admin_support_error_empty_body");
     case "reason_required":

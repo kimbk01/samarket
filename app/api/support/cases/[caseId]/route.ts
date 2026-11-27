@@ -39,12 +39,17 @@ export async function GET(
       return NextResponse.json({ ok: false, error: closedMessages.error }, { status: 500 });
     }
     await markSupportCaseReadForRequester(sb, {
-    userId: auth.userId,
-    caseId,
-    // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 답변이 왔으면 읽음 0 으로 만들지 않는다
-    seenLastMessageAt: gate.case.last_message_at,
-  });
-    const notificationsRead = await markSupportCaseNotificationsRead(sb, { userId: auth.userId, caseId });
+      userId: auth.userId,
+      caseId,
+      // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 답변이 왔으면 읽음 0 으로 만들지 않는다
+      seenLastMessageAt: gate.case.last_message_at,
+    });
+    const notificationsRead = await markSupportCaseNotificationsRead(sb, {
+      userId: auth.userId,
+      caseId,
+      // 3차 재감사 2: 보여 준 답변의 알림만 읽음
+      shownMessageIds: closedMessages.messages.map((m) => m.id),
+    });
     return NextResponse.json({
       ok: true,
       case: gate.case,
@@ -71,9 +76,11 @@ export async function GET(
     seenLastMessageAt: gate.case.last_message_at,
   });
   // Phase 3 A3 — reading the case also clears its bell rows for this requester.
+  // 3차 재감사 2: 보여 준 답변의 알림만(목록을 읽은 뒤 도착한 답변 알림은 남긴다 — 고객 미읽음 숫자와 같은 기준)
   const notificationsRead = await markSupportCaseNotificationsRead(sb, {
     userId: auth.userId,
     caseId,
+    shownMessageIds: messages.messages.map((m) => m.id),
   });
   return NextResponse.json({
     ok: true,
