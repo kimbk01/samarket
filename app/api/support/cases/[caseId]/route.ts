@@ -7,7 +7,6 @@ import {
   markSupportCaseNotificationsRead,
   markSupportCaseReadForRequester,
   postRequesterSupportMessage,
-  reopenSupportCase,
   requesterCloseSupportCase,
 } from "@/lib/support/support-case-service";
 import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
@@ -108,13 +107,9 @@ export async function POST(
     return NextResponse.json({ ok: true, case: res.case });
   }
 
+  // 고객 문의 SSOT §2 (재감사 D12): 재오픈은 어드민만 — 고객은 「새 문의」로 다시 묻는다. 옛 호출은 400.
   if (body.action === "reopen") {
-    const res = await reopenSupportCase(sb, { userId: auth.userId, caseId });
-    if (!res.ok) {
-      const status = res.error === "not_found" ? 404 : res.error === "forbidden" ? 403 : 400;
-      return NextResponse.json({ ok: false, error: res.error }, { status });
-    }
-    return NextResponse.json({ ok: true, case: res.case });
+    return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
   const res = await postRequesterSupportMessage(sb, {

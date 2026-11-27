@@ -299,7 +299,8 @@ describe("R13 store / RLS / separation contracts", () => {
     const svc = read("lib/support/support-case-service.ts");
     // 고객 문의 SSOT §3-2 (F1): 담당자 있으면 담당자, 없으면 support 권한 어드민 전원 — 같은 kind·글 id dedupe
     expect(svc).toContain('kind: "support_customer_replied"');
-    expect(svc).toMatch(/createAdminNotification\(sb, \{ \.\.\.base, recipientAdminIds: \[assignee\] \}\)/);
+    // 재감사 D2: 담당자도 support 권한 필수
+    expect(svc).toMatch(/createAdminNotification\(sb, \{\s*\.\.\.base,\s*recipientAdminIds: \[assignee\],\s*requiredPermission: "support",\s*\}\)/);
     expect(svc).toMatch(/broadcastPermission: "support",\s*requiredPermission: "support"/);
     expect(svc).toContain("dedupeKey: `support_customer_replied:${input.messageId}`");
     expect(svc).not.toMatch(/notifySupportEvent\(sb, \{[^}]*type: "support_customer_replied"/);

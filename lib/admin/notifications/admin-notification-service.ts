@@ -75,6 +75,8 @@ export type CreateAdminNotificationInput = {
   broadcastPermission?: AdminPermissionKey | null;
   /** Permission a recipient must STILL hold to read / be pushed this row. */
   requiredPermission?: AdminPermissionKey | null;
+  /** Never notify these admins (e.g. the actor themself — 고객 문의 재감사 D10). */
+  excludeRecipientIds?: readonly string[];
   kind: string;
   severity?: AdminNotificationSeverity;
   title: string;
@@ -336,6 +338,9 @@ export async function createAdminNotification(
     return fail((e as Error).message);
   }
 
+  const excluded = new Set((input.excludeRecipientIds ?? []).map((s) => String(s).trim()).filter(Boolean));
+  if (excluded.size > 0) candidates = candidates.filter((uid) => !excluded.has(uid));
+
   const gatePermission = input.broadcastPermission ?? requiredPermission;
   const recipients: string[] = [];
   let authorityErrors = 0;
@@ -398,6 +403,7 @@ function parseOutboxPayload(payload: unknown): CreateAdminNotificationInput | nu
     recipientAdminIds: ids,
     broadcastPermission: (p.broadcastPermission ?? undefined) as AdminPermissionKey | null | undefined,
     requiredPermission: (p.requiredPermission ?? null) as AdminPermissionKey | null,
+    excludeRecipientIds: Array.isArray(p.excludeRecipientIds) ? p.excludeRecipientIds.map(String) : undefined,
     kind: p.kind,
     severity: (p.severity as AdminNotificationSeverity | undefined) ?? "info",
     title: p.title,

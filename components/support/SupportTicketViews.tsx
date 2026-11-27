@@ -859,6 +859,12 @@ function QaBlock({
   );
 }
 
+/**
+ * 재감사 D1 — 이 앱 실행 동안 본 「종료 + 안 읽은 답변」 내용 (문의 id → 글).
+ * 서버는 그 내용을 한 번만 주고 읽음 처리하므로, 같은 창이 다시 그려지거나 다시 열려도 빈 화면이 되지 않게 한다.
+ */
+const closedUnreadSeen = new Map<string, SupportMessageRow[]>();
+
 export function SupportTicketDetail({
   caseId,
   titleId,
@@ -888,7 +894,17 @@ export function SupportTicketDetail({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  /** 재감사 D1: 호출부가 새 함수를 넘겨도 다시 조회하지 않는다 */
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  useEffect(() => {
+    onUnauthorizedRef.current = onUnauthorized;
+  });
+  /** 재감사 D1: 늦게 도착한 옛 응답이 최신 화면을 덮지 않게(마지막 요청만 반영) */
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
+    const stale = () => seq !== loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -900,8 +916,9 @@ export function SupportTicketDetail({
         await ensureSessionHealthy("support_modal_case_load");
         res = await fetchCase();
       }
+      if (stale()) return;
       if (res.status === 401) {
-        onUnauthorized();
+        onUnauthorizedRef.current();
         return;
       }
       const json = (await res.json()) as {
@@ -912,6 +929,7 @@ export function SupportTicketDetail({
         error?: string;
         notificationsRead?: number;
       };
+      if (stale()) return;
       if (!res.ok || !json.ok || !json.case) {
         setError(res.status === 403 || res.status === 404 ? "forbidden" : (json.error ?? "load_failed"));
         return;
@@ -925,14 +943,21 @@ export function SupportTicketDetail({
         resyncBadgesAfterNotificationEventsRead("notification_opened");
       }
       setSupportCase(json.case);
-      setClosedView(json.closed === true || isSupportTicketClosedStatus(json.case.status));
-      setMessages((json.messages ?? []).filter((m) => m.sender_type !== "SYSTEM"));
+      const closed = json.closed === true || isSupportTicketClosedStatus(json.case.status);
+      let shown = (json.messages ?? []).filter((m) => m.sender_type !== "SYSTEM");
+      if (closed) {
+        // 재감사 D1: 종료+안 읽은 답변은 서버가 한 번만 내용을 준다(그때 읽음 처리) — 창이 다시 열려도 같은 내용을 보이게 기억
+        if (shown.length > 0) closedUnreadSeen.set(caseId, shown);
+        else shown = closedUnreadSeen.get(caseId) ?? [];
+      }
+      setClosedView(closed);
+      setMessages(shown);
     } catch {
-      setError("network_error");
+      if (!stale()) setError("network_error");
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [caseId, onUnauthorized]);
+  }, [caseId]);
 
   useEffect(() => {
     void load();

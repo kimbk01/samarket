@@ -8,10 +8,13 @@ import {
   type SupportCaseScope,
 } from "@/lib/support/support-community-filter";
 import {
+  authorityAllows,
   createAdminNotification,
   markAdminNotificationsRead,
+  resolveAdminNotificationsForWork,
   resolveAdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
+import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   mypageKeysetOrFilter,
@@ -173,6 +176,8 @@ async function notifyAdminsOfCustomerMessage(
     workRef: { table: "support_cases", id: c.id },
     dedupeKey: `support_customer_replied:${input.messageId}`,
     actorUserId: input.actorUserId,
+    // 재감사 D10: 어드민 계정이 고객으로 문의해도 자기 알림은 없다(콘솔 토스트 「본인 행동 0」과 같은 규칙).
+    excludeRecipientIds: [input.actorUserId],
     push: true,
   } as const;
   const logFail = (error: string) =>
@@ -184,7 +189,12 @@ async function notifyAdminsOfCustomerMessage(
 
   const assignee = c.assigned_admin_id ? String(c.assigned_admin_id) : "";
   if (assignee) {
-    const notified = await createAdminNotification(sb, { ...base, recipientAdminIds: [assignee] });
+    // 재감사 D2: 담당자도 support 권한이 있어야 받는다 — 없거나 잃었으면 아래 self-heal 뒤 전원에게.
+    const notified = await createAdminNotification(sb, {
+      ...base,
+      recipientAdminIds: [assignee],
+      requiredPermission: "support",
+    });
     if (!notified.ok) {
       logFail(notified.error);
       return;
@@ -215,6 +225,31 @@ async function notifyAdminsOfCustomerMessage(
     requiredPermission: "support",
   });
   if (!broadcast.ok) logFail(broadcast.error);
+}
+
+/**
+ * 재감사 D3: 문의의 어드민 일이 끝났다(공개 답변·종료·보관·자동 종료) → 그 문의의 어드민 알림을
+ * 받은 어드민 **전원** 읽음 처리(전원 발송이라 본인 것만 읽으면 N−1 행이 남는다).
+ */
+async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: string): Promise<void> {
+  await resolveAdminNotificationsForWork(sb, {
+    workRef: { table: "support_cases", id: caseId },
+    kinds: ["support_customer_replied", "support_case_assigned"],
+  });
+}
+
+/**
+ * 재감사 D6: 어드민 알림(권한 확인·저장·푸시)은 고객 응답을 기다리게 하지 않는다 — 응답 뒤 끝까지 보장(`after`).
+ * 요청 밖(크론·시험)에서는 그냥 진행된다. 실패는 알림 함수 안에서 기록하고, 남은 글은 DB 재생 함수가 다시 만든다.
+ */
+function notifyAdminsAfterResponse(
+  sb: SupabaseClient,
+  input: Parameters<typeof notifyAdminsOfCustomerMessage>[1]
+): void {
+  const work = notifyAdminsOfCustomerMessage(sb, input).catch((err: unknown) => {
+    console.error("[support] admin_notification_failed", { caseId: input.caseRow.id, err });
+  });
+  keepAliveAfterResponse(work);
 }
 
 async function notifySupportEvent(
@@ -510,6 +545,13 @@ export async function openSupportCaseFromContext(
     });
   }
 
+  // 재감사 D9: 첫 글 저장 실패 = 접수 실패 (내용 없는 문의를 남기지 않는다)
+  if (!firstMessage.ok) {
+    await sb.from("support_sessions").delete().eq("case_id", created.id);
+    await sb.from("support_cases").delete().eq("id", created.id);
+    return { ok: false, error: "first_message_failed" };
+  }
+
   await recordCaseEvent(sb, {
     caseId: created.id,
     eventType: "case_created",
@@ -531,15 +573,13 @@ export async function openSupportCaseFromContext(
   // looking at the conversation already).
   // SSOT §3-2 (F1): admins are notified through the admin notification store (inbox + push),
   // not only the console Realtime toast (A1) which needs the console to be open.
-  if (firstMessage.ok) {
-    await notifyAdminsOfCustomerMessage(sb, {
-      caseRow: created as SupportCaseRow,
-      messageId: firstMessage.message.id,
-      body: firstMessage.message.body,
-      actorUserId: input.userId,
-      isNewCase: true,
-    });
-  }
+  notifyAdminsAfterResponse(sb, {
+    caseRow: created as SupportCaseRow,
+    messageId: firstMessage.message.id,
+    body: firstMessage.message.body,
+    actorUserId: input.userId,
+    isNewCase: true,
+  });
 
   return {
     ok: true,
@@ -801,7 +841,32 @@ export async function adminDeleteSupportMessage(
   // Never leave the deleted text visible in the customer's notification list.
   // 언어 재감사 2026-11-27 §4-3: 문장 대신 문구 키 — 알림함이 보는 사람 언어로 그린다(키 문자열 번역 계약).
   await syncReplyNotificationBody(sb, input.messageId, "support_message_deleted");
-  await sb.from("support_cases").update({ updated_at: now }).eq("id", input.caseId);
+  // 재감사 D16: 지운 공개 답변은 고객이 읽을 것이 아니다 — 고객 미읽음 1 감소(CAS) + 그 답변 알림 읽음.
+  const patch: Record<string, unknown> = { updated_at: now };
+  let casUnread: number | null = null;
+  if (own.message.message_type === "PUBLIC") {
+    const { data: c } = await sb
+      .from("support_cases")
+      .select("requester_unread_count, requester_user_id")
+      .eq("id", input.caseId)
+      .maybeSingle();
+    const caseRow = c as { requester_unread_count?: unknown; requester_user_id?: unknown } | null;
+    const unread = Number(caseRow?.requester_unread_count ?? 0);
+    if (Number.isFinite(unread) && unread > 0) {
+      patch.requester_unread_count = unread - 1;
+      casUnread = unread;
+    }
+    await sb
+      .from("notification_events")
+      .update({ unread: false, read_at: now })
+      .eq("dedupe_key", `support_admin_replied:${input.messageId}`)
+      .eq("unread", true);
+    const requester = String(caseRow?.requester_user_id ?? "").trim();
+    if (requester) invalidateNotificationBadgeCache(requester);
+  }
+  let q = sb.from("support_cases").update(patch).eq("id", input.caseId);
+  if (casUnread != null) q = q.eq("requester_unread_count", casUnread);
+  await q;
   return { ok: true };
 }
 
@@ -844,6 +909,8 @@ export async function appendSupportMessage(
   });
 
   if (error || !message) {
+    // 재감사 D4: DB 함수가 잠금 안에서 종료 문의 공개 글을 거부 → 화면이 아는 오류 코드로
+    if (/support_case_closed/.test(error?.message ?? "")) return { ok: false, error: "case_closed" };
     console.error("[support] append_message_failed", {
       caseId: input.caseId,
       senderType,
@@ -873,8 +940,8 @@ export async function postRequesterSupportMessage(
   });
   if (!res.ok) return res;
 
-  // SSOT §3-2 (F1): assigned admin, or every support admin when unassigned.
-  await notifyAdminsOfCustomerMessage(sb, {
+  // SSOT §3-2 (F1): assigned admin, or every support admin when unassigned. (재감사 D6: 응답 뒤)
+  notifyAdminsAfterResponse(sb, {
     caseRow: gate.case,
     messageId: res.message.id,
     body: input.body,
@@ -1181,6 +1248,8 @@ export async function adminReplySupportCase(
       dedupeKey: `support_admin_replied:${res.message.id}`,
       actorUserId: input.adminUserId,
     });
+    // 재감사 D3: 답했다 = 그때까지 고객 글 알림은 어드민 전원에게 끝난 일
+    await resolveSupportAdminNotifications(sb, gate.case.id);
   }
 
   // SSOT §8 F10: no "reply + close" in one call — a close right after the reply would hide
@@ -1264,6 +1333,9 @@ export async function adminUpdateSupportCaseStatus(
       .eq("case_id", input.caseId)
       .is("closed_at", null);
   }
+  if (closing || input.status === "ARCHIVED") {
+    await resolveSupportAdminNotifications(sb, input.caseId);
+  }
 
   await recordCaseEvent(sb, {
     caseId: input.caseId,
@@ -1306,6 +1378,12 @@ export async function adminAssignSupportCase(
       () => ({ active: false }) as const
     );
     if (!authority.active) return { ok: false, error: "assignee_not_active_admin" };
+    // 재감사 D2: 담당자 = 문의를 열 수 있는 사람(support 권한)
+    if (!authorityAllows(authority, "support")) return { ok: false, error: "assignee_not_support_admin" };
+  }
+  // 재감사 D11: 이미 그 사람이 담당이면 아무것도 바꾸지 않는다(두 번 눌러도 알림 1건)
+  if ((gate.case.assigned_admin_id ?? null) === (input.assigneeAdminId ?? null)) {
+    return { ok: true, case: gate.case };
   }
 
   const { data, error } = await sb
@@ -1472,6 +1550,8 @@ export async function requesterCloseSupportCase(
     })
     .eq("id", input.caseId)
     .eq("status", gate.case.status)
+    // 재감사 D5: 고객이 본 뒤 새 글(어드민 답변)이 왔으면 닫지 않는다 → 다시 읽게
+    .eq("last_message_at", gate.case.last_message_at)
     .select("*")
     .maybeSingle();
   if (error) return { ok: false, error: error.message ?? "close_failed" };
@@ -1496,6 +1576,7 @@ export async function requesterCloseSupportCase(
   // SSOT §8 F5: the customer closed it after reading — no unread bell rows left behind for a
   // case that disappears from their list.
   await markSupportCaseNotificationsRead(sb, { userId: input.userId, caseId: input.caseId });
+  await resolveSupportAdminNotifications(sb, input.caseId);
   return { ok: true, case: data as SupportCaseRow };
 }
 
@@ -1557,6 +1638,7 @@ export async function autoCloseStaleAnsweredSupportCases(
       actorUserId: null,
       payload: { status: "RESOLVED", by: "auto_7d" },
     });
+    await resolveSupportAdminNotifications(sb, row.id);
   }
   return { ok: true, closed };
 }
@@ -1590,9 +1672,29 @@ export async function markSupportCaseReadForRequester(
  * `markMemberAdminNoteNotificationsRead`). Separate from the case-counter mark-read above:
  * touches only notification_events, so no support_cases UPDATE → Realtime self-loop.
  */
+/** 재감사 D8 — 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부(사건 `followup_issue_selected`). */
+export async function listSupportFollowupIssueSelections(
+  sb: SupabaseClient,
+  caseId: string
+): Promise<{ messageId: string; issueType: string }[]> {
+  const { data, error } = await sb
+    .from("support_case_events")
+    .select("payload")
+    .eq("case_id", caseId)
+    .eq("event_type", "followup_issue_selected");
+  if (error || !data) return [];
+  const out: { messageId: string; issueType: string }[] = [];
+  for (const row of data as { payload?: { message_id?: unknown; issue_type?: unknown } | null }[]) {
+    const messageId = String(row.payload?.message_id ?? "").trim();
+    const issueType = String(row.payload?.issue_type ?? "").trim();
+    if (messageId && issueType) out.push({ messageId, issueType });
+  }
+  return out;
+}
+
 export async function markSupportCaseNotificationsRead(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string }
+  input: { userId: string; caseId: string; /** 재감사 D15: 어드민 상세에서만 어드민 알림도 읽음 */ includeAdmin?: boolean }
 ): Promise<number> {
   const uid = input.userId.trim();
   const caseId = input.caseId.trim();
@@ -1613,6 +1715,7 @@ export async function markSupportCaseNotificationsRead(
   }
   const count = data?.length ?? 0;
   if (count > 0) invalidateNotificationBadgeCache(uid);
+  if (!input.includeAdmin) return count;
   // R13: the admin's support reply notifications for this case (admin store).
   const adminRead = await markAdminNotificationsRead(sb, {
     adminUserId: uid,

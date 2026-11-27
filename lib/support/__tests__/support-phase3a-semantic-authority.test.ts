@@ -349,7 +349,7 @@ describe("PHASE 3-A support semantic authority", () => {
     const svc = readSrc("lib/support/support-case-service.ts");
     const assignBlock = svc.slice(
       svc.indexOf("export async function adminAssignSupportCase"),
-      svc.indexOf("export async function adminAssignSupportCase") + 800
+      svc.indexOf("export async function adminAssignSupportCase") + 2400 // 재감사 D2·D11 권한·재지정 확인으로 블록이 길어짐
     );
     expect(assignBlock).toContain("assigned_admin_id");
     expect(assignBlock).not.toContain("first_admin_response_at");
