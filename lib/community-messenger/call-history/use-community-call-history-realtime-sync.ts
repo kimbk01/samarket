@@ -67,16 +67,25 @@ export type CommunityMessengerCallLogsClientPage = {
 
 export async function fetchCommunityMessengerCallLogsClient(options?: {
   cursor?: string | null;
+  /** 홈 최근 통화 — 관계 조회 없는 가벼운 응답(앞 `homeLimit` 건). 통화 탭과 주소·단일 비행 키를 따로 쓴다 */
+  homeLimit?: number;
 }): Promise<CommunityMessengerCallLogsClientPage | null> {
-  const cursor = options?.cursor?.trim() || "";
-  const flightKey = cursor ? `${CALL_LOGS_FETCH_FLIGHT_KEY}:cursor:${cursor}` : CALL_LOGS_FETCH_FLIGHT_KEY;
+  const homeLimit = options?.homeLimit;
+  const cursor = homeLimit ? "" : options?.cursor?.trim() || "";
+  const flightKey = homeLimit
+    ? `${CALL_LOGS_FETCH_FLIGHT_KEY}:home:${homeLimit}`
+    : cursor
+      ? `${CALL_LOGS_FETCH_FLIGHT_KEY}:cursor:${cursor}`
+      : CALL_LOGS_FETCH_FLIGHT_KEY;
   try {
     /** D-5: 첫 페이지는 진행 중 조회가 있으면 끝난 뒤 1회 더 — 기록 저장 전 조회에 합류해 새 통화를 놓치지 않게 */
     const run = cursor ? runSingleFlight : runSingleFlightWithTrailing;
     return await run(flightKey, async () => {
-      const url = cursor
-        ? `/api/community-messenger/calls?cursor=${encodeURIComponent(cursor)}`
-        : "/api/community-messenger/calls";
+      const url = homeLimit
+        ? `/api/community-messenger/calls?view=home&limit=${encodeURIComponent(String(homeLimit))}`
+        : cursor
+          ? `/api/community-messenger/calls?cursor=${encodeURIComponent(cursor)}`
+          : "/api/community-messenger/calls";
       const res = await fetch(url, {
         credentials: "include",
         cache: "no-store",

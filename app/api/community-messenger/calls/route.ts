@@ -25,8 +25,12 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.ok) return rateLimit.response;
 
   const cursorRaw = req.nextUrl.searchParams.get("cursor");
+  /** `view=home` — 홈 최근 통화(관계 조회 없음·앞 `limit` 건). 없으면 지금과 같은 통화 탭 응답 */
+  const homeView = req.nextUrl.searchParams.get("view") === "home";
+  const limitRaw = Number(req.nextUrl.searchParams.get("limit"));
   const listed = await listCommunityMessengerCallLogs(auth.userId, {
-    cursor: cursorRaw,
+    cursor: homeView ? null : cursorRaw,
+    ...(homeView ? { view: "home" as const, limit: Number.isFinite(limitRaw) ? limitRaw : undefined } : {}),
   });
   if (!listed.ok) {
     return NextResponse.json({ ok: false, error: listed.error }, { status: 400 });
