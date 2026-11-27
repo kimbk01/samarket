@@ -93,6 +93,18 @@ export function isSignupIncompleteError(error: string | null | undefined): boole
   );
 }
 
+/**
+ * F4 (2026-11-27) — 서버의 약관·개인정보 동의 미완 거절: 403 `signup_incomplete` + `step` 없음.
+ * (`step` 이 phone·address 면 가입 진행 중 거절 — 「가입 이어하기」 창이 따로 처리한다.)
+ * 전화 OTP·새 주소 등록 화면은 이때 오류 문구 대신 `redirectForBlockedAction` 으로 동의 화면에 보낸다.
+ */
+export function isConsentRequiredApiRejection(
+  status: number,
+  json: { code?: unknown; step?: unknown } | null | undefined,
+): boolean {
+  return status === 403 && json?.code === "signup_incomplete" && (json.step == null || json.step === "");
+}
+
 export function redirectForBlockedAction(
   router: RouterLike,
   error: string | null | undefined,

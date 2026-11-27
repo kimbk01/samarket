@@ -127,6 +127,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/group-chat/rooms/[roomId]/join", "new"),
   W("POST", "/api/group-chat/rooms/[roomId]/messages", "new"),
   W("POST", "/api/launch-intro/events", "manage"),
+  W("POST", "/api/me/addresses", "manage"), // F4: 동의는 필요(중앙 동의 관문), 가입 3단계(대표 주소)가 쓰므로 가입은 보지 않음
   W("POST", "/api/me/admin-notes", "manage"),
   W("POST", "/api/me/admin-notes/[threadId]", "manage"),
   W("POST", "/api/me/app-releases", "manage"),

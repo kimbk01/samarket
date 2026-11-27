@@ -24,6 +24,8 @@ import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS } from "@/lib/ui/profile-edit-style
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpErrorCode, resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
+import { isConsentRequiredApiRejection, redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { useRouter } from "next/navigation";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import { resolveMemberPhoneState } from "@/lib/profile/member-account-status";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -170,6 +172,7 @@ export function PhoneVerificationBox({
   surface?: "page" | "overlay";
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const ov = surface === "overlay" && !compact;
   const ovCls = {
     card: `rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-4 py-3`,
@@ -343,8 +346,14 @@ export function PhoneVerificationBox({
         code?: string;
         message?: string;
         phone?: string;
+        step?: string;
       };
       if (!res.ok || !json.ok) {
+        // F4 — 동의 전에는 인증번호를 보내지 않는다: 오류 문구 없이 동의 화면으로 (C4 B6)
+        if (isConsentRequiredApiRejection(res.status, json)) {
+          redirectForBlockedAction(router, "signup_incomplete");
+          return;
+        }
         // 재발송 대기(429) — 이 번호로 보낸 유효 인증번호가 서버에 있으면 새로 보내지 않고 이어서 입력
         if (res.status === 429 && json.code === "otp_rate_limited") {
           const latest = await fetchPhoneVerificationJson()
@@ -403,8 +412,13 @@ export function PhoneVerificationBox({
           ok?: boolean;
           code?: string;
           message?: string;
+          step?: string;
         };
         if (!res.ok || !json.ok) {
+          if (isConsentRequiredApiRejection(res.status, json)) {
+            redirectForBlockedAction(router, "signup_incomplete");
+            return;
+          }
           triggerInteractionFeedback("error");
           setError(
             resolvePhoneOtpUiError({ status: res.status, code: json.code, message: json.message }, t, "verify"),

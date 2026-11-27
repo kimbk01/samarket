@@ -26,6 +26,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useRouter } from "next/navigation";
+import { isConsentRequiredApiRejection, redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   clearAddressEditDraftV3,
   readAddressEditDraftV3,
@@ -405,8 +406,19 @@ export function AddressPlatformDetailClient(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isCreate ? { ...body, clientRequestId: clientRequestIdRef.current } : body),
       });
-      const j = (await res.json()) as { ok?: boolean; error?: string; address?: { id?: string } };
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        step?: string;
+        address?: { id?: string };
+      };
       if (!res.ok || !j.ok) {
+        // F4 — 새 주소 등록은 동의 뒤 (C4 B6): 오류 문구 없이 동의 화면으로
+        if (isConsentRequiredApiRejection(res.status, j)) {
+          redirectForBlockedAction(router, "signup_incomplete");
+          return;
+        }
         const msg = translateUserAddressApiError(j.error, t, "addr_ui_save_failed");
         tapHaptic("error");
         setErr(msg);
