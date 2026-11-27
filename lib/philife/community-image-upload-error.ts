@@ -22,6 +22,9 @@ export function communityImageUploadErrorKey(code: unknown, status?: number): Me
       return "philife_write_err_image_not_ready";
     case "too_many_images":
       return "philife_write_err_image_limit";
+    /** 가입 진행 중 거절 — 「가입 이어하기」 창과 같은 문장 (F2 2026-11-27, 설계 C2 §5-3) */
+    case "signup_incomplete":
+      return "auth_reg_gate_title";
     default:
       return status === 413 ? "philife_write_err_image_too_large" : "philife_write_err_image_upload";
   }

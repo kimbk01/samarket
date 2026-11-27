@@ -60,6 +60,8 @@ function tradeWriteUploadFailureMessage(
   t: ReturnType<typeof useI18n>["t"],
   results: UploadPostImageResult[]
 ): string {
+  /** 가입 진행 중 거절 — 창과 같은 문장만 (F2 2026-11-27, 설계 C2 §5-3) */
+  if (isRegistrationRequiredUploadFailure(results)) return registrationGuidanceMessage();
   const failure = firstPostImageUploadFailure(results);
   if (failure?.reason === "file_too_large") return t("trade_write_err_upload_too_large");
   const partial = t("trade_write_err_upload_partial", {
@@ -179,12 +181,14 @@ function buildTradeMeta(
   return {};
 }
 import { createPost } from "@/lib/posts/createPost";
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import {
   firstPostImageUploadFailure,
+  isRegistrationRequiredUploadFailure,
   uploadPostImagesDetailed,
   type UploadPostImageResult,
 } from "@/lib/posts/uploadPostImages";
@@ -1187,7 +1191,8 @@ function TradeMarketplaceWriteFormInner({
     const results = await uploadPostImagesDetailed(files);
     const uploaded = results.flatMap((r) => (r.ok ? [r.url] : []));
     if (uploaded.length !== files.length) {
-      await dibayAlert(tradeWriteUploadFailureDialog(t, results));
+      /** 가입 진행 중 거절은 「가입 이어하기」 창이 이미 떠 있다 — 실패 확인창을 겹치지 않는다 (F2) */
+      if (!isRegistrationRequiredUploadFailure(results)) await dibayAlert(tradeWriteUploadFailureDialog(t, results));
       throw new Error("partial-upload");
     }
     let idx = 0;

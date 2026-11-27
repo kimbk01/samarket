@@ -56,6 +56,26 @@ describe("미리 확인", () => {
     expect(opened).toHaveLength(1);
   });
 
+  it("글 사진 올리기 5개는 새 행동 — 보내지 않고 안내, 안 쓴 사진 정리(discard)는 그대로 보낸다 (F2 2026-11-27)", async () => {
+    setRegistrationPendingFromServer("phone");
+    const base = okFetch();
+    const f = wrapFetchWithRegistrationGuidance(base as unknown as typeof fetch);
+    for (const p of [
+      "/api/posts/upload-image",
+      "/api/community/upload-image",
+      "/api/community/upload-image-from-url",
+      "/api/philife/upload-image",
+      "/api/philife/upload-image-from-url",
+    ]) {
+      const res = await f(p, { method: "POST" });
+      expect(res.status, p).toBe(403);
+      expect(await res.json(), p).toMatchObject({ code: "signup_incomplete", step: "phone" });
+    }
+    expect(base).not.toHaveBeenCalled();
+    await f("/api/community/upload-image/discard", { method: "POST" });
+    expect(base).toHaveBeenCalledTimes(1);
+  });
+
   it("관리·정리(해제·수정·읽음)는 그대로 보낸다", async () => {
     setRegistrationPendingFromServer("phone");
     const base = okFetch();

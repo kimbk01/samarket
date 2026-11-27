@@ -6,8 +6,9 @@
  * `member-consent-mutation-policy` 가 먼저 통과시키므로 여기에는 없다.
  *
  * kind
- * - "new"    새로 만드는 행동(글·댓글·좋아요 추가·채팅·주문·결제·친구/모임 참여·초대·신청) → 가입(전화 인증 + 대표 주소) 필요
- * - "manage" 이미 있는 내 것의 관리(사진 올리기 단계 포함 — 글 등록 자체가 "new" 로 막힌다)(수정·삭제·해제·거절·취소·숨기기·읽음·방장/모임장 관리·고객지원·설정·통화·매장 운영) → 가입 없이 가능
+ * - "new"    새로 만드는 행동(글·댓글·좋아요 추가·채팅·주문·결제·친구/모임 참여·초대·신청·글 사진 올리기) → 가입(전화 인증 + 대표 주소) 필요
+ *            (글 사진 올리기 5개 = 계약 §4 A 그대로 — F2 2026-11-27 이 재감사3 #7 의 manage 를 되돌림. 안 쓴 사진 정리 `discard` 는 manage)
+ * - "manage" 이미 있는 내 것의 관리(수정·삭제·해제·거절·취소·숨기기·읽음·방장/모임장 관리·고객지원·설정·통화·매장 운영) → 가입 없이 가능
  * - "split"  한 경로에 둘이 함께 → 중앙 쓰기 게이트는 통과시키고, 라우트가 새 행동 분기에서만
  *            `requireRegistrationForAction` 을 부른다
  *
@@ -117,8 +118,8 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("DELETE", "/api/community/posts/[postId]/save", "manage"),
   W("POST", "/api/community/posts/[postId]/save", "split"),
   W("POST", "/api/community/posts/[postId]/share/internal", "new"),
-  W("POST", "/api/community/upload-image", "manage"),
-  W("POST", "/api/community/upload-image-from-url", "manage"),
+  W("POST", "/api/community/upload-image", "new"),
+  W("POST", "/api/community/upload-image-from-url", "new"),
   W("POST", "/api/community/upload-image/discard", "manage"),
   W("POST", "/api/favorites/toggle", "split"),
   W("POST", "/api/feed-ads/events", "manage"),
@@ -243,8 +244,8 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("PATCH", "/api/philife/posts/[postId]/comments/[commentId]", "manage"),
   W("POST", "/api/philife/posts/[postId]/comments/[commentId]/like", "split"),
   W("POST", "/api/philife/posts/[postId]/like", "split"),
-  W("POST", "/api/philife/upload-image", "manage"),
-  W("POST", "/api/philife/upload-image-from-url", "manage"),
+  W("POST", "/api/philife/upload-image", "new"),
+  W("POST", "/api/philife/upload-image-from-url", "new"),
   W("POST", "/api/posts/[postId]/comments", "new"),
   W("DELETE", "/api/posts/[postId]/hide", "manage"),
   W("PUT", "/api/posts/[postId]/hide", "manage"),
@@ -255,7 +256,7 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/posts/[postId]/trade-lifecycle", "manage"),
   W("POST", "/api/posts/create", "new"),
   W("POST", "/api/posts/listing-visibility", "manage"),
-  W("POST", "/api/posts/upload-image", "manage"),
+  W("POST", "/api/posts/upload-image", "new"),
   W("DELETE", "/api/stores/[slug]/favorite", "manage"),
   W("POST", "/api/stores/[slug]/favorite", "new"),
   W("POST", "/api/trade/chat/entry/resolve", "split"),

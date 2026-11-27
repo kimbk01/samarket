@@ -69,7 +69,8 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
     if (r.ok) setCover(r.url);
-    else toast.show(r.error, "error");
+    /** 가입 진행 중 거절은 「가입 이어하기」 창이 이미 떠 있다 — 실패 토스트를 겹치지 않는다 (F2 2026-11-27) */
+    else if (r.code !== "signup_incomplete") toast.show(r.error, "error");
   };
 
   const save = async () => {

@@ -1,16 +1,17 @@
 "use client";
 
 import { prepareImageFileForFunctionUpload } from "@/lib/media/client-image-upload-prepare";
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 
 const BUCKET = "post-images";
 
 type UploadPostImageResponse =
   | { ok: true; url: string; path?: string }
-  | { ok: false; error?: string };
+  | { ok: false; error?: string; code?: string };
 
 export type UploadPostImageResult =
   | { ok: true; url: string }
-  | { ok: false; reason: "file_too_large" | "server" | "network"; message?: string };
+  | { ok: false; reason: "file_too_large" | "server" | "network" | "registration_required"; message?: string };
 
 type PrepareForUpload = typeof prepareImageFileForFunctionUpload;
 
@@ -26,6 +27,10 @@ async function sendPreparedPostImage(file: File): Promise<UploadPostImageResult>
     if (res.status === 413) return { ok: false, reason: "file_too_large" };
     const json = (await res.json().catch(() => null)) as UploadPostImageResponse | null;
     if (res.ok && json?.ok && json.url) return { ok: true, url: json.url };
+    /** 가입 진행 중 거절 — 요청 단계 장치가 「가입 이어하기」 창을 이미 열었다 (F2 2026-11-27, 설계 C2 §5-3) */
+    if (json && !json.ok && json.code === "signup_incomplete") {
+      return { ok: false, reason: "registration_required", message: registrationGuidanceMessage() };
+    }
     const message = json && !json.ok && typeof json.error === "string" ? json.error : undefined;
     return { ok: false, reason: "server", ...(message ? { message } : {}) };
   } catch {
@@ -55,6 +60,14 @@ export async function uploadPostImagesDetailed(
     );
   }
   return Promise.all(sends);
+}
+
+/**
+ * 가입 진행 중 거절로 실패했는가 — 이미 「가입 이어하기」 창이 열려 있으므로 호출처는 업로드 실패 창·문구를 겹치지 않는다
+ * (실패 문구가 필요하면 창과 같은 문장 `registrationGuidanceMessage()`).
+ */
+export function isRegistrationRequiredUploadFailure(results: UploadPostImageResult[]): boolean {
+  return results.some((r) => !r.ok && r.reason === "registration_required");
 }
 
 /** 첫 실패 결과 (없으면 null) — 사용자 안내 문구 선택용 */

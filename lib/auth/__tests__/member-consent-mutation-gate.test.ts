@@ -111,6 +111,12 @@ describe("B3 central consent gate — enforce", () => {
       ["POST", "/api/me/store-orders"],
       ["POST", "/api/me/stores"],
       ["POST", "/api/stores/s1/favorite"],
+      // F2 2026-11-27 — 글 사진 올리기 = 계약 §4 A
+      ["POST", "/api/posts/upload-image"],
+      ["POST", "/api/community/upload-image"],
+      ["POST", "/api/community/upload-image-from-url"],
+      ["POST", "/api/philife/upload-image"],
+      ["POST", "/api/philife/upload-image-from-url"],
     ] as const) {
       const res = await enforce(req(m, p));
       expect(res, `${m} ${p}`).not.toBeNull();
@@ -134,6 +140,8 @@ describe("B3 central consent gate — enforce", () => {
       ["PATCH", "/api/me/stores/s1"],
       ["PATCH", "/api/me/discovery-settings"],
       ["POST", "/api/trade/product-chat/r1/buyer-confirm"],
+      // F2 2026-11-27 — 안 쓴 사진 정리는 계약 §4 B 그대로 가입 없이
+      ["POST", "/api/community/upload-image/discard"],
     ] as const) {
       expect(await enforce(req(m, p)), `${m} ${p}`).toBeNull();
     }
@@ -149,6 +157,8 @@ describe("B3 central consent gate — enforce", () => {
       { kind: "REGISTRATION_REQUIRED", step: "phone" },
     );
     expect(await enforce(req("POST", "/api/community/posts"))).toBeNull();
+    // F2 — 관리자 진열 화면(TradeShowcaseAdminPage)의 사진 올리기도 면제
+    expect(await enforce(req("POST", "/api/posts/upload-image"))).toBeNull();
     expect(registrationSpy).not.toHaveBeenCalled();
   });
 

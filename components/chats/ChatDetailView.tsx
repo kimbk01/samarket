@@ -19,7 +19,8 @@ import {
   type MessengerRoomEntryIntent,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { uploadPostImages } from "@/lib/posts/uploadPostImages";
+import { isRegistrationRequiredUploadFailure, uploadPostImagesDetailed } from "@/lib/posts/uploadPostImages";
+import { registrationGuidanceMessage } from "@/lib/auth/registration-guidance-fetch-gate.client";
 import { getAppSettings } from "@/lib/app-settings";
 import { ChatProductSummary } from "./ChatProductSummary";
 import { ChatMessageList } from "./ChatMessageList";
@@ -1527,10 +1528,15 @@ export function ChatDetailView({
       setImageSending(true);
       let optimistic: ChatMessage | null = null;
       try {
-        const urls = await uploadPostImages([file], user.id);
-        const imageUrl = urls[0];
+        const uploadResults = await uploadPostImagesDetailed([file]);
+        const imageUrl = uploadResults[0]?.ok ? uploadResults[0].url : undefined;
         if (!imageUrl) {
-          setSendError(t("chats_send_image_upload_failed"));
+          /** 가입 진행 중 거절 — 「가입 이어하기」 창과 같은 문장 (F2 2026-11-27, 설계 C2 §5-3) */
+          setSendError(
+            isRegistrationRequiredUploadFailure(uploadResults)
+              ? registrationGuidanceMessage()
+              : t("chats_send_image_upload_failed")
+          );
           return;
         }
         optimistic = appendOptimisticMessage({
