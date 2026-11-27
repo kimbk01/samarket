@@ -41,7 +41,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/cron/delivery-ads-schedule-transitions": 11.0,
   /** 2026-11-27 광고 B-DB FB-12 — 하루 1회: DB 함수 1회 + 반려 건마다 언어 조회·알림(평소 0건) */
   "/api/cron/feed-ad-requests-review-expire": 1.0,
-  "/api/launch-intro/live": 3.0,
+  /** 2026-11-27 최종 설계 단계 1: 인트로 정책 설정 공유 캐시 → 정책 읽기 −1 (코드 계산값, 7일 뒤 Vercel 값으로 내리기만) */
+  "/api/launch-intro/live": 2.0,
   "/api/me/notification-settings": 3.5,
   "/api/platform-popup/resolve": 2.4,
   "/api/me/settings": 1.9,
@@ -75,8 +76,12 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/cron/moim-schedules": 7.0,
   "/api/admin/inbox": 4.5,
   "/api/me/address-defaults": 1.1,
-  "/api/app-settings": 1.0,
-  "/api/app/startup-config": 1.0,
+  /**
+   * 2026-11-27 최종 설계 단계 1: 설정 1키 공유 캐시(저장 시 즉시 만료·안전망 1시간) → 요청당 거의 0.
+   * 코드 계산값 0.5(캐시 만료 직후·새 배포 첫 요청 여유) — 7일 뒤 Vercel 값으로 내리기만.
+   */
+  "/api/app-settings": 0.5,
+  "/api/app/startup-config": 0.5,
   "/api/me/store-owner-hub-badge": 1.0,
   /** 2026-11-26 D (Owner 승인): #562 받은 알림 요약을 종에 합친 뒤 구조 값 — 인증 1 · 처리 대기 1 · 받은 알림 1 · 발송 상태 1. 실측 4.05(Vercel 304/75, 11-25 09~12 UTC) → 4.0 */
   "/api/admin/admin-bell": 4.0,

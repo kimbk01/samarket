@@ -13,7 +13,7 @@ export default async function AdminCommunityTopicsRoute() {
   const [sectionsRes, topicsRes, philifeNeighborhoodSectionSlug] = await Promise.all([
     loadAllCommunitySectionsForAdmin(),
     loadAllCommunityTopicsForAdmin(),
-    getPhilifeNeighborhoodSectionSlugServer(),
+    getPhilifeNeighborhoodSectionSlugServer(undefined, { fresh: true }),
   ]);
   const sections = sectionsRes.rows;
   const topics = topicsRes.rows;

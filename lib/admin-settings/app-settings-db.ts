@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppSettings, SettingChangeLog } from "@/lib/types/admin-settings";
 import { APP_SETTINGS_BUNDLE_KEY } from "@/lib/admin-settings/app-settings-keys";
 import { DEFAULT_APP_SETTINGS } from "@/lib/admin-settings/admin-settings-utils";
+import {
+  invalidateAdminSettingSharedCache,
+  readAdminSettingShared,
+} from "@/lib/admin-settings/admin-setting-shared-cache.server";
 
 export type AppSettingsBundleV1 = {
   version: 1;
@@ -35,29 +39,41 @@ export function createDefaultAppSettingsBundle(): AppSettingsBundleV1 {
   };
 }
 
-export async function loadAppSettingsBundleFromDb(
-  sb: SupabaseClient
-): Promise<
+type AppSettingsBundleLoad =
   | { ok: true; bundle: AppSettingsBundleV1; source: "db" | "default" }
-  | { ok: false; reason: "missing_table" | "error"; message?: string }
-> {
-  const { data, error } = await sb
-    .from("admin_settings")
-    .select("value_json")
-    .eq("key", APP_SETTINGS_BUNDLE_KEY)
-    .maybeSingle();
+  | { ok: false; reason: "missing_table" | "error"; message?: string };
 
+function interpretBundleRead(
+  data: { value_json?: unknown } | null,
+  error: { message?: string; code?: string } | null
+): AppSettingsBundleLoad {
   if (error) {
     if (isMissingAdminSettings(error)) return { ok: false, reason: "missing_table", message: error.message };
     return { ok: false, reason: "error", message: error.message };
   }
 
-  const v = (data as { value_json?: unknown } | null)?.value_json;
+  const v = data?.value_json;
   const inner =
     v && typeof v === "object" && "payload" in (v as object) ? (v as { payload?: unknown }).payload : v;
   const parsed = parseBundle(inner);
   if (!parsed) return { ok: true, bundle: createDefaultAppSettingsBundle(), source: "default" };
   return { ok: true, bundle: parsed, source: "db" };
+}
+
+/** 캐시 없이 — 관리자 편집·저장 직전 비교 */
+export async function loadAppSettingsBundleFromDb(sb: SupabaseClient): Promise<AppSettingsBundleLoad> {
+  const { data, error } = await sb
+    .from("admin_settings")
+    .select("value_json")
+    .eq("key", APP_SETTINGS_BUNDLE_KEY)
+    .maybeSingle();
+  return interpretBundleRead(data as { value_json?: unknown } | null, error);
+}
+
+/** 회원 경로 — 인스턴스 공유 캐시(저장 시 즉시 만료). 공유 캐시 실패 시 `sb` 로 직접. */
+export async function loadAppSettingsBundleShared(sb: SupabaseClient): Promise<AppSettingsBundleLoad> {
+  const { data, error } = await readAdminSettingShared(APP_SETTINGS_BUNDLE_KEY, sb);
+  return interpretBundleRead(data, error);
 }
 
 export async function saveAppSettingsBundleToDb(
@@ -77,6 +93,7 @@ export async function saveAppSettingsBundleToDb(
     if (isMissingAdminSettings(error)) return { ok: false, error: "admin_settings_missing" };
     return { ok: false, error: error.message };
   }
+  invalidateAdminSettingSharedCache(APP_SETTINGS_BUNDLE_KEY);
   return { ok: true };
 }
 

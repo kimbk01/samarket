@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { readAdminSettingShared } from "@/lib/admin-settings/admin-setting-shared-cache.server";
 import {
   TRADE_SETTINGS_KEY,
   TRADE_SOLD_VISIBLE_DAYS_DEFAULT,
@@ -43,8 +44,9 @@ async function loadDays(sb: SupabaseClient): Promise<number> {
   if (daysCache && daysCache.expiresAt > Date.now()) return daysCache.value;
   let value = TRADE_SOLD_VISIBLE_DAYS_DEFAULT;
   try {
-    const { data } = await sb.from("admin_settings").select("value_json").eq("key", TRADE_SETTINGS_KEY).maybeSingle();
-    value = mergeTradeDetailOpsSettings((data as { value_json?: unknown } | null)?.value_json ?? {}).completedVisibleDays;
+    /** 인스턴스 공유 캐시(관리자 저장 시 즉시 만료) — 실패 시 `sb` 로 직접 */
+    const { data } = await readAdminSettingShared(TRADE_SETTINGS_KEY, sb);
+    value = mergeTradeDetailOpsSettings(data?.value_json ?? {}).completedVisibleDays;
   } catch {
     /* 설정을 못 읽으면 기본 30일 */
   }

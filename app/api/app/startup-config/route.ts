@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { BUNDLED_STARTUP_CONFIG } from "@/lib/startup/startup-config";
-import { loadStartupConfigFromDb } from "@/lib/startup/startup-config-db";
+import { loadStartupConfigShared } from "@/lib/startup/startup-config-db";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   PUBLIC_CONFIG_CDN_CACHE_CONTROL,
@@ -23,7 +23,7 @@ export async function GET() {
     );
   }
 
-  const loaded = await loadStartupConfigFromDb(sb);
+  const loaded = await loadStartupConfigShared(sb);
   if (!loaded.ok) {
     return NextResponse.json(
       { ok: true as const, source: "default" as const, config: BUNDLED_STARTUP_CONFIG },

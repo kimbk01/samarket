@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { DEFAULT_COMMUNITY_SECTION, normalizeSectionSlug } from "@/lib/community-feed/constants";
+import { readAdminSettingShared } from "@/lib/admin-settings/admin-setting-shared-cache.server";
 
 /** `admin_settings` — 필라이프 동네 피드·모임 주제가 붙는 `community_sections.slug` */
 export const PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY = "philife_neighborhood_section";
@@ -39,6 +40,23 @@ export type PhilifeNeighborhoodSectionResolved = {
   topicsAdminCandidateSlug: string | null;
 };
 
+/**
+ * 설정 행 읽기 — 회원 경로는 인스턴스 공유 캐시(저장 시 즉시 만료, 실패 시 `client` 로 직접).
+ * `fresh` = 관리자 화면·관리자 저장(직전 병합·공지 섹션 결정)처럼 DB 를 직접 읽어야 할 때.
+ */
+async function readSectionSettingsRow(
+  client: SupabaseClient,
+  fresh: boolean
+): Promise<{ data: { value_json?: unknown } | null; error: { message?: string } | null }> {
+  if (!fresh) return readAdminSettingShared(PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY, client);
+  const { data, error } = await client
+    .from("admin_settings")
+    .select("value_json")
+    .eq("key", PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY)
+    .maybeSingle();
+  return { data: data as { value_json?: unknown } | null, error };
+}
+
 const defaultResolved = (): PhilifeNeighborhoodSectionResolved => ({
   slug: DEFAULT_COMMUNITY_SECTION,
   sectionId: null,
@@ -51,7 +69,8 @@ const defaultResolved = (): PhilifeNeighborhoodSectionResolved => ({
  */
 export async function getPhilifeNeighborhoodSectionResolvedServer(
   sb?: SupabaseClient,
-  fillTimings?: PhilifeSectionResolveTimings
+  fillTimings?: PhilifeSectionResolveTimings,
+  opts?: { fresh?: boolean }
 ): Promise<PhilifeNeighborhoodSectionResolved> {
   let client: SupabaseClient;
   try {
@@ -62,11 +81,7 @@ export async function getPhilifeNeighborhoodSectionResolvedServer(
 
   try {
     const tSet = performance.now();
-    const { data, error } = await client
-      .from("admin_settings")
-      .select("value_json")
-      .eq("key", PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY)
-      .maybeSingle();
+    const { data, error } = await readSectionSettingsRow(client, opts?.fresh === true);
     if (fillTimings) {
       fillTimings.topics_settings_lookup_ms += performance.now() - tSet;
     }
@@ -117,7 +132,8 @@ function parseSettingsV1(valueJson: unknown): PhilifeNeighborhoodSectionSettings
  * `philife_neighborhood_section` value_json — 섹션 해석 없이 JSON 만 읽을 때(전체탭 등).
  */
 export async function getPhilifeNeighborhoodSectionSettingsV1Server(
-  sb?: SupabaseClient
+  sb?: SupabaseClient,
+  opts?: { fresh?: boolean }
 ): Promise<PhilifeNeighborhoodSectionSettingsV1> {
   let client: SupabaseClient;
   try {
@@ -126,11 +142,7 @@ export async function getPhilifeNeighborhoodSectionSettingsV1Server(
     return {};
   }
   try {
-    const { data, error } = await client
-      .from("admin_settings")
-      .select("value_json")
-      .eq("key", PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY)
-      .maybeSingle();
+    const { data, error } = await readSectionSettingsRow(client, opts?.fresh === true);
     if (error && !error.message?.includes("does not exist")) return {};
     return parseSettingsV1((data as { value_json?: unknown } | null)?.value_json);
   } catch {
@@ -139,14 +151,20 @@ export async function getPhilifeNeighborhoodSectionSettingsV1Server(
 }
 
 /** 필라이프 상단「전체」탭( slug 빈 값 )을 보여줄지. `show_all_feed_tab: false` 만 숨김(기본 true). */
-export async function getPhilifeShowAllFeedTabServer(sb?: SupabaseClient): Promise<boolean> {
-  const s = await getPhilifeNeighborhoodSectionSettingsV1Server(sb);
+export async function getPhilifeShowAllFeedTabServer(
+  sb?: SupabaseClient,
+  opts?: { fresh?: boolean }
+): Promise<boolean> {
+  const s = await getPhilifeNeighborhoodSectionSettingsV1Server(sb, opts);
   return s.show_all_feed_tab !== false;
 }
 
 /**「관심이웃 글만 보기」필터 띠 전체(체크+안내)를 보여줄지. `show_neighbor_only_filter: false` 면 비노출(기본 true). */
-export async function getPhilifeShowNeighborOnlyFilterServer(sb?: SupabaseClient): Promise<boolean> {
-  const s = await getPhilifeNeighborhoodSectionSettingsV1Server(sb);
+export async function getPhilifeShowNeighborOnlyFilterServer(
+  sb?: SupabaseClient,
+  opts?: { fresh?: boolean }
+): Promise<boolean> {
+  const s = await getPhilifeNeighborhoodSectionSettingsV1Server(sb, opts);
   return s.show_neighbor_only_filter !== false;
 }
 
@@ -154,7 +172,10 @@ export async function getPhilifeShowNeighborOnlyFilterServer(sb?: SupabaseClient
  * 동네 피드에 사용할 섹션 slug (미설정·무효면 `dongnae`).
  * `sb`를 넘기면 동일 클라이언트로 조회(트랜잭션 불필요 시 중복 클라이언트 방지).
  */
-export async function getPhilifeNeighborhoodSectionSlugServer(sb?: SupabaseClient): Promise<string> {
-  const r = await getPhilifeNeighborhoodSectionResolvedServer(sb);
+export async function getPhilifeNeighborhoodSectionSlugServer(
+  sb?: SupabaseClient,
+  opts?: { fresh?: boolean }
+): Promise<string> {
+  const r = await getPhilifeNeighborhoodSectionResolvedServer(sb, undefined, opts);
   return r.slug;
 }

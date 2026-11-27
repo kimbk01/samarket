@@ -15,6 +15,7 @@ import {
   mergeTradeDetailOpsSettings,
 } from "./trade-settings.service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { readAdminSettingShared } from "@/lib/admin-settings/admin-setting-shared-cache.server";
 import { isPromotionLiveForTarget } from "@/lib/promotion/promotion-live-target";
 import { isPostEligibleForPromotionBoost, TRADE_PROMOTION_PROJECTION } from "@/lib/promotion/trade-promotion-overlay";
 
@@ -104,12 +105,9 @@ async function loadSellerPublicProfile(
 
 async function loadTradeOpsSettings(clients: PostsReadClients) {
   const sb = clients.serviceSb ?? clients.readSb;
-  const { data } = await sb
-    .from("admin_settings")
-    .select("value_json")
-    .eq("key", TRADE_SETTINGS_KEY)
-    .maybeSingle();
-  const raw = (data as { value_json?: Record<string, unknown> } | null)?.value_json;
+  /** 인스턴스 공유 캐시(관리자 거래 설정 저장 시 즉시 만료) — 실패 시 `sb` 로 직접 (최종 설계 단계 1) */
+  const { data } = await readAdminSettingShared(TRADE_SETTINGS_KEY, sb as SupabaseClient);
+  const raw = data?.value_json as Record<string, unknown> | null | undefined;
   return mergeTradeDetailOpsSettings(raw ?? {});
 }
 

@@ -10,7 +10,7 @@ export default async function AdminCommunitySectionsRoute() {
   if (!access.ok) return <AdminAccessDeniedPanel backHref="/admin" />;
   const [sectionsRes, philifeNeighborhoodSectionSlug] = await Promise.all([
     loadAllCommunitySectionsForAdmin(),
-    getPhilifeNeighborhoodSectionSlugServer(),
+    getPhilifeNeighborhoodSectionSlugServer(undefined, { fresh: true }),
   ]);
   return (
     <AdminCommunitySectionsPage

@@ -212,7 +212,7 @@ export async function applyCommunityPostAdminPatch(
       const { deriveCommunityPostCategoryBucket } = await import(
         "@/lib/neighborhood/derive-community-post-category-bucket"
       );
-      const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
+      const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb, { fresh: true });
       const meta = await resolveTopicMeta(sectionSlug, topicSlug);
       if (!meta || meta.is_feed_sort || meta.id !== topicId) {
         return { status: 400, body: { ok: false, error: "invalid_topic" } };

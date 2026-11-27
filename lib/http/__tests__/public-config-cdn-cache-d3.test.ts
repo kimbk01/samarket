@@ -10,7 +10,7 @@ import {
  */
 const startup = { sb: true as boolean, loaded: { ok: true, source: "db", config: { version: 2 } } as unknown };
 vi.mock("@/lib/stores/try-supabase-stores", () => ({ tryGetSupabaseForStores: () => (startup.sb ? {} : null) }));
-vi.mock("@/lib/startup/startup-config-db", () => ({ loadStartupConfigFromDb: async () => startup.loaded }));
+vi.mock("@/lib/startup/startup-config-db", () => ({ loadStartupConfigShared: async () => startup.loaded }));
 
 const appSettings = { loaded: { ok: true, bundle: { settings: { siteName: "X" } } } as unknown, throws: false };
 vi.mock("@/lib/chat/supabase-server", () => ({
@@ -20,7 +20,7 @@ vi.mock("@/lib/chat/supabase-server", () => ({
   },
 }));
 vi.mock("@/lib/admin-settings/app-settings-db", () => ({
-  loadAppSettingsBundleFromDb: async () => appSettings.loaded,
+  loadAppSettingsBundleShared: async () => appSettings.loaded,
   createDefaultAppSettingsBundle: () => ({ settings: { siteName: "DEFAULT" } }),
 }));
 

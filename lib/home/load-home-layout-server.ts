@@ -49,7 +49,11 @@ export async function loadHomeLayoutFromStore(): Promise<HomeLayoutServerPayload
 const loadHomeLayoutCachedInternal = unstable_cache(
   async (): Promise<HomeLayoutServerPayload> => loadHomeLayoutFromStore(),
   ["home-layout:server:v2"],
-  { revalidate: 300, tags: [HOME_LAYOUT_SERVER_CACHE_TAG] }
+  /**
+   * 어드민 저장은 태그로 즉시 만료 — 자연 만료는 안전망(1시간).
+   * 2026-11-27 운영: 5분 자연 만료만으로 16.9시간 183번 읽음(최종 설계 단계 1).
+   */
+  { revalidate: 3600, tags: [HOME_LAYOUT_SERVER_CACHE_TAG] }
 );
 
 /** 앱 홈 — 서버 캐시(어드민 저장 시 태그 즉시 만료). 읽기 실패는 캐시하지 않고 이번 요청만 기본값 */
