@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { joinOpenGroupRoomWithPassword } from "@/lib/community-messenger/service";
+import { OPEN_GROUP_JOIN_LOCK_MINUTES, openGroupJoinRetryAfterSec } from "@/lib/community-messenger/server/open-group-join-lock";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -45,5 +46,15 @@ export async function POST(
     identityMode: body.identityMode === "alias" ? "alias" : "real_name",
     aliasProfile: body.aliasProfile,
   });
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  /** 모임 감사 5번 묶음 P3 — 비밀번호 연속 실패 잠금은 429 + 남은 초 */
+  if (!result.ok && result.error === "password_locked") {
+    const retryAfterSec = result.lockedUntil
+      ? openGroupJoinRetryAfterSec(result.lockedUntil)
+      : OPEN_GROUP_JOIN_LOCK_MINUTES * 60;
+    return NextResponse.json(
+      { ok: false, error: "password_locked", retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+    );
+  }
+  return NextResponse.json({ ok: result.ok, roomId: result.roomId, error: result.error }, { status: result.ok ? 200 : 400 });
 }

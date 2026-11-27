@@ -9,6 +9,7 @@ import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
 import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 import { MAIN_BOTTOM_NAV_NESTED_DIALOG_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { OPEN_GROUP_PASSWORD_MAX_LENGTH } from "@/lib/community-messenger/open-group-password-rules";
 
 export type OpenGroupJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -135,6 +136,7 @@ export function OpenGroupJoinPreviewFullScreen({
               value={joinPassword}
               onChange={(e) => onJoinPasswordChange(e.target.value)}
               placeholder={t("cm_ui_enter_password")}
+              maxLength={OPEN_GROUP_PASSWORD_MAX_LENGTH}
               className="h-12 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body outline-none focus:border-sam-border"
             />
           ) : null}

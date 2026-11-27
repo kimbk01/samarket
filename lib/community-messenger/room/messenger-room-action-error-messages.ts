@@ -71,6 +71,12 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_password_required");
     case "alias_name_required":
       return t("nav_messenger_alias_name_required");
+    case "password_too_short":
+      return t("nav_messenger_password_too_short");
+    case "password_too_long":
+      return t("nav_messenger_password_too_long");
+    case "password_locked":
+      return t("nav_messenger_password_locked");
     case "invalid_password":
       return t("nav_messenger_invalid_password");
     case "room_full":
