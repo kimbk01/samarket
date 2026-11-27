@@ -27,7 +27,7 @@ import { useSupportCategoryLabels } from "@/lib/support/use-support-category-set
 import type { SupportContext } from "@/lib/support/support-context";
 import { supportErrorLabel, supportReferenceLabel } from "@/lib/support/support-display-labels";
 import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
-import { supportCaseStatusLabelMeta, supportRequesterStatusPill } from "@/lib/support/support-status-label";
+import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
 import {
   SUPPORT_TICKET_BODY_MAX,
   applySupportTicketDraft,
@@ -1033,7 +1033,8 @@ export function SupportTicketDetail({
   const headerTitle = supportCase
     ? [supportCase.public_case_no, categoryLabel].filter(Boolean).join(" · ")
     : t("support_ticket_title");
-  const statusText = supportCase ? t(supportCaseStatusLabelMeta(supportCase.status).key) : "";
+  // UI U1: 문구·색 모두 같은 정의(supportRequesterStatusPill)
+  const statusText = supportCase ? t(supportRequesterStatusPill(supportCase.status, supportCase.requester_unread_count).key) : "";
   const answered = isSupportTicketAnsweredStatus(supportCase?.status);
   const lastAt = supportCase ? formatMypageDate(supportCase.last_message_at, { style: "datetime" }) : "";
 
