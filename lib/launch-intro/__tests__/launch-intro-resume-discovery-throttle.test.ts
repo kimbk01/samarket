@@ -81,7 +81,9 @@ describe("다시 열기 발견 간격 (동작)", () => {
   });
 
   it("새로 켤 때 1번 → 30분 안 다시 열기 0번 → 30분 뒤 다시 열기 1번", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify(LIVE_OK), { status: 200 }));
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(LIVE_OK), { status: 200 })
+    );
     vi.stubGlobal("fetch", fetchMock);
     const m = await loadDiscovery();
     m.startLaunchIntroDiscovery();
