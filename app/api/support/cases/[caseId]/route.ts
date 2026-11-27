@@ -11,6 +11,11 @@ import {
   requesterCloseSupportCase,
 } from "@/lib/support/support-case-service";
 import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
+import { checkSupportCustomerPostRate } from "@/lib/support/support-customer-rate-limit";
+import {
+  toSupportRequesterCaseView,
+  toSupportRequesterMessageView,
+} from "@/lib/support/support-requester-view";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +38,14 @@ export async function GET(
   }
   const gate = await getSupportCaseForUser(sb, { userId: auth.userId, caseId });
   if (!gate.ok) {
-    const status = gate.error === "not_found" ? 404 : gate.error === "forbidden" ? 403 : 400;
+    const status =
+      gate.error === "not_found"
+        ? 404
+        : gate.error === "forbidden"
+          ? 403
+          : gate.error === "case_fetch_failed"
+            ? 500
+            : 400;
     return NextResponse.json({ ok: false, error: gate.error }, { status });
   }
   // 접수형 문의(Owner 2026-11-10): 종료된 문의는 요청자에게 내용을 돌려주지 않는다(화면에서 사라짐).
@@ -49,6 +61,8 @@ export async function GET(
       caseId,
       // 4차 재감사 ①: 읽음 기준 = 보여 준 목록의 가장 늦은 글 시각
       seenLastMessageAt: supportShownListSeenAt(closedMessages.messages, gate.case.last_message_at),
+      // 최종 감사 L11: 위 본인 확인에서 읽은 행을 그대로(문의 행 2번 읽지 않음)
+      caseRow: gate.case,
     });
     const notificationsRead = await markSupportCaseNotificationsRead(sb, {
       userId: auth.userId,
@@ -58,8 +72,8 @@ export async function GET(
     });
     return NextResponse.json({
       ok: true,
-      case: gate.case,
-      messages: closedMessages.messages,
+      case: toSupportRequesterCaseView(gate.case),
+      messages: closedMessages.messages.map(toSupportRequesterMessageView),
       closed: true,
       notificationsRead,
     });
@@ -69,7 +83,8 @@ export async function GET(
       userId: auth.userId,
       caseId,
     });
-    return NextResponse.json({ ok: true, case: gate.case, messages: [], closed: true, notificationsRead });
+    const closedCase = toSupportRequesterCaseView(gate.case);
+    return NextResponse.json({ ok: true, case: closedCase, messages: [], closed: true, notificationsRead });
   }
   const messages = await listSupportMessages(sb, { caseId });
   if (!messages.ok) {
@@ -80,6 +95,7 @@ export async function GET(
     caseId,
     // 4차 재감사 ①: 읽음 기준 = 보여 준 목록의 가장 늦은 글 시각
     seenLastMessageAt: supportShownListSeenAt(messages.messages, gate.case.last_message_at),
+    caseRow: gate.case,
   });
   // Phase 3 A3 — reading the case also clears its bell rows for this requester.
   // 3차 재감사 2: 보여 준 답변의 알림만(목록을 읽은 뒤 도착한 답변 알림은 남긴다 — 고객 미읽음 숫자와 같은 기준)
@@ -90,8 +106,8 @@ export async function GET(
   });
   return NextResponse.json({
     ok: true,
-    case: gate.case,
-    messages: messages.messages,
+    case: toSupportRequesterCaseView(gate.case),
+    messages: messages.messages.map(toSupportRequesterMessageView),
     notificationsRead,
   });
 }
@@ -133,12 +149,17 @@ export async function POST(
               : 400;
       return NextResponse.json({ ok: false, error: res.error }, { status });
     }
-    return NextResponse.json({ ok: true, case: res.case });
+    return NextResponse.json({ ok: true, case: toSupportRequesterCaseView(res.case) });
   }
 
   // 고객 문의 SSOT §2 (재감사 D12): 재오픈은 어드민만 — 고객은 「새 문의」로 다시 묻는다. 옛 호출은 400.
   if (body.action === "reopen") {
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+  }
+
+  // 고객 문의 최종 감사 D5: 고객 글 속도 제한(1분 5건 · 1시간 30건) — 넘으면 저장·어드민 알림 없이 429
+  if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") {
+    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
   const res = await postRequesterSupportMessage(sb, {
@@ -157,5 +178,5 @@ export async function POST(
             : 400;
     return NextResponse.json({ ok: false, error: res.error }, { status });
   }
-  return NextResponse.json({ ok: true, message: res.message });
+  return NextResponse.json({ ok: true, message: toSupportRequesterMessageView(res.message) });
 }

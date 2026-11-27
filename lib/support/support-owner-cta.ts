@@ -5,3 +5,15 @@
  */
 export const OWNER_SUPPORT_CTA_CLASS =
   "touch-manipulation inline-flex w-full min-h-11 items-center justify-center rounded-ui-rect bg-[var(--dibay-brown)] px-4 text-[14px] font-medium text-sam-on-primary active:opacity-90 disabled:opacity-50";
+
+/**
+ * 사장님 고객센터 선택 탭 (최종 감사 U-7 · 2026-11-28) — 「문의하기」와 같은 갈색. 초록(`bg-signature`) 쓰지 않음.
+ */
+export const OWNER_SUPPORT_TAB_SELECTED_CLASS = "bg-[var(--dibay-brown)] text-sam-on-primary";
+
+/**
+ * 「문의하기」 비활성 판정 (최종 감사 U-12 · 계약 §6 「사장님인데 매장 없음」) — 허브·사장님 고객센터 공용.
+ */
+export function isSupportHubInquireDisabled(audience: "MEMBER" | "OWNER", storeId?: string | null): boolean {
+  return audience === "OWNER" && !String(storeId ?? "").trim();
+}

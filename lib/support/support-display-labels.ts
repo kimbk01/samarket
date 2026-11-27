@@ -81,9 +81,22 @@ export function supportErrorLabel(safeT: SafeT, code: string | null | undefined)
     case "case_updated":
       // 2차 재감사 A: 「확인했어요」 사이에 새 답변이 왔다 — 화면을 다시 읽어 보여 준다
       return safeT("support_error_case_updated");
+    case "rate_limited":
+    case "http_429":
+      // 최종 감사 2026-11-28: 서버 요청 수 제한
+      return safeT("support_error_rate_limited");
+    case "invalid_transition":
+      // 최종 감사 2026-11-28: 지금 상태에서 할 수 없는 처리(예: 답변 완료가 아닌 문의를 「확인했어요」)
+      return safeT("support_error_invalid_transition");
     default:
       return safeT("common_error");
   }
+}
+
+/** 화면이 다시 읽어야 하는 고객 오류 코드 — 문의 상태가 화면과 달라졌다 */
+export function supportErrorNeedsReload(code: string | null | undefined): boolean {
+  const c = String(code ?? "").trim();
+  return c === "case_closed" || c === "case_updated" || c === "invalid_transition";
 }
 
 /**
@@ -97,6 +110,8 @@ export function adminSupportErrorLabel(safeT: SafeT, code: string | null | undef
       return safeT("admin_support_error_not_closed");
     case "status_conflict":
       return safeT("admin_support_error_status_conflict");
+    case "case_updated": // 최종 감사 L1: 담당 지정 경합 — 다른 관리자가 먼저 바꿈
+      return safeT("admin_support_error_case_updated");
     case "active_case_exists":
       return safeT("admin_support_error_active_case_exists");
     case "case_closed":

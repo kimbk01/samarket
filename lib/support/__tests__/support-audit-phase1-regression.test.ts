@@ -42,6 +42,7 @@ const adminNotifyCalls: {
 }[] = [];
 
 const adminResolveCalls: string[] = [];
+const adminResolveInputs: { workRef: { id: string }; kinds: readonly string[]; dedupeKeys?: readonly string[] }[] = [];
 const authorityAllowsResult = { value: true };
 
 vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
@@ -73,10 +74,13 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
     }
   ),
   markAdminNotificationsRead: vi.fn(async () => ({ ok: false, error: "nothing_to_mark" })),
-  resolveAdminNotificationsForWork: vi.fn(async (_sb: unknown, input: { workRef: { id: string } }) => {
-    adminResolveCalls.push(input.workRef.id);
-    return 0;
-  }),
+  resolveAdminNotificationsForWork: vi.fn(
+    async (_sb: unknown, input: { workRef: { id: string }; kinds: readonly string[]; dedupeKeys?: readonly string[] }) => {
+      adminResolveCalls.push(input.workRef.id);
+      adminResolveInputs.push(input);
+      return 0;
+    }
+  ),
   authorityAllows: vi.fn(() => authorityAllowsResult.value),
   settleSupportCustomerMessageNotification: vi.fn(async () => undefined),
   resolveAdminRecipientAuthority: vi.fn(async () => ({ active: true, isSuperAdmin: true, permissions: [] })),
@@ -109,7 +113,11 @@ import {
   requesterVisibleActiveOrFilter,
   shouldRunSupportAutoClose,
   SUPPORT_AUTO_CLOSE_AFTER_DAYS,
+  sumSupportRequesterUnread,
 } from "@/lib/support/support-case-service";
+import { checkSupportCustomerPostRate } from "@/lib/support/support-customer-rate-limit";
+import { toSupportRequesterCaseView, toSupportRequesterMessageView } from "@/lib/support/support-requester-view";
+import { releaseSupportAssignmentsOnRevoke } from "@/lib/admin/admin-membership";
 import {
   ADMIN_SUPPORT_LIST_FILTERS,
   isAdminSupportListFilter,
@@ -241,12 +249,22 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         st.filters.push((r) => String(r[c] ?? "") > String(v));
         return b;
       },
+      lte: (c: string, v: unknown) => {
+        st.filters.push((r) => String(r[c] ?? "") <= String(v));
+        return b;
+      },
       neq: (c: string, v: unknown) => {
         st.filters.push((r) => r[c] !== v);
         return b;
       },
       is: (c: string, v: unknown) => {
         st.filters.push((r) => (r[c] ?? null) === v);
+        return b;
+      },
+      /** `not(col, "in", "(A,B)")` 만 */
+      not: (c: string, op: string, v: string) => {
+        const vals = op === "in" ? v.replace(/[()]/g, "").split(",") : [v];
+        st.filters.push((r) => !vals.includes(String(r[c])));
         return b;
       },
       in: (c: string, vs: unknown[]) => {
@@ -374,6 +392,7 @@ beforeEach(() => {
   notifyCalls.length = 0;
   adminNotifyCalls.length = 0;
   adminResolveCalls.length = 0;
+  adminResolveInputs.length = 0;
   authorityAllowsResult.value = true;
 });
 
@@ -431,6 +450,7 @@ describe("support audit phase 1 — regression lock", () => {
     notifyCalls.length = 0;
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush(); // 최종 감사 L7: 고객 알림은 응답 뒤
     expect(notifyCalls.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
     expect(db.support_case_events.filter((e) => e.event_type === "status_changed")).toHaveLength(1);
   });
@@ -503,7 +523,11 @@ describe("support audit phase 1 — regression lock", () => {
     expect(hist).not.toMatch(/\{c\.status\}/);
     expect(hist).not.toMatch(/\{c\.category\}/);
     // UI U1·U2 (2026-11-27): 상태 알약은 고객 화면 공용 정의(supportRequesterStatusPill) — 미읽음은 색·문구 판정에만 쓴다
-    expect(hist).toContain("supportRequesterStatusPill(c.status, c.requester_unread_count)");
+    // 최종 감사 U-10: 행은 공용 행(SupportCaseRowButton) — 알약 판정은 그 행에서
+    expect(hist).toContain("<SupportCaseRowButton");
+    expect(readFileSync(join(process.cwd(), "components/support/SupportCaseRow.tsx"), "utf8")).toContain(
+      "supportRequesterStatusPill(c.status, c.requester_unread_count)"
+    );
     // 숫자는 고객센터 FAB 아이콘에만 — 목록 행에는 숫자를 그리지 않는다(Owner 2026-11-10)
     expect(hist).not.toMatch(/\{c\.requester_unread_count\}/);
   });
@@ -513,7 +537,8 @@ describe("support audit phase 1 — regression lock", () => {
     const views = readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
     const load = views.slice(views.indexOf("const load = useCallback"), views.indexOf("const sendFollowUp = async"));
     expect(load).toMatch(/catch \{[\s\S]*setError\("network_error"\)/);
-    expect(views).toContain('json.error === "case_closed"');
+    // 최종 감사: case_closed·case_updated·invalid_transition 이면 다시 읽는다(단일 판정 supportErrorNeedsReload)
+    expect(views).toContain("if (supportErrorNeedsReload(json.error)) void load();");
     expect(host).toContain("(prev?.audience ?? fromCase?.audience)");
     const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-controller.ts"), "utf8");
     expect(ctrl).toMatch(/closeSupportModal\(\): void \{[\s\S]*clearSupportModalRestoreCaseId\(\)/);
@@ -568,6 +593,7 @@ describe("support audit phase 1 — regression lock", () => {
     expect(notifyCalls.map((n) => n.type)).not.toContain("support_case_assigned");
 
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush(); // 최종 감사 L7: 고객 알림은 응답 뒤
     const resolved = notifyCalls.find((n) => n.type === "support_case_resolved");
     expect(resolved?.userId).toBe(U);
     // 4절 문구 — 문구 모음(받는 사람 언어). 이 가짜 DB 는 프로필이 없어 기본 언어(en).
@@ -576,6 +602,7 @@ describe("support audit phase 1 — regression lock", () => {
     notifyCalls.length = 0;
     const byAdmin = await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
     expect(byAdmin.ok).toBe(true);
+    await flush();
     const reopened = notifyCalls.filter((n) => n.type === "support_case_reopened");
     expect(reopened).toHaveLength(1);
     expect(reopened[0].userId).toBe(U);
@@ -585,6 +612,7 @@ describe("support audit phase 1 — regression lock", () => {
     notifyCalls.length = 0;
     const bySelf = await reopenSupportCase(sb, { userId: U, caseId: a.case.id });
     expect(bySelf.ok).toBe(true);
+    await flush();
     expect(notifyCalls.filter((n) => n.type === "support_case_reopened")).toHaveLength(0);
     // No notification body may carry the internal "CATEGORY · surface" subject token.
     for (const n of notifyCalls) expect(n.body ?? "").not.toMatch(/ · mypage_/);
@@ -822,7 +850,10 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
     if (!b.ok) throw new Error(b.error);
     await adminReplySupportCase(second.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "답변" });
     await postRequesterSupportMessage(second.sb, { userId: U, caseId: b.case.id, body: "추가" });
+    // 최종 감사 L6: 고객 「확인했어요」는 답변 뒤(WAITING_USER)만 — 추가 문의에 다시 답한 뒤 닫는다(어드민 미읽음은 남아 있다)
+    await adminReplySupportCase(second.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "다시 답변" });
     const row = second.db.support_cases[0];
+    expect(row.status).toBe("WAITING_USER");
     expect(Number(row.admin_unread_count)).toBeGreaterThan(0);
     await requesterCloseSupportCase(second.sb, { userId: U, caseId: b.case.id });
     expect(row.admin_unread_count).toBe(0);
@@ -852,6 +883,7 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
     const a = await openStructured(sb, "ORDER_STATUS", "x");
     if (!a.ok) throw new Error(a.error);
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
+    await flush(); // 답변 알림(응답 뒤)을 먼저 끝낸다 — 아래 「자동 종료 알림 0」 판정과 섞이지 않게
     const row = db.support_cases[0];
     expect(row.status).toBe("WAITING_USER");
     expect(SUPPORT_AUTO_CLOSE_AFTER_DAYS).toBe(7);
@@ -1212,3 +1244,297 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(page).not.toContain("manualListLoadAtRef");
   });
 });
+
+describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
+  const OTHER_ADMIN = "44444444-4444-4444-8444-444444444444";
+  const customerMsgs = (db: Record<string, Row[]>) =>
+    db.support_messages.filter((m) => m.sender_type === "MEMBER" || m.sender_type === "OWNER");
+
+  it("D1: a customer message that arrived while the admin was writing keeps the case in 「답변 필요」 and its alert unread", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "첫 문의");
+    if (!a.ok) throw new Error(a.error);
+    // 어드민이 상세를 연 시점의 last_message_at
+    const seen = String(db.support_cases[0].last_message_at);
+    const first = customerMsgs(db)[0];
+    // 답을 쓰는 사이 고객이 추가 글
+    const late = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "그사이 추가" });
+    if (!late.ok) throw new Error(late.error);
+    await flush();
+    adminNotifyCalls.length = 0;
+    adminResolveInputs.length = 0;
+    const r = await adminReplySupportCase(sb, {
+      adminUserId: ADMIN,
+      caseId: a.case.id,
+      body: "답변",
+      seenLastMessageAt: seen,
+    });
+    expect(r.ok && r.unseenCustomerMessages).toBe(1);
+    // 고치기 전: 무조건 WAITING_USER(고객 확인 대기) → 「답변 필요」 탭에서 빠졌다
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+    // 본 글(첫 글) 알림만 읽음 · 담당 지정 알림은 종류로 읽음 · 그사이 온 글 알림은 남는다
+    const replies = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"));
+    expect(replies?.dedupeKeys).toEqual([`support_customer_replied:${first.id}`]);
+    expect(adminResolveInputs.some((i) => i.kinds.includes("support_case_assigned") && !i.dedupeKeys)).toBe(true);
+    // 그 글 알림이 아직 없었어도 만든다(같은 dedupe 키 — 중복 없음)
+    await flush();
+    expect(adminNotifyCalls.map((c) => c.dedupeKey)).toContain(`support_customer_replied:${late.message.id}`);
+    // 작업 판정도 같은 뜻: 답변보다 먼저 왔지만 못 본 글 = 아직 어드민 일
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: late.message.id })).toBe("send");
+    // 첫 글은 답을 받았고 그 뒤 고객 글이 남은 일 → skip 은 아님(답변 뒤 고객 글 없음) — 본 글은 읽음 처리로 끝난다
+    expect(db.support_case_events.map((e) => e.event_type)).toContain("reply_left_unseen_customer_messages");
+  });
+
+  it("D1: everything seen → WAITING_USER and every shown customer alert read; no seen value = legacy (all read)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "문의");
+    if (!a.ok) throw new Error(a.error);
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    await flush();
+    const seen = String(db.support_cases[0].last_message_at);
+    adminResolveInputs.length = 0;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답", seenLastMessageAt: seen });
+    expect(r.ok && r.unseenCustomerMessages).toBe(0);
+    expect(db.support_cases[0].status).toBe("WAITING_USER");
+    const keys = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"))?.dedupeKeys ?? [];
+    expect([...keys].sort()).toEqual(customerMsgs(db).map((m) => `support_customer_replied:${m.id}`).sort());
+
+    const legacy = makeDb();
+    const b = await openStructured(legacy.sb, "ORDER_STATUS", "문의");
+    if (!b.ok) throw new Error(b.error);
+    adminResolveInputs.length = 0;
+    await adminReplySupportCase(legacy.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "답" });
+    expect(legacy.db.support_cases[0].status).toBe("WAITING_USER");
+    expect(adminResolveInputs).toHaveLength(1);
+    expect(adminResolveInputs[0].dedupeKeys).toBeUndefined();
+  });
+
+  it("D1 work check: an old message answered before a newer customer message is still skipped (6차 2 유지)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "옛 글");
+    if (!a.ok) throw new Error(a.error);
+    const old = customerMsgs(db)[0];
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "새 글" });
+    await flush();
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: String(old.id) })).toBe("skip");
+  });
+
+  it("D1 work check: an answered message in a reopened case (OPEN, no customer message after the reply, no unseen record) is skipped", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "옛 글");
+    if (!a.ok) throw new Error(a.error);
+    const old = customerMsgs(db)[0];
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    await flush();
+    // 어드민 재오픈과 같은 상태: 답변 뒤 고객 글 없음 · 상태 OPEN
+    db.support_cases[0].status = "OPEN";
+    expect(await supportCustomerMessageNeedsAdmin(sb, { caseId: a.case.id, messageId: String(old.id) })).toBe("skip");
+  });
+
+  it("D5: 5 customer messages in a minute or 30 in an hour → rate_limited (sender's own messages only)", async () => {
+    const now = new Date("2026-11-28T10:00:00.000Z");
+    const at = (secAgo: number) => new Date(now.getTime() - secAgo * 1000).toISOString();
+    const msg = (secAgo: number, sender = U) => ({
+      id: randomUUID(), case_id: "c", sender_type: "MEMBER", sender_user_id: sender, message_type: "PUBLIC", body: "x", created_at: at(secAgo),
+    });
+    const four = makeDb({ support_messages: [10, 20, 30, 40].map((s) => msg(s)) });
+    expect(await checkSupportCustomerPostRate(four.sb, U, now)).toBe("ok");
+    const five = makeDb({ support_messages: [10, 20, 30, 40, 50].map((s) => msg(s)) });
+    expect(await checkSupportCustomerPostRate(five.sb, U, now)).toBe("rate_limited");
+    // 다른 사람 글·1분 지난 글은 1분 한도에 안 센다
+    const mixed = makeDb({ support_messages: [...[10, 20, 30, 40].map((s) => msg(s)), msg(15, ADMIN), msg(120)] });
+    expect(await checkSupportCustomerPostRate(mixed.sb, U, now)).toBe("ok");
+    const hour = makeDb({ support_messages: Array.from({ length: 30 }, (_, i) => msg(120 + i * 60)) });
+    expect(await checkSupportCustomerPostRate(hour.sb, U, now)).toBe("rate_limited");
+    const hourOld = makeDb({ support_messages: Array.from({ length: 30 }, (_, i) => msg(3700 + i)) });
+    expect(await checkSupportCustomerPostRate(hourOld.sb, U, now)).toBe("ok");
+  });
+
+  it("L1: a closed case cannot be assigned (no assignment alert); an assignment that lost a race does not overwrite", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    adminNotifyCalls.length = 0;
+    const closed = await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: OTHER_ADMIN });
+    expect(closed).toEqual({ ok: false, error: "case_closed" });
+    expect(db.support_cases[0].assigned_admin_id).toBeNull();
+    expect(adminNotifyCalls).toHaveLength(0);
+
+    const two = makeDb();
+    const b = await openStructured(two.sb, "ORDER_STATUS", "y");
+    if (!b.ok) throw new Error(b.error);
+    adminNotifyCalls.length = 0;
+    const THIRD = "55555555-5555-4555-8555-555555555555";
+    // 경합: 이 요청이 문의를 읽은 뒤·쓰기 직전에 다른 어드민이 THIRD 로 지정했다
+    const base = two.sb as unknown as { from: (t: string) => Record<string, (...a: unknown[]) => unknown>; rpc: unknown };
+    let raced = false;
+    const sbRace = {
+      ...base,
+      from: (t: string) => {
+        const bld = base.from(t);
+        if (t === "support_cases") {
+          const update = bld.update;
+          bld.update = (patch: unknown) => {
+            if (!raced) {
+              raced = true;
+              two.db.support_cases[0].assigned_admin_id = THIRD;
+            }
+            return update(patch);
+          };
+        }
+        return bld;
+      },
+    } as never;
+    const lost = await adminAssignSupportCase(sbRace, { adminUserId: ADMIN, caseId: b.case.id, assigneeAdminId: OTHER_ADMIN });
+    // 고치기 전: 다른 어드민의 지정을 덮어쓰고 지정 알림까지 나갔다
+    expect(lost).toEqual({ ok: false, error: "case_updated" });
+    expect(two.db.support_cases[0].assigned_admin_id).toBe(THIRD);
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_case_assigned")).toHaveLength(0);
+  });
+
+  it("L2: releasing a revoked assignee re-notifies the open case's latest customer message to every support admin", async () => {
+    const caseOpen = randomUUID();
+    const caseAnswered = randomUUID();
+    const { db, sb } = makeDb({
+      support_cases: [
+        { id: caseOpen, public_case_no: "SC-1", status: "WAITING_ADMIN", assigned_admin_id: ADMIN, requester_user_id: U, audience: "MEMBER" },
+        { id: caseAnswered, public_case_no: "SC-2", status: "WAITING_USER", assigned_admin_id: ADMIN, requester_user_id: U, audience: "MEMBER" },
+      ],
+      support_messages: [
+        { id: "m-old", case_id: caseOpen, sender_type: "MEMBER", sender_user_id: U, message_type: "PUBLIC", body: "옛", created_at: "2026-11-27T00:00:00.000Z", deleted_at: null },
+        { id: "m-new", case_id: caseOpen, sender_type: "MEMBER", sender_user_id: U, message_type: "PUBLIC", body: "새", created_at: "2026-11-27T01:00:00.000Z", deleted_at: null },
+        { id: "m-2", case_id: caseAnswered, sender_type: "MEMBER", sender_user_id: U, message_type: "PUBLIC", body: "x", created_at: "2026-11-27T00:00:00.000Z", deleted_at: null },
+      ],
+    });
+    adminNotifyCalls.length = 0;
+    const r = await releaseSupportAssignmentsOnRevoke(sb, { userId: ADMIN, revokedBy: null });
+    expect(r.released).toBe(2);
+    expect(db.support_cases.every((c) => c.assigned_admin_id === null)).toBe(true);
+    // 고치기 전: 알림 0 (옛 담당자 행만 남아 볼 사람 0명)
+    expect(adminNotifyCalls).toHaveLength(1);
+    expect(adminNotifyCalls[0]).toMatchObject({
+      dedupeKey: "support_customer_replied:m-new",
+      broadcastPermission: "support",
+      excludeRecipientIds: [U],
+    });
+  });
+
+  it("L5: the assignee is the author (admin asked as a member) → every other support admin, not the author", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    db.support_cases[0].assigned_admin_id = U; // 글쓴이 본인이 담당
+    adminNotifyCalls.length = 0;
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    await flush();
+    const calls = adminNotifyCalls.filter((c) => c.kind === "support_customer_replied");
+    // 고치기 전: recipientAdminIds [U] + 제외 [U] → 아무도 안 받음
+    expect(calls).toHaveLength(1);
+    expect(calls[0].recipientAdminIds).toBeUndefined();
+    expect(calls[0].broadcastPermission).toBe("support");
+    expect(calls[0].excludeRecipientIds).toEqual([U]);
+  });
+
+  it("L6: 「확인했어요」 before any answer (OPEN·WAITING_ADMIN) is rejected; the case stays open", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const r = await requesterCloseSupportCase(sb, { userId: U, caseId: a.case.id });
+    expect(r).toEqual({ ok: false, error: "invalid_transition" });
+    expect(db.support_cases[0].status).toBe("OPEN");
+  });
+
+  it("L7: the admin reply returns before the customer notification is sent (sent right after)", async () => {
+    const { sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    notifyCalls.length = 0;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    expect(r.ok).toBe(true);
+    // 고치기 전: 응답 전에 언어 읽기·알림·푸시까지 끝나야 돌려줬다
+    expect(notifyCalls.filter((n) => n.type === "support_admin_replied")).toHaveLength(0);
+    await flush();
+    expect(notifyCalls.filter((n) => n.type === "support_admin_replied")).toHaveLength(1);
+  });
+
+  it("L3: customer API views carry only customer fields (no assignee / priority / admin unread / guidance / admin id)", () => {
+    const row = {
+      id: "c", public_case_no: "SC-1", audience: "MEMBER", requester_user_id: U, owner_store_id: null, category: "ORDER",
+      issue_type: "ORDER_STATUS", subject: "ORDER · mypage", source_surface: "mypage", reference_type: null, reference_id: null,
+      initial_summary: "s", guidance_key: "g", guidance_revision: 1, guidance_outcome: "o", status: "WAITING_USER",
+      priority: "HIGH", assigned_admin_id: ADMIN, previous_case_id: null, requester_unread_count: 1, admin_unread_count: 3,
+      created_at: "t", updated_at: "t", last_message_at: "t", first_admin_response_at: "t", resolved_at: null, archived_at: null,
+    } as const;
+    const v = toSupportRequesterCaseView(row as never) as Record<string, unknown>;
+    for (const k of ["assigned_admin_id", "priority", "admin_unread_count", "guidance_key", "guidance_revision", "guidance_outcome", "subject", "source_surface", "requester_user_id", "previous_case_id", "first_admin_response_at", "archived_at"]) {
+      expect(v).not.toHaveProperty(k);
+    }
+    expect(v).toMatchObject({ id: "c", status: "WAITING_USER", requester_unread_count: 1, last_message_at: "t", category: "ORDER", issue_type: "ORDER_STATUS" });
+    const m = toSupportRequesterMessageView({
+      id: "m", case_id: "c", sender_type: "ADMIN", sender_user_id: null, sender_admin_id: ADMIN, message_type: "PUBLIC",
+      body: "지운 답", created_at: "t", deleted_at: "t2",
+    }) as Record<string, unknown>;
+    expect(m).not.toHaveProperty("sender_admin_id");
+    expect(m).not.toHaveProperty("sender_user_id");
+    expect(m.body).toBe("");
+  });
+
+  it("L4: a DB failure while opening returns a stable key, never the DB message", async () => {
+    const { sb } = makeDb();
+    const failing: Record<string, unknown> = {};
+    for (const k of ["select", "eq", "is", "in", "order", "limit"]) failing[k] = () => failing;
+    failing.maybeSingle = async () => ({ data: null, error: { message: 'permission denied for relation "secret_table"' } });
+    const base = sb as unknown as { from: (t: string) => unknown; rpc: unknown };
+    const sbFail = { ...base, from: (t: string) => (t === "support_cases" ? failing : base.from(t)) } as never;
+    const r = await openSupportCaseFromContext(sbFail, {
+      userId: U, context: ctx(), issueType: "ORDER_STATUS", initialSummary: "x", initialBody: "x", allowMissingIssue: false,
+    });
+    expect(r).toEqual({ ok: false, error: "case_open_failed" });
+  });
+
+  it("L10: FAB unread sum = own cases of that audience/store with unread answers (closed-but-unread included)", async () => {
+    const STORE = randomUUID();
+    const { sb } = makeDb({
+      support_cases: [
+        { id: "1", requester_user_id: U, audience: "MEMBER", status: "WAITING_USER", requester_unread_count: 2 },
+        { id: "2", requester_user_id: U, audience: "MEMBER", status: "RESOLVED", requester_unread_count: 1 },
+        { id: "3", requester_user_id: U, audience: "MEMBER", status: "OPEN", requester_unread_count: 0 },
+        { id: "4", requester_user_id: U, audience: "OWNER", owner_store_id: STORE, status: "WAITING_USER", requester_unread_count: 5 },
+        { id: "5", requester_user_id: ADMIN, audience: "MEMBER", status: "WAITING_USER", requester_unread_count: 7 },
+      ],
+    });
+    expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "MEMBER" })).toEqual({ ok: true, unread: 3 });
+    expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "OWNER", storeId: STORE })).toEqual({ ok: true, unread: 5 });
+  });
+
+  it("L11: the message list is capped; mark-read uses the row the caller already read", async () => {
+    const caseId = randomUUID();
+    const { db, sb } = makeDb({
+      support_cases: [{ id: caseId, requester_user_id: U, audience: "MEMBER", status: "WAITING_USER", requester_unread_count: 1, last_message_at: "z" }],
+      support_messages: Array.from({ length: 1001 }, (_, i) => ({
+        id: `m${i}`, case_id: caseId, sender_type: "MEMBER", message_type: "PUBLIC", body: "x", created_at: `2026-11-28T00:${String(i % 60).padStart(2, "0")}:00.${String(i).padStart(3, "0")}Z`,
+      })),
+    });
+    const list = await listSupportMessages(sb, { caseId });
+    expect(list.ok && list.messages).toHaveLength(1000);
+    // 넘겨준 행(숫자 0)을 그대로 쓴다 → DB 를 다시 읽었다면 1 을 보고 고쳐 썼을 것
+    const r = await markSupportCaseReadForRequester(sb, {
+      userId: U,
+      caseId,
+      caseRow: { ...(db.support_cases[0] as Row), requester_unread_count: 0 } as never,
+    });
+    expect(r).toEqual({ ok: true, wrote: false });
+  });
+
+  it("L12 (구조 확인): the 405 stub and the unused summary route are gone; stale customer-realtime comments fixed", () => {
+    const route = readFileSync(join(process.cwd(), "app/api/admin/support/cases/route.ts"), "utf8");
+    expect(route).not.toMatch(/export async function POST/);
+    expect(route).not.toContain("use_case_detail_route");
+    const svc = readFileSync(join(process.cwd(), "lib/support/support-case-service.ts"), "utf8");
+    expect(svc).not.toContain("Prevents SupportModalHost Realtime");
+    expect(svc).not.toContain("support_cases UPDATE subscription");
+  });
+});
+

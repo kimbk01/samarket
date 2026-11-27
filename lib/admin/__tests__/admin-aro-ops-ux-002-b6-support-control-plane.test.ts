@@ -36,7 +36,9 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(page).not.toContain("<AdminSupportControlPlane");
     expect(page).toContain("ADMIN_SUPPORT_TABS");
     expect(page).toContain("data-admin-support-tab");
-    expect(page).toContain("ACTIONABLE");
+    // 탭 이름 표는 공용 정의로 옮김 (고객센터 최종 감사 2026-11-28 U-6)
+    expect(page).toContain("ADMIN_SUPPORT_TAB_LABEL_KEY");
+    expect(read("components/admin/support/admin-support-status.ts")).toContain("ACTIONABLE");
     expect(page).toContain("waitingAgeLabel");
     expect(existsSync(resolve(process.cwd(), "app/admin/support-v2"))).toBe(false);
   });

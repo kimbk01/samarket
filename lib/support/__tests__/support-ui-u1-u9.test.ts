@@ -28,8 +28,10 @@ describe("UI U1·U2 — 고객 상태 알약 단일 정의 (색 = 상태)", () =
   it("(구조 확인) 상세 상태 줄·쓰기 화면 진행 중 목록·내 문의 목록이 모두 같은 정의를 쓴다", () => {
     const views = src("components/support/SupportTicketViews.tsx");
     expect(views).toContain("tagClassName={supportRequesterStatusPill(supportCase.status, supportCase.requester_unread_count).className}");
-    expect(views).toContain("supportRequesterStatusPill(c.status, c.requester_unread_count).className");
-    expect(src("components/support/SupportCasesHistoryList.tsx")).toContain(
+    // 최종 감사 U-10 (2026-11-28): 쓰기 화면 진행 중 행·내 문의 행 = 공용 행 하나(SupportCaseRow.tsx)
+    expect(views).toContain("<SupportCaseRowButton");
+    expect(src("components/support/SupportCasesHistoryList.tsx")).toContain("<SupportCaseRowButton");
+    expect(src("components/support/SupportCaseRow.tsx")).toContain(
       "supportRequesterStatusPill(c.status, c.requester_unread_count)"
     );
   });
@@ -37,9 +39,10 @@ describe("UI U1·U2 — 고객 상태 알약 단일 정의 (색 = 상태)", () =
 
 describe("UI U3~U9", () => {
   it("(구조 확인) U3 내 문의 행 시각 = 마지막 글 시각", () => {
-    const hist = src("components/support/SupportCasesHistoryList.tsx");
-    expect(hist).toContain("formatMypageDate(c.last_message_at");
-    expect(hist).not.toContain("formatMypageDate(c.created_at");
+    // 최종 감사 U-10: 행은 공용 행(SupportCaseRow.tsx)
+    const row = src("components/support/SupportCaseRow.tsx");
+    expect(row).toContain("formatMypageDate(c.last_message_at");
+    expect(row).not.toContain("formatMypageDate(c.created_at");
   });
 
   it("(구조 확인) U4·U5 사장님 문의 CTA = 갈색 단일 정의 · 사장님 목록 카드 · 빈 목록은 안내만", () => {
@@ -49,7 +52,8 @@ describe("UI U3~U9", () => {
     expect(hist).toContain('data-support-cases-history-empty="1"');
     // Owner 「아래 것 빼기」(2026-11-27): 사장님 빈 목록에는 버튼 없음 — 위쪽 「문의하기」 1개만
     expect(hist).not.toContain("OWNER_SUPPORT_CTA_CLASS");
-    expect(hist.match(/rounded-ui-rect border border-sam-border-soft bg-sam-surface/g)?.length).toBe(2);
+    // 최종 감사 U-5: 회원·사장님 목록이 한 구현 → 카드 모양 정의 1곳
+    expect(hist.match(/rounded-ui-rect border border-sam-border-soft bg-sam-surface/g)?.length).toBe(1);
   });
 
   it("(구조 확인) U6·U9 문의 창 버튼은 모두 44px·4px 하나의 모양", () => {

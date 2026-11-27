@@ -898,7 +898,7 @@ async function main() {
     return apiJson(cookie, "GET", path);
   }
   const supportSmoke = await smokeGet("/api/admin/platform-inquiries?limit=5").catch(() =>
-    smokeGet("/api/admin/support/summary")
+    smokeGet("/api/admin/support/cases?limit=1")
   );
   const partnerSmoke = await smokeGet("/api/admin/delivery-ads/partner/memberships");
   const popupSmoke = await smokeGet("/api/admin/popups").catch(() => ({ status: 0, ok: false }));

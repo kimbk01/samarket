@@ -4,6 +4,8 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import type { SupportContext } from "@/lib/support/support-context";
 import { openSupportCaseFromContext } from "@/lib/support/support-case-service";
 import { buildSupportCaseRoute } from "@/lib/support/support-case-types";
+import { checkSupportCustomerPostRate } from "@/lib/support/support-customer-rate-limit";
+import { toSupportRequesterCaseView } from "@/lib/support/support-requester-view";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +43,11 @@ export async function POST(req: NextRequest) {
   const context = body.context;
   if (!context || typeof context !== "object") {
     return NextResponse.json({ ok: false, error: "missing_context" }, { status: 400 });
+  }
+
+  // 고객 문의 최종 감사 D5: 접수도 고객 글 1건(새 문의 첫 글 또는 진행 중 문의에 붙는 글) → 같은 속도 제한
+  if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") {
+    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
   const res = await openSupportCaseFromContext(sb, {
@@ -92,7 +99,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    case: res.case,
+    case: toSupportRequesterCaseView(res.case),
     sessionId: res.sessionId,
     created: res.created,
     href: buildSupportCaseRoute(res.case.id),

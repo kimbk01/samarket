@@ -5,6 +5,8 @@ import {
   authorityAllows,
   countUnreadAdminNotifications,
   createAdminNotification,
+  purgeDeliveredSupportOutbox,
+  resolveAdminNotificationsForWork,
   listAdminNotifications,
   loadAdminNotificationDeliveryHealth,
   runAdminNotificationDeliveryWorker,
@@ -32,7 +34,7 @@ function memoryDb(seed: Record<string, Row[]> = {}, opts: { failInsertInto?: Set
     from(table: string) {
       tables[table] ??= [];
       const preds: ((r: Row) => boolean)[] = [];
-      let mode: "select" | "update" | "upsert" | "insert" = "select";
+      let mode: "select" | "update" | "upsert" | "insert" | "delete" = "select";
       let patch: Row = {};
       let upsertRows: Row[] = [];
       let conflictCols: string[] = [];
@@ -50,6 +52,13 @@ function memoryDb(seed: Record<string, Row[]> = {}, opts: { failInsertInto?: Set
         },
         gte: (c: string, v: string) => (preds.push((r) => String(r[c]) >= v), b),
         lt: (c: string, v: string) => (preds.push((r) => String(r[c]) < v), b),
+        gt: (c: string, v: string) => (preds.push((r) => String(r[c]) > v), b),
+        like: (c: string, pattern: string) => {
+          const prefix = pattern.endsWith("%") ? pattern.slice(0, -1) : pattern;
+          preds.push((r) => String(r[c] ?? "").startsWith(prefix));
+          return b;
+        },
+        delete: () => ((mode = "delete"), b),
         order: (col: string, o: { ascending: boolean }) => ((order = { col, asc: o.ascending }), b),
         limit: (n: number) => ((limitN = n), b),
         maybeSingle: () =>
@@ -77,6 +86,10 @@ function memoryDb(seed: Record<string, Row[]> = {}, opts: { failInsertInto?: Set
             return resolve({ data: inserted, error: null });
           }
           const matched = t.filter((r) => preds.every((p) => p(r)));
+          if (mode === "delete") {
+            tables[table] = t.filter((r) => !matched.includes(r));
+            return resolve({ data: null, error: null });
+          }
           if (mode === "update") {
             for (const r of matched) Object.assign(r, patch);
             return resolve({ data: matched.map((r) => ({ ...r })), error: null });
@@ -605,5 +618,119 @@ describe("R13-D migration / route contracts", () => {
     expect(route).toContain("loadAdminInboxSummary(gate.sb, gate.actor)");
     const summary = read("lib/admin/notifications/admin-inbox-summary.ts");
     expect(summary).toMatch(/if \(actor\.isSuperAdmin\) \{\s*const h = await loadAdminNotificationDeliveryHealth/);
+  });
+
+  describe("고객 문의 최종 감사 2026-11-28", () => {
+    it("L8: candidate authorities are resolved concurrently (bounded), result order unchanged", async () => {
+      const sb = memoryDb({
+        admin_memberships: Array.from({ length: 12 }, (_, i) => ({ user_id: `a-${i}`, status: "active" })),
+      });
+      let inFlight = 0;
+      let peak = 0;
+      const resolveAuthority = async () => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 5));
+        inFlight -= 1;
+        return SUPER;
+      };
+      const r = await createAdminNotification(
+        sb as never,
+        { broadcastPermission: "support", kind: "support_customer_replied", title: "t", dedupeKey: "k-l8" },
+        { resolveAuthority, sendPush: vi.fn() }
+      );
+      expect(r).toMatchObject({ ok: true, created: 12 });
+      // 고치기 전: 차례로(최대 1) → 지금 10명씩 동시에
+      expect(peak).toBe(10);
+      expect(sb.tables.admin_notifications.map((x) => x.recipient_admin_id)).toEqual(
+        Array.from({ length: 12 }, (_, i) => `a-${i}`)
+      );
+    });
+
+    it("L5: a queued customer message whose assignee is its own author → every other support admin", async () => {
+      const sb = memoryDb({
+        admin_notification_outbox: [
+          {
+            id: "ob-l5",
+            source_key: "support_customer_replied:msg-l5",
+            kind: "support_customer_replied",
+            status: "pending",
+            attempts: 0,
+            max_attempts: 8,
+            payload: {
+              kind: "support_customer_replied",
+              title: "t",
+              dedupeKey: "support_customer_replied:msg-l5",
+              workRef: { table: "support_cases", id: "case-l5" },
+              recipientAdminIds: ["admin-self"],
+              excludeRecipientIds: ["admin-self"],
+              requiredPermission: "support",
+              actorUserId: "admin-self",
+              push: false,
+            },
+          },
+        ],
+        admin_memberships: [
+          { user_id: "admin-self", status: "active" },
+          { user_id: "support-b", status: "active" },
+        ],
+        support_cases: [{ id: "case-l5", status: "OPEN", assigned_admin_id: "admin-self" }],
+        support_messages: [
+          { id: "msg-l5", case_id: "case-l5", created_at: "2026-11-28T00:00:00.000Z", sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null },
+        ],
+      });
+      const run = await runAdminNotificationDeliveryWorker(sb as never, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+      expect(run).toMatchObject({ outboxDelivered: 1 });
+      // 고치기 전: 담당자(=글쓴이) 제외 → 0행. 지금: 다른 support 어드민
+      expect(sb.tables.admin_notifications.map((r) => r.recipient_admin_id)).toEqual(["support-b"]);
+      // 글쓴이 본인 담당은 풀지 않는다(권한을 잃은 게 아니다)
+      expect(sb.tables.support_cases[0].assigned_admin_id).toBe("admin-self");
+    });
+
+    it("D1: resolveAdminNotificationsForWork with dedupeKeys reads only those rows, for every recipient", async () => {
+      const row = (id: string, who: string, key: string) => ({
+        id, recipient_admin_id: who, kind: "support_customer_replied", work_ref_table: "support_cases",
+        work_ref_id: "case-d1", dedupe_key: key, read_at: null,
+      });
+      const sb = memoryDb({
+        admin_notifications: [
+          row("n1", "a", "support_customer_replied:m1"),
+          row("n2", "b", "support_customer_replied:m1"),
+          row("n3", "a", "support_customer_replied:m2"),
+        ],
+      });
+      const n = await resolveAdminNotificationsForWork(sb as never, {
+        workRef: { table: "support_cases", id: "case-d1" },
+        kinds: ["support_customer_replied"],
+        dedupeKeys: ["support_customer_replied:m1"],
+      });
+      expect(n).toBe(2);
+      expect(sb.tables.admin_notifications.find((r) => r.id === "n3")?.read_at).toBeNull();
+      expect(
+        await resolveAdminNotificationsForWork(sb as never, {
+          workRef: { table: "support_cases", id: "case-d1" },
+          kinds: ["support_customer_replied"],
+          dedupeKeys: [],
+        })
+      ).toBe(0);
+    });
+
+    it("L9: purges only delivered support outbox rows older than 30 days", async () => {
+      const now = new Date("2026-11-28T00:00:00.000Z");
+      const old = "2026-10-01T00:00:00.000Z";
+      const recent = "2026-11-20T00:00:00.000Z";
+      const sb = memoryDb({
+        admin_notification_outbox: [
+          { id: "o1", kind: "support_customer_replied", status: "delivered", delivered_at: old },
+          { id: "o2", kind: "support_customer_replied", status: "delivered", delivered_at: recent },
+          { id: "o3", kind: "support_customer_replied", status: "dead", delivered_at: null },
+          { id: "o4", kind: "settlement_exception", status: "delivered", delivered_at: old },
+          { id: "o5", kind: "support_case_assigned", status: "delivered", delivered_at: old },
+        ],
+      });
+      const r = await purgeDeliveredSupportOutbox(sb as never, { now });
+      expect(r).toEqual({ ok: true, deleted: 2 });
+      expect(sb.tables.admin_notification_outbox.map((o) => o.id).sort()).toEqual(["o2", "o3", "o4"]);
+    });
   });
 });

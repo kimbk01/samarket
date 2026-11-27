@@ -2,42 +2,45 @@
  * Admin console category-group filter SSOT (분야). Every registry category id belongs to exactly
  * one group (contract-tested), so a filtered queue never silently drops a category.
  * Replaces the regex buckets of the old control-plane sections (재무/광고/주문 문의).
+ * 이름은 카탈로그 키(`labelKey`)로만 — 화면은 `t(labelKey)` (최종 감사 2026-11-28 U-9).
  */
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type SupportCategoryGroup = {
+  readonly id: string;
+  readonly labelKey: MessageKey;
+  readonly categories: readonly string[];
+};
 export const SUPPORT_CATEGORY_GROUPS = [
   {
     id: "FINANCE",
-    labelKo: "재무",
-    labelEn: "Finance",
+    labelKey: "admin_support_group_finance",
     categories: ["PAYMENT_RECHARGE", "RECHARGE", "CASH_COIN", "SETTLEMENT", "BANK_ACCOUNT"],
   },
   {
     id: "ORDER",
-    labelKo: "주문·배달",
-    labelEn: "Orders",
+    labelKey: "admin_support_group_order",
     categories: ["ORDER", "DELIVERY", "REFUND", "ORDER_DELIVERY"],
   },
-  { id: "AD", labelKo: "광고", labelEn: "Ads", categories: ["AD", "DELIVERY_AD", "CAMPAIGN"] },
-  { id: "ACCOUNT", labelKo: "계정", labelEn: "Account", categories: ["ACCOUNT"] },
-  { id: "TRADE", labelKo: "거래", labelEn: "Trade", categories: ["TRADE"] },
+  { id: "AD", labelKey: "admin_support_group_ad", categories: ["AD", "DELIVERY_AD", "CAMPAIGN"] },
+  { id: "ACCOUNT", labelKey: "admin_support_group_account", categories: ["ACCOUNT"] },
+  { id: "TRADE", labelKey: "admin_support_group_trade", categories: ["TRADE"] },
   {
     id: "STORE",
-    labelKo: "매장 운영",
-    labelEn: "Store ops",
+    labelKey: "admin_support_group_store",
     categories: ["STORE", "STORE_APPROVAL", "STORE_PARTNERSHIP", "PRODUCT_MENU"],
   },
   {
     id: "BENEFIT",
-    labelKo: "상품권·쿠폰",
-    labelEn: "Gift & coupons",
+    labelKey: "admin_support_group_benefit",
     categories: ["GIFT_CERTIFICATE", "COUPON"],
   },
   {
     id: "ETC",
-    labelKo: "신고·기술·기타",
-    labelEn: "Report / tech / other",
+    labelKey: "admin_support_group_etc",
     categories: ["REPORT", "TECHNICAL", "OTHER"],
   },
-] as const;
+] as const satisfies readonly SupportCategoryGroup[];
 
 export type SupportCategoryGroupId = (typeof SUPPORT_CATEGORY_GROUPS)[number]["id"];
 

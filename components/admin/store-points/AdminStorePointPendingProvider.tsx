@@ -86,6 +86,8 @@ import {
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { adminMeCanReceiveSupportRealtime } from "@/components/admin/support/admin-support-realtime";
 import type { AdminActionQueueCategoryResult } from "@/lib/admin/admin-action-queue-registry";
 import { ADMIN_QUEUE_CHANGED_EVENT } from "@/lib/admin/admin-queue-events";
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
@@ -1087,7 +1089,10 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         return;
       }
 
-      channel = sb
+      const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(await fetchAdminMeSnapshot().catch(() => null));
+      if (cancelled) return;
+
+      const opsChannel = sb
         .channel("admin-ops-realtime-bridge", messengerPrivateBroadcastChannelOptions())
         .on(
           "postgres_changes",
@@ -1290,48 +1295,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "support_messages" },
-          (payload) => {
-            const row = rowAsRecord(payload.new);
-            const id = String(row?.id ?? "").trim();
-            const caseId = String(row?.case_id ?? "").trim();
-            // 고객 문의 2차 재감사 I: 어드민 계정이 고객으로 쓴 글은 그 어드민에게 토스트·소리를 내지 않는다(본인 행동 0)
-            const selfId = getCurrentUser()?.id?.trim() ?? "";
-            const fromSelf = Boolean(selfId) && String(row?.sender_user_id ?? "").trim() === selfId;
-            if (
-              id &&
-              caseId &&
-              !fromSelf &&
-              shouldPlayAdminOpsSound({
-                eventType: "INSERT",
-                sourceTable: "support_messages",
-                newRow: row,
-                oldRow: null,
-              })
-            ) {
-              markSupportMessageAlert({
-                id,
-                caseId,
-                body: typeof row?.body === "string" ? row.body : null,
-              });
-            }
-            scheduleRefresh();
-          }
-        )
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "support_cases" },
-          // Count refresh only — awareness comes from support_messages (A1).
-          () => scheduleRefresh()
-        )
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "support_cases" },
-          // Count refresh only — UPDATE old row is PK-only, never a toast/sound source.
-          () => scheduleRefresh()
-        )
-        .on(
-          "postgres_changes",
           { event: "INSERT", schema: "public", table: "reports" },
           (payload) => handleReportOpsChange("reports", payload)
         )
@@ -1369,7 +1332,56 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "stores" },
           (payload) => handleReportOpsChange("stores", payload)
-        )
+        );
+
+      // 최종 감사 D6: 고객센터 표(support_messages·support_cases)는 support 권한 어드민만 받는다 —
+      // 권한 없는 어드민 브라우저에 내부 메모 본문·문의 변경이 실시간으로 가지 않게 (서버 requireAdminPermission("support") 와 같은 판정).
+      const withSupport = supportRealtimeAllowed
+        ? opsChannel
+            .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "support_messages" },
+            (payload) => {
+              const row = rowAsRecord(payload.new);
+              const id = String(row?.id ?? "").trim();
+              const caseId = String(row?.case_id ?? "").trim();
+              // 고객 문의 2차 재감사 I: 어드민 계정이 고객으로 쓴 글은 그 어드민에게 토스트·소리를 내지 않는다(본인 행동 0)
+              const selfId = getCurrentUser()?.id?.trim() ?? "";
+              const fromSelf = Boolean(selfId) && String(row?.sender_user_id ?? "").trim() === selfId;
+              if (
+                id &&
+                caseId &&
+                !fromSelf &&
+                shouldPlayAdminOpsSound({
+                  eventType: "INSERT",
+                  sourceTable: "support_messages",
+                  newRow: row,
+                  oldRow: null,
+                })
+              ) {
+                markSupportMessageAlert({
+                  id,
+                  caseId,
+                  body: typeof row?.body === "string" ? row.body : null,
+                });
+              }
+              scheduleRefresh();
+            }
+            )
+            .on(
+              "postgres_changes",
+              { event: "INSERT", schema: "public", table: "support_cases" },
+              // Count refresh only — awareness comes from support_messages (A1).
+              () => scheduleRefresh()
+            )
+            .on(
+              "postgres_changes",
+              { event: "UPDATE", schema: "public", table: "support_cases" },
+              // Count refresh only — UPDATE old row is PK-only, never a toast/sound source.
+              () => scheduleRefresh()
+            )
+        : opsChannel;
+      channel = withSupport
         .subscribe((status) => {
           traceAdminSound("RT_SUBSCRIBE", { status });
           if (status === "SUBSCRIBED") {

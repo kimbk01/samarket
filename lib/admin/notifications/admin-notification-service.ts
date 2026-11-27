@@ -310,6 +310,9 @@ async function pushNewNotification(
   return result === "sent";
 }
 
+/** 권한 조회 동시 실행 묶음 크기 (L8 — DB 연결을 한꺼번에 많이 쓰지 않게) */
+const AUTHORITY_LOOKUP_CHUNK = 10;
+
 /**
  * Create admin notifications (fan-out). Recipients are filtered by CURRENT authority;
  * duplicates (same recipient + dedupeKey) are skipped and never re-pushed.
@@ -348,16 +351,25 @@ export async function createAdminNotification(
   const gatePermission = input.broadcastPermission ?? requiredPermission;
   const recipients: string[] = [];
   let authorityErrors = 0;
-  for (const uid of candidates) {
-    let authority: AdminRecipientAuthority;
-    try {
-      authority = await resolveAuthority(sb, uid);
-    } catch {
-      // Transient lookup failure ≠ revoked: retry the whole event rather than drop the recipient.
-      authorityErrors += 1;
-      continue;
+  // 고객 문의 최종 감사 L8: 후보 권한 조회(후보당 3건)를 차례로 하지 않고 10명씩 동시에 — 순서는 후보 순서 그대로.
+  for (let i = 0; i < candidates.length; i += AUTHORITY_LOOKUP_CHUNK) {
+    const chunk = candidates.slice(i, i + AUTHORITY_LOOKUP_CHUNK);
+    const results = await Promise.all(
+      chunk.map((uid) =>
+        resolveAuthority(sb, uid).then(
+          (authority) => ({ uid, authority }) as const,
+          // Transient lookup failure ≠ revoked: retry the whole event rather than drop the recipient.
+          () => ({ uid, authority: null }) as const
+        )
+      )
+    );
+    for (const r of results) {
+      if (!r.authority) {
+        authorityErrors += 1;
+        continue;
+      }
+      if (authorityAllows(r.authority, gatePermission)) recipients.push(r.uid);
     }
-    if (authorityAllows(authority, gatePermission)) recipients.push(uid);
   }
   if (authorityErrors > 0) return fail("authority_lookup_failed");
   const skippedRecipients = candidates.length - recipients.length;
@@ -575,16 +587,21 @@ export async function runAdminNotificationDeliveryWorker(
     }
     // 고객 문의 남은 위험 ⑤: 담당자에게 보낸 고객 글 알림을 담당자가 받을 수 없으면(권한 잃음) 담당을 풀고 support 권한 전원에게 —
     // 앱 즉시 경로(notifyAdminsOfCustomerMessage)와 같은 대체. 같은 dedupe 키라 중복 없음. (상태는 위에서 이미 확인)
+    // 최종 감사 L5: 담당자 = 글쓴이(어드민이 회원으로 문의하고 본인이 담당)면 제외 규칙에 걸려 아무도 못 받는다 → 같은 대체(전원).
+    const assigneesAllExcluded =
+      (input?.recipientAdminIds?.length ?? 0) > 0 &&
+      (input?.recipientAdminIds ?? []).every((id) => (input?.excludeRecipientIds ?? []).includes(id));
     if (
       input &&
       supportGate === "send" &&
       res.ok &&
       res.created === 0 &&
-      res.skippedRecipients > 0 &&
+      (res.skippedRecipients > 0 || assigneesAllExcluded) &&
       input.kind === "support_customer_replied" &&
       (input.recipientAdminIds?.length ?? 0) > 0
     ) {
-      await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
+      // 담당자가 권한을 잃은 경우에만 담당을 푼다(글쓴이 본인 담당은 그대로 — 받을 사람만 넓힌다).
+      if (res.skippedRecipients > 0) await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
       res = await createAdminNotification(
         sb,
         { ...input, recipientAdminIds: undefined, broadcastPermission: "support", requiredPermission: "support" },
@@ -646,6 +663,51 @@ export async function runAdminNotificationDeliveryWorker(
   }
 
   return sum;
+}
+
+/** 고객 문의 최종 감사 L9: 처리 끝난(delivered) 고객센터 발송 대기열 행 보관 기간 */
+export const SUPPORT_OUTBOX_DELIVERED_RETENTION_DAYS = 30;
+/** 한 번에 지우는 최대 행 수 */
+export const SUPPORT_OUTBOX_PURGE_LIMIT = 1000;
+const SUPPORT_OUTBOX_PURGE_DELETE_CHUNK = 200;
+
+/**
+ * 고객 문의 최종 감사 L9 — 고객센터 종류(`support%`)의 **처리됨** 대기열 행 중 30일 지난 것만 지운다(실패·대기 행은 그대로).
+ * 재생 함수의 「이미 있음」 확인은 최대 14일(`p_lookback` 상한)만 보므로 30일 지난 행을 지워도 다시 보내지 않는다.
+ * 돌려준 값 = 지운 행 수, 실패 = 오류 문자열(크론 요약에 남김).
+ */
+export async function purgeDeliveredSupportOutbox(
+  sb: SupabaseClient,
+  opts: { now?: Date; limit?: number } = {}
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const cutoff = new Date(
+    (opts.now ?? new Date()).getTime() - SUPPORT_OUTBOX_DELIVERED_RETENTION_DAYS * 86_400_000
+  ).toISOString();
+  const limit = Math.min(Math.max(opts.limit ?? SUPPORT_OUTBOX_PURGE_LIMIT, 1), SUPPORT_OUTBOX_PURGE_LIMIT);
+  const { data, error } = await sb
+    .from("admin_notification_outbox")
+    .select("id")
+    .like("kind", "support%")
+    .eq("status", "delivered")
+    .lt("delivered_at", cutoff)
+    .order("delivered_at", { ascending: true })
+    .limit(limit);
+  if (error) return { ok: false, error: error.message };
+  const ids = ((data ?? []) as { id?: unknown }[]).map((r) => String(r.id ?? "")).filter(Boolean);
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += SUPPORT_OUTBOX_PURGE_DELETE_CHUNK) {
+    const chunk = ids.slice(i, i + SUPPORT_OUTBOX_PURGE_DELETE_CHUNK);
+    const { error: delErr } = await sb
+      .from("admin_notification_outbox")
+      .delete()
+      .in("id", chunk)
+      // 고른 뒤 상태가 바뀐 행은 지우지 않는다
+      .eq("status", "delivered")
+      .like("kind", "support%");
+    if (delErr) return { ok: false, error: delErr.message };
+    deleted += chunk.length;
+  }
+  return { ok: true, deleted };
 }
 
 export type AdminNotificationDeliveryHealth = {
@@ -908,27 +970,45 @@ export async function markAdminNotificationsRead(
  */
 export async function resolveAdminNotificationsForWork(
   sb: SupabaseClient,
-  input: { workRef: { table: string; id: string }; kinds: readonly (typeof ADMIN_RECIPIENT_NOTIFICATION_TYPES)[number][] }
+  input: {
+    workRef: { table: string; id: string };
+    kinds: readonly (typeof ADMIN_RECIPIENT_NOTIFICATION_TYPES)[number][];
+    /**
+     * 고객 문의 최종 감사 D1: 주면 이 dedupe 키들만(받은 어드민 전원) — 예: 답변한 어드민이 화면에서 본 고객 글 알림만.
+     * 빈 목록 = 아무것도. 100개씩 나눠 보낸다(요청 주소 길이).
+     */
+    dedupeKeys?: readonly string[];
+  }
 ): Promise<number> {
   const table = input.workRef.table.trim();
   const id = input.workRef.id.trim();
   if (!table || !id || input.kinds.length === 0) return 0;
-  try {
-    const { data, error } = await sb
-      .from(ADMIN_NOTIFICATIONS_TABLE)
-      .update({ read_at: new Date().toISOString() })
-      .eq("work_ref_table", table)
-      .eq("work_ref_id", id)
-      .in("kind", [...input.kinds])
-      .is("read_at", null)
-      .select("id");
-    if (error) {
-      console.error("[admin-notifications] resolve_for_work_failed", { table, id, error: error.message });
+  if (input.dedupeKeys && input.dedupeKeys.length === 0) return 0;
+  const run = async (keys: readonly string[] | null): Promise<number> => {
+    try {
+      let q = sb
+        .from(ADMIN_NOTIFICATIONS_TABLE)
+        .update({ read_at: new Date().toISOString() })
+        .eq("work_ref_table", table)
+        .eq("work_ref_id", id)
+        .in("kind", [...input.kinds])
+        .is("read_at", null);
+      if (keys) q = q.in("dedupe_key", [...keys]);
+      const { data, error } = await q.select("id");
+      if (error) {
+        console.error("[admin-notifications] resolve_for_work_failed", { table, id, error: error.message });
+        return 0;
+      }
+      return (data ?? []).length;
+    } catch (err) {
+      console.error("[admin-notifications] resolve_for_work_failed", { table, id, err });
       return 0;
     }
-    return (data ?? []).length;
-  } catch (err) {
-    console.error("[admin-notifications] resolve_for_work_failed", { table, id, err });
-    return 0;
+  };
+  if (!input.dedupeKeys) return run(null);
+  let total = 0;
+  for (let i = 0; i < input.dedupeKeys.length; i += DEDUPE_KEY_CHUNK) {
+    total += await run(input.dedupeKeys.slice(i, i + DEDUPE_KEY_CHUNK));
   }
+  return total;
 }

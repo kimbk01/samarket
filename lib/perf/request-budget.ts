@@ -101,6 +101,11 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/cron/store-orders-sla-scan": 2.0,
   "/api/me/trade-presence/beacon": 0.9,
   "/api/support/category-settings": 1.0,
+  /**
+   * 2026-11-28 고객 문의 최종 감사 L10 — 고객 문의 목록 + FAB 숫자(`?summary=unread`). 코드 계산: 로그인 확인 1 + 목록 1
+   * (+ 상담 탭 첫 페이지만 개수 1) = 최대 3 · FAB 숫자 = 2. FAB 는 5초 캐시·요청 공유로 같은 화면 반복 GET 을 없앴다. 운영 측정 전 — 7일 뒤 Vercel 값으로 내리기만.
+   */
+  "/api/support/cases": 3.0,
   "/api/cron/stores-discovery-schedule-transitions": 1.8,
   "/api/community-messenger/store-profile-thumbnail": 2.0,
   "/api/community-messenger/relations/privacy-lists": 2.1,

@@ -36,10 +36,12 @@ describe("실기 결함 수정", () => {
     expect(sortActiveSupportTickets(rows).map((r) => r.id)).toEqual(["d", "b", "a"]);
     expect(SUPPORT_TICKET_ACTIVE_LIST_MAX).toBe(5);
     const v = read("components/support/SupportTicketViews.tsx");
-    expect(v).toContain("<ActiveTicketList audience={state.audience}");
-    expect(v).toContain("onClick={() => onOpenCase(c.id)}");
+    expect(v).toMatch(/<ActiveTicketList\s+audience=\{state\.audience\}/);
+    // 최종 감사 U-10: 행 = 공용 행(SupportCaseRowButton)
+    expect(v).toContain('<SupportCaseRowButton key={c.id} c={c} surface="overlay" onOpen={onOpenCase} />');
+    expect(read("components/support/SupportCaseRow.tsx")).toContain("onClick={() => onOpen(c.id)}");
     const h = read("components/support/SupportModalHost.tsx");
-    expect(h).toContain("onOpenCase={(caseId) => setSupportModalCaseId(caseId)}");
+    expect(h).toMatch(/onOpenCase=\{\(caseId\) => \{\s*setComposeKept\(true\);\s*setSupportModalCaseId\(caseId\);/);
     expect(h).toContain("() => setSupportModalCaseId(null)");
   });
 

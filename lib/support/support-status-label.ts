@@ -1,12 +1,13 @@
 /**
  * Customer-facing Support case status label SSOT (DEF-08).
- * Support modal header and Support history list both read this — no surface may print
- * the raw `support_cases.status` enum to customers.
+ * 문의 상세 상태 줄 · 쓰기 화면 「진행 중인 문의」 · 내 문의 목록이 모두 이것만 쓴다 —
+ * 고객 화면에 `support_cases.status` 원래 값을 그대로 보이지 않는다.
  *
- * Mapping is the pre-existing SupportModalHost mapping, moved here unchanged:
- *   OPEN | WAITING_ADMIN     → 답변 대기
- *   WAITING_USER             → 상담 중
- *   RESOLVED | ARCHIVED      → 상담 종료
+ * 고객 문구 (최종 감사 U-15 · 2026-11-28):
+ *   WAITING_USER                          → 답변 완료 (`support_status_active`)
+ *   RESOLVED | ARCHIVED                   → 종료 (`support_status_resolved`)
+ *   OPEN | WAITING_ADMIN | null · 모르는 값 → 답변 대기 (`support_status_waiting_admin`)
+ *   — 상태를 모르면 「답변 완료」로 보이지 않게 「답변 대기」로 둔다.
  */
 import type { SupportCaseStatus } from "@/lib/support/support-case-types";
 import { translateBy } from "@/lib/i18n/translate-by";
@@ -19,18 +20,13 @@ export type SupportCaseStatusLabelKey =
 export function supportCaseStatusLabelMeta(status: SupportCaseStatus | null): {
   key: SupportCaseStatusLabelKey;
 } {
-  if (!status) {
-    return { key: "support_status_active" };
-  }
   if (status === "RESOLVED" || status === "ARCHIVED") {
     return { key: "support_status_resolved" };
   }
-  if (status === "WAITING_ADMIN" || status === "OPEN") {
-    return {
-      key: "support_status_waiting_admin",
-    };
+  if (status === "WAITING_USER") {
+    return { key: "support_status_active" };
   }
-  return { key: "support_status_active" };
+  return { key: "support_status_waiting_admin" };
 }
 
 /**

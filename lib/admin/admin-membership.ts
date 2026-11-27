@@ -368,6 +368,14 @@ export async function releaseSupportAssignmentsOnRevoke(
     if (evErr) {
       console.error("[admin-membership] support_release_event_failed", { error: evErr.message });
     }
+    // 고객 문의 최종 감사 L2: 풀린 진행 중 문의의 남은 고객 글을 support 어드민 전원에게 다시 알린다(볼 사람 0명 방지).
+    // 동적 import — 고객센터 서비스 → 어드민 알림 서비스 → 이 파일 순환을 만들지 않는다. 실패는 기록만.
+    try {
+      const { renotifyReleasedSupportCases } = await import("@/lib/support/support-released-case-renotify");
+      await renotifyReleasedSupportCases(sb, ids);
+    } catch (e) {
+      console.error("[admin-membership] support_release_renotify_failed", { error: (e as Error).message });
+    }
   }
   return { released: ids.length };
 }

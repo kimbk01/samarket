@@ -37,7 +37,9 @@ export async function getSupportGuidanceEntryById(
     if (isMissingGuidanceTable(error.message ?? "")) {
       return { ok: false, error: "missing_guidance_table" };
     }
-    return { ok: false, error: error.message };
+    // 고객 문의 최종 감사 L4: DB 오류 원문은 기록만
+    console.error("[support-guidance] read_failed", { error: error.message });
+    return { ok: false, error: "guidance_read_failed" };
   }
   if (!data) return { ok: false, error: "guidance_not_found" };
   return { ok: true, entry: data as SupportGuidanceEntryRow };
@@ -103,7 +105,9 @@ export async function listEnabledSupportGuidance(
     if (isMissingGuidanceTable(error.message ?? "")) {
       return { ok: false, error: "missing_guidance_table" };
     }
-    return { ok: false, error: error.message };
+    // 고객 문의 최종 감사 L4: DB 오류 원문은 기록만
+    console.error("[support-guidance] read_failed", { error: error.message });
+    return { ok: false, error: "guidance_read_failed" };
   }
   return { ok: true, entries: (data ?? []) as SupportGuidanceEntryRow[] };
 }
@@ -165,7 +169,8 @@ export async function adminUpsertSupportGuidanceEntry(
       .select("*")
       .single();
     if (error || !data) {
-      return { ok: false, error: error?.message ?? "update_failed" };
+      console.error("[support-guidance] update_failed", { error: error?.message ?? null });
+      return { ok: false, error: "update_failed" };
     }
     return { ok: true, entry: data as SupportGuidanceEntryRow };
   }
@@ -196,7 +201,8 @@ export async function adminUpsertSupportGuidanceEntry(
     if (isMissingGuidanceTable(error?.message ?? "")) {
       return { ok: false, error: "missing_guidance_table" };
     }
-    return { ok: false, error: error?.message ?? "create_failed" };
+    console.error("[support-guidance] create_failed", { error: error?.message ?? null });
+    return { ok: false, error: "create_failed" };
   }
   return { ok: true, entry: data as SupportGuidanceEntryRow };
 }
