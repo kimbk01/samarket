@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-27 17:53 PHT",
+ "generatedAtPht": "2026-11-27 19:17 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -371,7 +371,6 @@
    "lib/stores/stores-browse-build.ts": 1,
    "lib/stores/stores-home-taxonomy-seed.ts": 47,
    "lib/supabase/describe-supabase-fetch-failure.ts": 4,
-   "lib/support/support-case-service.ts": 1,
    "lib/support/support-triage-model.ts": 1,
    "lib/test-utils/ssot-source-contract-registry.ts": 1,
    "lib/time/format-pht-display.ts": 1,

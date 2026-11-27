@@ -32,6 +32,23 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status });
   }
   // 접수형 문의(Owner 2026-11-10): 종료된 문의는 요청자에게 내용을 돌려주지 않는다(화면에서 사라짐).
+  // 고객 문의 SSOT §3-1 (F3, Owner 2026-11-27): 단, 고객이 아직 안 읽은 답변이 있으면 이번 한 번은 내용을 돌려주고
+  // 읽음 처리한다 → 그 뒤로는 사라진다.
+  if (isSupportTicketClosedStatus(gate.case.status) && Number(gate.case.requester_unread_count ?? 0) > 0) {
+    const closedMessages = await listSupportMessages(sb, { caseId });
+    if (!closedMessages.ok) {
+      return NextResponse.json({ ok: false, error: closedMessages.error }, { status: 500 });
+    }
+    await markSupportCaseReadForRequester(sb, { userId: auth.userId, caseId });
+    const notificationsRead = await markSupportCaseNotificationsRead(sb, { userId: auth.userId, caseId });
+    return NextResponse.json({
+      ok: true,
+      case: gate.case,
+      messages: closedMessages.messages,
+      closed: true,
+      notificationsRead,
+    });
+  }
   if (isSupportTicketClosedStatus(gate.case.status)) {
     const notificationsRead = await markSupportCaseNotificationsRead(sb, {
       userId: auth.userId,

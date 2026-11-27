@@ -56,6 +56,7 @@ import {
 } from "@/lib/support/support-reference-authority";
 import { validateSupportCategoryForOpen } from "@/lib/support/support-category-registry";
 import { assertSupportGuidanceForCaseOpen } from "@/lib/support/support-guidance-service";
+import { translateBy } from "@/lib/i18n/translate-by";
 import { assertSupportGenericHubCategoryPolicy } from "@/lib/support/support-generic-hub-policy";
 import type { SupportGuidanceOutcome } from "@/lib/support/support-guidance-authority";
 
@@ -139,6 +140,81 @@ async function recordCaseEvent(
       error: error.message,
     });
   }
+}
+
+/**
+ * 고객 문의 SSOT §3-2 (F1·F13·F14) — 고객(회원·사장님)의 공개 글 1건 = 어드민 알림 1건.
+ * - 담당자가 있으면 담당자에게, 없으면 `support` 권한 어드민 전원에게(어드민 알림함 + 푸시).
+ * - dedupe 키는 글 id 하나(`support_customer_replied:<글 id>`) — DB 재생 함수
+ *   `admin_notification_replay_support_replies` 가 같은 키를 보고 다시 보내지 않는다(담당 지정 뒤 지난 글 재알림 방지).
+ * - 어드민 알림 문구 = 한국어(어드민 운영 언어 · 카탈로그 키).
+ */
+async function notifyAdminsOfCustomerMessage(
+  sb: SupabaseClient,
+  input: {
+    caseRow: SupportCaseRow;
+    messageId: string;
+    body: string;
+    actorUserId: string;
+    isNewCase: boolean;
+  }
+): Promise<void> {
+  const c = input.caseRow;
+  const title = translateBy(
+    "ko",
+    input.isNewCase ? "admin_support_notify_new_title" : "admin_support_notify_followup_title",
+    { no: c.public_case_no }
+  );
+  const base = {
+    kind: "support_customer_replied",
+    title,
+    body: input.body,
+    linkUrl: buildAdminSupportCaseRoute(c.id),
+    workRef: { table: "support_cases", id: c.id },
+    dedupeKey: `support_customer_replied:${input.messageId}`,
+    actorUserId: input.actorUserId,
+    push: true,
+  } as const;
+  const logFail = (error: string) =>
+    console.error("[support] admin_notification_failed", {
+      caseId: c.id,
+      type: "support_customer_replied",
+      error,
+    });
+
+  const assignee = c.assigned_admin_id ? String(c.assigned_admin_id) : "";
+  if (assignee) {
+    const notified = await createAdminNotification(sb, { ...base, recipientAdminIds: [assignee] });
+    if (!notified.ok) {
+      logFail(notified.error);
+      return;
+    }
+    if (notified.skippedRecipients === 0) return;
+    // Self-heal: the assignee lost admin authority but the revoke-time release did not run
+    // (or failed). Return the case to the unassigned queue so it is not stranded,
+    // then fall through to the unassigned fan-out so this message is not lost.
+    const { data: released } = await sb
+      .from("support_cases")
+      .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
+      .eq("id", c.id)
+      .eq("assigned_admin_id", assignee)
+      .select("id");
+    if (released && released.length > 0) {
+      await recordCaseEvent(sb, {
+        caseId: c.id,
+        eventType: "assignee_released_admin_revoked",
+        actorUserId: null,
+        payload: { previous_assignee: assignee, trigger: "customer_reply" },
+      });
+    }
+  }
+
+  const broadcast = await createAdminNotification(sb, {
+    ...base,
+    broadcastPermission: "support",
+    requiredPermission: "support",
+  });
+  if (!broadcast.ok) logFail(broadcast.error);
 }
 
 async function notifySupportEvent(
@@ -323,6 +399,15 @@ export async function openSupportCaseFromContext(
         body: followUpText,
       });
       if (!appended.ok) return { ok: false, error: appended.error };
+      // SSOT §6 (F4): 고객이 다른 세부를 골라 접수했는데 같은 분야 진행 중 문의에 붙었다 → 고른 세부를 사건 기록에 남긴다.
+      if (cat.issueType && cat.issueType !== existing.issue_type) {
+        await recordCaseEvent(sb, {
+          caseId: existing.id,
+          eventType: "followup_issue_selected",
+          actorUserId: input.userId,
+          payload: { issue_type: cat.issueType, message_id: appended.message.id },
+        });
+      }
       const reread = await getSupportCaseForUser(sb, {
         userId: input.userId,
         caseId: existing.id,
@@ -341,6 +426,11 @@ export async function openSupportCaseFromContext(
 
   const now = new Date().toISOString();
   const publicCaseNo = await allocatePublicCaseNo(sb);
+  const initialBody = (input.initialBody ?? "").trim();
+  const hasStructuredSummary = Boolean(initialSummary);
+  // SSOT §4 (F2): 새 문의 = 어드민 미읽음 1. 첫 글이 시드(접수형 쓰기 화면은 항상 시드)면 DB 함수가 숫자를 올리지 않으므로
+  // 행을 만들 때 1로 넣는다. 시드가 아닌 첫 글(옛 맥락 호출)은 DB 함수가 +1 하므로 0에서 시작.
+  const firstMessageIsSeed = hasStructuredSummary || !initialBody;
   const subject = defaultSubject(cat.category, norm.sourceSurface);
 
   const { data: created, error: createErr } = await sb
@@ -364,7 +454,7 @@ export async function openSupportCaseFromContext(
       guidance_outcome: guidanceOutcome,
       status: "OPEN",
       priority: "NORMAL",
-      admin_unread_count: 0,
+      admin_unread_count: firstMessageIsSeed ? 1 : 0,
       requester_unread_count: 0,
       last_message_at: now,
       updated_at: now,
@@ -390,12 +480,10 @@ export async function openSupportCaseFromContext(
   });
   if (!session.ok) return { ok: false, error: session.error };
 
-  const initialBody = (input.initialBody ?? "").trim();
-  const hasStructuredSummary = Boolean(initialSummary);
-
+  let firstMessage: { ok: true; message: SupportMessageRow } | { ok: false; error: string };
   if (hasStructuredSummary) {
     const seed = initialBody || buildDefaultTriageSeed(cat.category, cat.issueType);
-    await appendSupportMessage(sb, {
+    firstMessage = await appendSupportMessage(sb, {
       caseId: created.id,
       senderUserId: input.userId,
       audience: norm.audience,
@@ -404,7 +492,7 @@ export async function openSupportCaseFromContext(
       systemSeed: true,
     });
   } else if (initialBody) {
-    await appendSupportMessage(sb, {
+    firstMessage = await appendSupportMessage(sb, {
       caseId: created.id,
       senderUserId: input.userId,
       audience: norm.audience,
@@ -412,7 +500,7 @@ export async function openSupportCaseFromContext(
       messageType: "PUBLIC",
     });
   } else {
-    await appendSupportMessage(sb, {
+    firstMessage = await appendSupportMessage(sb, {
       caseId: created.id,
       senderUserId: input.userId,
       audience: norm.audience,
@@ -440,7 +528,18 @@ export async function openSupportCaseFromContext(
   });
 
   // Phase 3 A5 — no self-notification on case creation (legacy parity: the requester is
-  // looking at the conversation already). Admins learn via support_messages Realtime (A1).
+  // looking at the conversation already).
+  // SSOT §3-2 (F1): admins are notified through the admin notification store (inbox + push),
+  // not only the console Realtime toast (A1) which needs the console to be open.
+  if (firstMessage.ok) {
+    await notifyAdminsOfCustomerMessage(sb, {
+      caseRow: created as SupportCaseRow,
+      messageId: firstMessage.message.id,
+      body: firstMessage.message.body,
+      actorUserId: input.userId,
+      isNewCase: true,
+    });
+  }
 
   return {
     ok: true,
@@ -495,6 +594,14 @@ export async function getSupportCaseForUser(
   return { ok: true, case: row };
 }
 
+/**
+ * 고객 문의 SSOT §3-1 (F3, Owner 2026-11-27) — 요청자 「진행 중」 목록 = 진행 중 문의
+ * + 종료됐지만 아직 안 읽은 답변이 있는 문의(열어 읽으면 사라진다). PostgREST `or` 식.
+ */
+export function requesterVisibleActiveOrFilter(): string {
+  return `status.in.(${SUPPORT_CASE_HISTORY_TAB_STATUSES.active.join(",")}),requester_unread_count.gt.0`;
+}
+
 export async function listSupportCasesForRequester(
   sb: SupabaseClient,
   input: {
@@ -522,7 +629,9 @@ export async function listSupportCasesForRequester(
   if (input.audience === "OWNER" && input.storeId) {
     query = query.eq("owner_store_id", input.storeId);
   }
-  if (input.status) {
+  if (input.status === "active") {
+    query = query.or(requesterVisibleActiveOrFilter());
+  } else if (input.status) {
     query = query.in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
   }
   if (input.cursor) {
@@ -560,8 +669,11 @@ export async function countSupportCasesForRequester(
   let query = sb
     .from("support_cases")
     .select("id", { count: "exact", head: true })
-    .eq("requester_user_id", input.userId)
-    .in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
+    .eq("requester_user_id", input.userId);
+  query =
+    input.status === "active"
+      ? query.or(requesterVisibleActiveOrFilter())
+      : query.in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
   if (input.audience) query = query.eq("audience", input.audience);
   if (input.audience === "OWNER" && input.storeId) query = query.eq("owner_store_id", input.storeId);
   const { count, error } = await query;
@@ -761,48 +873,14 @@ export async function postRequesterSupportMessage(
   });
   if (!res.ok) return res;
 
-  // CUT2 contract: support_customer_replied notifies the assigned admin.
-  // R13: delivered through the ADMIN notification store (admin_notifications), never the
-  // Member notification_events pipeline. Recipient authority is re-checked at create + push.
-  // Unassigned cases rely on admin_unread_count + Support Admin list wake-up only.
-  const assignee = gate.case.assigned_admin_id ? String(gate.case.assigned_admin_id) : "";
-  if (assignee) {
-    const notified = await createAdminNotification(sb, {
-      recipientAdminIds: [assignee],
-      kind: "support_customer_replied",
-      title: `문의 ${gate.case.public_case_no}`,
-      body: input.body,
-      linkUrl: buildAdminSupportCaseRoute(gate.case.id),
-      workRef: { table: "support_cases", id: gate.case.id },
-      dedupeKey: `support_customer_replied:${res.message.id}`,
-      actorUserId: input.userId,
-      push: true,
-    });
-    if (!notified.ok) {
-      console.error("[support] admin_notification_failed", {
-        caseId: gate.case.id,
-        type: "support_customer_replied",
-        error: notified.error,
-      });
-    } else if (notified.skippedRecipients > 0) {
-      // Self-heal: the assignee lost admin authority but the revoke-time release did not run
-      // (or failed). Return the case to the unassigned queue so it is not stranded.
-      const { data: released } = await sb
-        .from("support_cases")
-        .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
-        .eq("id", gate.case.id)
-        .eq("assigned_admin_id", assignee)
-        .select("id");
-      if (released && released.length > 0) {
-        await recordCaseEvent(sb, {
-          caseId: gate.case.id,
-          eventType: "assignee_released_admin_revoked",
-          actorUserId: null,
-          payload: { previous_assignee: assignee, trigger: "customer_reply" },
-        });
-      }
-    }
-  }
+  // SSOT §3-2 (F1): assigned admin, or every support admin when unassigned.
+  await notifyAdminsOfCustomerMessage(sb, {
+    caseRow: gate.case,
+    messageId: res.message.id,
+    body: input.body,
+    actorUserId: input.userId,
+    isNewCase: false,
+  });
 
   return res;
 }
@@ -1066,7 +1144,6 @@ export async function adminReplySupportCase(
     caseId: string;
     body: string;
     internalNote?: boolean;
-    closeAfter?: boolean;
   }
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
@@ -1106,14 +1183,8 @@ export async function adminReplySupportCase(
     });
   }
 
-  if (input.closeAfter) {
-    await adminUpdateSupportCaseStatus(sb, {
-      adminUserId: input.adminUserId,
-      caseId: input.caseId,
-      status: "RESOLVED",
-    });
-  }
-
+  // SSOT §8 F10: no "reply + close" in one call — a close right after the reply would hide
+  // the answer before the customer reads it. Closing is its own action.
   return res;
 }
 
@@ -1127,6 +1198,12 @@ export async function adminUpdateSupportCaseStatus(
   // same idempotency contract as mark-read.
   if (gate.case.status === input.status) {
     return { ok: true, case: gate.case };
+  }
+  // SSOT §8 F15: this path only closes (active → RESOLVED), archives (RESOLVED → ARCHIVED) or
+  // unarchives (ARCHIVED → RESOLVED). Closed → active goes through reopenSupportCase only
+  // (session · reopened event · customer notification).
+  if (input.status !== "RESOLVED" && input.status !== "ARCHIVED") {
+    return { ok: false, error: "invalid_transition" };
   }
   // Console redesign — 보관 only from 종료; 보관 해제 = back to 종료 (silent, keeps resolved_at).
   if (input.status === "ARCHIVED" && gate.case.status !== "RESOLVED") {
@@ -1142,6 +1219,10 @@ export async function adminUpdateSupportCaseStatus(
   const closing = input.status === "RESOLVED" && !unarchive;
   if (closing) {
     patch.resolved_at = now;
+  }
+  // SSOT §8 F6: a closed case needs no admin action — its admin unread count goes to 0.
+  if (closing || input.status === "ARCHIVED") {
+    patch.admin_unread_count = 0;
   }
   if (input.status === "ARCHIVED") {
     patch.archived_at = now;
@@ -1246,6 +1327,29 @@ export async function adminAssignSupportCase(
   });
 
   // Phase 3 A5 / Owner decision D2 — assignment is internal; no customer notification.
+  // SSOT §8 F14: an admin assigned by someone else gets one admin notification.
+  const assignee = input.assigneeAdminId?.trim() || "";
+  if (assignee && assignee !== input.adminUserId) {
+    const c = data as SupportCaseRow;
+    const notified = await createAdminNotification(sb, {
+      recipientAdminIds: [assignee],
+      kind: "support_case_assigned",
+      title: translateBy("ko", "admin_support_notify_assigned_title", { no: c.public_case_no }),
+      body: translateBy("ko", "admin_support_notify_assigned_body"),
+      linkUrl: buildAdminSupportCaseRoute(c.id),
+      workRef: { table: "support_cases", id: c.id },
+      dedupeKey: `support_case_assigned:${c.id}:${assignee}:${new Date().toISOString()}`,
+      actorUserId: input.adminUserId,
+      push: true,
+    });
+    if (!notified.ok) {
+      console.error("[support] admin_notification_failed", {
+        caseId: c.id,
+        type: "support_case_assigned",
+        error: notified.error,
+      });
+    }
+  }
 
   return { ok: true, case: data as SupportCaseRow };
 }
@@ -1295,13 +1399,16 @@ export async function reopenSupportCase(
       last_message_at: now,
     })
     .eq("id", input.caseId)
+    // SSOT §8 F10: CAS on the closed status we read — two reopen clicks = one transition.
+    .eq("status", gate.case.status)
     .select("*")
-    .single();
+    .maybeSingle();
   if (error || !data) {
     if ((error as { code?: string } | null)?.code === "23505") {
       return { ok: false, error: "active_case_exists" };
     }
-    return { ok: false, error: error?.message ?? "reopen_failed" };
+    if (!error) return { ok: false, error: "status_conflict" };
+    return { ok: false, error: error.message ?? "reopen_failed" };
   }
 
   await ensureOpenSupportSession(sb, {
@@ -1355,7 +1462,14 @@ export async function requesterCloseSupportCase(
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from("support_cases")
-    .update({ status: "RESOLVED", resolved_at: now, updated_at: now, requester_unread_count: 0 })
+    .update({
+      status: "RESOLVED",
+      resolved_at: now,
+      updated_at: now,
+      requester_unread_count: 0,
+      // SSOT §8 F6
+      admin_unread_count: 0,
+    })
     .eq("id", input.caseId)
     .eq("status", gate.case.status)
     .select("*")
@@ -1379,7 +1493,72 @@ export async function requesterCloseSupportCase(
     actorUserId: input.userId,
     payload: { status: "RESOLVED", by: "requester" },
   });
+  // SSOT §8 F5: the customer closed it after reading — no unread bell rows left behind for a
+  // case that disappears from their list.
+  await markSupportCaseNotificationsRead(sb, { userId: input.userId, caseId: input.caseId });
   return { ok: true, case: data as SupportCaseRow };
+}
+
+/** SSOT §2 (F7, Owner 2026-11-27 「7일」): 답변 완료 뒤 고객 글 없이 지나면 자동 종료하는 기간. */
+export const SUPPORT_AUTO_CLOSE_AFTER_DAYS = 7;
+
+/**
+ * 자동 종료는 새 cron 없이 `/api/cron/admin-notification-delivery`(5분)에 붙인다 —
+ * 매시 첫 실행(UTC 분 0~4)에만 = 하루 24번 조회 1건씩(요청 예산 docs/request-budget-ssot.md).
+ */
+export function shouldRunSupportAutoClose(now: Date): boolean {
+  return now.getUTCMinutes() < 5;
+}
+
+/**
+ * SSOT §2 (F7) — WAITING_USER 이고 마지막 글 뒤 7일이 지난 문의를 자동 종료한다.
+ * - 고객 「확인했어요」와 같은 취급: 고객 알림 없음 · 어드민 미읽음 0 · 사건 `status_changed` `by: "auto_7d"`.
+ * - 고객이 아직 안 읽은 답변(requester_unread_count>0)은 그대로 둔다 → §3-1 대로 종료돼도 보인다.
+ * - CAS: 읽은 상태(WAITING_USER)·마지막 글 시각이 그대로일 때만 바꾼다(그사이 고객이 쓰면 건너뜀).
+ */
+export async function autoCloseStaleAnsweredSupportCases(
+  sb: SupabaseClient,
+  opts?: { now?: Date; limit?: number }
+): Promise<{ ok: true; closed: number } | { ok: false; error: string }> {
+  const nowDate = opts?.now ?? new Date();
+  const cutoff = new Date(nowDate.getTime() - SUPPORT_AUTO_CLOSE_AFTER_DAYS * 86_400_000).toISOString();
+  const { data, error } = await sb
+    .from("support_cases")
+    .select("id, last_message_at")
+    .eq("status", "WAITING_USER")
+    .lt("last_message_at", cutoff)
+    .order("last_message_at", { ascending: true })
+    .limit(Math.min(Math.max(opts?.limit ?? 100, 1), 500));
+  if (error) {
+    if (isMissingSupportTable(error.message ?? "")) return { ok: true, closed: 0 };
+    return { ok: false, error: error.message };
+  }
+  const now = nowDate.toISOString();
+  let closed = 0;
+  for (const row of (data ?? []) as { id: string; last_message_at: string }[]) {
+    const { data: updated, error: upErr } = await sb
+      .from("support_cases")
+      .update({ status: "RESOLVED", resolved_at: now, updated_at: now, admin_unread_count: 0 })
+      .eq("id", row.id)
+      .eq("status", "WAITING_USER")
+      .eq("last_message_at", row.last_message_at)
+      .select("id")
+      .maybeSingle();
+    if (upErr || !updated) continue;
+    closed += 1;
+    await sb
+      .from("support_sessions")
+      .update({ closed_at: now, last_seen_at: now })
+      .eq("case_id", row.id)
+      .is("closed_at", null);
+    await recordCaseEvent(sb, {
+      caseId: row.id,
+      eventType: "status_changed",
+      actorUserId: null,
+      payload: { status: "RESOLVED", by: "auto_7d" },
+    });
+  }
+  return { ok: true, closed };
 }
 
 /**

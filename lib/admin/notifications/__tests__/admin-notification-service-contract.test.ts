@@ -297,11 +297,15 @@ describe("R13 store / RLS / separation contracts", () => {
 
   it("support_customer_replied uses the admin store, never the member pipeline", () => {
     const svc = read("lib/support/support-case-service.ts");
-    expect(svc).toMatch(/createAdminNotification\(sb, \{\s*recipientAdminIds: \[assignee\],\s*kind: "support_customer_replied"/);
+    // 고객 문의 SSOT §3-2 (F1): 담당자 있으면 담당자, 없으면 support 권한 어드민 전원 — 같은 kind·글 id dedupe
+    expect(svc).toContain('kind: "support_customer_replied"');
+    expect(svc).toMatch(/createAdminNotification\(sb, \{ \.\.\.base, recipientAdminIds: \[assignee\] \}\)/);
+    expect(svc).toMatch(/broadcastPermission: "support",\s*requiredPermission: "support"/);
+    expect(svc).toContain("dedupeKey: `support_customer_replied:${input.messageId}`");
     expect(svc).not.toMatch(/notifySupportEvent\(sb, \{[^}]*type: "support_customer_replied"/);
     expect(svc).toContain('"assignee_not_active_admin"');
     // self-heal when the assignee lost authority and the revoke-time release did not happen
-    expect(svc).toMatch(/notified\.skippedRecipients > 0[\s\S]{0,400}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
+    expect(svc).toMatch(/notified\.skippedRecipients === 0\) return;[\s\S]{0,500}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
   });
 
   it("Bell (Action Queue) and inbox (notifications) never read each other's source", () => {

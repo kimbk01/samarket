@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import {
+  dispatchSupportNotificationArrived,
+  isSupportNotificationRealtimeRow,
+} from "@/lib/support/support-notification-events";
 import { requestNotificationBadgeCountResync } from "@/lib/notifications/notification-badge-count-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
@@ -140,6 +144,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
       reason: "owner_commerce_notification_insert",
     });
     // 고객센터 답변은 앱 사용 중 배너 없음(접수형 문의 · Owner 2026-11-10) — 고객센터 FAB 숫자로만 알린다.
+    if (isSupportNotificationRealtimeRow(row)) dispatchSupportNotificationArrived();
     // 앱 안 알림 배너 (Owner 시안 ④) — 주문·공지·시스템·커뮤니티·거래. 채팅·부재중은 메신저 배너.
     pushMemberInAppNotificationBannerFromRealtimeRow(row);
     // D7: 부재중 통화 배너는 부재중 알림 행 1건이 근거(발신자 취소·시간 초과 공통) — 안 읽은 수 경로는 부재중 배너를 만들지 않는다.

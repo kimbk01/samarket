@@ -428,6 +428,20 @@ describe("S63 상담 내역 — 상태 탭 · 커서 · OWNER 불변", () => {
     expect(done.cases.some((c: { status: string }) => c.status === "RESOLVED" || c.status === "ARCHIVED")).toBe(false);
   });
 
+  it("고객 문의 SSOT F3: 종료됐지만 안 읽은 답변이 있는 문의만 목록에 남는다", async () => {
+    authState.sb = createFakeSupabase({
+      support_cases: [
+        caseRow(1, "OPEN"),
+        { ...caseRow(2, "RESOLVED"), requester_unread_count: 1 },
+        caseRow(3, "RESOLVED"),
+      ],
+    });
+    const json = await (await supportCasesGET(req("/api/support/cases?audience=MEMBER&status=active&limit=20"))).json();
+    const ids = (json.cases as { id: string }[]).map((c) => c.id).sort();
+    expect(ids).toEqual([caseRow(1, "OPEN").id, caseRow(2, "RESOLVED").id].sort());
+    expect(json.counts).toEqual({ active: 2 });
+  });
+
   it("파라미터 없음(OWNER 기본) → 기존 응답 형태 그대로(nextCursor·counts 없음)", async () => {
     authState.sb = createFakeSupabase({ support_cases: [caseRow(1, "OPEN", "OWNER")] });
     const json = await (await supportCasesGET(req("/api/support/cases?audience=OWNER"))).json();

@@ -175,7 +175,9 @@ describe("Console measured fixes (production QA 2026-10-05)", () => {
   it("support notifications are badged 고객센터 and hub unread refreshes on new notifications", () => {
     expect(read("lib/notifications/notification-inbox-surface-label.ts")).toContain("notif_surface_support");
     expect((supportUiMessages.ko as Record<string, string>).notif_surface_support).toBe("고객센터");
-    expect(read("lib/support/use-support-requester-unread.ts")).toContain("KASAMA_NOTIFICATIONS_UPDATED");
+    // 고객 문의 SSOT §4 (F11): FAB 숫자는 고객지원 알림이 왔을 때만 다시 읽는다
+    expect(read("lib/support/use-support-requester-unread.ts")).toContain("SUPPORT_NOTIFICATION_ARRIVED_EVENT");
+    expect(read("lib/support/use-support-requester-unread.ts")).not.toContain("KASAMA_NOTIFICATIONS_UPDATED");
   });
 });
 

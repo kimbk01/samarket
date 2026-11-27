@@ -12,10 +12,12 @@
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import { SupportSheetShell } from "@/components/support/SupportSheetShell";
 import {
   SupportTicketCompose,
   SupportTicketDetail,
+  SupportTicketHeader,
   SupportTicketLogin,
   SupportTicketSubmitted,
   type SupportTicketSubmittedInfo,
@@ -205,7 +207,14 @@ export function SupportModalHost() {
         }
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
-          case?: { id: string; public_case_no?: string; created_at?: string };
+          case?: {
+            id: string;
+            public_case_no?: string;
+            created_at?: string;
+            category?: string | null;
+            issue_type?: string | null;
+          };
+          created?: boolean;
           error?: string;
         };
         if (!res.ok || !json.ok || !json.case?.id) {
@@ -216,13 +225,18 @@ export function SupportModalHost() {
         clearSupportTicketDraft(draftKey);
         // 새로고침해도 방금 접수한 문의로 돌아오게 복원값 저장
         stashSupportModalRestoreCaseId(json.case.id);
+        // 고객 문의 SSOT §6 (F4): 같은 분야 진행 중 문의에 붙었으면(created=false) 그 문의의 분야·세부·접수 시각을 보여 준다.
+        const merged = json.created === false;
+        const shownCategory = merged ? (json.case.category ?? state.category) : state.category;
+        const shownIssue = merged ? (json.case.issue_type ?? null) : state.issueType;
         setSubmitted({
           caseNo: json.case.public_case_no ?? "",
-          categoryLabel: labels.categoryLabel(state.audience, state.category),
-          issueLabel: labels.issueLabel(state.audience, state.category, state.issueType),
-          createdAt: new Date().toISOString(),
+          categoryLabel: labels.categoryLabel(state.audience, shownCategory),
+          issueLabel: labels.issueLabel(state.audience, shownCategory, shownIssue),
+          createdAt: merged && json.case.created_at ? json.case.created_at : new Date().toISOString(),
           audience: state.audience,
           storeId: state.storeId ?? null,
+          merged,
         });
       } catch {
         setSubmitError("network_error");
@@ -303,6 +317,16 @@ export function SupportModalHost() {
           onClose={handleClose}
           onViewMine={() => goMine(submitted)}
         />
+      );
+    } else if (auth === "checking" && !modal.caseId) {
+      // 고객 문의 SSOT §5: 로그인 확인 중에는 쓰기 화면을 그리지 않는다(비로그인에게 쓰기 화면이 잠깐 보였다 바뀌는 것 방지).
+      body = (
+        <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="checking">
+          <SupportTicketHeader titleId={titleId} title={t("support_ticket_title")} onClose={handleClose} />
+          <div className="relative min-h-0 flex-1">
+            <DibayPendingSpinner layout="fill" />
+          </div>
+        </div>
       );
     } else if (modal.caseId) {
       body = (
