@@ -14,6 +14,11 @@ import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** 4차 재감사 1: 읽음 처리할 답변 알림 = 보여 준 어드민 공개 답변(삭제 안 됨)만 — 요청 주소가 글 수만큼 길어지지 않게 */
+function shownAdminReplyIds(rows: readonly { id: string; sender_type: string; deleted_at?: string | null }[]): string[] {
+  return rows.filter((m) => m.sender_type === "ADMIN" && !m.deleted_at).map((m) => m.id);
+}
+
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ caseId: string }> }
@@ -48,7 +53,7 @@ export async function GET(
       userId: auth.userId,
       caseId,
       // 3차 재감사 2: 보여 준 답변의 알림만 읽음
-      shownMessageIds: closedMessages.messages.map((m) => m.id),
+      shownMessageIds: shownAdminReplyIds(closedMessages.messages),
     });
     return NextResponse.json({
       ok: true,
@@ -80,7 +85,7 @@ export async function GET(
   const notificationsRead = await markSupportCaseNotificationsRead(sb, {
     userId: auth.userId,
     caseId,
-    shownMessageIds: messages.messages.map((m) => m.id),
+    shownMessageIds: shownAdminReplyIds(messages.messages),
   });
   return NextResponse.json({
     ok: true,

@@ -1803,12 +1803,13 @@ export async function markSupportCaseNotificationsRead(
     error = r.error;
     data = (r.data ?? []) as { id: string }[];
   }
+  const count = data?.length ?? 0;
+  // 4차 재감사 2: 두 갱신 중 하나만 실패해도 바뀐 행이 있으면 배지 캐시를 비운다
+  if (count > 0) invalidateNotificationBadgeCache(uid);
   if (error) {
     console.warn("[support] notification_read_sync_failed", { caseId, error: error.message });
-    return 0;
+    return count;
   }
-  const count = data?.length ?? 0;
-  if (count > 0) invalidateNotificationBadgeCache(uid);
   if (!input.includeAdmin) return count;
   // R13: the admin's support reply notifications for this case (admin store).
   const adminRead = await markAdminNotificationsRead(sb, {
