@@ -54,7 +54,7 @@ export function MyPageHomeDashboard({
     }),
     [summary, chatUnread],
   );
-  const ccUnread = useCustomerCenterUnreadTotal();
+  const ccUnread = useCustomerCenterUnreadTotal({ mypagePullRefresh: true });
   const required = useMypageRequiredInfoResult(projection, loadFailed);
   const requiredLeft = required.settled && !required.rows.some((r) => r.tone === "error")
     ? required.rows.filter((r) => r.tone !== "complete").length

@@ -1,7 +1,7 @@
 import { isCommunityHomeSurfacePath, isHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import { isTradeSearchPath } from "@/lib/trade/search/trade-search-paths";
 
-export type MainHubPtrDomain = "home" | "trade" | "philife" | "stores" | "messenger";
+export type MainHubPtrDomain = "home" | "trade" | "philife" | "stores" | "messenger" | "mypage";
 
 /**
  * 메인 허브 PTR touch 리스너 — pathname 기준 단일 도메인.
@@ -10,6 +10,11 @@ export type MainHubPtrDomain = "home" | "trade" | "philife" | "stores" | "messen
 export function resolveMainHubPtrDomain(pathname: string | null | undefined): MainHubPtrDomain | null {
   const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
   if (isHomeSurfacePath(p)) return "home";
+  /** 내정보 홈만 (2026-11-27 · docs/audit/mypage-ptr-2026-11-27) — 하위 화면(`/mypage/*`)은 각자 목록·저장 계약이라 제외 */
+  {
+    const root = p.replace(/\/+$/, "");
+    if (root === "/mypage" || root === "/my") return "mypage";
+  }
   if (p === "/market") return "trade";
   if (p.startsWith("/market/")) {
     if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return null;

@@ -27,6 +27,8 @@ import {
   type MypageHomeProjection,
 } from "@/lib/mypage/mypage-home-store";
 import { resolveMypageHomeProfileResult } from "@/lib/mypage/resolve-mypage-home-profile";
+import { fetchMeProfileFresh } from "@/lib/profile/fetch-me-profile-deduped";
+import type { DibayPtrOutcome } from "@/lib/ui/ptr/dibay-ptr-ssot";
 import {
   resolveRequiredAddressFromSnapshot,
   type RequiredAddressResolution,
@@ -158,6 +160,35 @@ export function useMypageHomeModel(enabled: boolean) {
     await run;
   }, [enabled]);
 
+  /**
+   * 당겨서 새로고침 전용 (Owner 「설계안대로 구현」 2026-11-27 · docs/audit/mypage-ptr-2026-11-27 §1·§3-5).
+   * `refresh()` 는 첫 진입 비용 계약대로 캐시(앱 시작 프로필)를 먼저 쓰므로 당김에 쓰면 서버 값이 안 바뀐다 —
+   * 여기서는 캐시를 모두 건너뛴다(프로필 `fetchMeProfileFresh` · 주소 force). 실패하면 화면 값·상태를 그대로 두고 `error`.
+   */
+  const refreshFresh = useCallback(async (): Promise<DibayPtrOutcome> => {
+    if (!enabled) return "cancelled";
+    const viewerId = getCurrentUser()?.id?.trim() ?? "";
+    if (!viewerId) return "cancelled";
+    const gen = ++refreshGenRef.current;
+    const [profile, address] = await Promise.all([
+      fetchMeProfileFresh("mypage_ptr"),
+      resolveAddressStatus({ force: true }).catch(() => null),
+    ]);
+    if (gen !== refreshGenRef.current) return "cancelled";
+    if ((getCurrentUser()?.id?.trim() ?? "") !== viewerId) return "cancelled";
+    if (!profile || profile.id.trim() !== viewerId) return "error";
+    const prev = getMypageHomeProjection();
+    const addressOk = address != null && address.status !== "unknown";
+    const keepPrev = prev?.viewerId === viewerId ? prev : null;
+    setMypageHomeProjection({
+      ...projectionFromProfile(profile, addressOk ? address.status : (keepPrev?.addressStatus ?? "unknown")),
+      addressPublicLabel: addressOk ? address.publicLabel : (keepPrev?.addressPublicLabel ?? null),
+      addressActiveCount: addressOk ? address.activeCount : (keepPrev?.addressActiveCount ?? null),
+    });
+    if (addressOk) setProfilePhase("ready");
+    return addressOk ? "success" : "error";
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled) {
       seededRef.current = false;
@@ -249,6 +280,7 @@ export function useMypageHomeModel(enabled: boolean) {
   return {
     projection,
     refresh,
+    refreshFresh,
     applyProfilePatch,
     hasSnapshot: Boolean(projection),
     profilePhase,
