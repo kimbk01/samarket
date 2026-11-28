@@ -46,7 +46,7 @@ describe("D1 — 공개 답변에 어드민이 본 마지막 글 시각을 보�
   it("콘솔은 마지막으로 불러온 상세의 last_message_at 을 쓰고, 답변 뒤 상세를 다시 읽는다 (구조 확인)", () => {
     const src = read(PAGE);
     // 점검 H1(2026-11-28): 보이는 문의(activeCase) 값·id 로만 보낸다 — 동작 시험은 support-admin-final-check-console.test.tsx
-    expect(src).toContain("buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at), activeCase.id");
+    expect(src).toContain("buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at, intent.requestId)");
     const patch = src.slice(src.indexOf("const patchCase"), src.indexOf("const categoryLabel"));
     expect(patch).toContain("await loadDetail(writeCaseId)");
   });
@@ -315,7 +315,10 @@ describe("U-11 — 보관 문의에서도 바로 재오픈", () => {
   it("서버 재오픈은 ARCHIVED 를 받는다 (구조 확인)", () => {
     const svc = read("lib/support/support-case-service.ts");
     const fn = svc.slice(svc.indexOf("export async function reopenSupportCase"));
-    expect(fn.slice(0, 1500)).toContain('gate.case.status !== "RESOLVED" && gate.case.status !== "ARCHIVED"');
+    // 전체 수정 §2: 재오픈 = DB 전이 표(RESOLVED·ARCHIVED → OPEN · 이미 진행 중 = 변화 없음 ok)
+    expect(fn.slice(0, 1500)).toContain('action: "reopen"');
+    const mig = read("supabase/migrations/20271129100000_support_full_fix.sql");
+    expect(mig).toMatch(/ELSIF p_action = 'reopen' THEN\s*IF v_active THEN/);
   });
 });
 

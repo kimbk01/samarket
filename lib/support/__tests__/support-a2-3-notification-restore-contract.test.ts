@@ -89,7 +89,8 @@ describe("A2-3 support notification → Support Modal restore", () => {
 
   it("modal case load fail-closes without legacy fallback", () => {
     const page = read("components/support/SupportModalHost.tsx") + read("components/support/SupportTicketViews.tsx");
-    expect(page).toContain("support_modal_case_load");
+    // 계약 §5: 401 = 세션 살리기 1번 뒤 로그인 화면 — 규칙은 요청 실행기 한 곳
+    expect(read("lib/support/support-modal-ops.ts")).toContain("ensureSessionHealthy");
     expect(page).toContain("forbidden");
     expect(page).not.toContain("/mypage/inquiries");
     expect(page).not.toContain("/community-messenger");

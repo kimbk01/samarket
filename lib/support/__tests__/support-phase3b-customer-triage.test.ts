@@ -195,7 +195,7 @@ describe("PHASE 3-B support customer triage", () => {
 
   it("T12 접수형: 안내 단계 없음 — 닫기는 문의를 만들지 않는다", () => {
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("handleClose");
+    expect(host).toContain("intentClose");
     const views = read("components/support/SupportTicketViews.tsx");
     expect(views).not.toContain("GUIDANCE_RESOLVED");
     // create API only from 「문의 접수」 button
@@ -244,7 +244,7 @@ describe("PHASE 3-B support customer triage", () => {
   it("T14 내용 필수 — 비면 문의 접수 비활성", () => {
     const views = read("components/support/SupportTicketViews.tsx");
     expect(views).toContain("canSubmitSupportTicket(state)");
-    expect(views).toContain("disabled={!canSubmit}");
+    expect(views).toContain("disabled={!canSubmit || submitting}");
   });
 
   it("T15 문의는 「문의 접수」에서만 만든다", () => {
@@ -257,13 +257,13 @@ describe("PHASE 3-B support customer triage", () => {
     expect(form).toContain("requireIssueType: true");
     const host = read("components/support/SupportModalHost.tsx");
     expect(host).toContain("handleSubmit");
-    expect(host).toContain('fetch("/api/support/cases/open"');
+    expect(host).toContain('url: "/api/support/cases/open"');
   });
 
   it("T16 caseId 로 열면 그 문의 상세(질문·답변)", () => {
     const host = read("components/support/SupportModalHost.tsx");
     expect(host).toContain("SupportTicketDetail");
-    expect(host).toContain("modal.caseId");
+    expect(host).toContain("caseId={v.caseId}");
     const views = read("components/support/SupportTicketViews.tsx");
     expect(views).toContain("/api/support/cases/");
   });
@@ -305,7 +305,7 @@ describe("PHASE 3-B support customer triage", () => {
     const views = read("components/support/SupportTicketViews.tsx");
     expect(views).toContain('method: "POST"');
     // 2차 재감사 A: 「확인했어요」는 화면이 본 마지막 글 시각을 함께 보낸다
-    expect(views).toContain('JSON.stringify({ action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null })');
+    expect(views).toContain('body: { action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null }');
     expect(views).toMatch(/\/api\/support\/cases\/\$\{encodeURIComponent\(caseId\)\}/);
   });
 

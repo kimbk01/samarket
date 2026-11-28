@@ -14,10 +14,14 @@ import "server-only";
  *   A revoked admin's rows are kept but unreadable and never pushed.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isSupportRequesterOutboxPayload,
+  replaySupportRequesterNotification,
+} from "@/lib/support/support-requester-outbox";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";
-import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
+import { isLoginDeniedMemberAccount, isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_NOTIFICATION_RETENTION_DAYS,
@@ -64,12 +68,18 @@ export async function resolveAdminRecipientAuthority(
   const isSuperAdmin = isSuperAdminRole(role);
   // 재감사 5: 정지된 운영자(최고관리자 제외)는 관리자 경로가 막혀 문의를 열 수 없다(앱 `isSuspendedNonSuperAdminActor`) —
   // 알림 받는 사람·담당자로도 보지 않는다(정지 담당자 = 「받을 수 없는 담당자 → 해제 + 전원」 경로).
-  // 프로필을 못 읽으면 정지가 아닌 것으로 본다(알림을 끊지 않는 쪽 · 화면은 관리자 API 가 막는다).
+  // 고객센터 전체 수정 결정 4 (2026-11-29): 프로필을 못 읽으면 **정지로 본다**(fail-closed · RLS
+  // `internal.support_admin_has_support_permission` 과 같은 쪽 — 받는 사람·담당자 판정이 RLS 보다 넓지 않게).
+  // 받는 사람 판정 1곳 = 이 함수(고객센터 담당 지정·재오픈 담당 확인·알림 받는 사람·푸시 직전 재확인).
   if (!isSuperAdmin) {
     const { data: profile, error: profileErr } = await sb.from("profiles").select("status").eq("id", userId).maybeSingle();
     if (profileErr) {
       console.error("[admin-notification] recipient_profile_read_failed", { userId, error: profileErr.message });
-    } else if (isSuspendedMemberAccount(profile as { status?: string | null } | null)) {
+      return { active: false };
+    }
+    // 전체 수정 S-7: 차단·탈퇴(로그인 불가)도 정지와 같게 — 받을 수 없는 담당자·받는 사람
+    const p = profile as { status?: string | null } | null;
+    if (isSuspendedMemberAccount(p) || isLoginDeniedMemberAccount(p)) {
       return { active: false };
     }
   }
@@ -609,6 +619,22 @@ export async function runAdminNotificationDeliveryWorker(
   if (claimed.error) sum.errors.push(`outbox_claim:${claimed.error.message}`);
   for (const row of (claimed.data ?? []) as OutboxRow[]) {
     sum.outboxClaimed += 1;
+    // 전체 수정 §4 S-6: 고객센터 고객 알림(응답 전 저장 실패분)도 같은 대기열 — 어드민 알림 판정을 거치지 않고 다시 만든다
+    if (isSupportRequesterOutboxPayload(row.payload)) {
+      const rr = await replaySupportRequesterNotification(sb, row.payload);
+      const finR = await sb.rpc("admin_notification_outbox_finish", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+        p_ok: rr.ok,
+        p_error: rr.ok ? null : rr.error,
+      });
+      const stateR = String(finR.data ?? "");
+      if (finR.error) sum.errors.push(`outbox_finish:${finR.error.message}`);
+      else if (stateR === "delivered") sum.outboxDelivered += 1;
+      else if (stateR === "retry") sum.outboxRetry += 1;
+      else if (stateR === "dead") sum.outboxDead += 1;
+      continue;
+    }
     const input = parseOutboxPayload(row.payload);
     let res: CreateAdminNotificationResult;
     // 고객 문의 남은 위험 (5차 재감사 2·4): 고객 글 알림은 보내기 직전에 문의 상태를 본다 —

@@ -13,7 +13,7 @@ import { MemberOpsListBody } from "@/components/admin/member-ops/MemberOpsListBo
 import { useMemberOpsPagedFetch } from "@/lib/admin/member-ops-list/use-member-ops-paged-fetch";
 import { ADMIN_LIST_QUERY_DEFAULT_SIZE, type AdminListPageSize } from "@/lib/admin/list-query/admin-list-query";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
-import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type ArchiveTab = "notes" | "platform";
 
@@ -44,27 +44,30 @@ type NoteMessage = {
 };
 
 /** B8 — legacy status/role wording (archive rows never print raw enums). */
-function legacyStatusLabel(status: string, ko: boolean): string {
+type ArchiveT = (key: MessageKey) => string;
+
+function legacyStatusLabel(status: string, t: ArchiveT): string {
   switch (String(status ?? "").trim()) {
     case "open":
-      return translateBy(ko ? "ko" : "en", "admin_support_awaiting_reply");
+      return t("admin_support_awaiting_reply");
     case "answered":
-      return translateBy(ko ? "ko" : "en", "admin_support_answered");
+      return t("admin_support_answered");
     case "closed":
-      return translateBy(ko ? "ko" : "en", "admin_support_closed");
+      return t("admin_support_closed");
     default:
-      return translateBy(ko ? "ko" : "en", "admin_support_unknown");
+      return t("admin_support_unknown");
   }
 }
 
-function startedByLabel(startedBy: string | undefined, ko: boolean): string {
-  if (startedBy === "admin") return translateBy(ko ? "ko" : "en", "admin_support_admin_started");
-  if (startedBy === "member") return translateBy(ko ? "ko" : "en", "admin_support_member_started");
+function startedByLabel(startedBy: string | undefined, t: ArchiveT): string {
+  if (startedBy === "admin") return t("admin_support_admin_started");
+  if (startedBy === "member") return t("admin_support_member_started");
   return "—";
 }
 
 /** B8 — read-only thread body, loaded on expand via the existing admin GET. */
 function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<NoteMessage[] | null>(null);
   const [failed, setFailed] = useState<{ code: string; httpStatus?: number } | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -113,7 +116,7 @@ function ArchiveNoteThread({ threadId, ko }: { threadId: string; ko: boolean }) 
           }`}
         >
           <p className="text-xs text-sam-muted">
-            {m.sender_role === "admin" ? (translateBy(ko ? "ko" : "en", "admin_support_admin")) : translateBy(ko ? "ko" : "en", "admin_support_member")} ·{" "}
+            {t(m.sender_role === "admin" ? "admin_support_admin" : "admin_support_member")} ·{" "}
             {formatAdminManilaDateTime(m.created_at)}
           </p>
           <p className="whitespace-pre-wrap">{m.body}</p>
@@ -207,8 +210,8 @@ export function AdminSupportArchivePage() {
                 <Fragment key={n.id}>
                   <tr className="border-b border-sam-border/70 align-top">
                     <td className="py-2 pr-2 font-medium text-sam-fg">{n.subject}</td>
-                    <td className="py-2 pr-2 text-sam-muted">{startedByLabel(n.started_by, ko)}</td>
-                    <td className="py-2 pr-2">{legacyStatusLabel(n.status, ko)}</td>
+                    <td className="py-2 pr-2 text-sam-muted">{startedByLabel(n.started_by, t)}</td>
+                    <td className="py-2 pr-2">{legacyStatusLabel(n.status, t)}</td>
                     <td className="whitespace-nowrap py-2 pr-2 text-sam-muted">
                       {n.last_message_at ? formatAdminManilaDateTime(n.last_message_at) : ""}
                     </td>
@@ -252,7 +255,7 @@ export function AdminSupportArchivePage() {
                 <Fragment key={r.id}>
                   <tr className="border-b border-sam-border/70 align-top">
                     <td className="py-2 pr-2 font-medium text-sam-fg">{r.subject}</td>
-                    <td className="py-2 pr-2">{legacyStatusLabel(r.status, ko)}</td>
+                    <td className="py-2 pr-2">{legacyStatusLabel(r.status, t)}</td>
                     <td className="py-2 pr-2 text-sam-muted">
                       {r.store_id ? formatAdminShortIdEllipsis(r.store_id) : "—"}
                     </td>

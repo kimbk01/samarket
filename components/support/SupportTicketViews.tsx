@@ -32,7 +32,9 @@ import { supportRequesterStatusPill } from "@/lib/support/support-status-label";
 import {
   SUPPORT_TICKET_BODY_MAX,
   applySupportTicketDraft,
+  bindSupportFollowUpRequestId,
   buildSupportTicketOpenPayload,
+  clearSupportFollowUpDraft,
   canSubmitSupportTicket,
   clearSupportTicketDraft,
   initSupportTicketForm,
@@ -42,12 +44,14 @@ import {
   sortActiveSupportTickets,
   isSupportTicketClosedStatus,
   listSupportTicketCategories,
+  readSupportFollowUpDraft,
   readSupportTicketDraft,
   selectSupportTicketCategory,
   selectSupportTicketIssue,
   setSupportTicketBody,
   supportTicketDraftKey,
   switchSupportTicketAudience,
+  writeSupportFollowUpDraft,
   writeSupportTicketDraft,
   type SupportTicketDraft,
   type SupportTicketFormState,
@@ -56,6 +60,20 @@ import { AdPricingGuideTable, type AdPricingGuideTab } from "@/components/ads/Ad
 import type { AdPricingGuide } from "@/lib/ads/ad-pricing-guide";
 import { OWNER_SUPPORT_TONE_CLASS, supportPrimaryCtaToneClass } from "@/lib/support/support-owner-cta";
 import { SUPPORT_BACK_PRIORITY, useSupportModalBackStep } from "@/components/support/support-modal-back-steps";
+import {
+  finishSupportModalView,
+  getSupportModalMachineState,
+  isSupportModalBusy,
+  supportModalTokenFor,
+  type SupportTicketSubmittedInfo,
+} from "@/lib/support/support-modal-machine";
+import {
+  newSupportRequestId,
+  runSupportModalRead,
+  runSupportModalWrite,
+  supportOpErrorCode,
+} from "@/lib/support/support-modal-ops";
+import { dispatchSupportNotificationArrived } from "@/lib/support/support-notification-events";
 
 /** 최종 감사 U-4: 회원/매장 전환 — 누르는 영역 44px · 보이는 칸은 작게 */
 /** 재감사 U-4-a: 높이·너비 모두 44px 이상(「회원」·「매장」 두 글자는 그대로면 약 42px) */
@@ -69,14 +87,14 @@ export function SupportTicketHeader({
   onBack,
   onClose,
   titleId,
-  closeDisabled = false,
+  busy = false,
 }: {
   title: string;
   onBack?: (() => void) | null;
   onClose: () => void;
   titleId?: string;
-  /** 남은 위험 1 (재감사 D1·D2): 「문의 접수」 전송 중에는 창을 닫을 수 없다 */
-  closeDisabled?: boolean;
+  /** 계약 §5: 쓰기 요청 중 — ‹·✕ 모두 비활성(누른 것은 상태 기계가 결과 뒤 실행) */
+  busy?: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -90,6 +108,7 @@ export function SupportTicketHeader({
           className="flex h-12 w-12 items-center justify-center text-[var(--overlay-text-primary)]"
           aria-label={t("support_ticket_back_aria")}
           data-support-ticket-back="1"
+          disabled={busy}
           onClick={onBack}
         />
       ) : (
@@ -107,7 +126,7 @@ export function SupportTicketHeader({
         data-support-modal-close="1"
         className="flex h-12 w-12 items-center justify-center text-[var(--overlay-text-primary)] disabled:opacity-40"
         aria-label={t("support_modal_close_aria")}
-        disabled={closeDisabled}
+        disabled={busy}
         onClick={onClose}
       >
         <X className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -132,11 +151,18 @@ const SUPPORT_RETRY_BTN =
 function SupportRetryButton({
   onClick,
   className = "",
+  disabled = false,
   ...data
-}: { onClick: () => void; className?: string } & Record<`data-${string}`, string>) {
+}: { onClick: () => void; className?: string; disabled?: boolean } & Record<`data-${string}`, string>) {
   const { t } = useI18n();
   return (
-    <button type="button" className={`${SUPPORT_RETRY_BTN} ${className}`.trim()} onClick={onClick} {...data}>
+    <button
+      type="button"
+      className={`${SUPPORT_RETRY_BTN} ${className}`.trim()}
+      disabled={disabled}
+      onClick={onClick}
+      {...data}
+    >
       {t("common_retry")}
     </button>
   );
@@ -208,12 +234,15 @@ function FieldRow({
   placeholder,
   onClick,
   testId,
+  disabled = false,
 }: {
   label: string;
   value: string;
   placeholder?: string;
   onClick?: () => void;
   testId?: string;
+  /** 계약 §5 busy */
+  disabled?: boolean;
 }) {
   const inner = (
     <>
@@ -231,7 +260,13 @@ function FieldRow({
   const cls =
     "grid h-11 w-full grid-cols-[64px_minmax(0,1fr)_16px] items-center gap-2 border-b border-[var(--overlay-border)] px-4 text-left last:border-b-0";
   return onClick ? (
-    <button type="button" className={`${cls} active:bg-[var(--overlay-secondary)]`} onClick={onClick} data-testid={testId}>
+    <button
+      type="button"
+      className={`${cls} active:bg-[var(--overlay-secondary)] disabled:opacity-60`}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+    >
       {inner}
     </button>
   ) : (
@@ -271,15 +306,20 @@ function useViewerOwnerStores() {
  * 같은 대상(회원 / 그 매장)의 진행 중 문의만, 답변 완료 먼저(최근 순). 없으면 아무것도 그리지 않는다.
  */
 function ActiveTicketList({
+  viewId,
   audience,
   storeId,
   refreshKey,
+  busy,
   onOpenCase,
 }: {
+  /** 이 목록을 그리는 쓰기 화면 id — 응답은 그 화면이 아직 쌓여 있을 때만 붙인다 */
+  viewId: string;
   audience: "MEMBER" | "OWNER";
   storeId: string | null;
   /** 최종 감사 U-3: 문의 상세에서 쓰기로 돌아오면 다시 읽는다(쓰기 화면은 그대로 유지되므로) */
   refreshKey: number;
+  busy: boolean;
   onOpenCase: (caseId: string) => void;
 }) {
   const { t } = useI18n();
@@ -287,34 +327,37 @@ function ActiveTicketList({
   /** 최종 감사 U-14: 불러오기 실패를 숨기지 않는다 — 작은 오류 줄 + 다시 시도 */
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  /** C-18: 대상(회원 ↔ 매장)이 바뀌면 이전 대상 행을 바로 비운다 — 다른 대상의 문의가 남아 보이지 않게 */
+  const target = `${audience}|${audience === "OWNER" ? storeId ?? "" : ""}`;
+  const [rowsTarget, setRowsTarget] = useState(target);
+  if (rowsTarget !== target) {
+    setRowsTarget(target);
+    setRows([]);
+    setFailed(false);
+  }
 
   useEffect(() => {
-    if (audience === "OWNER" && !storeId) {
-      setRows([]);
-      setFailed(false);
-      return;
-    }
+    if (audience === "OWNER" && !storeId) return;
     let cancelled = false;
     setFailed(false);
-    const qs = new URLSearchParams({ audience });
+    // B-1: 쓰는 행은 5개 — 서버에서도 5개만 읽는다
+    const qs = new URLSearchParams({ audience, limit: String(SUPPORT_TICKET_ACTIVE_LIST_MAX) });
     if (audience === "OWNER" && storeId) qs.set("storeId", storeId);
-    void fetch(`/api/support/cases?${qs.toString()}`, { credentials: "include", cache: "no-store" })
-      .then((r) => r.json().catch(() => null))
-      .then((j: { ok?: boolean; cases?: SupportCaseRow[] } | null) => {
-        if (cancelled) return;
-        if (!j?.ok || !Array.isArray(j.cases)) {
-          setFailed(true);
-          return;
-        }
-        setRows(sortActiveSupportTickets(j.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX));
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
+    void runSupportModalRead<{ ok?: boolean; cases?: SupportCaseRow[] }>(
+      { viewId, caseId: null },
+      { url: `/api/support/cases?${qs.toString()}`, cache: "no-store" }
+    ).then((res) => {
+      if (cancelled || !res.current || res.status === 401) return;
+      if (!res.ok || !Array.isArray(res.json.cases)) {
+        setFailed(true);
+        return;
+      }
+      setRows(sortActiveSupportTickets(res.json.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX));
+    });
     return () => {
       cancelled = true;
     };
-  }, [audience, storeId, attempt, refreshKey]);
+  }, [viewId, audience, storeId, attempt, refreshKey]);
 
   if (failed && rows.length === 0) {
     return (
@@ -329,6 +372,7 @@ function ActiveTicketList({
         <SupportRetryButton
           data-support-ticket-active-retry="1"
           className="my-1 mr-4"
+          disabled={busy}
           onClick={() => setAttempt((n) => n + 1)}
         />
       </div>
@@ -340,7 +384,7 @@ function ActiveTicketList({
       <SectionLabel>{t("support_ticket_active_section")}</SectionLabel>
       <div className="border-y border-[var(--overlay-border)] bg-[var(--overlay-surface)]">
         {rows.map((c) => (
-          <SupportCaseRowButton key={c.id} c={c} surface="overlay" onOpen={onOpenCase} />
+          <SupportCaseRowButton key={c.id} c={c} surface="overlay" disabled={busy} onOpen={onOpenCase} />
         ))}
       </div>
     </div>
@@ -354,43 +398,56 @@ type ComposeView = "form" | "pick_category" | "pick_issue" | "ad_pricing";
 /** 광고 감사 E: 「광고 금액 확인」 줄이 나오는 문의 유형 (회원 광고 · 사장님 배달 광고) */
 const AD_PRICING_SUPPORT_CATEGORIES = new Set(["AD", "DELIVERY_AD", "CAMPAIGN"]);
 
+/**
+ * B-2: 요금표는 창이 열린 동안 1번만 받는다(들어갈 때마다 다시 받지 않음) — 창 회차(session)가 바뀌면 다시.
+ * 실패는 기억하지 않는다(다시 시도하면 다시 받음).
+ */
+let adPricingCache: { session: number; guide: AdPricingGuide } | null = null;
+
 /** 고객센터 창 안 광고 요금표 — 공지 고정 게시물과 같은 표·같은 API (시안 ④) */
 function SupportAdPricingView({
   titleId,
   owner,
+  busy,
   onBack,
   onClose,
 }: {
   titleId: string;
   owner: boolean;
+  busy: boolean;
   onBack: () => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const [guide, setGuide] = useState<AdPricingGuide | null>(null);
+  const session = getSupportModalMachineState().session;
+  const [guide, setGuide] = useState<AdPricingGuide | null>(() =>
+    adPricingCache?.session === session ? adPricingCache.guide : null
+  );
   const [failed, setFailed] = useState(false);
   const [tab, setTab] = useState<AdPricingGuideTab>(owner ? "store" : "member");
   /** R-28: 실패 화면에서 「다시 시도」 — 공지 화면과 같은 동작 */
   const [attempt, setAttempt] = useState(0);
+  const hasGuide = guide != null;
   useEffect(() => {
+    if (hasGuide) return;
     let cancelled = false;
-    void fetch("/api/ads/pricing-guide", { cache: "no-store", credentials: "include" })
-      .then((r) => r.json().catch(() => null))
-      .then((j: { ok?: boolean; guide?: AdPricingGuide } | null) => {
-        if (cancelled) return;
-        if (j?.ok && j.guide) setGuide(j.guide);
-        else setFailed(true);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
+    void runSupportModalRead<{ ok?: boolean; guide?: AdPricingGuide }>(null, {
+      url: "/api/ads/pricing-guide",
+      cache: "no-store",
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.ok && res.json.guide) {
+        adPricingCache = { session, guide: res.json.guide };
+        setGuide(res.json.guide);
+      } else setFailed(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [attempt, hasGuide, session]);
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="ad_pricing">
-      <SupportTicketHeader titleId={titleId} title={t("ad_guide_title")} onBack={onBack} onClose={onClose} />
+      <SupportTicketHeader titleId={titleId} title={t("ad_guide_title")} onBack={onBack} onClose={onClose} busy={busy} />
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {failed ? (
           <div className="py-6 text-center">
@@ -416,6 +473,7 @@ function SupportAdPricingView({
           roleTone="primary"
           className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(owner)}`}
           data-support-ad-pricing-back="1"
+          disabled={busy}
           onClick={onBack}
         >
           {t("ad_guide_back_to_inquiry")}
@@ -426,25 +484,35 @@ function SupportAdPricingView({
 }
 
 export function SupportTicketCompose({
+  viewId,
   context,
   viewerName,
   titleId,
   hidden = false,
+  busy,
   submitting,
   submitError,
   onClose,
+  onBack,
   onSubmit,
   onOpenStoreChat,
   onOpenCase,
 }: {
+  /** 상태 기계 화면 id */
+  viewId: string;
   context: SupportContext;
   viewerName: string;
   titleId: string;
   /** 최종 감사 U-3: 문의 상세가 위에 열려 있어 숨긴 채 유지 중 — 입력 내용·화면 단계는 그대로 둔다 */
   hidden?: boolean;
+  /** 계약 §5: 창 안 쓰기 요청 중 — 모든 버튼 비활성 */
+  busy: boolean;
+  /** 이 쓰기 화면의 「문의 접수」가 진행 중 */
   submitting: boolean;
   submitError: string | null;
   onClose: () => void;
+  /** 화면 ‹ = 기기 ◁ (상태 기계 back) */
+  onBack: () => void;
   onSubmit: (state: SupportTicketFormState, draftKey: string) => void;
   /** 주문 화면 — 「매장에 문의하기(주문 채팅)」 */
   onOpenStoreChat: (href: string) => void;
@@ -491,13 +559,9 @@ export function SupportTicketCompose({
     if (hidden) flushPendingSave();
   }, [hidden, flushPendingSave]);
 
-  // 병합 전 2차 7: 「문의 접수」 전송 중에는 쓰기 내용을 바꾸지 않는다(접수 뒤 그 글이 「작성 중인 문의」로 되살아나던 것)
-  const submittingRef = useRef(submitting);
-  useEffect(() => {
-    submittingRef.current = submitting;
-  }, [submitting]);
+  // 병합 전 2차 7 · 계약 §5: 쓰기 요청 중에는 쓰기 내용을 바꾸지 않는다(판정 = 상태 기계 busy 하나)
   const update = useCallback((fn: (s: SupportTicketFormState) => SupportTicketFormState) => {
-    if (submittingRef.current) return;
+    if (isSupportModalBusy()) return;
     touchedRef.current = true;
     setState(fn);
   }, []);
@@ -543,6 +607,7 @@ export function SupportTicketCompose({
               type="button"
               data-support-ticket-switch="MEMBER"
               aria-pressed={!isOwner}
+              disabled={busy}
               className={`${SWITCH_HIT} pl-1`}
               onClick={() =>
                 update((s) =>
@@ -562,6 +627,7 @@ export function SupportTicketCompose({
               type="button"
               data-support-ticket-switch="OWNER"
               aria-pressed={isOwner}
+              disabled={busy}
               className={`${SWITCH_HIT} pr-1`}
               onClick={() =>
                 update((s) =>
@@ -589,7 +655,7 @@ export function SupportTicketCompose({
 
   if (view === "ad_pricing") {
     return (
-      <SupportAdPricingView titleId={titleId} owner={isOwner} onBack={() => setView("form")} onClose={onClose} />
+      <SupportAdPricingView titleId={titleId} owner={isOwner} busy={busy} onBack={onBack} onClose={onClose} />
     );
   }
 
@@ -607,8 +673,9 @@ export function SupportTicketCompose({
         <SupportTicketHeader
           titleId={titleId}
           title={picking ? t("support_ticket_pick_category_title") : t("support_ticket_pick_issue_title")}
-          onBack={() => setView("form")}
+          onBack={onBack}
           onClose={onClose}
+          busy={busy}
         />
         {whoRow}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3">
@@ -618,6 +685,7 @@ export function SupportTicketCompose({
                 key={row.id}
                 type="button"
                 data-testid={picking ? `support-ticket-cat-${row.id}` : `support-ticket-issue-${row.id}`}
+                disabled={busy}
                 className="grid h-11 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 border-b border-[var(--overlay-border)] px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
                 onClick={() => {
                   if (picking) {
@@ -645,18 +713,20 @@ export function SupportTicketCompose({
     );
   }
 
-  const canSubmit = canSubmitSupportTicket(state) && !submitting;
+  const canSubmit = canSubmitSupportTicket(state) && !busy;
   const bodyLen = state.body.length;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="form">
-      <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} closeDisabled={submitting} />
+      <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} busy={busy} />
       {whoRow}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-form-keyboard-scroll-root="1">
         <ActiveTicketList
+          viewId={viewId}
           audience={state.audience}
           storeId={state.storeId ?? null}
           refreshKey={activeRefreshKey}
+          busy={busy}
           onOpenCase={onOpenCase}
         />
 
@@ -689,6 +759,7 @@ export function SupportTicketCompose({
                 roleTone="primary"
                 className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner)}`}
                 data-support-ticket-draft-continue="1"
+                disabled={busy}
                 onClick={() => {
                   const d = draft;
                   setDraft(null);
@@ -701,6 +772,7 @@ export function SupportTicketCompose({
                 roleTone="destructive"
                 className={SUPPORT_BTN}
                 data-support-ticket-draft-delete="1"
+                disabled={busy}
                 onClick={() => {
                   void (async () => {
                     const ok = await dibayConfirm({
@@ -738,6 +810,7 @@ export function SupportTicketCompose({
                 roleTone="primary"
                 className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner)}`}
                 data-support-ticket-store-chat="1"
+                disabled={busy}
                 onClick={() => onOpenStoreChat(state.storeChatHref!)}
               >
                 {t("support_ticket_store_first_cta")}
@@ -759,6 +832,7 @@ export function SupportTicketCompose({
             value={state.category ? labels.categoryLabel(state.audience, state.category) : ""}
             placeholder={t("support_ticket_pick_placeholder")}
             onClick={state.categoryLocked ? undefined : () => setView("pick_category")}
+            disabled={busy}
             testId="support-ticket-field-category"
           />
           <FieldRow
@@ -766,6 +840,7 @@ export function SupportTicketCompose({
             value={labels.issueLabel(state.audience, state.category, state.issueType)}
             placeholder={t("support_ticket_pick_placeholder")}
             onClick={state.category ? () => setView("pick_issue") : undefined}
+            disabled={busy}
             testId="support-ticket-field-issue"
           />
           {AD_PRICING_SUPPORT_CATEGORIES.has(String(state.category ?? "")) ? (
@@ -773,8 +848,9 @@ export function SupportTicketCompose({
             <button
               type="button"
               data-testid="support-ticket-ad-pricing"
+              disabled={busy}
               onClick={() => setView("ad_pricing")}
-              className="grid h-11 w-full grid-cols-[minmax(0,1fr)_16px] items-center gap-2 border-b border-[var(--overlay-border)] bg-sam-primary-soft px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
+              className="grid h-11 w-full disabled:opacity-60 grid-cols-[minmax(0,1fr)_16px] items-center gap-2 border-b border-[var(--overlay-border)] bg-sam-primary-soft px-4 text-left last:border-b-0 active:bg-[var(--overlay-secondary)]"
             >
               <span className="truncate text-[14px] font-semibold text-sam-primary">{t("ad_guide_check_prices")}</span>
               <span className="flex justify-end text-sam-primary" aria-hidden>
@@ -798,7 +874,7 @@ export function SupportTicketCompose({
             }}
             rows={5}
             maxLength={SUPPORT_TICKET_BODY_MAX}
-            readOnly={submitting}
+            readOnly={busy}
             aria-busy={submitting || undefined}
             data-form-keyboard-field="1"
             data-support-ticket-body="1"
@@ -822,7 +898,7 @@ export function SupportTicketCompose({
           roleTone="primary"
           className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner, { disabled: !canSubmit, loading: submitting })}`}
           loading={submitting}
-          disabled={!canSubmit}
+          disabled={!canSubmit || submitting}
           aria-label={busyName(submitting, t("support_ticket_submit"))}
           data-support-ticket-submit="1"
           onClick={() => {
@@ -840,32 +916,25 @@ export function SupportTicketCompose({
 
 /* ───────────── 접수 완료 ───────────── */
 
-export type SupportTicketSubmittedInfo = {
-  caseNo: string;
-  categoryLabel: string;
-  issueLabel: string;
-  createdAt: string;
-  audience: "MEMBER" | "OWNER";
-  storeId: string | null;
-  /** 고객 문의 SSOT §6 (F4): 같은 분야 진행 중 문의에 이어 붙었다 — 기존 문의의 번호·분야·세부를 보여 준다. */
-  merged?: boolean;
-};
+export type { SupportTicketSubmittedInfo } from "@/lib/support/support-modal-machine";
 
 export function SupportTicketSubmitted({
   info,
   titleId,
+  busy = false,
   onClose,
   onViewMine,
 }: {
   info: SupportTicketSubmittedInfo;
   titleId: string;
+  busy?: boolean;
   onClose: () => void;
   onViewMine: () => void;
 }) {
   const { t } = useI18n();
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="submitted">
-      <SupportTicketHeader titleId={titleId} title={t("support_ticket_submitted_title")} onClose={onClose} />
+      <SupportTicketHeader titleId={titleId} title={t("support_ticket_submitted_title")} onClose={onClose} busy={busy} />
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sam-primary-soft text-sam-primary">
           <Check className="h-7 w-7" strokeWidth={2.5} aria-hidden />
@@ -890,10 +959,16 @@ export function SupportTicketSubmitted({
       </div>
       <Footer>
         <div className="grid grid-cols-2 gap-2">
-          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onViewMine} data-support-ticket-view-mine="1">
+          <DibayOverlayButton
+            roleTone="secondary"
+            className={SUPPORT_BTN}
+            disabled={busy}
+            onClick={onViewMine}
+            data-support-ticket-view-mine="1"
+          >
             {t("support_ticket_view_mine")}
           </DibayOverlayButton>
-          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose} data-support-ticket-ok="submitted">
+          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose} disabled={busy} data-support-ticket-ok="submitted">
             {t("support_ticket_ok")}
           </DibayOverlayButton>
         </div>
@@ -906,11 +981,13 @@ export function SupportTicketSubmitted({
 
 export function SupportTicketLogin({
   titleId,
+  busy = false,
   onClose,
   onLogin,
   onSignup,
 }: {
   titleId: string;
+  busy?: boolean;
   onClose: () => void;
   onLogin: () => void;
   onSignup: () => void;
@@ -918,17 +995,17 @@ export function SupportTicketLogin({
   const { t } = useI18n();
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="login">
-      <SupportTicketHeader titleId={titleId} title={t("support_ticket_title")} onClose={onClose} />
+      <SupportTicketHeader titleId={titleId} title={t("support_ticket_title")} onClose={onClose} busy={busy} />
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-[17px] font-semibold text-[var(--overlay-text-primary)]">{t("support_ticket_login_title")}</p>
         <p className="text-[13px] leading-relaxed text-[var(--overlay-text-secondary)]">{t("support_ticket_login_body")}</p>
       </div>
       <Footer>
         <div className="grid grid-cols-2 gap-2">
-          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onSignup} data-support-ticket-signup="1">
+          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} disabled={busy} onClick={onSignup} data-support-ticket-signup="1">
             {t("support_ticket_signup_cta")}
           </DibayOverlayButton>
-          <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onLogin} data-support-ticket-login="1">
+          <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} disabled={busy} onClick={onLogin} data-support-ticket-login="1">
             {t("support_ticket_login_cta")}
           </DibayOverlayButton>
         </div>
@@ -984,52 +1061,83 @@ function QaBlock({
 }
 
 /**
- * 재감사 D1 — 이 앱 실행 동안 본 「종료 + 안 읽은 답변」 내용 (문의 id → 글).
- * 서버는 그 내용을 한 번만 주고 읽음 처리하므로, 같은 창이 다시 그려지거나 다시 열려도 빈 화면이 되지 않게 한다.
+ * 재감사 D1 — 이 상세 화면이 떠 있는 동안 본 「종료 + 안 읽은 답변」 내용 (문의 id → 글).
+ * seen 뒤 서버는 그 내용을 다시 주지 않으므로, 같은 상세를 다시 읽어도(같은 문의 푸시) 빈 화면이 되지 않게 한다.
+ * 계약 §5: 「확인」뿐 아니라 ✕·◁ 로 닫아도(상세 화면이 빠지면) 지운다 — 옛 푸시로 다시 열면 「종료된 문의예요」.
  */
 const closedUnreadSeen = new Map<string, SupportMessageRow[]>();
 
-/** 최종 점검 M1: 추가 문의 입력 글 — 문의별 임시 저장(닫거나 ◁ 해도 잃지 않음 · 보내면 지움) */
-const FOLLOW_UP_DRAFT_PREFIX = "dibaySupportFollowUpDraft:";
+type SupportDetailJson = {
+  ok?: boolean;
+  case?: SupportCaseRow;
+  messages?: SupportMessageRow[];
+  closed?: boolean;
+  /** 서버: 읽음(seen)을 보낼 것이 있는지 — false 면 보내지 않는다(요청 예산) */
+  needsSeen?: boolean;
+  error?: string;
+};
 
-function readFollowUpDraft(caseId: string): string {
-  try {
-    return window.sessionStorage.getItem(FOLLOW_UP_DRAFT_PREFIX + caseId) ?? "";
-  } catch {
-    return "";
-  }
+/** 계약 §3: 화면에 보인 글 — seen 요청 본문 */
+type ShownPayload = { seq: number; ids: string[]; seenLastMessageAt: string | null; needsSeen: boolean };
+
+function useDocumentVisible(): boolean {
+  const [visible, setVisible] = useState(() =>
+    typeof document === "undefined" ? true : document.visibilityState === "visible"
+  );
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const sync = () => setVisible(document.visibilityState === "visible");
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
+  return visible;
 }
 
-function writeFollowUpDraft(caseId: string, text: string): void {
-  try {
-    if (text) window.sessionStorage.setItem(FOLLOW_UP_DRAFT_PREFIX + caseId, text);
-    else window.sessionStorage.removeItem(FOLLOW_UP_DRAFT_PREFIX + caseId);
-  } catch {
-    /* 저장 실패 — 화면 안 입력은 그대로 */
+function latestCreatedAt(rows: readonly { created_at?: string | null }[], fallback: string | null | undefined): string | null {
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const r of rows) {
+    const ms = Date.parse(String(r.created_at ?? ""));
+    if (Number.isFinite(ms) && ms >= bestMs) {
+      bestMs = ms;
+      best = String(r.created_at);
+    }
   }
+  return best ?? (fallback ? String(fallback) : null);
 }
 
 export function SupportTicketDetail({
+  viewId,
   caseId,
+  reloadTick = 0,
+  isTop,
   titleId,
+  busy,
+  writeKind,
+  canBack,
   onClose,
-  onClosedByRequester,
-  onDone,
-  onNewInquiry,
-  onUnauthorized,
   onBack,
+  onNewInquiry,
 }: {
+  /** 상태 기계 화면 id */
+  viewId: string;
   caseId: string;
+  /** 같은 문의를 다시 열면(새 답변 푸시) +1 → 다시 읽는다 (C-11) */
+  reloadTick?: number;
+  /** 지금 맨 위(보이는) 화면 — seen 은 이때만 보낸다 */
+  isTop: boolean;
   titleId: string;
+  /** 계약 §5: 창 안 쓰기 요청 중 — 모든 버튼 비활성 */
+  busy: boolean;
+  /** 이 상세의 쓰기 요청 종류(진행 중이면) */
+  writeKind: "follow_up" | "confirm" | null;
+  /** 아래에 쌓인 화면이 있음 — 머리글 ‹ 를 그린다 */
+  canBack: boolean;
   onClose: () => void;
-  /** 「확인했어요」 성공 — 쓰기 화면에서 연 상세면 쓰기 화면으로, 아니면 닫기 (M2) */
-  onClosedByRequester: () => void;
-  /** 종료+안 읽은 답변 「확인」·답변 대기 「확인」 — 위와 같은 규칙 (M2 · 재감사 4). 없으면 닫기 */
-  onDone?: () => void;
+  /** 화면 ‹ = 기기 ◁ (상태 기계 back) */
+  onBack: () => void;
   onNewInquiry: (fromCase: { audience: "MEMBER" | "OWNER"; ownerStoreId: string | null } | null) => void;
-  onUnauthorized: () => void;
-  /** 쓰기 화면의 「진행 중인 문의」에서 연 경우 — 머리글 뒤로 = 쓰기 화면 */
-  onBack?: (() => void) | null;
 }) {
   const { t, safeT } = useI18n();
   const labels = useSupportCategoryLabels();
@@ -1041,23 +1149,20 @@ export function SupportTicketDetail({
   /** 최종 점검 M1: 입력 칸 열림과 글을 나눈다 — ◁ 로 칸을 닫아도 글은 남는다 */
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [followUpText, setFollowUpTextState] = useState(() =>
-    typeof window === "undefined" ? "" : readFollowUpDraft(caseId)
+    typeof window === "undefined" ? "" : readSupportFollowUpDraft(caseId).body
   );
   const setFollowUpText = useCallback(
     (text: string) => {
       setFollowUpTextState(text);
-      writeFollowUpDraft(caseId, text);
+      writeSupportFollowUpDraft(caseId, text);
     },
     [caseId]
   );
-  const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [shown, setShown] = useState<ShownPayload | null>(null);
+  const seenSentSeqRef = useRef(0);
+  const documentVisible = useDocumentVisible();
 
-  /** 재감사 D1: 호출부가 새 함수를 넘겨도 다시 조회하지 않는다 */
-  const onUnauthorizedRef = useRef(onUnauthorized);
-  useEffect(() => {
-    onUnauthorizedRef.current = onUnauthorized;
-  });
   /** 재감사 D1: 늦게 도착한 옛 응답이 최신 화면을 덮지 않게(마지막 요청만 반영) */
   const loadSeqRef = useRef(0);
 
@@ -1068,34 +1173,70 @@ export function SupportTicketDetail({
     const stale = () => seq !== loadSeqRef.current;
     if (!loadedOnceRef.current) setLoading(true);
     setError(null);
-    try {
-      const fetchCase = () => fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, { credentials: "include" });
-      let res = await fetchCase();
-      if (res.status === 401) {
-        // 토큰 만료 직후일 수 있다 — 세션을 한 번 살린 뒤 다시 읽고, 그래도 401 이면 로그인 안내
-        const { ensureSessionHealthy } = await import("@/lib/auth/dibay-session-manager");
-        await ensureSessionHealthy("support_modal_case_load");
-        res = await fetchCase();
-      }
-      if (stale()) return;
-      if (res.status === 401) {
-        onUnauthorizedRef.current();
-        return;
-      }
-      const json = (await res.json()) as {
-        ok?: boolean;
-        case?: SupportCaseRow;
-        messages?: SupportMessageRow[];
-        closed?: boolean;
-        error?: string;
-        notificationsRead?: number;
-      };
-      if (stale()) return;
-      if (!res.ok || !json.ok || !json.case) {
-        setError(res.status === 403 || res.status === 404 ? "forbidden" : (json.error ?? "load_failed"));
-        return;
-      }
-      if (Number(json.notificationsRead ?? 0) > 0 && typeof window !== "undefined") {
+    // 계약 §3: GET 은 읽기만 한다(읽음 처리 = 화면에 보인 뒤 seen) · 401 규칙·15초 = 실행기
+    const res = await runSupportModalRead<SupportDetailJson>(
+      { viewId, caseId },
+      { url: `/api/support/cases/${encodeURIComponent(caseId)}` }
+    );
+    if (stale() || !res.current) return;
+    if (res.status === 401) return; // 실행기가 로그인 화면으로 바꿨다
+    if (!res.ok || !res.json.case) {
+      setError(
+        res.status === 403 || res.status === 404 ? "forbidden" : res.ok ? "load_failed" : res.error
+      );
+      setLoading(false);
+      return;
+    }
+    const json = res.json;
+    const row = json.case!;
+    setSupportCase(row);
+    loadedOnceRef.current = true;
+    const closed = json.closed === true || isSupportTicketClosedStatus(row.status);
+    const served = (json.messages ?? []).filter((m) => m.sender_type !== "SYSTEM");
+    let display = served;
+    if (closed) {
+      // 재감사 D1: 종료+안 읽은 답변은 seen 뒤 서버가 다시 주지 않는다 — 이 화면이 떠 있는 동안은 같은 내용을 보이게 기억
+      if (served.length > 0) closedUnreadSeen.set(caseId, served);
+      else display = closedUnreadSeen.get(caseId) ?? [];
+    }
+    setClosedView(closed);
+    setMessages(display);
+    setShown({
+      seq,
+      ids: served.map((m) => m.id),
+      seenLastMessageAt: latestCreatedAt(served, row.last_message_at),
+      // 요청 예산: 서버가 읽을 것이 없다고 하면(needsSeen=false) seen 을 보내지 않는다 · 값이 없으면(옛 서버) 보낸다
+      needsSeen: json.needsSeen !== false,
+    });
+    setLoading(false);
+  }, [viewId, caseId]);
+
+  useEffect(() => {
+    void load();
+  }, [load, reloadTick]);
+
+  // 계약 §5: ✕·◁ 로 닫거나 상세가 빠지면 종료+안 읽은 답변 기억도 지운다(「확인」과 같게)
+  useEffect(() => () => void closedUnreadSeen.delete(caseId), [caseId]);
+
+  // 계약 §3 (C-14): 읽음 = 화면에 보인 것 — 문서가 보이고 · 이 상세가 맨 위이고 · 응답을 그린 뒤에만 보낸다.
+  //   숨긴 채 받은 내용은 다시 보일 때(문서 visible · 맨 위로 돌아옴) 보낸다. 같은 응답은 1번만.
+  useEffect(() => {
+    if (!shown || shown.seq <= seenSentSeqRef.current) return;
+    if (!isTop || !documentVisible) return;
+    seenSentSeqRef.current = shown.seq;
+    if (!shown.needsSeen) return;
+    void runSupportModalRead<{ ok?: boolean; notificationsRead?: number }>(
+      { viewId, caseId },
+      {
+        url: `/api/support/cases/${encodeURIComponent(caseId)}`,
+        method: "POST",
+        body: { action: "seen", shownMessageIds: shown.ids, seenLastMessageAt: shown.seenLastMessageAt },
+      },
+      "seen_failed"
+    ).then(async (res) => {
+      if (!res.ok || typeof window === "undefined") return;
+      // 고객지원 알림을 읽음 처리했다 — 종·FAB 숫자를 다시 받는다
+      if (Number(res.json.notificationsRead ?? 0) > 0) {
         const { KASAMA_NOTIFICATIONS_UPDATED } = await import("@/lib/notifications/notification-events");
         const { resyncBadgesAfterNotificationEventsRead } = await import(
           "@/lib/notifications/client/notification-events-read-resync"
@@ -1103,89 +1244,74 @@ export function SupportTicketDetail({
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
         resyncBadgesAfterNotificationEventsRead("notification_opened");
       }
-      setSupportCase(json.case);
-      loadedOnceRef.current = true;
-      const closed = json.closed === true || isSupportTicketClosedStatus(json.case.status);
-      let shown = (json.messages ?? []).filter((m) => m.sender_type !== "SYSTEM");
-      if (closed) {
-        // 재감사 D1: 종료+안 읽은 답변은 서버가 한 번만 내용을 준다(그때 읽음 처리) — 창이 다시 열려도 같은 내용을 보이게 기억
-        if (shown.length > 0) closedUnreadSeen.set(caseId, shown);
-        else shown = closedUnreadSeen.get(caseId) ?? [];
-      }
-      setClosedView(closed);
-      setMessages(shown);
-    } catch {
-      if (!stale()) setError("network_error");
-    } finally {
-      if (!stale()) setLoading(false);
-    }
-  }, [caseId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+      dispatchSupportNotificationArrived();
+    });
+  }, [shown, isTop, documentVisible, viewId, caseId]);
 
   const fromCase = supportCase
     ? { audience: supportCase.audience, ownerStoreId: supportCase.owner_store_id }
     : null;
 
-  useSupportModalBackStep(followUpOpen && !closedView, SUPPORT_BACK_PRIORITY.followUpInput, () =>
+  useSupportModalBackStep(isTop && followUpOpen && !closedView, SUPPORT_BACK_PRIORITY.followUpInput, () =>
     setFollowUpOpen(false)
   );
 
-  const sendFollowUp = async () => {
+  const finishThis = () => finishSupportModalView(supportModalTokenFor(viewId, caseId));
+
+  const sendFollowUp = () => {
     const body = followUpText.trim();
     if (!body || busy) return;
-    setBusy(true);
     setActionError(null);
-    try {
-      const res = await fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setActionError(json.error ?? (res.status === 429 ? "rate_limited" : "send_failed"));
-        if (supportErrorNeedsReload(json.error)) void load();
-        return;
+    // 계약 §1: 요청 id 는 보낸 본문에 묶어 문의별 임시 저장에 함께 둔다 — 「연결 오류」 뒤 같은 글 = 같은 id(서버 replay)
+    const requestId = bindSupportFollowUpRequestId(caseId, followUpText, newSupportRequestId);
+    void runSupportModalWrite<{ ok?: boolean; error?: string }>(
+      "follow_up",
+      { viewId, caseId },
+      { url: `/api/support/cases/${encodeURIComponent(caseId)}`, body: { body, requestId } },
+      (res) => {
+        if (res.ok) {
+          // 보낸 글은 화면과 상관없이 임시 저장에서 지운다(다시 열어 같은 글을 또 보내지 않게)
+          clearSupportFollowUpDraft(caseId);
+          if (!res.current) return;
+          setFollowUpTextState("");
+          setFollowUpOpen(false);
+          void load();
+          return;
+        }
+        if (!res.current || res.status === 401) return;
+        // 상태에는 오류 **코드**만 둔다 — 문구는 그릴 때 supportErrorLabel(i18n 키)
+        setActionError(supportOpErrorCode(res));
+        if (supportErrorNeedsReload(res.error)) void load();
       }
-      setFollowUpText("");
-      setFollowUpOpen(false);
-      await load();
-    } catch {
-      setActionError("network_error");
-    } finally {
-      setBusy(false);
-    }
+    );
   };
 
-  const confirmClose = async () => {
+  const confirmClose = () => {
     if (busy) return;
-    setBusy(true);
     setActionError(null);
-    try {
-      const res = await fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+    void runSupportModalWrite<{ ok?: boolean; error?: string }>(
+      "confirm",
+      { viewId, caseId },
+      {
+        url: `/api/support/cases/${encodeURIComponent(caseId)}`,
         // 2차 재감사 A: 화면이 본 마지막 글 시각 — 그 뒤 새 답변이 왔으면 서버가 닫지 않는다(case_updated)
-        body: JSON.stringify({ action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setActionError(json.error ?? (res.status === 429 ? "rate_limited" : "update_failed"));
+        body: { action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null },
+      },
+      (res, token) => {
+        if (!res.current) return;
+        if (res.ok) {
+          // C-13: 성공 = 이 문의의 상세만 뺀다(그사이 다른 화면이 위에 있어도 그 화면은 그대로)
+          finishSupportModalView(token);
+          return;
+        }
+        if (res.status === 401) return;
+        // 상태에는 오류 **코드**만 둔다 — 문구는 그릴 때 supportErrorLabel(i18n 키)
+        setActionError(supportOpErrorCode(res));
         // 새 답변이 와서 닫지 않았다·상태가 바뀌었다 → 다시 읽어 최신 상태를 보여 준다(안내 문구는 그대로 둔다)
-        if (supportErrorNeedsReload(json.error)) void load();
-        return;
-      }
-      onClosedByRequester();
-    } catch {
-      setActionError("network_error");
-    } finally {
-      setBusy(false);
-    }
+        if (supportErrorNeedsReload(res.error)) void load();
+      },
+      "update_failed"
+    );
   };
 
   const categoryLabel = supportCase ? labels.categoryLabel(supportCase.audience, supportCase.category) : "";
@@ -1197,6 +1323,8 @@ export function SupportTicketDetail({
   const answered = isSupportTicketAnsweredStatus(supportCase?.status);
   const lastAt = supportCase ? formatMypageDate(supportCase.last_message_at, { style: "datetime" }) : "";
   const ownerTone = supportCase?.audience === "OWNER";
+  const sending = writeKind === "follow_up";
+  const confirming = writeKind === "confirm";
 
   let requesterSeen = 0;
 
@@ -1205,9 +1333,10 @@ export function SupportTicketDetail({
       <SupportTicketHeader
         titleId={titleId}
         title={headerTitle}
-        // 병합 전 L1: 화면 ‹ 도 기기 ◁ 와 같이 — 추가 문의 입력칸이 열려 있으면 먼저 닫는다(계약 §6)
-        onBack={onBack ? () => (followUpOpen && !closedView ? setFollowUpOpen(false) : onBack()) : null}
+        // 화면 ‹ = 기기 ◁ 같은 경로(상태 기계 back) — 추가 문의 입력칸이 열려 있으면 먼저 닫는다(등록된 단계)
+        onBack={canBack ? onBack : null}
         onClose={onClose}
+        busy={busy}
       />
       {/* 최종 감사 U-2: 종료 문의도 같은 상태 줄 — 종료+안 읽은 답변 = 「새 답변」, 종료 = 「종료」(계약 §14 U1) */}
       {supportCase ? (
@@ -1227,7 +1356,7 @@ export function SupportTicketDetail({
             {error === "forbidden" ? t("support_case_unavailable") : supportErrorLabel(safeT, error)}
             {error !== "forbidden" ? (
               <div className="mt-3">
-                <SupportRetryButton data-support-ticket-detail-retry="1" onClick={() => void load()} />
+                <SupportRetryButton data-support-ticket-detail-retry="1" disabled={busy} onClick={() => void load()} />
               </div>
             ) : null}
           </div>
@@ -1287,10 +1416,11 @@ export function SupportTicketDetail({
               roleTone="secondary"
               className={SUPPORT_BTN}
               data-support-ticket-ok="closed_unread"
+              disabled={busy}
               onClick={() => {
                 // 병합 전 B: 「확인」 = 답변을 확인함 → 기억한 내용을 지운다(그 뒤 옛 푸시로 다시 열면 「종료된 문의예요」 · 계약 §6)
                 closedUnreadSeen.delete(caseId);
-                (onDone ?? onClose)();
+                finishThis();
               }}
             >
               {t("support_ticket_ok")}
@@ -1300,6 +1430,7 @@ export function SupportTicketDetail({
               roleTone="primary"
               className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone)}`}
               data-support-ticket-new="1"
+              disabled={busy}
               onClick={() => onNewInquiry(fromCase)}
             >
               {t("support_enter_cta")}
@@ -1308,9 +1439,15 @@ export function SupportTicketDetail({
             <div className="grid gap-2">
               <textarea
                 value={followUpText}
-                onChange={(e) => setFollowUpText(e.target.value.slice(0, SUPPORT_TICKET_BODY_MAX))}
+                onChange={(e) => {
+                  if (isSupportModalBusy()) return;
+                  setFollowUpText(e.target.value.slice(0, SUPPORT_TICKET_BODY_MAX));
+                }}
                 rows={3}
                 maxLength={SUPPORT_TICKET_BODY_MAX}
+                // C-15: 보내는 중에는 입력 잠금(보낸 뒤 입력한 글까지 지우던 것)
+                readOnly={busy}
+                aria-busy={sending || undefined}
                 data-form-keyboard-field="1"
                 data-support-ticket-followup="1"
                 className="block w-full resize-none rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-3 py-2.5 text-[14px] leading-relaxed text-[var(--overlay-text-primary)] placeholder:text-[var(--overlay-text-secondary)] focus:border-sam-primary focus:outline-none"
@@ -1321,6 +1458,8 @@ export function SupportTicketDetail({
                   roleTone="secondary"
                   className={SUPPORT_BTN}
                   data-support-ticket-followup-cancel="1"
+                  // C-16: 보내는 중 「취소」 비활성(취소했는데 전송되던 것)
+                  disabled={busy}
                   onClick={() => {
                     setFollowUpText("");
                     setFollowUpOpen(false);
@@ -1332,13 +1471,13 @@ export function SupportTicketDetail({
                   roleTone="primary"
                   className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone, {
                     disabled: !followUpText.trim(),
-                    loading: busy,
+                    loading: sending,
                   })}`}
-                  loading={busy}
+                  loading={sending}
                   disabled={busy || !followUpText.trim()}
-                  aria-label={busyName(busy, t("support_ticket_followup_send"))}
+                  aria-label={busyName(sending, t("support_ticket_followup_send"))}
                   data-support-ticket-followup-send="1"
-                  onClick={() => void sendFollowUp()}
+                  onClick={sendFollowUp}
                 >
                   {t("support_ticket_followup_send")}
                 </DibayOverlayButton>
@@ -1358,25 +1497,32 @@ export function SupportTicketDetail({
                   roleTone="secondary"
                   className={SUPPORT_BTN}
                   data-support-ticket-followup-open="1"
+                  disabled={busy}
                   onClick={() => setFollowUpOpen(true)}
                 >
                   {t("support_ticket_followup_cta")}
                 </DibayOverlayButton>
                 <DibayOverlayButton
                   roleTone="primary"
-                  className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone, { loading: busy })}`}
-                  loading={busy}
+                  className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone, { loading: confirming })}`}
+                  loading={confirming}
                   disabled={busy}
-                  aria-label={busyName(busy, t("support_ticket_confirm_cta"))}
+                  aria-label={busyName(confirming, t("support_ticket_confirm_cta"))}
                   data-support-ticket-confirm="1"
-                  onClick={() => void confirmClose()}
+                  onClick={confirmClose}
                 >
                   {t("support_ticket_confirm_cta")}
                 </DibayOverlayButton>
               </div>
             </>
           ) : (
-            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} data-support-ticket-ok="waiting" onClick={onDone ?? onClose}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              className={SUPPORT_BTN}
+              data-support-ticket-ok="waiting"
+              disabled={busy}
+              onClick={finishThis}
+            >
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           )}

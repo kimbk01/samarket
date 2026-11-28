@@ -71,6 +71,10 @@ beforeEach(() => {
 describe("support final audit 2026-11-28 — routes", () => {
   it("D5: the 6th customer message within a minute → 429 rate_limited (nothing saved)", async () => {
     state.rows.support_messages = recent(5);
+    // 전체 수정 §1 (2026-11-29): 추가 문의는 본인 문의 확인(요청 id 확인과 저장이 같은 행을 쓴다) 뒤 속도 제한
+    state.rows.support_cases = [
+      { id: CASE, requester_user_id: "11111111-1111-4111-8111-111111111111", audience: "MEMBER", status: "WAITING_USER" },
+    ];
     const { POST } = await import("@/app/api/support/cases/[caseId]/route");
     const res = await POST(json(`http://x/api/support/cases/${CASE}`, "POST", { body: "또" }), {
       params: Promise.resolve({ caseId: CASE }),

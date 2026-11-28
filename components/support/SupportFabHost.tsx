@@ -8,7 +8,7 @@ import { useSupportFabRegistry } from "@/lib/support/support-fab-registry";
 import {
   getSupportModalState,
   subscribeSupportModalState,
-} from "@/lib/support/support-modal-controller";
+} from "@/lib/support/support-modal-machine";
 import {
   BOTTOM_NAV_FAB_LAYOUT,
   MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,

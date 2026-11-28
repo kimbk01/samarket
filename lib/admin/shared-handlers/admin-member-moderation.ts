@@ -15,6 +15,7 @@ import {
 import { insertModerationEvent, invalidateAllUserSessions } from "@/lib/admin/admin-user-server";
 import { moderationActionToProfilePatch } from "@/lib/admin-users/moderation-status";
 import { assertMemberModerationTargetAllowed } from "@/lib/admin-users/member-moderation-target";
+import { releaseSupportAssignmentsIfNoSupportPermission } from "@/lib/support/support-assignee-permission-sync";
 
 
 const ACTIONS = ["warn", "suspend", "ban", "restore"] as const;
@@ -268,6 +269,8 @@ export async function handleAdminMemberModerationPost(
       sanction: "ban",
       reason,
     });
+    // 고객센터 S-7: 차단(로그인 불가)도 정지와 같은 규칙 — 진행 중 담당 해제 + 답 못 받은 고객 글 전원 다시 알림
+    await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId, changedBy: actor.userId });
     return NextResponse.json({
       ok: true,
       result: "SUCCESS",
@@ -391,6 +394,9 @@ export async function handleAdminMemberModerationPost(
 
   if (action === "suspend") {
     await invalidateAllUserSessions(sb, userId, "moderation_suspend");
+    // 고객센터 S-7 (2026-11-29): 정지된 운영자(최고관리자 제외)는 고객 문의를 받을 수 없다 → 진행 중 담당을 풀고
+    // 답 못 받은 고객 글을 support 어드민 전원에게 다시 알린다(권한 회수와 같은 규칙 1곳). 실패는 기록만(정지는 이미 저장됨).
+    await releaseSupportAssignmentsIfNoSupportPermission(sb, { userId, changedBy: actor.userId });
   }
 
   if (action === "restore") {

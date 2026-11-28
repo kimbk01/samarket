@@ -274,7 +274,3 @@ export function buildTriageOpenContext(state: SupportTriageState): SupportContex
     ...(state.explicitOtherSelection ? { explicitOtherSelection: true } : {}),
   };
 }
-
-export function buildShortTriageSeed(category: string, issueType: string): string {
-  return `문의 접수 · ${category.trim()} · ${issueType.trim()}`;
-}

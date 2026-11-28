@@ -6,6 +6,10 @@
 /** 갈색 바탕 + 흰 글자 — 사장님 표시(태그·선택 탭·전환 칸)의 한 정의 */
 export const OWNER_SUPPORT_TONE_CLASS = "bg-[var(--dibay-brown)] text-sam-on-primary";
 
+/** 사장님 화면 고객센터 FAB 바탕(갈색) · 숫자 뱃지 테두리 — FAB 도 이 파일의 갈색만 쓴다(재감사 §1) */
+export const OWNER_SUPPORT_FAB_CLASS = "bg-[var(--dibay-brown)]";
+export const OWNER_SUPPORT_FAB_RING_CLASS = "ring-[var(--dibay-brown)]";
+
 /**
  * 사장님 쪽 문의 버튼(고객센터 「문의하기」)은 FAB·「문의 접수」와 같은 **갈색**.
  * 높이 44px · 모서리 4px · 14px/500. 비활성 = 기본 비활성 회색(문의 창 버튼과 같은 토큰).

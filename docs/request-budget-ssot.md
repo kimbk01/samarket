@@ -62,6 +62,7 @@
 4. 계수기 끄기(긴급): Vercel 환경변수 `SUPABASE_CALL_COUNTER=0` (Owner 승인 후 재배포).
 5. 고객센터 (2026-11-28 최종 감사 L10): `/api/support/cases` 3.0 — 목록(로그인 확인 1 + 목록 1 + 첫 페이지 개수 1) · FAB 숫자 `?summary=unread`(2, 클라이언트 5초 캐시·요청 공유). 코드 계산값, 7일 뒤 Vercel 값으로 내리기만.
    - 2026-11-28 최종 점검 L12 (코드 계산값 · 응답 뒤 어드민 알림은 support 어드민 수 비례라 제외 — 측정 뒤 단위 예산 대상): `/api/support/cases/[caseId]` 7.0 (상세 GET 4~7 · 「확인했어요」 7 · 추가 문의 4) · `/api/support/cases/open` 11.0 (새 문의 9~11 · 진행 중 문의에 붙음 6~9) · `/api/admin/support/cases` 12.0 (권한 2 + 목록 1(+검색 2) + 탭 숫자 5 + 표시 이름 1~2) · `/api/admin/support/cases/[caseId]` 13.0 (GET 10~12 · 답변 12~13 · 종료 8 · 답변 삭제 최대 17 드묾). 계산 내역은 `lib/perf/request-budget.ts` 주석.
+   - 2026-11-29 고객센터 전체 수정 (계약 §1·§2·§3 · 코드 계산값): `/api/support/cases/open` **11.0 → 7.0** (접수 = DB 함수 1번 · 4~7) · `/api/support/cases/[caseId]` 7.0 유지 (상세 GET 읽기만 3~4 · 새 `seen` 4~8 은 GET 이 `needsSeen=true` 일 때만 · 「확인했어요」 4~6 · 추가 문의 5) · `/api/admin/support/cases/[caseId]` 13.0 유지 (GET 읽기만 6~7 · `seen` 7~8 · 종료 7 · 답변 16~20 — 고객 알림 행 저장이 응답 전으로 와 답변만 늘었다. 열람(GET+seen)이 답변보다 잦아 평균은 내려간다고 계산 · 7일 뒤 Vercel 값으로 확인, 넘으면 Owner 보고). 계산 내역은 `lib/perf/request-budget.ts` 주석.
 
 ## 5. 한계 (알고 쓰는 것)
 

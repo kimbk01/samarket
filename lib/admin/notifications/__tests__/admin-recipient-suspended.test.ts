@@ -49,15 +49,28 @@ describe("재감사 5 — 정지 운영자는 알림 받는 사람이 아니다"
     expect(authorityAllows(ok, "support")).toBe(true);
   });
 
+  it("S-7 (2026-11-29): 차단·탈퇴(로그인 불가) 운영자도 비활성", async () => {
+    const sb = sbWithProfiles({ op3: { status: "blocked" }, op4: { status: "withdrawn" } });
+    expect(await resolveAdminRecipientAuthority(sb, "op3")).toEqual({ active: false });
+    expect(await resolveAdminRecipientAuthority(sb, "op4")).toEqual({ active: false });
+  });
+
   it("최고관리자는 정지여도 받는다(잠김 방지 — 앱 규칙과 같음) · 프로필을 읽지 않는다", async () => {
     const sb = sbWithProfiles({ super1: { status: "suspended" } });
     const a = await resolveAdminRecipientAuthority(sb, "super1");
     expect(authorityAllows(a, "support")).toBe(true);
   });
 
-  it("프로필 읽기 실패 = 정지 아님으로 본다(알림을 끊지 않음)", async () => {
+  it("결정 4 (2026-11-29): 프로필 읽기 실패 = 정지로 본다(fail-closed · RLS 와 같게)", async () => {
     const sb = sbWithProfiles({}, true);
     const a = await resolveAdminRecipientAuthority(sb, "op3");
+    expect(a).toEqual({ active: false });
+    expect(authorityAllows(a, "support")).toBe(false);
+  });
+
+  it("결정 4: 최고관리자는 프로필을 읽지 않으므로 읽기 실패와 무관하게 받는다", async () => {
+    const sb = sbWithProfiles({}, true);
+    const a = await resolveAdminRecipientAuthority(sb, "super2");
     expect(authorityAllows(a, "support")).toBe(true);
   });
 });

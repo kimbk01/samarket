@@ -8,7 +8,7 @@ import {
   clearPendingSupportContext,
   readPendingSupportContext,
 } from "@/lib/support/open-support-center";
-import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
+import { canDeliverSupportOpen, deliverSupportOpenAfterRouteLeaves } from "@/lib/support/deliver-support-open";
 import { supportContextFromEnterQuery } from "@/lib/support/support-enter-href";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -22,7 +22,7 @@ export const SUPPORT_ENTER_ERROR_KEYS: Record<EnterError, MessageKey> = {
 };
 
 /**
- * Cold-start bootstrap alias only — opens Support Modal, then leaves enter route.
+ * Cold-start bootstrap alias only — leaves enter route, then the host opens Support Modal on the new route.
  */
 export function SupportCenterEnterClient() {
   const { safeT } = useI18n();
@@ -38,12 +38,13 @@ export function SupportCenterEnterClient() {
       setError("missing_context");
       return;
     }
-    const delivered = deliverSupportOpen({ context, source: "enter" });
     clearPendingSupportContext();
-    if (!delivered.ok) {
+    if (!canDeliverSupportOpen({ context, source: "enter" })) {
       setError("open_failed");
       return;
     }
+    // C-21: 주소를 먼저 정리하고, 정리된 주소에서 호스트가 창을 연다(◁ 가 이 주소로 돌아와 다시 열리는 반복 방지)
+    deliverSupportOpenAfterRouteLeaves(window.location.pathname, { context, source: "enter" });
     router.replace("/");
   }, [router]);
 

@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { SupportContext } from "@/lib/support/support-context";
 import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 import { useSupportRequesterUnread } from "@/lib/support/use-support-requester-unread";
+import { OWNER_SUPPORT_FAB_CLASS, OWNER_SUPPORT_FAB_RING_CLASS } from "@/lib/support/support-owner-cta";
 
 /**
  * 고객센터 FAB — 숫자 뱃지는 **헤드폰 아이콘 위에만** (Owner 2026-11-10).
@@ -38,7 +39,7 @@ export function SupportFab({
       data-support-fab-unread={unread}
       aria-label={unread > 0 ? `${label}, ${t("support_fab_badge_aria", { count: unread })}` : label}
       className={`pointer-events-auto inline-flex h-11 items-center gap-1.5 rounded-full pl-3 pr-4 text-[14px] font-semibold text-sam-on-primary shadow-sam-elevated transition active:scale-[0.98] ${
-        owner ? "bg-[var(--dibay-brown)]" : "bg-sam-primary"
+        owner ? OWNER_SUPPORT_FAB_CLASS : "bg-sam-primary"
       } ${className}`.trim()}
       onClick={() => {
         navigateToSupportCenter(context);
@@ -49,7 +50,7 @@ export function SupportFab({
         {unread > 0 ? (
           <span
             className={`absolute -right-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-danger px-1 text-[11px] font-bold leading-none text-sam-on-primary ring-2 ${
-              owner ? "ring-[var(--dibay-brown)]" : "ring-sam-primary"
+              owner ? OWNER_SUPPORT_FAB_RING_CLASS : "ring-sam-primary"
             }`}
             data-support-fab-badge="1"
             aria-hidden

@@ -8,8 +8,9 @@ import { SupportCaseRowButton } from "@/components/support/SupportCaseRow";
 import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
-import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-controller";
+import { subscribeSupportModalState, getSupportModalState } from "@/lib/support/support-modal-machine";
 import { supportErrorLabel } from "@/lib/support/support-display-labels";
+import { SUPPORT_NOTIFICATION_ARRIVED_EVENT } from "@/lib/support/support-notification-events";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
 import {
   fetchMypageListJson,
@@ -99,6 +100,23 @@ export function SupportCasesHistoryList({
     void reload();
   }, [reload]);
   useOnSupportModalClosed(reloadOnClose);
+  // 계약 §4 (A-11): 고객지원 알림 행 INSERT·UPDATE(새 답변·종료·답변 삭제) → 상태 알약을 다시 읽는다(500ms 묶음)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let timer: number | null = null;
+    const onArrived = () => {
+      if (timer != null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = null;
+        reloadOnClose();
+      }, 500);
+    };
+    window.addEventListener(SUPPORT_NOTIFICATION_ARRIVED_EVENT, onArrived);
+    return () => {
+      if (timer != null) window.clearTimeout(timer);
+      window.removeEventListener(SUPPORT_NOTIFICATION_ARRIVED_EVENT, onArrived);
+    };
+  }, [reloadOnClose]);
 
   const openCase = useCallback((caseId: string) => {
     deliverSupportOpen({ caseId, source: "history" });

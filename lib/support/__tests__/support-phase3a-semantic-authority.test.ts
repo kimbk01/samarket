@@ -14,18 +14,9 @@ import {
   validateSupportCategoryForOpen,
 } from "@/lib/support/support-category-registry";
 import {
-  classifySupportCaseOperational,
-  isSupportCaseActionable,
-  isSupportCaseInAllView,
-  isSupportCaseInProgress,
-  isSupportCasePreHandling,
-  isSupportCaseResolved,
-} from "@/lib/support/admin-support-queue-policy";
-import {
   assertGuidanceOpenConsistency,
   validateSupportGuidanceCta,
 } from "@/lib/support/support-guidance-authority";
-import { shouldStampFirstAdminResponseAt } from "@/lib/support/support-first-admin-response";
 import { assertSupportGenericHubCategoryPolicy } from "@/lib/support/support-generic-hub-policy";
 import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
 import { normalizeSupportContextForCase } from "@/lib/support/support-reference-authority";
@@ -311,38 +302,15 @@ describe("PHASE 3-A support semantic authority", () => {
   });
 
   it("T13 first_admin_response_at first public reply only", () => {
-    expect(
-      shouldStampFirstAdminResponseAt({
-        existingFirstAdminResponseAt: null,
-        senderType: "ADMIN",
-        messageType: "PUBLIC",
-      })
-    ).toBe(true);
-    expect(
-      shouldStampFirstAdminResponseAt({
-        existingFirstAdminResponseAt: "2026-01-01T00:00:00.000Z",
-        senderType: "ADMIN",
-        messageType: "PUBLIC",
-      })
-    ).toBe(false);
+    // 전체 수정 D-1 (2026-11-29): 죽은 TS 판정 함수(support-first-admin-response) 삭제 — 기준 = DB 함수(최신 정의)
     // Phase 2 (DEF-05): the stamp is applied inside support_append_message, ADMIN+PUBLIC branch only.
-    const mig = readSrc("supabase/migrations/20270415120000_support_audit_phase2_atomic_append.sql");
+    const mig = readSrc("supabase/migrations/20271129100000_support_full_fix.sql");
     const adminBranch = mig.slice(
       mig.indexOf("IF p_sender_type = 'ADMIN' AND p_message_type = 'PUBLIC'"),
       mig.indexOf("ELSIF p_sender_type IN ('MEMBER', 'OWNER')")
     );
     expect(adminBranch).toContain("first_admin_response_at = COALESCE(first_admin_response_at, v_now)");
     expect(mig.slice(mig.indexOf("ELSIF p_sender_type IN"))).not.toContain("first_admin_response_at");
-  });
-
-  it("T14 internal note does not set first response", () => {
-    expect(
-      shouldStampFirstAdminResponseAt({
-        existingFirstAdminResponseAt: null,
-        senderType: "ADMIN",
-        messageType: "INTERNAL_NOTE",
-      })
-    ).toBe(false);
   });
 
   it("T15 assignment does not set first response", () => {
@@ -355,137 +323,7 @@ describe("PHASE 3-A support semantic authority", () => {
     expect(assignBlock).not.toContain("first_admin_response_at");
   });
 
-  it("T16 queue PRE cases", () => {
-    expect(
-      isSupportCasePreHandling({
-        status: "OPEN",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCasePreHandling({
-        status: "WAITING_ADMIN",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      classifySupportCaseOperational({
-        status: "OPEN",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe("PRE");
-  });
-
-  it("T17 queue IN_PROGRESS cases", () => {
-    expect(
-      isSupportCaseInProgress({
-        status: "OPEN",
-        assigned_admin_id: "a1",
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseInProgress({
-        status: "WAITING_ADMIN",
-        assigned_admin_id: "a1",
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseInProgress({
-        status: "WAITING_ADMIN",
-        assigned_admin_id: null,
-        first_admin_response_at: "2026-01-01T00:00:00.000Z",
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseInProgress({
-        status: "WAITING_USER",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-  });
-
-  it("T18 RESOLVED/ARCHIVED", () => {
-    expect(
-      isSupportCaseResolved({
-        status: "RESOLVED",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      classifySupportCaseOperational({
-        status: "ARCHIVED",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe("NONE");
-    expect(
-      isSupportCaseInAllView({
-        status: "OPEN",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseInAllView({
-        status: "ARCHIVED",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(false);
-    // ALL is superset — not mutually exclusive with PRE
-    const pre = {
-      status: "OPEN",
-      assigned_admin_id: null,
-      first_admin_response_at: null,
-    };
-    expect(isSupportCasePreHandling(pre)).toBe(true);
-    expect(isSupportCaseInAllView(pre)).toBe(true);
-  });
-
-  it("T19 actionable", () => {
-    expect(
-      isSupportCaseActionable({
-        status: "OPEN",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseActionable({
-        status: "WAITING_ADMIN",
-        assigned_admin_id: "a1",
-        first_admin_response_at: null,
-      })
-    ).toBe(true);
-    expect(
-      isSupportCaseActionable({
-        status: "WAITING_USER",
-        assigned_admin_id: "a1",
-        first_admin_response_at: "t",
-      })
-    ).toBe(false);
-    expect(
-      isSupportCaseActionable({
-        status: "RESOLVED",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(false);
-    expect(
-      isSupportCaseActionable({
-        status: "ARCHIVED",
-        assigned_admin_id: null,
-        first_admin_response_at: null,
-      })
-    ).toBe(false);
-  });
+  // T16~T19 (옛 큐 판정 admin-support-queue-policy · 탭과 반대 규칙)는 전체 수정 D-1 로 모듈과 함께 삭제 — 탭 기준은 ADMIN_SUPPORT_TAB_STATUSES
 
   it("T20 existing contextual caller compatibility", () => {
     const callers = [

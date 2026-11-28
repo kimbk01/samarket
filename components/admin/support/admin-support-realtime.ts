@@ -3,6 +3,7 @@
  * 콘솔·벨 브리지가 「이 변경에 다시 읽을지」를 이 함수들로만 정한다 — 읽음 숫자 같은 변경마다 목록을 다시 읽지 않는다.
  */
 import type { AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { ADMIN_INBOX_CHANGED_EVENT } from "@/lib/admin/notifications/admin-notification-kinds";
 import { ADMIN_SUPPORT_TAB_STATUSES, type AdminSupportTab } from "@/lib/support/support-case-types";
 
 /** 목록 표시에 쓰는 열 — 이 열이 바뀔 때만 목록을 다시 읽는다 */
@@ -86,6 +87,66 @@ export function subscribeAdminSupportMessageInsert(
   };
   window.addEventListener(ADMIN_SUPPORT_MESSAGE_INSERT_EVENT, listener);
   return () => window.removeEventListener(ADMIN_SUPPORT_MESSAGE_INSERT_EVENT, listener);
+}
+
+/**
+ * 전체 수정 계약 §4 B-5: `support_cases` 변경도 공통 구독(AdminStorePointPendingProvider) 한 곳만 받고,
+ * 콘솔은 이 창 이벤트로 받는다 — `/admin/support` 에서 같은 표를 2번 구독하지 않게.
+ */
+export const ADMIN_SUPPORT_CASE_CHANGE_EVENT = "samarket:admin-support-case-change";
+
+export type AdminSupportCaseChangeDetail = {
+  eventType: string;
+  newRow: Record<string, unknown> | null;
+  oldRow: Record<string, unknown> | null;
+};
+
+export function dispatchAdminSupportCaseChange(detail: AdminSupportCaseChangeDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<AdminSupportCaseChangeDetail>(ADMIN_SUPPORT_CASE_CHANGE_EVENT, { detail }));
+}
+
+export function subscribeAdminSupportCaseChange(handler: (detail: AdminSupportCaseChangeDetail) => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<AdminSupportCaseChangeDetail>).detail;
+    if (d && typeof d.eventType === "string") handler(d);
+  };
+  window.addEventListener(ADMIN_SUPPORT_CASE_CHANGE_EVENT, listener);
+  return () => window.removeEventListener(ADMIN_SUPPORT_CASE_CHANGE_EVENT, listener);
+}
+
+/**
+ * 전체 수정 계약 §4 A-2: 고객센터 알림 행이 생기거나 읽히면 헤더 받은 알림 숫자(AdminInboxLink)를 바로 다시 읽게 한다.
+ * 읽음(seen·답변 등 내 저장 성공) = 바로 · 생성(고객 글 → 서버가 응답 뒤 알림 행을 만듦) = 잠깐 뒤 1번.
+ */
+export function dispatchAdminInboxChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ADMIN_INBOX_CHANGED_EVENT));
+}
+
+/** 알림 행 변경이 몰려도(답변 1건 = 여러 행 읽음) 받은 알림 숫자는 1번만 다시 읽는 묶음 시간 */
+export const ADMIN_SUPPORT_INBOX_CREATE_DELAY_MS = 300;
+
+/** 여러 고객 글이 몰려도 받은 알림 숫자는 1번만 다시 읽는다 */
+export function createAdminInboxRefreshScheduler(delayMs: number = ADMIN_SUPPORT_INBOX_CREATE_DELAY_MS): {
+  schedule: () => void;
+  cancel: () => void;
+} {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule: () => {
+      if (timer != null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        dispatchAdminInboxChanged();
+      }, delayMs);
+    },
+    cancel: () => {
+      if (timer != null) clearTimeout(timer);
+      timer = null;
+    },
+  };
 }
 
 type CaseLike = { id: string } & Partial<Record<(typeof LIST_RELEVANT_FIELDS)[number], unknown>>;

@@ -11,23 +11,31 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const notifyCalls: { type: string; userId: string; dedupeKey: string; body?: string }[] = [];
+const notifyCalls: { type: string; userId: string; dedupeKey: string; body?: string; deferPush?: boolean }[] = [];
+/** 응답 뒤 푸시 발송(원장 · 2026-11-29) — 저장된 알림 행 유형 */
+const pushCalls: { type: string; body?: string }[] = [];
 
 vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
   createAndDispatchNotificationEvent: vi.fn(
     async (
       _sb: unknown,
-      input: { type: string; userId: string; dedupeKey: string; body?: string }
+      input: { type: string; userId: string; dedupeKey: string; body?: string },
+      opts?: { deferPush?: boolean }
     ) => {
       notifyCalls.push({
         type: input.type,
         userId: input.userId,
         dedupeKey: input.dedupeKey,
         body: input.body,
+        deferPush: opts?.deferPush === true,
       });
-      return { ok: true, row: { id: "n" } };
+      return { ok: true, row: { id: "n", type: input.type, body: input.body } };
     }
   ),
+  dispatchNotificationEvent: vi.fn(async (_sb: unknown, row: { type: string; body?: string }) => {
+    pushCalls.push({ type: row.type, body: row.body });
+    return "sent";
+  }),
 }));
 
 const adminNotifyCalls: {
@@ -121,6 +129,8 @@ import {
   sumSupportRequesterUnread,
 } from "@/lib/support/support-case-service";
 import { checkSupportCustomerPostRate } from "@/lib/support/support-customer-rate-limit";
+import { createSupportRpcEmulator } from "@/lib/support/__tests__/support-rpc-emulator";
+import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { toSupportRequesterCaseView, toSupportRequesterMessageView } from "@/lib/support/support-requester-view";
 import { releaseSupportAssignmentsOnRevoke } from "@/lib/admin/admin-membership";
 import {
@@ -316,52 +326,14 @@ function makeDb(seed: Record<string, Row[]> = {}) {
     if (!ACTIVE.includes(status)) return false;
     return db.support_cases.some((c) => ACTIVE.includes(c.status as string) && keyOf(c) === keyOf(r));
   }
-  // Emulates support_append_message (Phase 2, DEF-05) — same SQL branch rules.
-  function appendRpc(a: Record<string, unknown>) {
-    const c = db.support_cases.find((x) => x.id === a.p_case_id);
-    if (!c) return { data: null, error: { message: "support_case_not_found" } };
-    // 운영 함수(20271127250000)와 같이 글 시각 = 문의 last_message_at (잠금 뒤 clock_timestamp 1회)
-    const t = now();
-    const msg: Row = {
-      id: randomUUID(),
-      created_at: t,
-      case_id: a.p_case_id,
-      sender_type: a.p_sender_type,
-      sender_user_id: a.p_sender_user_id,
-      sender_admin_id: a.p_sender_admin_id,
-      message_type: a.p_message_type,
-      body: a.p_body,
-    };
-    db.support_messages.push(msg);
-    if (a.p_sender_type === "ADMIN" && a.p_message_type === "PUBLIC") {
-      Object.assign(c, {
-        status: "WAITING_USER",
-        requester_unread_count: Number(c.requester_unread_count ?? 0) + 1,
-        first_admin_response_at: c.first_admin_response_at ?? t,
-        last_message_at: t,
-        updated_at: t,
-      });
-    } else if ((a.p_sender_type === "MEMBER" || a.p_sender_type === "OWNER") && !a.p_system_seed) {
-      Object.assign(c, {
-        status: "WAITING_ADMIN",
-        admin_unread_count: Number(c.admin_unread_count ?? 0) + 1,
-        last_message_at: t,
-        updated_at: t,
-      });
-    } else {
-      Object.assign(c, { last_message_at: t, updated_at: t });
-    }
-    return { data: msg, error: null };
-  }
-  let seq = 100000;
+  // 전체 수정 (2026-11-29): DB 함수는 시험용 흉내(support-rpc-emulator — 20271129100000 SQL 과 같은 규칙)
+  const emulateRpc = createSupportRpcEmulator(db, now);
   const rpcCalls: string[] = [];
   const sb = {
     from: (t: string) => builder(t),
     rpc: async (name: string, args: Record<string, unknown> = {}) => {
       rpcCalls.push(name);
-      if (name === "allocate_support_public_case_no") return { data: `SC-${++seq}`, error: null };
-      if (name === "support_append_message") return appendRpc(args);
-      return { data: null, error: { message: `no rpc ${name}` } };
+      return emulateRpc(name, args) ?? { data: null, error: { message: `no rpc ${name}` } };
     },
   };
   return { db, sb: sb as never, rpcCalls };
@@ -395,6 +367,7 @@ const openStructured = async (sb: never, issueType: string, summary: string) => 
 
 beforeEach(() => {
   notifyCalls.length = 0;
+  pushCalls.length = 0;
   adminNotifyCalls.length = 0;
   adminResolveCalls.length = 0;
   adminResolveInputs.length = 0;
@@ -516,14 +489,16 @@ describe("support audit phase 1 — regression lock", () => {
   it("DEF-07/10/11/12: customer modal failure, restore and audience contracts", () => {
     const host = readFileSync(join(process.cwd(), "components/support/SupportModalHost.tsx"), "utf8");
     const views = readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
-    const load = views.slice(views.indexOf("const load = useCallback"), views.indexOf("const sendFollowUp = async"));
-    expect(load).toMatch(/catch \{[\s\S]*setError\("network_error"\)/);
+    // 계약 §5: 네트워크 실패 = 요청 실행기 한 곳에서 network_error(상세는 그 값을 오류로 그림)
+    const ops = readFileSync(join(process.cwd(), "lib/support/support-modal-ops.ts"), "utf8");
+    expect(ops).toMatch(/catch \{[\s\S]*error: "network_error"/);
     // 최종 감사: case_closed·case_updated·invalid_transition 이면 다시 읽는다(단일 판정 supportErrorNeedsReload)
-    expect(views).toContain("if (supportErrorNeedsReload(json.error)) void load();");
+    expect(views).toContain("if (supportErrorNeedsReload(res.error)) void load();");
     // 병합 전 2차 6: 새 문의 대상 = 그 문의의 대상 먼저(동작 시험은 support-ui-final-check 「병합 전 2차 6」)
     expect(host).toContain("(caseAudience ?? prev?.audience)");
-    const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-controller.ts"), "utf8");
-    expect(ctrl).toMatch(/closeSupportModal\(\): void \{[\s\S]*clearSupportModalRestoreCaseId\(\)/);
+    // 상태 기계(옛 컨트롤러 흡수): 닫기 intent 가 복원값을 지운다
+    const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-machine.ts"), "utf8");
+    expect(ctrl).toMatch(/case "close":[\s\S]{0,120}clearSupportModalRestoreCaseId\(\)/);
     const detail = readFileSync(
       join(process.cwd(), "app/api/admin/support/cases/[caseId]/route.ts"),
       "utf8"
@@ -540,7 +515,9 @@ describe("support audit phase 1 — regression lock", () => {
     if (!a.ok) throw new Error(a.error);
     const reply = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "r1" });
     expect(reply.ok).toBe(true);
-    expect(rpcCalls.filter((n) => n === "support_append_message")).toHaveLength(2);
+    // 전체 수정 §2: 접수 = support_open_case 한 트랜잭션(안에서 첫 글) · 답변 = support_append_message
+    expect(rpcCalls.filter((n) => n === "support_open_case")).toHaveLength(1);
+    expect(rpcCalls.filter((n) => n === "support_append_message")).toHaveLength(1);
     expect(db.support_cases[0].status).toBe("WAITING_USER");
     expect(db.support_cases[0].requester_unread_count).toBe(1);
     expect(db.support_cases[0].first_admin_response_at).toBeTruthy();
@@ -897,17 +874,17 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
       "status.in.(OPEN,WAITING_ADMIN,WAITING_USER),requester_unread_count.gt.0"
     );
     const route = readFileSync(join(process.cwd(), "app/api/support/cases/[caseId]/route.ts"), "utf8");
-    expect(route).toMatch(
-      /isSupportTicketClosedStatus\(gate\.case\.status\) && Number\(gate\.case\.requester_unread_count \?\? 0\) > 0[\s\S]{0,400}markSupportCaseReadForRequester/
-    );
+    // 전체 수정 §3: GET 은 종료+안 읽은 답변의 내용을 돌려주기만 — 읽음은 seen(동작 시험 support-full-fix-server-2026-11-29)
+    expect(route).toContain("if (closed && !(unreadCount > 0))");
+    expect(route).toContain("requesterSeenSupportCase(sb");
     const views = readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
     expect(views).toContain("data-support-ticket-closed-unread");
   });
 
   it("F4 (구조 확인): the submitted screen says when the inquiry joined an open one, with that case's own labels", () => {
     const host = readFileSync(join(process.cwd(), "components/support/SupportModalHost.tsx"), "utf8");
-    expect(host).toContain("const merged = json.created === false;");
-    expect(host).toContain("json.case.issue_type");
+    expect(host).toContain("const merged = res.json.created === false;");
+    expect(host).toContain("opened.issue_type");
     const views = readFileSync(join(process.cwd(), "components/support/SupportTicketViews.tsx"), "utf8");
     expect(views).toContain('t("support_ticket_merged_heading")');
   });
@@ -942,16 +919,22 @@ describe("support inquiry SSOT 2026-11-27 — post-fix reaudit D1~D16", () => {
     adminResolveCalls.length = 0;
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "메모", internalNote: true });
     expect(adminResolveCalls).toHaveLength(0);
+    // 전체 수정 §2 (S-16): 종료의 어드민 알림 읽음은 DB 함수가 같은 트랜잭션에서 — 받은 어드민 전원 행
+    const alertRow = (caseId: string, admin: string) => ({
+      id: `n-${admin}-${caseId}`, recipient_admin_id: admin, kind: "support_customer_replied",
+      work_ref_table: "support_cases", work_ref_id: caseId, dedupe_key: `support_customer_replied:x-${caseId}`, read_at: null,
+    });
+    (db.admin_notifications ??= []).push(alertRow(a.case.id, ADMIN), alertRow(a.case.id, OTHER_ADMIN));
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
-    expect(adminResolveCalls).toContain(a.case.id);
+    expect(db.admin_notifications.every((n) => n.read_at)).toBe(true);
 
     const second = makeDb();
     const b = await openStructured(second.sb, "ORDER_STATUS", "y");
     if (!b.ok) throw new Error(b.error);
     await adminReplySupportCase(second.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "답변" });
-    adminResolveCalls.length = 0;
+    (second.db.admin_notifications ??= []).push(alertRow(b.case.id, ADMIN), alertRow(b.case.id, OTHER_ADMIN));
     await requesterCloseSupportCase(second.sb, { userId: U, caseId: b.case.id });
-    expect(adminResolveCalls).toContain(b.case.id);
+    expect(second.db.admin_notifications.every((n) => n.read_at)).toBe(true);
     expect(db.support_cases).toHaveLength(1);
   });
 
@@ -984,23 +967,28 @@ describe("support inquiry SSOT 2026-11-27 — post-fix reaudit D1~D16", () => {
 
   it("D1·D7·D9·D12·D15·D4/D13 (구조 확인): wiring", () => {
     const host = src("components/support/SupportModalHost.tsx");
-    expect(host).toContain("onUnauthorized={handleUnauthorized}");
+    // 계약 §5: 401 = 요청 실행기 한 규칙(auth_out → 로그인 화면) — 호스트는 그 화면을 그린다
+    expect(host).toContain('case "login":');
+    expect(src("lib/support/support-modal-ops.ts")).toContain('dispatchSupportModalIntent({ type: "auth_out" })');
     const views = src("components/support/SupportTicketViews.tsx");
-    expect(views).toContain("}, [caseId]);");
+    expect(views).toContain("}, [viewId, caseId]);");
     expect(views).toContain("closedUnreadSeen");
-    expect(views).toContain("if (stale()) return;");
+    expect(views).toContain("if (stale() || !res.current) return;");
     const bridge = src("components/notifications/NotificationsBadgeRealtimeBridge.tsx");
-    expect(bridge).toMatch(/eventType === "RESYNC"\) dispatchSupportNotificationArrived\(\)/);
+    // 전체 수정 §4 A-3: RESYNC + support_* 알림 행 UPDATE 일 때만 (동작 시험 = support-modal-machine-2026-11-28 「A-3」)
+    expect(bridge).toMatch(/eventType === "RESYNC" \|\| \(eventType === "UPDATE" && isSupportNotificationRealtimeRow\(row\)\)/);
     expect(bridge).toMatch(/requestNotificationBadgeCountResync\("app_resume"\);[\s\S]{0,200}dispatchSupportNotificationArrived\(\)/);
     const svc = src("lib/support/support-case-service.ts");
-    expect(svc).toContain('return { ok: false, error: "first_message_failed" };');
+    // 전체 수정 §2: 접수(문의·세션·첫 글·사건)는 DB 함수 한 트랜잭션 — 빈 문의가 남을 수 없다
+    expect(svc).toContain('sb.rpc("support_open_case"');
     expect(svc).toContain("if (/support_case_closed/.test(error?.message ?? \"\")) return { ok: false, error: \"case_closed\" };");
     expect(svc).toContain("keepAliveAfterResponse(work)");
     const customerRoute = src("app/api/support/cases/[caseId]/route.ts");
     expect(customerRoute).not.toContain("reopenSupportCase");
     const adminRoute = src("app/api/admin/support/cases/[caseId]/route.ts");
     expect(adminRoute).not.toContain("requireAuthenticatedUserId");
-    expect(adminRoute).toContain("includeAdmin: true");
+    expect(adminRoute).toContain("adminSeenSupportCase(sb");
+    expect(src("lib/support/support-notification-ledger.ts")).toContain("includeAdmin: true");
     const mig = src("supabase/migrations/20271127230000_support_append_message_closed_guard.sql");
     expect(mig).toContain("RAISE EXCEPTION 'support_case_closed'");
     expect(mig).toMatch(/ELSE\s*-- 어드민 메모[\s\S]*SET updated_at = v_now/);
@@ -1167,10 +1155,12 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
   });
 
   it("남은 위험 5 (구조 확인): admin detail marks only the shown customer messages' admin notifications read", () => {
+    // 전체 수정 §3: 어드민 seen 이 보여 준 글 id 를 그대로 원장에 넘긴다(동작 시험 support-full-fix-server-2026-11-29 A-1)
     const route = src("app/api/admin/support/cases/[caseId]/route.ts");
-    expect(route).toContain("shownCustomerMessageIds: messages.messages");
-    const svc = src("lib/support/support-case-service.ts");
-    expect(svc).toContain("dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`)");
+    expect(route).toContain("shownMessageIds: shown,");
+    const ledger = src("lib/support/support-notification-ledger.ts");
+    expect(ledger).toContain("shownCustomerMessageIds: input.shownMessageIds,");
+    expect(ledger).toContain("dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`)");
   });
 
   it("6차 2: an already-answered old message is not 'needed' even after a newer customer message reopens admin work (동작)", async () => {
@@ -1189,10 +1179,12 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
   });
 
   it("F/G (구조 확인): merge into a case closed meanwhile → new case; session failure → no empty case left (structure)", () => {
+    // 전체 수정 §2 (S-4): 붙이기·새 문의·세션은 DB 함수 한 트랜잭션(FOR UPDATE 로 그사이 종료된 문의는 새 문의) — 빈 문의 지우기 경로 없음
     const svc = src("lib/support/support-case-service.ts");
-    expect(svc).toContain('if (continued.ok || continued.error !== "case_closed") return continued;');
-    expect(svc).toMatch(/if \(!session\.ok\) \{\s*await discardFailedNewCase\(sb, created\.id\);/);
-    expect(src("app/api/support/cases/open/route.ts")).toContain('res.error === "case_closed"');
+    expect(svc).not.toContain("discardFailedNewCase");
+    const mig = src("supabase/migrations/20271129100000_support_full_fix.sql");
+    expect(mig).toContain("AND c.status IN ('OPEN', 'WAITING_ADMIN', 'WAITING_USER')\n   ORDER BY c.last_message_at DESC\n   LIMIT 1\n   FOR UPDATE;");
+    expect(mig).toContain("ON CONFLICT (case_id) WHERE closed_at IS NULL DO NOTHING");
   });
 
   it("I: the assignment notification requires the support permission; customer-message notifications exclude the sender", async () => {
@@ -1215,7 +1207,8 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
 
   it("J (구조 확인): reopen is admin-only (customer API has no reopen; service always uses the admin gate)", () => {
     const svc = src("lib/support/support-case-service.ts");
-    expect(svc).toMatch(/export async function reopenSupportCase[\s\S]{0,400}const gate = await getSupportCaseForAdmin\(sb, input\.caseId\);/);
+    // 전체 수정 §2: 재오픈 = DB 함수 전이 표(어드민 경로에서만 부른다)
+    expect(svc).toMatch(/export async function reopenSupportCase[\s\S]{0,600}action: "reopen"/);
     expect(src("app/api/support/cases/[caseId]/route.ts")).not.toContain("reopenSupportCase");
   });
 
@@ -1501,23 +1494,17 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     adminNotifyCalls.length = 0;
     const THIRD = "55555555-5555-4555-8555-555555555555";
     // 경합: 이 요청이 문의를 읽은 뒤·쓰기 직전에 다른 어드민이 THIRD 로 지정했다
-    const base = two.sb as unknown as { from: (t: string) => Record<string, (...a: unknown[]) => unknown>; rpc: unknown };
+    // 전체 수정 §2: 지정 쓰기는 DB 함수(support_transition_case) — 그 함수가 부르기 직전에 다른 어드민이 지정했다
+    const base = two.sb as unknown as { from: unknown; rpc: (n: string, a?: Record<string, unknown>) => Promise<unknown> };
     let raced = false;
     const sbRace = {
       ...base,
-      from: (t: string) => {
-        const bld = base.from(t);
-        if (t === "support_cases") {
-          const update = bld.update;
-          bld.update = (patch: unknown) => {
-            if (!raced) {
-              raced = true;
-              two.db.support_cases[0].assigned_admin_id = THIRD;
-            }
-            return update(patch);
-          };
+      rpc: (n: string, a?: Record<string, unknown>) => {
+        if (n === "support_transition_case" && !raced) {
+          raced = true;
+          two.db.support_cases[0].assigned_admin_id = THIRD;
         }
-        return bld;
+        return base.rpc(n, a);
       },
     } as never;
     const lost = await adminAssignSupportCase(sbRace, { adminUserId: ADMIN, caseId: b.case.id, assigneeAdminId: OTHER_ADMIN });
@@ -1619,17 +1606,21 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     expect(db.support_cases[0].status).toBe("OPEN");
   });
 
-  it("L7: the admin reply returns before the customer notification is sent (sent right after)", async () => {
+  it("L7 · S-6 (2026-11-29): the reply stores the customer's bell row before returning (same request), the push goes right after", async () => {
     const { sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");
     if (!a.ok) throw new Error(a.error);
     notifyCalls.length = 0;
+    pushCalls.length = 0;
     const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
     expect(r.ok).toBe(true);
-    // 고치기 전: 응답 전에 언어 읽기·알림·푸시까지 끝나야 돌려줬다
-    expect(notifyCalls.filter((n) => n.type === "support_admin_replied")).toHaveLength(0);
+    // 계약 §4: 고객 미읽음 +1 과 알림함 행이 같은 요청 — 푸시만 응답 뒤(L7 의 「푸시를 기다리지 않음」은 그대로)
+    expect(notifyCalls.filter((n) => n.type === "support_admin_replied")).toEqual([
+      expect.objectContaining({ deferPush: true }),
+    ]);
+    // 푸시는 응답을 기다리게 하지 않는 별도 작업(응답 뒤 끝까지 보장) — 한 번만
     await flush();
-    expect(notifyCalls.filter((n) => n.type === "support_admin_replied")).toHaveLength(1);
+    expect(pushCalls.filter((p) => p.type === "support_admin_replied")).toHaveLength(1);
   });
 
   it("L3: customer API views carry only customer fields (no assignee / priority / admin unread / guidance / admin id)", () => {
@@ -1656,11 +1647,13 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
 
   it("L4: a DB failure while opening returns a stable key, never the DB message", async () => {
     const { sb } = makeDb();
-    const failing: Record<string, unknown> = {};
-    for (const k of ["select", "eq", "is", "in", "order", "limit"]) failing[k] = () => failing;
-    failing.maybeSingle = async () => ({ data: null, error: { message: 'permission denied for relation "secret_table"' } });
-    const base = sb as unknown as { from: (t: string) => unknown; rpc: unknown };
-    const sbFail = { ...base, from: (t: string) => (t === "support_cases" ? failing : base.from(t)) } as never;
+    // 전체 수정 §2: 접수 = DB 함수 하나 — 그 함수가 DB 오류를 내도 응답엔 고정 키만
+    const base = sb as unknown as { from: (t: string) => unknown; rpc: (n: string, a?: unknown) => Promise<unknown> };
+    const sbFail = {
+      ...base,
+      rpc: async (n: string, a?: unknown) =>
+        n === "support_open_case" ? { data: null, error: { message: 'permission denied for relation "secret_table"' } } : base.rpc(n, a),
+    } as never;
     const r = await openSupportCaseFromContext(sbFail, {
       userId: U, context: ctx(), issueType: "ORDER_STATUS", initialSummary: "x", initialBody: "x", allowMissingIssue: false,
     });
@@ -1679,6 +1672,9 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
       ],
     });
     expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "MEMBER" })).toEqual({ ok: true, unread: 3 });
+    // A-6 (2026-11-29): 사장님 문의 숫자는 지금 그 매장 사장님일 때만 — 소유 확인 실패(이 시험의 기본 흉내) = 0
+    expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "OWNER", storeId: STORE })).toEqual({ ok: true, unread: 0 });
+    vi.mocked(getCachedStoreIfOwner).mockResolvedValueOnce({ ok: true, store: { id: STORE } } as never);
     expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "OWNER", storeId: STORE })).toEqual({ ok: true, unread: 5 });
   });
 
@@ -1751,9 +1747,8 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     expect(row.last_message_at).toBe(lastAt);
     expect(db.admin_notifications.find((n) => n.id === "an-1")?.read_at).toBeNull();
     expect(db.admin_notifications.find((n) => n.id === "an-2")?.read_at).not.toBeNull();
-    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.dedupeKey)).toEqual([
-      `support_customer_replied:${seed.id}`,
-    ]);
+    // B-3 (2026-11-29): 알림 행이 이미 있는 글은 되살리기만 — 다시 퍼뜨리지 않는다(받는 사람 권한·본문을 다시 읽지 않음)
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied")).toEqual([]);
   });
 
   it("병합 전 2차 4·5: 이미 「답변 필요」(WAITING_ADMIN)에서 유일한 답을 지우면 그 답이 본 글 알림만 되살리고, 첫 글 제목 = 「새 고객 문의」", async () => {
@@ -1769,16 +1764,15 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     await flush();
     const row = db.support_cases[0];
     expect(row.status).toBe("WAITING_ADMIN");
+    // 첫 글 알림 행은 없다(예: 옛 알림 정리) · 추가 글 알림은 어드민이 읽음
     db.admin_notifications = [
-      { id: "an-seed", recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${seed.id}`, read_at: "2026-12-01T00:00:00.000Z", archived_at: null },
       { id: "an-late", recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${late.message.id}`, read_at: "2026-12-01T00:00:00.000Z", archived_at: null },
     ];
     adminNotifyCalls.length = 0;
     await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: reply.message.id });
     await flush();
     expect(row.status).toBe("WAITING_ADMIN");
-    // 지운 답이 봤던 첫 글만 되살림 · 원래부터 기다리던 추가 글(어드민이 읽음)은 그대로
-    expect(db.admin_notifications.find((n) => n.id === "an-seed")?.read_at).toBeNull();
+    // 지운 답이 봤던 첫 글만 다시 알림(행이 없으니 만듦) · 원래부터 기다리던 추가 글(어드민이 읽음)은 그대로
     expect(db.admin_notifications.find((n) => n.id === "an-late")?.read_at).not.toBeNull();
     const calls = adminNotifyCalls.filter((c) => c.kind === "support_customer_replied");
     expect(calls.map((c) => c.dedupeKey)).toEqual([`support_customer_replied:${seed.id}`]);
@@ -1808,9 +1802,9 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     await flush();
     expect(row.status).toBe("OPEN");
     expect(db.admin_notifications.find((n) => n.id === "an-seed")?.read_at).toBeNull();
-    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.dedupeKey)).toEqual([
-      `support_customer_replied:${seed.id}`,
-    ]);
+    // B-3: 행이 있는 글은 되살리기만(다시 퍼뜨리지 않음)
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.dedupeKey)).toEqual([]);
+    expect(seed.id).toBeTruthy();
   });
 
   it("M5: deleting one of two answers that both saw the message keeps 「고객 확인 대기」 (no re-notify)", async () => {
@@ -1897,8 +1891,8 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     await flush();
     expect(merged.created).toBe(false);
     expect(db.support_cases).toHaveLength(1);
-    // 진행 중 조회 1 + 붙인 뒤 다시 읽기 1 + 응답 뒤 어드민 알림 판정 1 = 3 (고치기 전: 붙이기 전 본인 확인 읽기 1 더 = 4)
-    expect(caseReads).toBe(3);
+    // 전체 수정 §2: 진행 중 조회·붙이기·다시 읽기 = DB 함수 하나(문의 표 직접 읽기 0) + 응답 뒤 어드민 알림 판정 1 = 1
+    expect(caseReads).toBe(1);
   });
 
   it("L2: the app self-heal releases the unreachable assignee only while the case is still active", async () => {

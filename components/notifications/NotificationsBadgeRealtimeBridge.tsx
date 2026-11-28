@@ -119,12 +119,16 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     };
   }, [enabled]);
 
-  const bump = useCallback(({ eventType }: { eventType: string }) => {
+  const bump = useCallback(({ eventType, row }: { eventType: string; row?: Record<string, unknown> }) => {
     // 순서 5 E2: INSERT 도 즉시 발송하지 않고 아래 1.2초 묶음 1회만 (이전: 즉시 1 + 묶음 1 = 목록·배지 2번)
     // B-05: 새 알림(INSERT)도 종·앱 아이콘 배지 권위를 다시 받는다 — 목록·탭만 늘고 종이 남던 문제(묶음 1회).
     coalescedBadgeBumpRef.current?.schedule();
     // 재감사 D7: 실시간 재연결(RESYNC) — 끊긴 동안 온 고객지원 답변을 FAB 숫자에도 반영
-    if (eventType === "RESYNC") dispatchSupportNotificationArrived();
+    // 계약 §4 (A-3·A-11): 알림 행 UPDATE(답변 삭제로 알림 읽음 처리 등)도 고객센터 숫자·「내 문의」를 다시 읽게 한다.
+    //   UPDATE 는 support_* 알림 행일 때만 — 다른 알림 읽음으로 고객센터 숫자를 다시 읽지 않는다.
+    if (eventType === "RESYNC" || (eventType === "UPDATE" && isSupportNotificationRealtimeRow(row))) {
+      dispatchSupportNotificationArrived();
+    }
     /**
      * 거래/주문/문의 **신규** 알림 INSERT만 owner hub 배지 갱신.
      * UPDATE burst(읽음 일괄)는 list coalesce 로 충분 — hub cmFresh 연쇄 방지.

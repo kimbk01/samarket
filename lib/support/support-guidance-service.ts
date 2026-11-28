@@ -127,6 +127,8 @@ export async function adminUpsertSupportGuidanceEntry(
     ctaKind?: SupportGuidanceCtaKind;
     ctaTarget?: string | null;
     escalationAllowed?: boolean;
+    /** 전체 수정 계약 §7: 수정 CAS — 화면이 읽은 revision. 없으면 서버가 읽은 값으로 CAS(동시 수정 = 한 번만) */
+    expectedRevision?: number | null;
   }
 ): Promise<
   | { ok: true; entry: SupportGuidanceEntryRow }
@@ -148,6 +150,10 @@ export async function adminUpsertSupportGuidanceEntry(
   if (existingId) {
     const loaded = await getSupportGuidanceEntryById(sb, existingId);
     if (!loaded.ok) return loaded;
+    const readRevision = Number(loaded.entry.revision);
+    if (input.expectedRevision != null && Number(input.expectedRevision) !== readRevision) {
+      return { ok: false, error: "guidance_revision_conflict" };
+    }
     const { data, error } = await sb
       .from("support_guidance_entries")
       .update({
@@ -161,17 +167,20 @@ export async function adminUpsertSupportGuidanceEntry(
         cta_kind: cta.kind,
         cta_target: cta.target,
         escalation_allowed: input.escalationAllowed !== false,
-        revision: Number(loaded.entry.revision) + 1,
+        revision: readRevision + 1,
         updated_by: input.adminUserId,
         updated_at: now,
       })
       .eq("id", existingId)
+      // 수정 CAS — 읽은 뒤 다른 어드민이 먼저 고쳤으면 덮어쓰지 않는다(409)
+      .eq("revision", readRevision)
       .select("*")
-      .single();
-    if (error || !data) {
-      console.error("[support-guidance] update_failed", { error: error?.message ?? null });
+      .maybeSingle();
+    if (error) {
+      console.error("[support-guidance] update_failed", { error: error.message });
       return { ok: false, error: "update_failed" };
     }
+    if (!data) return { ok: false, error: "guidance_revision_conflict" };
     return { ok: true, entry: data as SupportGuidanceEntryRow };
   }
 

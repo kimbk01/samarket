@@ -29,6 +29,8 @@ Support FAB is **not** a global customer-center button. Each screen must explici
 | `/mypage/ads/feed-request` | `AD` | `mypage_feed_ad_request` |
 | `/mypage/coupons` | `COUPON` | `mypage_coupons` |
 
+화면 단위로 켜는 곳(`SUPPORT_FAB_ENABLED_VIEW_FILES`): 주문 상세·주문 허브 펼침(회원) · 배달 모집 중 첫 화면 `DeliveryRecruitingSurface`(입점 문의 · Owner 2026-11-10). 목록의 단일 정의 = `lib/support/support-fab-route-registry.ts`.
+
 **Explicit OFF:** `/`, `/market`, `/stores/*` consumer browse, `/mypage`, `/mypage/settings*`, `/notifications`, messenger/trade/order-chat paths, `/mypage/customer-center/*`.
 
 ## OWNER — enabled candidates (CUT 1)
@@ -39,7 +41,8 @@ Support FAB is **not** a global customer-center button. Each screen must explici
 | `/stores/owner/finance` | `CASH_COIN` | `owner_finance` |
 | `/stores/owner/settlements` | `SETTLEMENT` | `owner_settlements` |
 | `/stores/owner/ads/[campaignId]` | `DELIVERY_AD` | `owner_delivery_ad_detail` |
-| `/stores/owner/ads/new/*` | `DELIVERY_AD` | `owner_delivery_ad_compose` |
+| `/stores/owner/ads/new/*` (banner · store-sponsored · platform-popup) | `DELIVERY_AD` | `owner_delivery_ad_compose` |
+| `/stores/owner/ads/popup/[requestId]` | `DELIVERY_AD` | (페이지 셸 `OwnerStoreSupportShell` 값) |
 | `/stores/owner/products/[productId]/edit` | `PRODUCT_MENU` | `owner_product_edit` |
 | `/stores/owner/coupons` | `COUPON` | `owner_coupons` |
 | `/stores/owner/gift-certificates` | `GIFT_CERTIFICATE` | `owner_gift_certificates` |

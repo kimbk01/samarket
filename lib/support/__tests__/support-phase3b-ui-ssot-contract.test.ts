@@ -82,7 +82,8 @@ describe("B2 error labels — customers never see an API code", () => {
 describe("B1 admin vocabulary — one SSOT for status / role / priority", () => {
   it("every status maps to Korean admin wording", () => {
     const expected: Record<string, string> = {
-      OPEN: "접수",
+      // 전체 수정 계약 §7 (2026-11-28): 어드민 OPEN = 「답변 필요」(탭과 같은 이름)
+      OPEN: "답변 필요",
       WAITING_ADMIN: "답변 필요",
       // UI U7 (2026-11-27): 탭·알약 같은 이름
       WAITING_USER: "고객 확인 대기",
@@ -109,7 +110,9 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
 
   it("B7 queue Realtime is queue-wide; search is debounced", () => {
     const page = read("components/admin/support/AdminSupportPage.tsx");
-    expect(page).toContain('.channel("admin-support-queue", privateRealtimeChannelOptions())');
+    // 전체 수정 계약 §4 B-5: 콘솔은 자기 채널 없이 공통 구독 이벤트로 받는다 (동작 시험: support-admin-full-fix-2026-11-28.test.tsx)
+    expect(page).toContain("subscribeAdminSupportCaseChange(");
+    expect(page).not.toContain('.channel("admin-support-queue"');
     expect(page).not.toContain("filter: `case_id=eq.${activeId}`");
     expect(page).toContain("setAppliedSearch(search), 300");
   });
@@ -131,7 +134,8 @@ describe("B4/B5/B6 lists and badges", () => {
     // 최종 감사 L10: 숫자 전용 응답(목록 전체 대신) — 요청은 공유 모듈 하나
     expect(hook).toContain('summary: "unread"');
     expect(read("lib/support/support-requester-unread-fetch.ts")).toContain("/api/support/cases?");
-    expect(read("lib/support/support-case-service.ts")).toContain('.select("requester_unread_count")');
+    // A-6 (2026-11-29): 숫자 열 + 매장 소유 확인용 열만(동작 시험 support-full-fix-server-2026-11-29)
+    expect(read("lib/support/support-case-service.ts")).toContain('.select("requester_unread_count, audience, owner_store_id")');
     const fab = read("components/support/SupportFab.tsx");
     expect(fab).toContain("useSupportRequesterUnread({");
     expect(fab).toContain('audience: owner ? "OWNER" : "MEMBER"');
@@ -148,7 +152,7 @@ describe("B4/B5/B6 lists and badges", () => {
   it("B8 admin archive is readable; B9 dashboard tile uses support_actionable", () => {
     const archive = read("components/admin/support/AdminSupportArchivePage.tsx");
     expect(archive).toContain("data-admin-archive-thread");
-    expect(archive).toContain("legacyStatusLabel(n.status, ko)");
+    expect(archive).toContain("legacyStatusLabel(n.status, t)");
     expect(archive).not.toMatch(/method:\s*"(POST|PATCH)"/);
     const tiles = read("components/admin/order-notifications/AdminOrderNotificationsPageClient.tsx");
     expect(tiles).toContain("AdminActionQueueCardGrid");

@@ -163,7 +163,8 @@ describe("작성 중 저장 — 이어 쓰기 / 지우기", () => {
     expect(v).toContain("dibayConfirm({");
     expect(v).toContain('t("support_ticket_draft_delete_title")');
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("clearSupportTicketDraftIfSent(draftKey, sentBody)"); // 남은 위험 1: 보낸 그 글의 초안만 지움(동작 시험 = support-ui-final-check 「남은 위험 1」)
+    // 계약 §1: 접수된 그 요청(requestId)의 초안만 지움(동작 시험 = support-modal-machine-2026-11-28 「C-7」)
+    expect(host).toContain("stored.requestId === requestId) clearSupportTicketDraft(draftKey)");
   });
 });
 
@@ -181,7 +182,7 @@ describe("요청자 화면 — 종료되면 사라짐 · 확인했어요", () =>
     expect(list).toContain('status: "active",');
     const detail = read("app/api/support/cases/[caseId]/route.ts");
     expect(detail).toContain("isSupportTicketClosedStatus(gate.case.status)");
-    expect(detail).toContain("messages: [], closed: true");
+    expect(detail).toMatch(/messages: \[\],\s+closed: true,/);
     expect(detail).toContain('body.action === "close"');
     expect(detail).toContain("requesterCloseSupportCase");
   });
@@ -193,10 +194,12 @@ describe("요청자 화면 — 종료되면 사라짐 · 확인했어요", () =>
       svc.indexOf("export async function markSupportCaseReadForRequester")
     );
     expect(fn).toContain("getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId })");
-    expect(fn).toContain('.eq("status", gate.case.status)');
-    expect(fn).toContain('payload: { status: "RESOLVED", by: "requester" }');
-    expect(fn).not.toContain("notifySupportEvent");
-    expect(fn).toMatch(/RESOLVED" \|\| gate\.case\.status === "ARCHIVED"\) \{\s*return \{ ok: true, case: gate\.case \}/);
+    // 전체 수정 §2: 상태·숫자·세션·사건 = DB 전이 표 한 트랜잭션(요청자 본인 · WAITING_USER 만 · 이미 종료 = ok)
+    expect(fn).toContain('action: "requester_close"');
+    expect(fn).not.toContain("notifyRequester");
+    const mig = read("supabase/migrations/20271129100000_support_full_fix.sql");
+    expect(mig).toContain("jsonb_build_object('status', 'RESOLVED', 'by', 'requester')");
+    expect(mig).toMatch(/ELSIF p_action = 'requester_close' THEN[\s\S]{0,200}'forbidden'[\s\S]{0,200}IF v_closed THEN\s*RETURN jsonb_build_object\('ok', true, 'changed', false/);
   });
 
   it("상세 화면: 답변 완료 = 추가 문의 / 확인했어요, 종료 = 내용 없이 안내 + 새 문의 쓰기, 말풍선 없음", () => {
@@ -215,7 +218,9 @@ describe("고객센터 FAB — 아이콘 숫자 · 회원/매장 구분", () => 
     const fab = read("components/support/SupportFab.tsx");
     expect(fab).toMatch(/<Headphones[\s\S]{0,600}data-support-fab-badge="1"/);
     expect(fab).toContain('t("support_fab_owner_label")');
-    expect(fab).toContain("bg-[var(--dibay-brown)]");
+    // 재감사 §1: 갈색 정의는 support-owner-cta.ts 한 곳 — FAB 은 그 값을 쓴다
+    expect(fab).toContain("OWNER_SUPPORT_FAB_CLASS");
+    expect(fab).not.toContain("dibay-brown");
     expect(fab).toContain("storeId,");
     expect(fab).not.toContain("text-white");
   });

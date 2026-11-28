@@ -31,11 +31,6 @@ function makeSb(opts: {
     data: opts.row,
     error: null,
   }));
-  const eq = vi.fn(() => ({
-    maybeSingle,
-    eq: vi.fn(() => ({ maybeSingle })),
-    update: undefined as unknown,
-  }));
   // chain: from().select().eq().maybeSingle() and from().update().eq()
   const from = vi.fn((table: string) => {
     expect(table).toBe("support_cases");
@@ -148,14 +143,16 @@ describe("support mark-read idempotency (self-loop close)", () => {
     expect(host).toContain("void load();");
   });
 
-  it("CASE6 GET route still marks read (unread semantics entry preserved)", () => {
+  it("CASE6 (전체 수정 §3): GET 은 읽기만 — 읽음은 seen 요청이 원장으로 (멱등 계약 유지)", () => {
     const route = readFileSync(
       join(process.cwd(), "app/api/support/cases/[caseId]/route.ts"),
       "utf8"
     );
-    expect(route).toContain("markSupportCaseReadForRequester");
+    const get = route.slice(route.indexOf("export async function GET"), route.indexOf("export async function POST"));
+    expect(get).not.toContain("markSupportCase");
+    expect(route).toContain("requesterSeenSupportCase(sb");
     const svc = readFileSync(
-      join(process.cwd(), "lib/support/support-case-service.ts"),
+      join(process.cwd(), "lib/support/support-notification-ledger.ts"),
       "utf8"
     );
     expect(svc).toMatch(/unread <= 0/);
