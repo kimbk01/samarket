@@ -41,12 +41,15 @@ describe("V-C1 확장 — 사용자 화면 전체 (구조 확인)", () => {
     /useState[^;]*?\(\(\) =>[^;]*?getCurrentUser\(\)/,
     /Boolean\(getCurrentUser\(\)/,
     /\? [\w.]+ : getCurrentUser\(\)/,
+    /useEffect\(\(\) => set\w+\(get(?:HydrationSafe)?CurrentUser\(\)/, // 마운트 때 한 번 읽기(PR-C · 설계 §7)
   ];
   /** 근거 있는 허용 (설계 v2 §6 제외 목록 · §11 PR-B 구현 기록) */
   const ALLOW: Record<string, string> = {
     "hooks/use-client-membership-state.ts": "회원 상태 SSOT 자체",
     "components/i18n/AppLanguageProvider.tsx": "세션 단계 구독으로 다시 계산(언어 도메인 · 설계 §6 제외)",
     "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx": "통화 코드 — 통화 규정상 변경 금지(설계 §6 제외)",
+    "components/moim/MoimCreateWizard.tsx": "만들기 시트를 열 때 그 순간 읽기(설계 §6 제외)",
+    "components/moim/MoimJoinSheet.tsx": "가입 시트를 열 때 기본 별명 그 순간 읽기(설계 §6 제외)",
   };
   /** 설계 §6 표 밖의 같은 종류 — Owner 결정 전 보고만(설계 §11 PR-B 기록). 늘면 실패 */
   const REPORTED_OUT_OF_SCOPE: Record<string, string> = {
@@ -55,13 +58,11 @@ describe("V-C1 확장 — 사용자 화면 전체 (구조 확인)", () => {
     "components/mypage/trust/MypageTrustContent.tsx": "로그인 신호 + 그 순간 읽기",
     "hooks/use-representative-address-line.ts": "주소 도메인 — Boolean(getCurrentUser()) 도우미",
   };
-  /** 다음 단위에서 바꿀 곳 — PR-C(모임) */
-  const PENDING_PR_C = (f: string) => f.startsWith("components/moim/");
 
-  it("허용 목록·PR-C 대상 밖에서 0건", () => {
+  it("허용 목록 밖에서 0건 (모임 포함 · PR-C)", () => {
     const bad: string[] = [];
     for (const f of [...walk("components"), ...walk("app"), ...walk("hooks")]) {
-      if (ALLOW[f] || REPORTED_OUT_OF_SCOPE[f] || PENDING_PR_C(f)) continue;
+      if (ALLOW[f] || REPORTED_OUT_OF_SCOPE[f]) continue;
       const src = fs.readFileSync(path.join(ROOT, f), "utf8");
       if (PATTERNS.some((p) => p.test(src))) bad.push(f);
     }

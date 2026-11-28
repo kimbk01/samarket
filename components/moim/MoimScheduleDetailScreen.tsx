@@ -10,7 +10,7 @@ import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButto
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS, samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimScheduleDto, MoimScheduleParticipantDto } from "@/lib/moim/moim-api-types";
@@ -187,9 +187,9 @@ function ScheduleBody({
   const [busy, setBusy] = useState(false);
   const [motivation, setMotivation] = useState("");
   const [motivationError, setMotivationError] = useState<string | null>(null);
-  const [myId, setMyId] = useState<string | null>(null);
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-schedule-detail");
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);

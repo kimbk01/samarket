@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibaySheetHeader, DibayUsableAreaSheet } from "@/components/ui/dibay-overlay";
 import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { activeMoimReportReasons, moimReportReasonLabel, type MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 import { chipClass, moimCls } from "@/components/moim/moim-ui";
 
@@ -60,10 +60,12 @@ export function MoimReportSheet({
     setError(null);
   }, [target]);
 
+  /** 회원 여부 = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const memberId = useClientMemberId("moim-report-sheet");
   /** 화면이 처음 그릴 때 같이 읽는다 — 화면도 같은 상세를 같은 때 부르므로 공유 상세의 한 번 호출에 합쳐진다(추가 요청 0) */
   useEffect(() => {
     /** 로그인 전(손님)은 신고할 수 없고 공유 상세도 저장되지 않는다 — 부르지 않는다 */
-    if (reasons !== undefined || !getHydrationSafeCurrentUser()?.id) return;
+    if (reasons !== undefined || !memberId) return;
     let alive = true;
     void moimApi.detail(moimId).then((r) => {
       if (alive && r.ok) setLoadedReasons(r.moim.reportReasons ?? null);
@@ -71,7 +73,7 @@ export function MoimReportSheet({
     return () => {
       alive = false;
     };
-  }, [reasons, moimId]);
+  }, [reasons, moimId, memberId]);
   const list = moimReportSheetReasons(reasons !== undefined ? reasons : loadedReasons);
 
   const submit = async () => {
