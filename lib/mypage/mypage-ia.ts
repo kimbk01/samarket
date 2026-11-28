@@ -8,6 +8,7 @@
  * - 구매 내역 행 없음(마켓 UI-6 HARD LOCK). 주소는 항상 `/mypage/addresses`(주소 HARD LOCK).
  */
 import type { MessageKey } from "@/lib/i18n/messages";
+import { NEIGHBOR_FOLLOW_MANAGE_HREF, NEIGHBOR_FOLLOW_MYPAGE_HREF } from "@/lib/community/neighbor-follow-contract";
 import type {
   MypageHomeLinkMenuItem,
   MypageHomeMenuIconId,
@@ -379,6 +380,12 @@ const L2_ROUTE_META: Map<string, MypageIaRouteMeta> = (() => {
   m.set(MYPAGE_CUSTOMER_CENTER_HREF, {
     titleKey: "mypage_ia_cat_support",
     parentHref: "/mypage",
+  });
+  /** 관심이웃 관리 — 분류 행은 없고 관심이웃 화면 [관리]로만 들어간다. 제목 「관심이웃 관리」, 뒤로 = 관심이웃 */
+  m.set(NEIGHBOR_FOLLOW_MANAGE_HREF, {
+    /** 레지스트리 항목 라벨과 같은 키 하나 — 첫 프레임(tier1)·머리줄 제목이 갈라지지 않게 */
+    titleKey: "mypage_mnav_community_community_friends_manage",
+    parentHref: NEIGHBOR_FOLLOW_MYPAGE_HREF,
   });
   m.set("/mypage/required/dibay-id", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/phone", { titleKey: null, parentHref: "/mypage" });

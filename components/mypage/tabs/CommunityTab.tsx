@@ -91,7 +91,7 @@ export function CommunityTab({ section }: { section: string }) {
 
   if (section === "users") {
     /** 관심이웃 — 내정보 › 라운지 › 관심이웃 과 같은 화면 (관심이웃 설계 B · 이중 테두리 제거 E7) */
-    return <NeighborFollowScreen />;
+    return <NeighborFollowScreen mode="view" />;
   }
 
   if (section === "reports") {

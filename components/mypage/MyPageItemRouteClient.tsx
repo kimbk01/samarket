@@ -51,10 +51,10 @@ export function MyPageItemRouteClient({
   const noHubWait = isMypageItemWithoutHubWait(section, item);
   const hubEnabled = sessionMember && !noHubWait;
   const template = mypageItemScreenTemplate(section, item);
-  /** 관심이웃 — 머리줄 [관리]↔[완료], 관리 모드 제목 「관심이웃 관리」(시안 ③) */
-  const isNeighborFollow = section === "community" && item === "community-friends";
-  const neighborManage = isNeighborFollow && searchParams.get("manage") === "1";
-  const itemLabel = neighborManage ? t("mypage_neighbor_manage_title") : t(itemLabelKey);
+  /** 관심이웃 — 머리줄 [관리](보기 화면) · [완료](관리 화면). 제목은 경로별 분류 제목(시안 ②「관심이웃」·③「관심이웃 관리」) */
+  const isNeighborFollow =
+    section === "community" && (item === "community-friends" || item === "community-friends-manage");
+  const itemLabel = t(itemLabelKey);
   /** 뒤로(직접 진입) = 분류(IA) 부모 — 예: 판매 글 동네 일괄 변경 → 거래, 결제정보·기기 권한 → 계정·보안 */
   const defaultBack =
     resolveMypageIaParentHref(`/mypage/section/${section}/${item}`) ?? buildMypageSectionHref(section);
@@ -83,7 +83,11 @@ export function MyPageItemRouteClient({
       backHref={backHref}
       fixedBackHistory={settleToCustomerCenter ? "settle" : undefined}
       template={template}
-      headerRight={isNeighborFollow && sessionMember ? <NeighborFollowHeaderAction /> : undefined}
+      headerRight={
+        isNeighborFollow && sessionMember ? (
+          <NeighborFollowHeaderAction mode={item === "community-friends-manage" ? "manage" : "view"} />
+        ) : undefined
+      }
     >
       {body}
     </MyScreen>

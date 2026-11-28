@@ -3,7 +3,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityCard } from "@/components/community/CommunityCard";
 import { NeighborFollowButton, useNeighborFollowToggle } from "@/components/community/ui/NeighborFollowButton";
@@ -13,6 +12,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { philifeAppPaths } from "@/lib/philife/paths";
+import { COMMUNITY_FEED_GRID_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
@@ -64,16 +64,14 @@ function useNeighborPeople(reloadKey: number) {
   return state;
 }
 
-export function NeighborFollowScreen() {
+/**
+ * `mode` = 경로가 정한다 — 보기 `/mypage/section/community/community-friends`, 관리 `…/community-friends-manage`.
+ * 관리 화면을 나가 보기 화면으로 오면 새로 그려져 사람 목록을 다시 읽는다(해제한 사람이 빠짐 · 시안 ③).
+ */
+export function NeighborFollowScreen({ mode }: { mode: "view" | "manage" }) {
   const { t } = useI18n();
-  const manage = useSearchParams().get("manage") === "1";
-  /** 관리에서 나오면 사람 목록을 다시 읽어 해제한 사람을 뺀다(시안 ③ 「화면을 나가면 목록에서 빠짐」) */
+  const manage = mode === "manage";
   const [reloadKey, setReloadKey] = useState(0);
-  const prevManage = useRef(manage);
-  useEffect(() => {
-    if (prevManage.current && !manage) setReloadKey((k) => k + 1);
-    prevManage.current = manage;
-  }, [manage]);
   const people = useNeighborPeople(reloadKey);
   const peopleCount = people.kind === "ok" ? people.items.length : null;
   useEffect(() => {
@@ -248,14 +246,23 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
       ) : posts.length === 0 ? (
         <MyStateView kind="empty" template="list" empty={{ title: t("mypage_neighbor_posts_empty") }} />
       ) : (
-        /** 글 카드 = 피드와 같은 부품 — 카드 색·모서리 토큰(`--cm-*`)은 `[data-community-ui]` 범위에만 있다 */
-        <ul className="m-0 grid list-none gap-2 p-0 px-4 pb-4 md:px-5" data-community-ui="" data-testid="neighbor-follow-post-list">
-          {posts.map((p, i) => (
-            <li key={String(p.id)} className="list-none">
-              <CommunityCard post={p} priorityThumb={i < 2} />
-            </li>
-          ))}
-        </ul>
+        /**
+         * 글 목록 = 피드 글 목록과 같은 틀(`COMMUNITY_FEED_GRID_WRAP_CLASS`)·같은 칸(`data-feed-grid-item`)·같은 카드 — 피드 SSOT.
+         * 첫 구현은 칸 폭 없는 새 격자를 만들어 긴 제목이 칸을 화면 밖으로 늘렸다(실기 2026-11-28 Xiaomi·Samsung).
+         * 카드 색·모서리 토큰(`--cm-*`)은 `[data-community-ui]` 범위에만 있다.
+         */
+        <div data-community-ui="">
+          {/* 피드 틀 그대로 + 내정보 본문 거터(태블릿 md:px-5)에 맞춤 — 위 사진 줄·개수 줄과 좌우 정렬 */}
+          <ul className={`${COMMUNITY_FEED_GRID_WRAP_CLASS} md:px-5`} data-testid="neighbor-follow-post-list">
+            {posts.map((p, i) => (
+              <li key={String(p.id)} className="list-none flow-root" data-feed-grid-item="">
+                <div data-community-feed-cv-row="">
+                  <CommunityCard post={p} priorityThumb={i < 2} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}
       {failed && posts.length > 0 ? (
