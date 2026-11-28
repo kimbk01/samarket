@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { clearFixedBottomBarOffset, setFixedBottomBarOffset } from "@/lib/ui/fixed-bottom-bar-offset";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 
@@ -37,8 +38,24 @@ export function MoimStickyFooter({
   useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const base = compact ? 10 : 12;
   const occlusion = keyboardOpen ? Math.max(0, Math.round(keyboardOcclusionInset)) : 0;
+  /** 이 줄이 있는 동안 높이를 알려 토스트가 줄을 덮지 않게 한다(`lib/ui/fixed-bottom-bar-offset.ts` · 관심이웃 최종 감사 D8) */
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const owner = Symbol("sticky-footer");
+    const write = () => setFixedBottomBarOffset(owner, el.getBoundingClientRect().height);
+    write();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(write);
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      clearFixedBottomBarOffset(owner);
+    };
+  }, []);
   return (
     <div
+      ref={barRef}
       data-form-keyboard-footer="1"
       className={`sticky bottom-0 border-t border-sam-border bg-sam-surface px-4 ${compact ? "pt-2" : "pt-2.5"} ${MOIM_STICKY_FOOTER_KB_OFFSET_CLASS} ${className}`}
       style={{ paddingBottom: `calc(${base}px + var(--kb-safe-bottom, 0px) + ${occlusion}px)` }}

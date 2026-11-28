@@ -59,7 +59,7 @@ export async function fetchNeighborFollowTargetIds(
     .from("user_relationships")
     .select("target_user_id")
     .eq("user_id", v)
-    .or("relation_type.eq.neighbor_follow,type.eq.neighbor_follow");
+    .eq("type", "neighbor_follow");
   const s = new Set<string>();
   if (Array.isArray(data)) {
     for (const r of data as { target_user_id?: string }[]) {

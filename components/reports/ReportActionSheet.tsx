@@ -36,7 +36,6 @@ export function ReportActionSheet({
   onSuccess,
 }: ReportActionSheetProps) {
   const { t } = useI18n();
-  const currentUser = getCurrentUser();
   const [reasonCode, setReasonCode] = useState("");
   const [reasonLabel, setReasonLabel] = useState("");
   const [detail, setDetail] = useState("");
@@ -53,7 +52,8 @@ export function ReportActionSheet({
     const selected = REPORT_REASONS.find((r) => r.code === reasonCode);
     const reasonText = reasonCode === "other" ? detail : (t(selected?.labelKey ?? "ui_report_reason_other") ?? reasonLabel);
 
-    if (!currentUser?.id) {
+    /** 그리는 데 쓰지 않으므로 제출 순간 회원을 읽는다(설계 v2 §5-1) */
+    if (!getCurrentUser()?.id) {
       setSubmitting(false);
       setError(t("auth_resource_access_denied"));
       return;

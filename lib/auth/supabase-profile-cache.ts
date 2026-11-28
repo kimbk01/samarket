@@ -6,7 +6,7 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 let cached: Profile | null = null;
 
 /**
- * 캐시가 바뀌면 알릴 곳 — `useClientProfile()` 이 구독한다.
+ * 캐시가 바뀌면 알릴 곳 — 회원 상태 SSOT(`hooks/use-client-membership-state.ts`)가 구독한다.
  * 예전에는 알림이 없어, 캐시보다 먼저 그려진 화면(주소로 바로 연 글 상세 등)이 로그인 정보를 빈 값으로 들고 있었다
  * (설계 `docs/audit/community-detail-viewer-refresh-design-2026-11-28.md`).
  */

@@ -9,7 +9,9 @@ import { NeighborFollowButton, useNeighborFollowToggle } from "@/components/comm
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
 import { setNeighborFollowHeaderCount } from "@/components/mypage/community/NeighborFollowHeaderAction";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
+import { NEIGHBOR_FOLLOW_LIMIT, NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX } from "@/lib/community/neighbor-follow-contract";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { readMypageListCache, writeMypageListCache } from "@/lib/mypage/use-mypage-cursor-list";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { COMMUNITY_FEED_GRID_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -33,24 +35,44 @@ type NeighborItem = {
   createdAt: string;
 };
 
-const PEOPLE_KEY = "me:relations:neighbor:list";
 const POSTS_PAGE = 20;
 
+/**
+ * 관심이웃 사람 목록 — 내정보 목록 공용 캐시(`readMypageListCache`, 회원별 키)에 담아 보기↔관리 왕복은 다시 읽지 않는다
+ * (감사 B1 · 전체 수정 설계 v2 §5-4). 추가·해제·차단 때 저장소가 캐시를 지운다 → 관리에서 해제한 사람은 보기 화면에서 빠진다.
+ * [다시 시도](reloadKey>0)는 캐시를 건너뛴다.
+ */
 function useNeighborPeople(reloadKey: number) {
+  const membership = useClientMembershipState("neighbor-follow-screen");
+  const viewerId = membership.status === "member" ? membership.profile.id : "";
+  const cacheKey = `${NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX}:${viewerId}`;
   const [state, setState] = useState<
     { kind: "loading" } | { kind: "error" } | { kind: "ok"; items: NeighborItem[] }
-  >({ kind: "loading" });
+  >(() => {
+    const hit = viewerId ? readMypageListCache<NeighborItem>(cacheKey) : null;
+    return hit ? { kind: "ok", items: hit.items } : { kind: "loading" };
+  });
 
   useEffect(() => {
+    /** 회원 확인 전에는 읽지 않는다(내정보 경로가 회원만 들여보냄) */
+    if (!viewerId) return;
+    if (reloadKey === 0) {
+      const hit = readMypageListCache<NeighborItem>(cacheKey);
+      if (hit) {
+        setState((prev) => (prev.kind === "ok" && prev.items === hit.items ? prev : { kind: "ok", items: hit.items }));
+        return;
+      }
+    }
     let cancelled = false;
     void (async () => {
       try {
-        const items = await runSingleFlight(`${PEOPLE_KEY}:${reloadKey}`, async () => {
+        const items = await runSingleFlight(`${cacheKey}:${reloadKey}`, async () => {
           const res = await fetch("/api/me/relations/neighbor", { credentials: "include", cache: "no-store" });
           const json = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: NeighborItem[] };
           if (!res.ok || !json.ok) throw new Error("neighbor_list_failed");
           return Array.isArray(json.items) ? json.items : [];
         });
+        writeMypageListCache<NeighborItem>(cacheKey, { items, nextCursor: null, pages: 1 });
         if (!cancelled) setState({ kind: "ok", items });
       } catch {
         if (!cancelled) setState({ kind: "error" });
@@ -59,7 +81,7 @@ function useNeighborPeople(reloadKey: number) {
     return () => {
       cancelled = true;
     };
-  }, [reloadKey]);
+  }, [reloadKey, cacheKey, viewerId]);
 
   return state;
 }
@@ -144,11 +166,16 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const reqSeq = useRef(0);
+  /** 사람을 바꾸거나 다시 부르면 이전 글 요청을 취소한다(감사 B1 — 예전: 순번으로 응답만 버리고 요청은 계속) */
+  const abortRef = useRef<AbortController | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const loadPage = useCallback(
     async (append: boolean, fromCursor: string | null) => {
       const seq = ++reqSeq.current;
+      abortRef.current?.abort();
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
       setLoading(true);
       setFailed(false);
       try {
@@ -161,7 +188,7 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
           limit: POSTS_PAGE,
           cursor: fromCursor,
         });
-        const res = await fetch(url, { credentials: "include", cache: "no-store" });
+        const res = await fetch(url, { credentials: "include", cache: "no-store", signal: ctrl.signal });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           posts?: NeighborhoodFeedPostDTO[];
@@ -192,6 +219,8 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
     },
     [selected],
   );
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   useEffect(() => {
     /** 사람을 바꾸면 이전 사람의 커서·다음 페이지 표시를 먼저 지운다 — 이전 커서로 새 사람의 다음 페이지를 부르지 않게(재감사 3) */

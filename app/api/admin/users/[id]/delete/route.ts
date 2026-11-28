@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteAllNeighborFollowsForUser } from "@/lib/community/neighbor-follow-list.server";
 import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
@@ -233,8 +232,10 @@ export async function POST(
     }
   }
 
-  /** 관심이웃 맺은·받은 관계 모두 삭제 — 탈퇴·영구 삭제 공통 (레거시: 탈퇴하면 모아보기 목록에서 제외 · 관심이웃 설계 C) */
-  await deleteAllNeighborFollowsForUser(sb, userId);
+  /**
+   * 관심이웃 맺은·받은 관계 삭제는 DB 트리거가 한다 — 탈퇴(status·deleted_at 변경)·영구 삭제(profiles 삭제) 모두
+   * (`supabase/migrations/20271128250000_neighbor_follow_invariants.sql` · 전체 수정 설계 v2 §5-3: 같은 규칙 두 벌 금지).
+   */
 
   await sb
     .from("account_deletion_requests")

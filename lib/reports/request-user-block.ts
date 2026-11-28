@@ -49,20 +49,12 @@ async function blockUserRequest(
       }
     }
 
-    const checkRes = await fetch(
-      `/api/community/block-relations?targetUserId=${encodeURIComponent(targetUserId)}`,
-      { credentials: "include", cache: "no-store" }
-    );
-    const check = (await checkRes.json()) as { ok?: boolean; blocked?: boolean };
-    if (checkRes.ok && check.ok && check.blocked === true) {
-      return { ok: true };
-    }
-
+    /** 상태 지정 차단 — 이미 차단이면 서버가 그대로 200(사전 GET 확인 불필요, 설계 v2 §5-2) */
     const res = await fetch("/api/community/block-relations", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetUserId }),
+      body: JSON.stringify({ targetUserId, blocked: true }),
     });
     const j = (await res.json()) as { ok?: boolean; blocked?: boolean; error?: string };
     if (!res.ok || !j.ok) {

@@ -16,16 +16,8 @@ export const NEIGHBOR_FOLLOW_MYPAGE_HREF = "/mypage/section/community/community-
  */
 export const NEIGHBOR_FOLLOW_MANAGE_HREF = "/mypage/section/community/community-friends-manage";
 
-/** `POST /api/community/neighbor-relations` 거절 코드 */
-export type NeighborFollowErrorCode =
-  | "bad_target"
-  | "following_required"
-  | "blocked_target"
-  | "target_unavailable"
-  | "neighbor_follow_limit"
-  | "save_failed"
-  | "server_config";
-
-export type NeighborFollowPostResponse =
-  | { ok: true; following: boolean }
-  | { ok: false; error: NeighborFollowErrorCode | string };
+/**
+ * 내정보 관심이웃 사람 목록 기기 캐시 키 접두 (`lib/mypage/use-mypage-cursor-list.ts` 공용 캐시) — 뒤에 회원 id.
+ * 보기↔관리 왕복마다 다시 읽던 것을 재사용, 추가·해제·차단 때 이 접두로 지운다(감사 B1 · 전체 수정 설계 v2 §5-4).
+ */
+export const NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX = "me:relations:neighbor:list";

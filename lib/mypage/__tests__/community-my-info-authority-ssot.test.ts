@@ -23,10 +23,10 @@ describe("CUT1 Community My Info authority SSOT", () => {
     ]);
   });
 
-  it("My 관심이웃 reads neighbor_follow via the shared visible-list function; user_favorites is gone (구조 확인)", () => {
+  it("My 관심이웃 reads neighbor_follow via the shared list function; user_favorites is gone (구조 확인)", () => {
     const relations = read("app/api/me/relations/[type]/route.ts");
     expect(relations).toContain('type === "neighbor"');
-    expect(relations).toContain("listVisibleNeighborFollowRows");
+    expect(relations).toContain("listNeighborFollowRows");
     expect(relations).toContain('source: "user_relationships.neighbor_follow"');
     expect(relations).not.toContain("user_favorites");
 
@@ -66,8 +66,8 @@ describe("CUT1 Community My Info authority SSOT", () => {
   it("neighbor add/remove = one state-set POST (detail·profile·My 관리 공통), no DELETE path (구조 확인)", () => {
     const relations = read("app/api/me/relations/[type]/route.ts");
     const detail = read("app/api/community/neighbor-relations/route.ts");
-    expect(detail).toContain('from("user_relationships")');
-    expect(detail).toContain("neighbor_follow");
+    /** 추가·해제 = DB 함수 한 번(상한·차단·탈퇴를 한 트랜잭션 — 전체 수정 설계 v2 §5-2) */
+    expect(detail).toContain('rpc("neighbor_follow_set_for"');
     expect(detail).toContain("following_required");
     expect(relations).not.toMatch(/type === "neighbor"[\s\S]*\.delete\(\)/);
     const store = read("lib/community/neighbor-follow-store.ts");

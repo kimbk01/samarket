@@ -2,7 +2,7 @@
 
 - `profiles`: lib/profile/types.ts (id, email, nickname, avatar_url, bio, region_name, phone, phone_verified, realname_verified, role, member_type, points, manner_score, preferred_language, preferred_country, created_at, updated_at)
 - `user_settings`: lib/types/settings-db.ts (user_id, push_enabled, chat_push_enabled, marketing_push_enabled, do_not_disturb_*, video_autoplay_mode, preferred_language, preferred_country, personalization_enabled, chat_preview_enabled, app_banner_hidden, updated_at)
-- `user_blocks`, `user_hides`, `user_favorites`: lib/types/settings-db.ts
+- `user_blocks`, `user_hides`: lib/types/settings-db.ts (관심이웃은 `user_relationships` type=`neighbor_follow` — `user_favorites` 표는 운영에 없음, 2026-11-28 확인)
 - `my_page_banners`: lib/my/types.ts (id, title, description, image_url, link_url, is_active, dismissible, sort_order)
 - `my_services`: lib/my/types.ts (code, label, icon_key, href, is_active, sort_order, admin_only, country_code)
 - `my_page_sections`: lib/my/types.ts (section_key, title, is_active, sort_order)

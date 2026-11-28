@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_REASON_REQUIRED_CODE, parseAdminReason } from "@/lib/admin/operator-ux/admin-reason";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { isAdminMemberUuidSearch } from "@/lib/admin-users/admin-member-list-query";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -108,14 +109,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
   const { sb, actor } = gate;
-  let reason = "";
+  let rawReason: unknown = null;
   try {
-    const body = (await req.json()) as { reason?: unknown };
-    reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : "";
+    rawReason = ((await req.json()) as { reason?: unknown }).reason;
   } catch {
-    reason = "";
+    rawReason = null;
   }
-  if (!reason) return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  /** 관리자 사유 공용 규칙(최소 길이 = 화면 확인 창과 같은 값 — 감사 R8: 서버는 빈 값만 보던 결함) */
+  const reason = parseAdminReason(rawReason);
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
+  }
 
   /** 이 회원이 낀 관심이웃 행만 — 다른 회원 화면에서 남의 행을 지우지 못하게 */
   const { data: row, error: readErr } = await sb

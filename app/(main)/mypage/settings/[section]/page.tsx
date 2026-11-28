@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
+import { NEIGHBOR_FOLLOW_MYPAGE_HREF } from "@/lib/community/neighbor-follow-contract";
 
 const SECTION_REDIRECTS: Record<string, string> = {
   account: "/mypage/section/account/account-info",
   notifications: "/mypage/section/settings/notifications",
   "quiet-hours": "/mypage/section/settings/notifications",
   "order-notifications": "/mypage/section/settings/notifications",
-  following: "/mypage/section/community/community-friends",
+  following: NEIGHBOR_FOLLOW_MYPAGE_HREF,
   "blocked-users": "/mypage/section/account/blocked-users",
   "hidden-users": "/mypage/section/account/hidden-users",
   autoplay: "/mypage/section/settings/video-autoplay",

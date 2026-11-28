@@ -145,6 +145,16 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/me/signup-status": 1.9,
   /** 2026-11-24 채팅 영상 고아 정리(하루 1회) — 후보 RPC 1 + 삭제 1 + 감사 1(삭제 있을 때만). 실측 전 계산값 */
   "/api/cron/messenger-video-orphan-gc": 3.0,
+  /**
+   * 2026-11-28 관심이웃 전체 수정 설계 v2 §5-2 — 관심이웃·차단 관계 조회를 한 요청으로(예전 GET 2개). 실측 전 코드 계산 최대값:
+   * 회원 확인 0~1(getClaims 로컬 우선) + 세션 확인(프로필 1 + 세션 등록 0~2) + 관심이웃 1 + 차단 1 = 최대 6. 7일 뒤 Vercel 값으로 내린다.
+   */
+  "/api/community/user-relation": 6.0,
+  /**
+   * 2026-11-28 같은 설계 — 관심이웃 추가·해제(POST 만 남음). 예전 조회 4개(기존 행·프로필·차단·개수) → DB 함수 1.
+   * 회원 확인 0~1 + 가입 확인(추가만, 쓰기 게이트 스냅샷 1~2) + RPC 1 = 최대 4. 7일 뒤 Vercel 값으로 내린다.
+   */
+  "/api/community/neighbor-relations": 4.0,
 };
 
 /**

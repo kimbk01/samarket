@@ -8,6 +8,7 @@ import {
   type ClientMembershipResolution,
 } from "@/lib/auth/resolve-client-profile-session";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { subscribeSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import {
   ensureSessionHealthy,
   subscribeDibayAuthStateChange,
@@ -276,6 +277,22 @@ function bindGlobalAuthListener(): void {
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
 
+  /**
+   * 프로필 캐시가 바뀌면 회원 상태를 맞춘다 — 캐시를 채우고 신호를 보내지 않는 경로(세션 프로필 확인·회원 정보 새로고침·접근 확인)도
+   * 화면이 「확인 중」에 머물지 않게(관심이웃 전체 수정 설계 v2 §5-1 · 주소로 바로 연 화면이 회원 정보를 빈 값으로 들던 결함).
+   * 화면의 effect 는 `profile.id` 에만 의존해야 한다 — 프로필 수정마다 새 객체가 온다.
+   */
+  const unsubscribeProfileCache = subscribeSupabaseProfileCache(() => {
+    const cached = getCurrentUser();
+    const cur = storeSnapshot.state;
+    if (cached?.id) {
+      if (cur.status === "member" && cur.profile === cached) return;
+      publish({ status: "member", profile: cached });
+      return;
+    }
+    if (cur.status === "member") resetMembershipStoreForAuthChange("profile_cache_cleared");
+  });
+
   const unsubscribeAuthEvents = subscribeDibayAuthStateChange((event, session) => {
     if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user?.id) {
       resetMembershipStoreForAuthChange(`auth_event:${event}`);
@@ -287,6 +304,7 @@ function bindGlobalAuthListener(): void {
     () => window.removeEventListener("online", onOnline),
     () => document.removeEventListener("visibilitychange", onVisibilityChange),
     unsubscribeAuthEvents,
+    unsubscribeProfileCache,
   ];
 }
 
