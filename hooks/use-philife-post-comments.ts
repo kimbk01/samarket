@@ -1,60 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
+import { dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { findCommentById, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { fetchPhilifePostCommentTree } from "@/lib/neighborhood/philife-post-comments.client";
 import { handleProfileIncompleteApiResponse } from "@/lib/profile/handle-profile-incomplete-api-response";
 import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
-import { COMMUNITY_COMMENT_ERROR_KEYS } from "@/lib/community/community-api-error-text";
+import {
+  COMMUNITY_COMMENT_ERROR_KEYS,
+  communityRestrictionText,
+} from "@/lib/community/community-api-error-text";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import {
   philifePostCommentLikeUrl,
+  philifePostCommentPinUrl,
   philifePostCommentUrl,
   philifePostCommentsUrl,
 } from "@domain/philife/api";
 
-function countCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
-  let n = 0;
-  const walk = (arr: NeighborhoodCommentNode[]) => {
-    for (const x of arr) {
-      n += 1;
-      if (x.children.length) walk(x.children);
-    }
-  };
-  walk(nodes);
-  return n;
-}
+export type CommentReplyTarget = { id: string; name: string };
+
+type CommentFallbackKey = "community_comment_action_failed" | "community_comment_like_failed" | "community_comment_pin_failed";
 
 /**
- * 필라이프 글 상세 댓글 — 단일 소유권.
- * - postId 변경 시에만 초기화·최초 로드
- * - 작성/답글 성공 → 서버 목록 전체 교체
- * - 공감 → 낙관 토글 + 서버 확정
+ * 필라이프 글 상세 댓글 — 단일 소유권 (라운지 댓글 SSOT 설계 §6.1).
+ * - 화면 = 새로고침 결과: 작성·답글·삭제·숨김·고정 성공 → 서버 목록 전체 다시 읽기 (감사 L3·L4)
+ * - 공감 = 원하는 상태 저장(낙관 반영 → 서버 수로 확정, 실패는 되돌리고 안내 · 감사 L6·L7)
+ * - 오류 문구는 코드 → 화면 언어 (활동 제한은 해제일까지 · 감사 L1)
  */
-export function usePhilifePostComments(postId: string) {
-  const { t } = useI18n();
+export function usePhilifePostComments(postId: string, opts?: { onToast?: (message: string) => void }) {
+  const { t, language } = useI18n();
   const requireAction = useRequireAuthAction();
+  const onToastRef = useRef(opts?.onToast);
+  onToastRef.current = opts?.onToast;
+  const toast = useCallback((message: string) => onToastRef.current?.(message), []);
 
   const [comments, setComments] = useState<NeighborhoodCommentNode[]>([]);
+  const [count, setCount] = useState(0);
+  const [maxLength, setMaxLength] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionBusy, setActionBusy] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [likeError, setLikeError] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [replyTarget, setReplyTarget] = useState<CommentReplyTarget | null>(null);
   const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const loadSeqRef = useRef(0);
   const likeInflightRef = useRef(new Set<string>());
+  const commentsRef = useRef<NeighborhoodCommentNode[]>([]);
+  commentsRef.current = comments;
 
   const applyFetchResult = useCallback(
     (seq: number, result: Awaited<ReturnType<typeof fetchPhilifePostCommentTree>>) => {
       if (seq !== loadSeqRef.current) return false;
       if (result.ok) {
         setComments(result.tree);
+        setCount(result.count);
+        if (result.maxLength != null) setMaxLength(result.maxLength);
         setLoadError(false);
         return true;
       }
@@ -83,11 +88,12 @@ export function usePhilifePostComments(postId: string) {
     let alive = true;
     const seq = ++loadSeqRef.current;
     setComments([]);
+    setCount(0);
     setLoading(true);
     setLoadError(false);
     setSubmitError("");
-    setLikeError("");
     setCommentText("");
+    setReplyTarget(null);
     setFocusCommentId(null);
 
     void fetchPhilifePostCommentTree(postId).then((result) => {
@@ -101,35 +107,24 @@ export function usePhilifePostComments(postId: string) {
     };
   }, [applyFetchResult, postId]);
 
-  const resolveSubmitError = useCallback(
-    (res: Response, data: { ok?: boolean; error?: string; code?: string }) => {
-      if (data.code === "community_comment_blocked_relation" || res.status === 403) {
-        return t("community_comment_blocked_relation");
-      }
-      /** 재감사 2026-11-27: 서버 문장 대신 오류 코드 → 화면 언어 문구 */
+  /** 서버 오류 → 화면 문구. 403 을 한 문구로 뭉치지 않는다 (감사 L1) */
+  const errorText = useCallback(
+    (res: Response | null, data: unknown, fallbackKey: CommentFallbackKey = "community_comment_action_failed") => {
+      const restricted = communityRestrictionText(data, t, language);
+      if (restricted) return restricted;
       return resolveApiErrorText({
         json: data,
-        status: res.status,
+        status: res?.status ?? null,
         map: COMMUNITY_COMMENT_ERROR_KEYS,
-        fallbackKey: "community_comment_action_failed",
+        fallbackKey,
         t,
       });
     },
-    [t]
-  );
-
-  const resolveLikeBlockedError = useCallback(
-    (res: Response, data: { ok?: boolean; code?: string }) => {
-      if (data.code === "community_like_blocked_relation" || res.status === 403) {
-        return t("community_like_blocked_relation");
-      }
-      return "";
-    },
-    [t]
+    [language, t]
   );
 
   const postComment = useCallback(
-    async (content: string, parentId?: string | null) => {
+    async (content: string, parentId: string | null): Promise<string | false> => {
       const trimmed = content.trim();
       if (!trimmed) return false;
       setActionBusy(true);
@@ -141,17 +136,10 @@ export function usePhilifePostComments(postId: string) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(parentId ? { content: trimmed, parentId } : { content: trimmed }),
         });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          code?: string;
-          id?: string;
-        };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string };
         if (!data.ok) {
           const profileHandled = handleProfileIncompleteApiResponse(data);
-          setSubmitError(
-            profileHandled.handled ? t("api_err_profile_incomplete") : resolveSubmitError(res, data)
-          );
+          setSubmitError(profileHandled.handled ? t("api_err_profile_incomplete") : errorText(res, data));
           return false;
         }
         const createdId = typeof data.id === "string" ? data.id.trim() : "";
@@ -164,44 +152,32 @@ export function usePhilifePostComments(postId: string) {
         setActionBusy(false);
       }
     },
-    [postId, reloadComments, resolveSubmitError, t]
+    [errorText, postId, reloadComments, t]
   );
 
-  const submitRootComment = useCallback(async () => {
+  /** 하단 입력 바 하나로 댓글·답글 (설계 §6.5) — 실패하면 입력·답글 대상 유지 (CM-P2-03) */
+  const submitComment = useCallback(async () => {
     const next =
       typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
     await requireAction(
       "community_comment",
       async () => {
-        const createdId = await postComment(commentText, null);
+        const createdId = await postComment(commentText, replyTarget?.id ?? null);
         if (createdId === false) return;
         setCommentText("");
+        setReplyTarget(null);
         if (createdId) setFocusCommentId(createdId);
       },
       { next }
     );
-  }, [commentText, postComment, requireAction]);
+  }, [commentText, postComment, replyTarget, requireAction]);
 
-  /** 성공 여부를 돌려준다 — 실패 시 답글 입력을 유지하기 위해 (CM-P2-03) */
-  const submitReply = useCallback(
-    async (parentId: string, content: string): Promise<boolean> => {
-      const next =
-        typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
-      let posted = false;
-      await requireAction(
-        "community_comment",
-        async () => {
-          const createdId = await postComment(content, parentId);
-          if (createdId === false) return;
-          posted = true;
-          if (createdId) setFocusCommentId(createdId);
-        },
-        { next }
-      );
-      return posted;
-    },
-    [postComment, requireAction]
-  );
+  const startReply = useCallback((target: CommentReplyTarget) => {
+    setSubmitError("");
+    setReplyTarget(target);
+  }, []);
+
+  const cancelReply = useCallback(() => setReplyTarget(null), []);
 
   const likeComment = useCallback(
     async (commentId: string, viewerUserId: string | null | undefined) => {
@@ -212,59 +188,45 @@ export function usePhilifePostComments(postId: string) {
       }
       const cid = commentId.trim();
       if (!cid || likeInflightRef.current.has(cid)) return;
+      const node = findCommentById(commentsRef.current, cid);
+      if (!node || node.display_state !== "visible") return;
       likeInflightRef.current.add(cid);
-
-      let rollbackSnap: { liked_by_viewer: boolean; like_count: number } | undefined;
-      setComments((cur) => {
-        const node = findCommentById(cur, cid);
-        if (!node) return cur;
-        rollbackSnap = { liked_by_viewer: node.liked_by_viewer, like_count: node.like_count };
-        const nextLiked = !node.liked_by_viewer;
-        return updateCommentInTree(cur, cid, {
+      const snap = { liked_by_viewer: node.liked_by_viewer, like_count: node.like_count };
+      const nextLiked = !node.liked_by_viewer;
+      setComments((cur) =>
+        updateCommentInTree(cur, cid, {
           liked_by_viewer: nextLiked,
           like_count: Math.max(0, node.like_count + (nextLiked ? 1 : -1)),
-        });
-      });
-
+        })
+      );
+      const rollback = () =>
+        setComments((cur) =>
+          updateCommentInTree(cur, cid, { liked_by_viewer: snap.liked_by_viewer, like_count: snap.like_count })
+        );
       try {
         const res = await fetch(philifePostCommentLikeUrl(postId, cid), {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ liked: nextLiked }),
         });
-        const data = (await res.json()) as { ok?: boolean; liked?: boolean; like_count?: number; code?: string };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean; like_count?: number };
         if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
           setComments((cur) =>
             updateCommentInTree(cur, cid, { liked_by_viewer: data.liked, like_count: data.like_count })
           );
-          setLikeError("");
         } else {
-          if (rollbackSnap) {
-            const snap = rollbackSnap;
-            setComments((cur) =>
-              updateCommentInTree(cur, cid, {
-                liked_by_viewer: snap.liked_by_viewer,
-                like_count: snap.like_count,
-              })
-            );
-          }
-          const err = resolveLikeBlockedError(res, data);
-          if (err) setLikeError(err);
+          rollback();
+          toast(errorText(res, data, "community_comment_like_failed"));
         }
       } catch {
-        if (rollbackSnap) {
-          const snap = rollbackSnap;
-          setComments((cur) =>
-            updateCommentInTree(cur, cid, {
-              liked_by_viewer: snap.liked_by_viewer,
-              like_count: snap.like_count,
-            })
-          );
-        }
+        rollback();
+        toast(t("community_comment_like_failed"));
       } finally {
         likeInflightRef.current.delete(cid);
       }
     },
-    [postId, requireAction, resolveLikeBlockedError]
+    [errorText, postId, requireAction, t, toast]
   );
 
   /** 실패 시 오류 문구를 돌려준다 — 편집창·입력을 유지 (CM-R-05) */
@@ -280,115 +242,125 @@ export function usePhilifePostComments(postId: string) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: text }),
         });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (res.ok && data.ok) {
-          const now = new Date().toISOString();
           setComments((cur) =>
-            updateCommentInTree(cur, commentId, { content: text, is_edited: true, updated_at: now })
+            updateCommentInTree(cur, commentId, { content: text, is_edited: true, updated_at: new Date().toISOString() })
           );
           return null;
         }
-        return resolveApiErrorText({
-          json: data,
-          status: res.status,
-          map: COMMUNITY_COMMENT_ERROR_KEYS,
-          fallbackKey: "community_comment_action_failed",
-          t,
-        });
+        return errorText(res, data);
       } catch {
         return t("community_comment_action_failed");
       } finally {
         setActionBusy(false);
       }
     },
-    [postId, t]
+    [errorText, postId, t]
   );
 
-  const deleteComment = useCallback(
-    async (commentId: string, opts?: { asAdmin?: boolean }) => {
-      /** 관리자 삭제는 사유 필수 + 현재 상태 CAS — 관리자 콘솔과 같은 계약 (CM-P2-02) */
-      let adminReason: string | null = null;
-      if (opts?.asAdmin) {
-        adminReason = await dibayPrompt({
-          title: t("community_confirm_delete_comment"),
-          description: t("community_comment_admin_delete_reason"),
-          confirmTone: "destructive",
-          required: true,
-          minLength: 2,
-        });
-        if (!adminReason?.trim()) return;
-      } else if (
-        !(await dibayConfirm({ title: t("community_confirm_delete_comment"), confirmTone: "destructive" }))
-      ) {
-        return;
-      }
+  /** 관리자 숨김·삭제 — 콘솔과 같은 API·사유·CAS (CM-P2-02 · 설계 §6.7) */
+  const moderateCommentAsAdmin = useCallback(
+    async (commentId: string, nextStatus: "hidden" | "deleted") => {
+      const reason = await dibayPrompt({
+        title: nextStatus === "hidden" ? t("community_confirm_hide_comment") : t("community_confirm_delete_comment"),
+        description:
+          nextStatus === "hidden" ? t("community_comment_admin_hide_reason") : t("community_comment_admin_delete_reason"),
+        confirmTone: "destructive",
+        required: true,
+        minLength: 2,
+      });
+      if (!reason?.trim()) return;
       setActionBusy(true);
       try {
-        let res: Response;
-        if (opts?.asAdmin) {
-          res = await fetch(
-            `/api/admin/community/engine/comments/${encodeURIComponent(commentId)}`,
-            {
-              method: "PATCH",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "deleted", expectedStatus: "active", reason: adminReason!.trim() }),
-            }
-          );
-        } else {
-          res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE", credentials: "include" });
-        }
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!(res.ok && data.ok)) {
-          await dibayAlert({
-            title: resolveApiErrorText({
-              json: data,
-              status: res.status,
-              map: COMMUNITY_COMMENT_ERROR_KEYS,
-              fallbackKey: "community_comment_action_failed",
-              t,
-            }),
-          });
-          await reloadComments();
-          return;
-        }
-        {
-          setComments((cur) =>
-            updateCommentInTree(cur, commentId, {
-              content: t("community_comment_deleted"),
-              is_edited: false,
-              like_count: 0,
-              liked_by_viewer: false,
-            })
-          );
-        }
+        const res = await fetch(`/api/admin/community/engine/comments/${encodeURIComponent(commentId)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: nextStatus, expectedStatus: "active", reason: reason.trim() }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!(res.ok && data.ok)) toast(errorText(res, data));
+        await reloadComments();
       } catch {
-        await dibayAlert({ title: t("community_comment_action_failed") });
+        toast(t("community_comment_action_failed"));
       } finally {
         setActionBusy(false);
       }
     },
-    [postId, reloadComments, t]
+    [errorText, reloadComments, t, toast]
   );
 
-  const displayCommentCount = useMemo(() => countCommentNodesFlat(comments), [comments]);
+  const deleteComment = useCallback(
+    async (commentId: string) => {
+      const ok = await dibayConfirm({
+        title: t("community_confirm_delete_comment"),
+        description: t("community_comment_delete_desc"),
+        confirmLabel: t("community_delete"),
+        cancelLabel: t("common_cancel"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+      setActionBusy(true);
+      try {
+        const res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE", credentials: "include" });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!(res.ok && data.ok)) toast(errorText(res, data));
+        setReplyTarget((cur) => (cur?.id === commentId ? null : cur));
+        await reloadComments();
+      } catch {
+        toast(t("community_comment_action_failed"));
+      } finally {
+        setActionBusy(false);
+      }
+    },
+    [errorText, postId, reloadComments, t, toast]
+  );
+
+  const pinComment = useCallback(
+    async (commentId: string, pinned: boolean) => {
+      setActionBusy(true);
+      try {
+        const res = await fetch(philifePostCommentPinUrl(postId, commentId), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinned }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!(res.ok && data.ok)) toast(errorText(res, data, "community_comment_pin_failed"));
+        await reloadComments();
+      } catch {
+        toast(t("community_comment_pin_failed"));
+      } finally {
+        setActionBusy(false);
+      }
+    },
+    [errorText, postId, reloadComments, t, toast]
+  );
 
   return {
     comments,
+    count,
+    maxLength,
     loading,
     loadError,
     actionBusy,
     submitError,
-    likeError,
     commentText,
     setCommentText,
+    replyTarget,
+    startReply,
+    cancelReply,
     focusCommentId,
-    displayCommentCount,
-    submitRootComment,
-    submitReply,
+    setFocusCommentId,
+    submitComment,
     likeComment,
     editComment,
     deleteComment,
+    moderateCommentAsAdmin,
+    pinComment,
+    reloadComments,
     retryComments,
     clearSubmitError: () => setSubmitError(""),
   };

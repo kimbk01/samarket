@@ -58,6 +58,20 @@ export async function getCommunityBannedWordsCached(): Promise<string[]> {
   return words;
 }
 
+const COMMENT_MAX_LENGTH_CACHE_MS = 60_000;
+let commentMaxLengthCache: { at: number; value: number } | null = null;
+
+/** 댓글 목록 응답에 싣는 글자 수 상한 — 인스턴스당 60초 캐시 (목록 조회마다 설정을 다시 읽지 않음). 쓰기 검사는 캐시 없는 값 */
+export async function getCommunityCommentMaxLengthCached(): Promise<number> {
+  const now = Date.now();
+  if (commentMaxLengthCache && now - commentMaxLengthCache.at < COMMENT_MAX_LENGTH_CACHE_MS) {
+    return commentMaxLengthCache.value;
+  }
+  const value = (await getCommunityFeedOps()).max_comment_length;
+  commentMaxLengthCache = { at: now, value };
+  return value;
+}
+
 export async function getCommunityFeedOps(): Promise<CommunityFeedOps> {
   try {
     const sb = getSupabaseServer();

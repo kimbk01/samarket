@@ -12,9 +12,14 @@ import type {
 } from "./types";
 import { normalizeSectionSlug, type CommunityFeedSortMode } from "./constants";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
-import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
 import { fetchLikedCommentIdsSetForUser } from "@/lib/community/comment-likes.query";
-import { fetchBlockedAuthorIdsForViewer, filterCommentRowsExcludingBlockedRelations } from "@/lib/neighborhood/social-filter";
+import { fetchBlockDirectionsForViewerSb } from "@/lib/social/user-block-ssot";
+import { countPublicComments, selectCommentDisplayRows } from "@/lib/community-feed/comment-display";
+import {
+  MEMBER_IDENTITY_PROFILE_SELECT,
+  resolvePublicMemberIdentity,
+  type MemberIdentityProfileFields,
+} from "@/lib/users/public-member-identity";
 import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
@@ -23,7 +28,6 @@ import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 import { communityPostPublicPublishedAt } from "@/lib/community/community-publication-time";
-import { selectCommentRowsWithTombstones } from "@/lib/community-feed/comment-tombstones";
 
 const COMMUNITY_ORIGIN_SELECT =
   "origin_kind, display_author_name, display_author_avatar_url";
@@ -524,132 +528,148 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   };
 }
 
+/** 댓글 목록 조회 실패 — 라우트가 500 `comments_load_failed` 로 돌려준다 (빈 목록으로 감추지 않음 · 감사 L12) */
+export class CommunityCommentsLoadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CommunityCommentsLoadError";
+  }
+}
+
+const COMMENT_LIST_SELECT =
+  "id, post_id, user_id, parent_id, content, created_at, updated_at, edited_at, pinned_at, is_deleted, is_hidden, status, like_count, moderated_by";
+
+/**
+ * 글 댓글 목록 — 표시 상태는 서버가 정한다 (`comment-display.ts`, 설계 §6.2).
+ * `count` = DB `comment_count` 와 같은 정의(공개 댓글 수).
+ */
 export async function listCommunityPostComments(
   postId: string,
-  viewerUserId?: string | null
-): Promise<CommunityCommentDTO[]> {
+  viewerUserId?: string | null,
+  opts?: { postAuthorUserId?: string | null }
+): Promise<{ comments: CommunityCommentDTO[]; count: number }> {
   const v = viewerUserId?.trim() ?? "";
-  try {
-    const sb = getSupabaseServer();
-    /** 숨김 행도 읽는다 — 답글 자리(tombstone) 판정용, 내용은 반환하지 않음 (`_useHidden` 은 컬럼 폴백 순서용) */
-    const run = (sel: string, _useHidden: boolean) =>
-      sb.from("community_comments").select(sel).eq("post_id", postId).order("created_at", { ascending: true });
-    const attempts: { sel: string; useHidden: boolean }[] = [
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count",
-        useHidden: true,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count",
-        useHidden: false,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count",
-        useHidden: true,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count",
-        useHidden: false,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status",
-        useHidden: true,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status",
-        useHidden: false,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status, like_count",
-        useHidden: true,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status, like_count",
-        useHidden: false,
-      },
-      {
-        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status",
-        useHidden: true,
-      },
-      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status", useHidden: false },
-      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted", useHidden: true },
-      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted", useHidden: false },
-    ];
-    let data: unknown[] | null = null;
-    for (const a of attempts) {
-      const { data: d, error: e } = await run(a.sel, a.useHidden);
-      if (e) continue;
-      if (d && d.length) {
-        data = d as unknown[];
-        break;
-      }
-      if (d && d.length === 0) {
-        return [];
-      }
-    }
-    if (!data) return [];
+  const postAuthor = opts?.postAuthorUserId?.trim() ?? "";
+  const sb = getSupabaseServer();
+  const { data, error } = await sb
+    .from("community_comments")
+    .select(COMMENT_LIST_SELECT)
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+  if (error) throw new CommunityCommentsLoadError(error.message);
+  const allRows = (data ?? []) as unknown as Array<{
+    id: string;
+    post_id: string;
+    user_id: string | null;
+    parent_id: string | null;
+    content: string | null;
+    created_at: string;
+    updated_at: string | null;
+    edited_at: string | null;
+    pinned_at: string | null;
+    is_deleted: boolean | null;
+    is_hidden: boolean | null;
+    status: string | null;
+    like_count: number | null;
+    moderated_by: string | null;
+  }>;
+  const count = countPublicComments(allRows);
+  if (allRows.length === 0) return { comments: [], count };
 
-    const allRows = data as Record<string, unknown>[];
-    const isShown = (r: Record<string, unknown>) =>
-      isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true;
-    /** 삭제·숨김 댓글은 내용을 내리지 않되, 살아 있는 답글이 있으면 자리(tombstone)만 남긴다 (CM-P3-03) */
-    const { keptRows, removedIds } = selectCommentRowsWithTombstones(allRows, isShown);
-    let rows = keptRows;
-    if (v && rows.length > 0) {
-      const blockExclude = await fetchBlockedAuthorIdsForViewer(sb as never, v);
-      rows = filterCommentRowsExcludingBlockedRelations(
-        rows as Array<{ id: string; user_id: unknown; parent_id: unknown }>,
-        blockExclude
-      ) as typeof rows;
-    }
-    if (rows.length === 0) return [];
-    const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-    const commentIds = rows.map((r) => String(r.id));
-    const [nickMap, likedSet] = await Promise.all([
-      fetchNicknamesForUserIds(sb as never, uids),
-      v && commentIds.length > 0 ? fetchLikedCommentIdsSetForUser(sb, v, commentIds) : Promise.resolve(new Set<string>()),
-    ]);
+  const blocks = v
+    ? await fetchBlockDirectionsForViewerSb(sb as never, v)
+    : { blockedByMe: new Set<string>(), blockedMe: new Set<string>() };
+  const kept = selectCommentDisplayRows(allRows, blocks);
+  if (kept.length === 0) return { comments: [], count };
 
-    return rows.map((r) => {
-      const u = String(r.user_id ?? "");
-      const id = String(r.id);
-      const created = String(r.created_at ?? "");
-      const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
-      const t0 = new Date(created).getTime();
-      const t1 = new Date(upd).getTime();
-      if (removedIds.has(id)) {
-        return {
-          id,
-          post_id: String(r.post_id ?? ""),
-          user_id: "",
-          parent_id: r.parent_id != null ? String(r.parent_id) : null,
-          content: "",
-          created_at: created,
-          author_name: "",
-          like_count: 0,
-          liked_by_viewer: false,
-          updated_at: created,
-          is_edited: false,
-          is_removed: true,
-        };
-      }
+  const visibleIds = kept.filter((k) => k.state === "visible").map((k) => String(k.row.id));
+  const uids = [
+    ...new Set(
+      kept
+        .filter((k) => k.state === "visible")
+        .map((k) => String(k.row.user_id ?? ""))
+        .filter(Boolean)
+    ),
+  ];
+  const [identity, likedSet] = await Promise.all([
+    loadCommentAuthorIdentity(sb, uids),
+    v && visibleIds.length > 0
+      ? fetchLikedCommentIdsSetForUser(sb, v, visibleIds)
+      : Promise.resolve(new Set<string>()),
+  ]);
+
+  const comments = kept.map(({ row: r, state }): CommunityCommentDTO => {
+    const id = String(r.id);
+    const created = String(r.created_at ?? "");
+    const base = {
+      id,
+      post_id: String(r.post_id ?? ""),
+      parent_id: r.parent_id != null ? String(r.parent_id) : null,
+      created_at: created,
+      display_state: state,
+    };
+    if (state !== "visible") {
       return {
-        id,
-        post_id: String(r.post_id ?? ""),
-        user_id: u,
-        parent_id: r.parent_id != null ? String(r.parent_id) : null,
-        content: String(r.content ?? ""),
-        created_at: created,
-        author_name: nickMap.get(u) ?? u.slice(0, 8),
-        like_count: Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)),
-        liked_by_viewer: v.length > 0 && likedSet.has(id),
-        updated_at: upd,
-        is_edited: !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
+        ...base,
+        user_id: "",
+        content: "",
+        author_name: "",
+        author_avatar_url: null,
+        is_post_author: false,
+        like_count: 0,
+        liked_by_viewer: false,
+        updated_at: created,
+        is_edited: false,
+        is_pinned: false,
       };
-    });
-  } catch {
-    return [];
+    }
+    const u = String(r.user_id ?? "");
+    const who = identity.get(u);
+    return {
+      ...base,
+      user_id: u,
+      content: String(r.content ?? ""),
+      author_name: who?.name ?? "",
+      author_avatar_url: who?.avatarUrl ?? null,
+      is_post_author: postAuthor.length > 0 && u === postAuthor,
+      like_count: Math.max(0, Number(r.like_count ?? 0)),
+      liked_by_viewer: v.length > 0 && likedSet.has(id),
+      updated_at: String(r.updated_at ?? created),
+      is_edited: Boolean(r.edited_at),
+      is_pinned: Boolean(r.pinned_at),
+    };
+  });
+  return { comments, count };
+}
+
+/** 댓글 작성자 이름·사진 — 회원 표 1회(+ 없는 id 만 시험 회원 표). 닉네임·@아이디가 없으면 빈 값 → 화면 「익명」 (감사 L14) */
+async function loadCommentAuthorIdentity(
+  sb: ReturnType<typeof getSupabaseServer>,
+  userIds: string[]
+): Promise<Map<string, { name: string; avatarUrl: string | null }>> {
+  const out = new Map<string, { name: string; avatarUrl: string | null }>();
+  if (userIds.length === 0) return out;
+  const { data } = await sb.from("profiles").select(MEMBER_IDENTITY_PROFILE_SELECT).in("id", userIds);
+  for (const row of (data ?? []) as unknown as MemberIdentityProfileFields[]) {
+    const id = String((row as { id?: string }).id ?? "");
+    if (!id) continue;
+    /** 일반 대체 이름(「회원」)은 쓰지 않는다 — 서버는 문장을 보내지 않고 화면이 「익명」을 고른다 (i18n SSOT §3-3) */
+    const who = resolvePublicMemberIdentity(row, { userId: id });
+    out.set(id, { name: who?.nickname ?? who?.handleLabel ?? "", avatarUrl: who?.avatarUrl ?? null });
   }
+  /** 프로필 행이 없는 작성자(탈퇴·정리된 계정 등) — 시험 회원 표만 한 번 더 본다. 없으면 빈 이름 */
+  const missing = userIds.filter((id) => !out.has(id));
+  if (missing.length > 0) {
+    const { data: testRows } = await sb.from("test_users").select("id, display_name").in("id", missing);
+    const testName = new Map(
+      ((testRows ?? []) as Array<{ id?: string; display_name?: string | null }>).map((r) => [
+        String(r.id ?? ""),
+        String(r.display_name ?? "").trim(),
+      ])
+    );
+    for (const id of missing) out.set(id, { name: testName.get(id) ?? "", avatarUrl: null });
+  }
+  return out;
 }
 
 export { listCommunityPostsForUser } from "@/lib/community-feed/list-community-posts-for-user";

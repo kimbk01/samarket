@@ -1,7 +1,7 @@
 "use client";
 
-import { dibayConfirm, DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
-import { DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -51,6 +51,10 @@ import {
   CommunityPostDetailStatsActions,
 } from "./post-detail/CommunityPostDetailStatsActions";
 import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
+import { CommunityCommentComposerBar } from "./post-detail/CommunityCommentComposerForm";
+import { CommunityReportSheet } from "./post-detail/CommunityReportSheet";
+import type { CommunityReportReasonCode } from "@/lib/reports/community-report-reasons";
+import { COMMUNITY_COMMENT_QUERY_KEY } from "@/lib/community/share/community-share-url";
 import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
 import { CommunityInlineAdCard } from "./post-detail/CommunityInlineAdCard";
 import { CommunitySimilarPostsSection } from "./post-detail/CommunitySimilarPostsSection";
@@ -81,6 +85,9 @@ export function CommunityDetail({
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const viewerIsAdmin = !!me && isAdminUser(me);
+  /** 글 작성자 = 댓글 고정 권한 (Owner 결정 1). 가져온 글은 작성자가 없다 */
+  const viewerIsPostAuthor =
+    !!me?.id && isSameUserId(post.author_id, me.id) && !isCommunityImportedOrigin(post.origin_kind);
 
   useEffect(() => {
     const postId = post.id?.trim();
@@ -94,24 +101,53 @@ export function CommunityDetail({
     });
   }, [post.id]);
 
+  const [actionToast, setActionToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  /** 한 화면 안내 줄 — 댓글·신고·차단·링크 결과 (설계 §6.5 「오류 위치」) */
+  const showToast = useCallback((message: string) => {
+    setActionToast(message);
+    if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
+
   const {
     comments,
+    count: commentCount,
+    maxLength: commentMaxLength,
     loading: commentsLoading,
     loadError: commentsLoadError,
     actionBusy: commentActionBusy,
     submitError: commentSubmitErr,
-    likeError: commentLikeErr,
     commentText,
     setCommentText,
+    replyTarget,
+    startReply,
+    cancelReply,
     focusCommentId,
-    submitRootComment,
-    submitReply,
+    submitComment,
     likeComment,
     editComment,
     deleteComment,
+    moderateCommentAsAdmin,
+    pinComment,
     retryComments,
     clearSubmitError,
-  } = usePhilifePostComments(post.id);
+  } = usePhilifePostComments(post.id, { onToast: showToast });
+
+  /** 알림·링크(`?comment=<id>`)로 연 댓글 (감사 L8 · 설계 §6.5) */
+  const [deepLinkCommentId, setDeepLinkCommentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get(COMMUNITY_COMMENT_QUERY_KEY)?.trim() ?? "";
+    setDeepLinkCommentId(id || null);
+  }, [post.id]);
+  const clearDeepLink = useCallback(() => setDeepLinkCommentId(null), []);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [likedByViewer, setLikedByViewer] = useState(post.viewer?.liked_by_viewer ?? false);
   const [savedByViewer, setSavedByViewer] = useState(post.viewer?.saved_by_viewer ?? false);
@@ -120,13 +156,11 @@ export function CommunityDetail({
   const [busy, setBusy] = useState(false);
   const [likeActionErr, setLikeActionErr] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
   const [reportTarget, setReportTarget] = useState<
     { kind: "post" } | { kind: "comment"; commentId: string } | null
   >(null);
   const [deleteErr, setDeleteErr] = useState("");
-  const [actionToast, setActionToast] = useState<string | null>(null);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const articleRef = useRef<HTMLElement | null>(null);
 
@@ -362,9 +396,9 @@ export function CommunityDetail({
   );
 
   const onCommentDelete = useCallback(
-    (commentId: string, opts?: { asAdmin?: boolean }) => {
+    (commentId: string) => {
       if (!me?.id) return;
-      void deleteComment(commentId, opts);
+      void deleteComment(commentId);
     },
     [deleteComment, me?.id]
   );
@@ -373,7 +407,6 @@ export function CommunityDetail({
     (commentId: string) => {
       if (!me?.id) return;
       setReportTarget({ kind: "comment", commentId });
-      setReportText("");
       setReportErr("");
       setReportOpen(true);
     },
@@ -385,6 +418,7 @@ export function CommunityDetail({
       if (!me?.id || isSameUserId(authorUserId, me.id)) return;
       const ok = await dibayConfirm({
         title: authorLabel ? t("popup_q_block_named", { name: authorLabel }) : t("popup_neighbor_block_title"),
+        description: t("community_comment_block_desc"),
         cancelLabel: t("common_cancel"),
         confirmLabel: t("common_block"),
         confirmTone: "destructive",
@@ -394,14 +428,13 @@ export function CommunityDetail({
       invalidateCommunityUserRelationSnapshot(authorUserId);
       if (res.ok) {
         applyBlockToNeighborRelation(authorUserId, true);
-        setActionToast(t("community_block_success_toast"));
+        showToast(t("community_block_success_toast"));
         void retryComments();
       } else {
-        setActionToast(userBlockErrorText(res, t));
+        showToast(userBlockErrorText(res, t));
       }
-      window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
     },
-    [me?.id, retryComments, t]
+    [me?.id, retryComments, showToast, t]
   );
 
   const onDeletePost = async () => {
@@ -450,21 +483,19 @@ export function CommunityDetail({
     created_at: post.created_at,
   });
 
-  const onReport = async () => {
+  const onReport = async (reasonCode: CommunityReportReasonCode, detail: string) => {
     if (!reportTarget) return;
     setReportErr("");
     setBusy(true);
     try {
       const res =
         reportTarget.kind === "post"
-          ? await createCommunityFeedPostReport(post.id, reportText)
-          : await createCommunityFeedCommentReport(reportTarget.commentId, reportText);
+          ? await createCommunityFeedPostReport(post.id, reasonCode, detail)
+          : await createCommunityFeedCommentReport(reportTarget.commentId, reasonCode, detail);
       if (res.ok) {
         setReportOpen(false);
-        setReportText("");
         setReportTarget(null);
-        setActionToast(t("community_report_submitted"));
-        window.setTimeout(() => setActionToast(null), DIBAY_TOAST_MS);
+        showToast(t("community_report_submitted"));
       } else setReportErr(reportErrorText(res, t, "ui_report_failed"));
     } finally {
       setBusy(false);
@@ -485,7 +516,6 @@ export function CommunityDetail({
   const openReport = useCallback(() => {
     if (me?.id && me.id === post.author_id) return;
     setReportTarget({ kind: "post" });
-    setReportText("");
     setReportErr("");
     setReportOpen(true);
   }, [me, post.author_id]);
@@ -561,9 +591,9 @@ export function CommunityDetail({
               seed={neighborRelationSeed}
             />
           ) : null}
-          {likeActionErr || commentLikeErr ? (
+          {likeActionErr ? (
             <p className="mt-2 text-sm text-[var(--cm-danger)]" role="alert">
-              {likeActionErr || commentLikeErr}
+              {likeActionErr}
             </p>
           ) : null}
 
@@ -592,34 +622,30 @@ export function CommunityDetail({
           </CommunityCard>
 
             <CommunityCommentSection
+            postId={post.id}
             roots={comments}
+            count={commentCount}
             focusCommentId={focusCommentId}
+            deepLinkCommentId={deepLinkCommentId}
+            onDeepLinkHandled={clearDeepLink}
             commentsLoading={commentsLoading}
             commentsLoadError={commentsLoadError}
             onRetryComments={() => void retryComments()}
             viewerUserId={me?.id ?? null}
             viewerIsAdmin={viewerIsAdmin}
+            viewerIsPostAuthor={viewerIsPostAuthor}
+            maxLength={commentMaxLength}
+            replyTargetId={replyTarget?.id ?? null}
             onCommentLike={onCommentLike}
             onCommentEdit={onCommentEdit}
             onCommentDelete={onCommentDelete}
+            onCommentAdminModerate={(id, status) => void moderateCommentAsAdmin(id, status)}
+            onCommentPin={(id, pinned) => void pinComment(id, pinned)}
             onCommentReport={onCommentReport}
             onCommentAuthorBlock={onCommentAuthorBlock}
-            onSubmitReply={submitReply}
+            onCommentReply={startReply}
+            onToast={showToast}
             commentBusy={commentActionBusy}
-            composerError={commentSubmitErr}
-            composer={{
-              value: commentText,
-              onChange: (v) => {
-                setCommentText(v);
-                if (commentSubmitErr) clearSubmitError();
-              },
-              onSubmit: () => void submitRootComment(),
-              busy: commentActionBusy,
-              disabled: !me?.id || commentActionBusy,
-              isLoggedIn: !!me?.id,
-              placeholder: t("community_comment_placeholder_detail"),
-              me: meForComposer,
-            }}
           />
 
             {hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
@@ -628,48 +654,33 @@ export function CommunityDetail({
         </div>
       </article>
 
-      <DibayDialog
+      <CommunityCommentComposerBar
+        value={commentText}
+        onChange={(v) => {
+          setCommentText(v);
+          if (commentSubmitErr) clearSubmitError();
+        }}
+        onSubmit={() => void submitComment()}
+        busy={commentActionBusy}
+        isLoggedIn={!!me?.id}
+        placeholder={t("community_comment_placeholder_detail")}
+        me={meForComposer}
+        replyTo={replyTarget}
+        onCancelReply={cancelReply}
+        maxLength={commentMaxLength}
+        error={commentSubmitErr}
+      />
+      <CommunityReportSheet
         open={reportOpen}
+        kind={reportTarget?.kind === "comment" ? "comment" : "post"}
+        busy={busy}
+        error={reportErr}
         onClose={() => {
           setReportOpen(false);
           setReportTarget(null);
         }}
-        title={
-          reportTarget?.kind === "comment" ? t("community_report") : t("community_report_post")
-        }
-        footer={
-          <div className={OverlayUi.actionsRow}>
-            <DibayOverlayButton
-              roleTone="secondary"
-              type="button"
-              onClick={() => {
-                setReportOpen(false);
-                setReportTarget(null);
-              }}
-            >
-              {t("common_cancel")}
-            </DibayOverlayButton>
-            <DibayOverlayButton
-              roleTone="primary"
-              type="button"
-              disabled={busy || !reportText.trim()}
-              onClick={() => void onReport()}
-            >
-              {t("community_report")}
-            </DibayOverlayButton>
-          </div>
-        }
-      >
-        <textarea
-          value={reportText}
-          onChange={(e) => setReportText(e.target.value)}
-          rows={4}
-          className={`mt-1 min-h-[96px] w-full ${OverlayUi.input}`}
-        />
-        {reportErr ? (
-          <p className={`mt-1 ${OverlayUi.caption}`} style={{ color: "var(--overlay-danger)" }}>{reportErr}</p>
-        ) : null}
-      </DibayDialog>
+        onSubmit={(code, detail) => void onReport(code, detail)}
+      />
       {communityShare.shareSheet}
       {actionToast ? <DibayToast message={actionToast} /> : null}
     </div>

@@ -4,6 +4,7 @@ import { appendCommunityAdminAudit } from "@/lib/admin/community-admin/community
 import { normalizeCommunityAdminReason } from "@/lib/admin/community-admin/community-admin-reason";
 import { notifyCommunityContentModerated } from "@/lib/notifications/notify-community-moderation";
 import { applyCommunityPointReclaimOnModeration } from "@/lib/points/community-point-bridge";
+import { resolveCommunityCommentModerationKind } from "@/lib/community-feed/comment-display";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,13 @@ export async function PATCH(
   };
   if (String(ex.status ?? "") !== expectedStatus) {
     return NextResponse.json({ ok: false, error: "conflict", comment: existing }, { status: 409 });
+  }
+  /** 작성자가 스스로 지운 댓글은 관리자가 되살리지 않는다 (감사 L16 · 레거시: 당근·네이버 삭제는 되돌릴 수 없음) */
+  if (body.status === "active" && resolveCommunityCommentModerationKind(existing as never) === "deleted_by_author") {
+    return NextResponse.json(
+      { ok: false, error: "author_deleted_not_restorable", code: "author_deleted_not_restorable" },
+      { status: 409 }
+    );
   }
   if (ex.status === body.status) {
     return NextResponse.json({ ok: true, comment: existing, unchanged: true });

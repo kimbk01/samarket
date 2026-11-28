@@ -17,9 +17,11 @@ describe("community comment UX lock", () => {
     expect(section).not.toContain("createCommunityCommentReport");
     expect(detail).not.toMatch(/createCommunityCommentReport/);
     expect(detail).toContain("createCommunityFeedCommentReport");
-    expect(item).toContain("onReportComment");
+    /** 행 메뉴는 목록의 공용 하단 시트 하나 (라운지 댓글 SSOT 감사 L18) */
+    expect(section).toContain("onCommentReport");
+    expect(section).toContain("DibayActionSheet");
     expect(item).not.toContain("community_comment_actions_ellipsis");
-    expect(item).toContain("community_comment_copy");
+    expect(section).toContain("community_comment_copy");
     expect(item).toContain("community_comment_more_aria");
   });
 
@@ -44,7 +46,7 @@ describe("community comment UX lock", () => {
     expect(hook).not.toContain("scrollSig");
     expect(section).not.toContain("scrollToBottomSignal");
     expect(section).not.toContain("endRef");
-    expect(section).toContain("comment-${focusCommentId}");
+    expect(section).toContain("comment-${revealId}");
   });
 
   it("separates loading empty and error list states", () => {

@@ -7,7 +7,7 @@ import {
 } from "@/lib/community/comment-mutations.server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
-import { jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import {
   applyCommunityPointReclaimOnCommentDelete,
@@ -16,6 +16,17 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 수정·삭제 분당 20회 (감사 L17) */
+async function commentMutationRateLimit(req: NextRequest, userId: string) {
+  return enforceRateLimit({
+    key: `community-comment:mutate:${getRateLimitKey(req, userId)}`,
+    limit: 20,
+    windowMs: 60_000,
+    message: "community_comment_rate_limited",
+    code: "community_comment_rate_limited",
+  });
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -27,6 +38,8 @@ export async function PATCH(
   // 커뮤니티 활동 제한 — 댓글 작성과 동일 (CM-P2-20)
   const restricted = await assertCommunityWriteAllowed(auth.userId, "comment");
   if (restricted) return restricted;
+  const patchLimit = await commentMutationRateLimit(req, auth.userId);
+  if (!patchLimit.ok) return patchLimit.response;
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";
@@ -55,12 +68,14 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ postId: string; commentId: string }> }
 ) {
   const startedAt = Date.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const deleteLimit = await commentMutationRateLimit(req, auth.userId);
+  if (!deleteLimit.ok) return deleteLimit.response;
   const { postId, commentId } = await ctx.params;
   const rawP = postId?.trim() ?? "";
   const rawC = commentId?.trim() ?? "";
