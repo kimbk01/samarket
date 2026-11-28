@@ -546,7 +546,11 @@ const COMMENT_LIST_SELECT =
 export async function listCommunityPostComments(
   postId: string,
   viewerUserId?: string | null,
-  opts?: { postAuthorUserId?: string | null }
+  opts?: {
+    postAuthorUserId?: string | null;
+    /** 같은 요청에서 이미 읽은 차단 방향(라우트가 글 작성자 차단 확인에 쓴 값) — 다시 읽지 않는다 */
+    blocks?: { blockedByMe: Set<string>; blockedMe: Set<string> };
+  }
 ): Promise<{ comments: CommunityCommentDTO[]; count: number }> {
   const v = viewerUserId?.trim() ?? "";
   const postAuthor = opts?.postAuthorUserId?.trim() ?? "";
@@ -576,9 +580,9 @@ export async function listCommunityPostComments(
   const count = countPublicComments(allRows);
   if (allRows.length === 0) return { comments: [], count };
 
-  const blocks = v
-    ? await fetchBlockDirectionsForViewerSb(sb as never, v)
-    : { blockedByMe: new Set<string>(), blockedMe: new Set<string>() };
+  const blocks = !v
+    ? { blockedByMe: new Set<string>(), blockedMe: new Set<string>() }
+    : (opts?.blocks ?? (await fetchBlockDirectionsForViewerSb(sb as never, v)));
   const kept = selectCommentDisplayRows(allRows, blocks);
   if (kept.length === 0) return { comments: [], count };
 

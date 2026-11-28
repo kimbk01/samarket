@@ -66,8 +66,6 @@ type Props = {
   onCommentAuthorBlock: (authorUserId: string, authorLabel: string) => void | Promise<void>;
   onCommentReply: (target: { id: string; name: string }) => void;
   onToast: (message: string) => void;
-  /** 댓글 수정 중인가 — 상세 화면이 하단 입력 바를 숨긴다(수정칸 「저장」을 가리지 않게 · 실기 결함 3) */
-  onEditingChange?: (editing: boolean) => void;
   /** 댓글 입력칸 — 댓글 목록 끝(게시물 끝)에 붙는다 */
   composer?: React.ReactNode;
   commentBusy: boolean;
@@ -99,7 +97,6 @@ export function CommunityCommentSection({
   onCommentAuthorBlock,
   onCommentReply,
   onToast,
-  onEditingChange,
   composer = null,
   commentBusy,
 }: Props) {
@@ -114,14 +111,10 @@ export function CommunityCommentSection({
     (id: string) => setEditingCommentId((cur) => (cur === id ? null : cur)),
     []
   );
-  /** 수정 중인 댓글이 목록에서 빠지면(삭제·숨김 뒤 다시 읽기) 수정 상태를 끝낸다 — 입력 바가 영영 숨는 것 방지 */
-  const editingVisible = editingCommentId != null && depthById.has(editingCommentId);
+  /** 수정 중인 댓글이 목록에서 빠지면(삭제·숨김 뒤 다시 읽기) 수정 상태를 끝낸다 */
   useEffect(() => {
     if (editingCommentId != null && !depthById.has(editingCommentId)) setEditingCommentId(null);
   }, [depthById, editingCommentId]);
-  useEffect(() => {
-    onEditingChange?.(editingVisible);
-  }, [editingVisible, onEditingChange]);
   const me = viewerUserId?.trim() ?? "";
   const revealId = deepLinkCommentId ?? focusCommentId;
 
