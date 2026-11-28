@@ -13,6 +13,7 @@ import type { MoimAction } from "@/lib/moim/moim-permission-contract";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { MoimMemberView } from "@/components/moim/MoimMemberView";
 import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
@@ -92,6 +93,8 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   const toast = useMoimToast();
   const showToast = toast.show;
   const { moim, error, reload } = useMoimDetail(moimId);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}`, !!moim);
   const [menuOpen, setMenuOpen] = useState(false);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
 

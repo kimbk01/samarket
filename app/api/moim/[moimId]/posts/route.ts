@@ -65,6 +65,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         linkUrl: moimPaths.post(moimId, postId),
         dedupeRef: postId,
         vars: { moim, title: notifyTitle },
+        actorId: g.userId,
       });
     });
   }

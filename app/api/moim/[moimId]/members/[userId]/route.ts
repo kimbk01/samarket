@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimMemberNoteSet, moimMemberRoleSet } from "@/lib/moim/server/moim-rpc.server";
 import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { MOIM_ROLE_KEY, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,15 +20,19 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (body?.role === "co_host" || body?.role === "staff" || body?.role === "member") {
     const role = body.role;
     const result = await moimMemberRoleSet(g.userId, moimId, target, role, g.sb);
-    if (result.ok && role !== "member") {
-      await notifyMoimMany(g.sb, [target], {
-        kind: "moim_role_changed",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: `${target}:${role}:${new Date().toISOString().slice(0, 16)}`,
-        vars: { moim: await loadMoimName(g.sb, moimId) },
-        roleVar: role,
-      });
+    /** P7 「부모임장 / 운영진 / 멤버 → 대상에게」 — 멤버로 내려도 보낸다 (R2 N-03) · 키 밀리초(R-c) · 응답 뒤(R-e) */
+    if (result.ok) {
+      const ref = `${target}:${role}:${Date.now()}`;
+      notifyMoimAfterResponse(async () =>
+        notifyMoimMany(g.sb, [target], {
+          kind: "moim_role_changed",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: ref,
+          vars: { moim: await loadMoimName(g.sb, moimId) },
+          keyVars: { role: MOIM_ROLE_KEY[role] },
+        })
+      );
     }
     return moimRpcResponse(result);
   }

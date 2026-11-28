@@ -36,7 +36,7 @@ export type AckApplyResult = {
 };
 
 type ReadThreadClientOptions = {
-  threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call";
+  threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call" | "moim";
   roomId?: string;
   categories?: string[];
   readReason?:
@@ -45,7 +45,8 @@ type ReadThreadClientOptions = {
     | "order_detail_opened"
     | "trade_detail_opened"
     | "community_post_opened"
-    | "call_history_opened";
+    | "call_history_opened"
+    | "moim_target_opened";
   lastVisibleMessageId?: string | null;
   clientVisibleAt?: string;
 };

@@ -14,6 +14,7 @@ import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimScheduleDto, MoimScheduleParticipantDto } from "@/lib/moim/moim-api-types";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { canWriteMoimBoard } from "@/components/moim/MoimMemberView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
@@ -125,6 +126,8 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
   const toast = useMoimToast();
   const { moim, error: moimError, reload: reloadMoim } = useMoimDetail(moimId);
   const { data, setData, error, reload } = useMoimSchedule(scheduleId);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/schedules/${scheduleId}`, !!moim && !!data);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
   /** 시안 U5 머리글 ⤴ · ⋮ (감사 F11) — 일정·권한을 아는 본문이 정해 올려 준다 */
   const [rightSlot, setRightSlot] = useState<ReactNode>(null);

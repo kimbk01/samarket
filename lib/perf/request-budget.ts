@@ -90,6 +90,12 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
    * 할 일 없음 = 1. 후기·리마인드 알림이 있을 때만 받는 사람 수에 비례(언어 일괄 2 + 받는 사람당 저장). 하루 144회 중 대부분이 0건 → 4.0. 7일 뒤 실측으로 내리기만
    */
   "/api/cron/moim-schedules": 4.0,
+  /**
+   * 2026-11-28 모임 R2 N-06 — 모임 알림 목적지 화면 읽음이 이 라우트를 쓰게 되어 등록(코드 계산값, 7일 뒤 실측으로 내리기만).
+   * 로그인 1 + 읽음 갱신 1 + 배지 기준 다시 계산(`issueDomainBadgeAuthorityForAck` — 배지 숫자 라우트와 같은 계산, 그 예산 5.2) ≈ 7. 모임 종류는 표적 정리가 없다.
+   * 화면은 커뮤니티 활동 안 읽은 알림이 0 이면 부르지 않는다(`use-moim-notification-read.ts`).
+   */
+  "/api/me/notifications/read-thread": 8.0,
   "/api/admin/inbox": 4.5,
   "/api/me/address-defaults": 1.1,
   /**

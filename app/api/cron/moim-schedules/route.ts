@@ -8,18 +8,29 @@ import {
   moimJoinRequestsExpireDue,
   moimSanctionsExpireDue,
   moimScheduleRoomsArchiveDue,
+  moimSchedulesAckReminders,
+  moimSchedulesAckReviews,
   moimSchedulesClaimReminders,
   moimSchedulesFinishDue,
+  moimSchedulesReviewsPending,
 } from "@/lib/moim/server/moim-rpc.server";
-import { filterMoimRecipientsByPref, moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import {
+  formatMoimNotifyTime,
+  moimNotifyStartParts,
+  moimPaths,
+  notifyMoimMany,
+  readMoimRecipientsByPref,
+} from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * 모임 일정 예약 작업 (10분마다, vercel.json) — 설계 §6 P10
- *  1) 끝난 일정 → done · 일정 채팅방 읽기 전용 · 확정 참여자에게 후기 안내
- *  2) 시작 24시간 전 · 1시간 전 리마인드 (일정마다 한 번, 모임 알림 설정 「일정」 켠 사람만)
+ *  1) 끝난 일정 → done · 일정 채팅방 읽기 전용 · 확정 참여자(지금 활동 멤버)에게 후기 안내
+ *  2) 시작 24시간 전 · 1시간 전 리마인드 (일정·시작 시각마다 한 번, 모임 알림 설정 「일정」 켠 사람만)
+ *  R2 N-08e: 1·2 모두 **보낸 뒤에** 「보냄」 표시(ack). 중간에 끊기면 다음 회차에 다시 보내고, 이미 받은 사람 몫은
+ *  같은 중복 키라 저장소가 버린다(푸시도 다시 가지 않음). 0건이면 ack 호출이 없다.
  *  3) 기간이 끝난 모임 제재 반영 (M5 · 설계 §6 P14 — 실패해도 1·2 결과는 그대로)
  *  4) 운영 정책 실행 (2026-11-12): 대기 가입 신청 만료 · 끝난 일정 방 보관 · 종료 모임 열람 기간 끝(방 보관).
  *     값은 어드민 「운영 정책」 — NULL 이면 하지 않음. 각각 실패해도 다른 결과는 그대로.
@@ -39,19 +50,25 @@ async function run(req: Request) {
   const tick = await moimCronTick(sb);
   if (!tick) console.warn("[cron moim-schedules] tick_fallback");
 
+  /** 끝난 일정 처리(done·방 읽기 전용)만 — 후기 안내는 아래 「보낼 후기」 목록으로 (옛 반환 user_ids 는 쓰지 않음) */
   const finished = tick ? tick.finish : await moimSchedulesFinishDue(200, sb);
   let reviewSent = 0;
-  if (finished.ok) {
-    for (const s of finished.done ?? []) {
-      await notifyMoimMany(sb, s.user_ids ?? [], {
+  const reviews = tick?.reviews ?? (await moimSchedulesReviewsPending(200, sb));
+  if (reviews.ok) {
+    const sentIds: string[] = [];
+    for (const s of reviews.reviews ?? []) {
+      const { failed } = await notifyMoimMany(sb, s.user_ids ?? [], {
         kind: "moim_schedule_review",
         moimId: s.moim_id,
         linkUrl: moimPaths.schedule(s.moim_id, s.schedule_id),
         dedupeRef: s.schedule_id,
         vars: { title: s.title },
       });
-      reviewSent += (s.user_ids ?? []).length;
+      reviewSent += (s.user_ids ?? []).length - failed;
+      /** 저장에 실패한 사람이 있으면 표시하지 않는다 — 다음 회차에 다시(받은 사람 몫은 중복 키로 버려짐 · 재감사 F6) */
+      if (failed === 0) sentIds.push(s.schedule_id);
     }
+    if (sentIds.length) await moimSchedulesAckReviews(sentIds, sb).catch(() => null);
   }
 
   const counts: Record<string, number> = {};
@@ -63,17 +80,27 @@ async function run(req: Request) {
       : await moimSchedulesClaimReminders(window, sb);
     counts[window] = 0;
     if (!claimed.ok) continue;
+    const sent: { schedule_id: string; starts_at: string }[] = [];
     for (const s of claimed.reminders ?? []) {
-      const recipients = await filterMoimRecipientsByPref(sb, s.moim_id, s.user_ids ?? [], "schedules");
-      await notifyMoimMany(sb, recipients, {
+      const startsAt = s.starts_at ?? "";
+      /** 설정을 못 읽으면 빈 목록 → 보내지도, 표시하지도 않는다(다음 회차에 다시 · R2 R-h) */
+      const recipients = await readMoimRecipientsByPref(sb, s.moim_id, s.user_ids ?? [], "schedules");
+      if (recipients === null) continue;
+      const parts = startsAt ? moimNotifyStartParts(startsAt) : null;
+      const { failed } = await notifyMoimMany(sb, recipients, {
         kind: window === "24h" ? "moim_schedule_reminder_24h" : "moim_schedule_reminder_1h",
+        /** 시안 U9 「내일 오후 6시에 시작해요」 — 24시간 창은 오늘/내일 + 시각 (R2 U9-02 · N-07) */
+        ...(window === "24h" && parts ? { variant: parts.day, varsForLang: (lang) => ({ time: formatMoimNotifyTime(lang, parts.hour, parts.minute) }) } : {}),
         moimId: s.moim_id,
         linkUrl: moimPaths.schedule(s.moim_id, s.schedule_id),
-        dedupeRef: s.schedule_id,
+        /** R2 N-01: 시간을 바꾸면 새 시각 기준으로 다시 보낸다 */
+        dedupeRef: `${s.schedule_id}:${startsAt}`,
         vars: { title: s.title },
       });
-      counts[window] += recipients.length;
+      counts[window] += recipients.length - failed;
+      if (startsAt && failed === 0) sent.push({ schedule_id: s.schedule_id, starts_at: startsAt });
     }
+    if (sent.length) await moimSchedulesAckReminders(window, sent, sb).catch(() => null);
   }
 
   let sanctionsRefreshed: number | null = null;

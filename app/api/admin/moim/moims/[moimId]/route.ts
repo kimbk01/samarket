@@ -18,7 +18,7 @@ import {
   moimAdminUuid,
 } from "@/lib/admin/moim/moim-admin-route.server";
 import { moimAdminUpdateInfo, type MoimAdminInfoPatch } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,13 +99,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!patch || Object.keys(patch).length === 0) return moimAdminBad();
   const result = await moimAdminUpdateInfo(gate.actor.userId, moimId, patch, expected, reason, gate.sb);
   if (result.ok && result.host_user_id) {
-    await notifyMoimMany(gate.sb, [result.host_user_id], {
-      kind: "moim_admin_info_updated",
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: String(result.updated_at ?? Date.now()),
-      vars: { moim: result.name ?? "" },
-    });
+    const host = result.host_user_id;
+    const ref = String(result.updated_at ?? Date.now());
+    const name = result.name ?? "";
+    notifyMoimAfterResponse(() =>
+      notifyMoimMany(gate.sb, [host], {
+        kind: "moim_admin_info_updated",
+        moimId,
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: ref,
+        vars: { moim: name },
+      })
+    );
   }
   return moimAdminRpcResponse(result);
 }

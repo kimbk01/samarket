@@ -13,6 +13,7 @@ import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimAuthorDto, MoimCommentDto, MoimPostDto } from "@/lib/moim/moim-api-types";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimAvatar, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
@@ -46,6 +47,8 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   const boardLabel = useMoimBoardLabel();
   const { moim } = useMoimDetail(moimId);
   const [post, setPost] = useState<MoimPostDto | null>(null);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/posts/${postId}`, !!post);
   const [comments, setComments] = useState<MoimCommentDto[]>([]);
   const [viewerIsMember, setViewerIsMember] = useState(false);
   const [error, setError] = useState<string | null>(null);

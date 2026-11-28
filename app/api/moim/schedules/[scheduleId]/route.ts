@@ -4,7 +4,7 @@ import { guardMoimRead, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcRes
 import { getMoimSchedule, listMoimScheduleParticipants } from "@/lib/moim/server/moim-schedule-queries.server";
 import { loadScheduleAccess, readMoimScheduleInput } from "@/lib/moim/server/moim-schedule-input.server";
 import { moimScheduleCancel, moimScheduleUpdate } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   return moimRpcResponse(await moimScheduleUpdate(g.userId, scheduleId, input, g.sb));
 }
 
-/** 일정 취소 (관리권자) — 확정·신청자에게 알림 */
+/** 일정 취소 (관리권자) — 확정 참여자에게 알림 (R2 N-08f: 대상은 DB 가 확정자만 돌려줌) */
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const scheduleId = requireUuid((await params).scheduleId);
   if (!scheduleId) return moimNotFound();
@@ -42,13 +42,18 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const result = await moimScheduleCancel(g.userId, scheduleId, g.sb);
   if (result.ok) {
-    await notifyMoimMany(g.sb, result.notify_user_ids ?? [], {
-      kind: "moim_schedule_cancelled",
-      moimId: result.moim_id,
-      linkUrl: moimPaths.schedule(result.moim_id, scheduleId),
-      dedupeRef: scheduleId,
-      vars: { title: result.title },
-    });
+    const to = result.notify_user_ids ?? [];
+    const moimId = result.moim_id;
+    const title = result.title;
+    notifyMoimAfterResponse(() =>
+      notifyMoimMany(g.sb, to, {
+        kind: "moim_schedule_cancelled",
+        moimId,
+        linkUrl: moimPaths.schedule(moimId, scheduleId),
+        dedupeRef: scheduleId,
+        vars: { title },
+      })
+    );
   }
   return moimRpcResponse(result);
 }

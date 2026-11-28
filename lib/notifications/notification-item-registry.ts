@@ -309,6 +309,11 @@ export const NOTIFICATION_ITEMS: readonly NotificationItemDefinition[] = [
         "moim_sanctioned",
         "moim_admin_info_updated",
         "moim_host_request_result",
+        // R2 어드민 조치 결과 (당사자 · 끌 수 없음)
+        "moim_unbanned",
+        "moim_content_moderated",
+        "moim_sanction_released",
+        "moim_restored",
       ],
     },
     soundEventKey: "item_community_meeting",

@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimCommentCreate } from "@/lib/moim/server/moim-rpc.server";
 import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,14 +17,21 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const body = await readMoimJson<{ body?: unknown }>(req);
   if (typeof body?.body !== "string") return moimBadRequest();
   const result = await moimCommentCreate(g.userId, postId, body.body, g.sb);
+  /** R2 N-02: 글쓴이가 지금 활동 멤버일 때만 DB 가 id 를 준다 · 행위자 = 댓글 쓴 사람(N-08a) · 응답 뒤(R-e) */
   if (result.ok && result.post_author_id && result.post_author_id !== g.userId) {
-    await notifyMoimMany(g.sb, [result.post_author_id], {
-      kind: "moim_comment",
-      moimId: result.moim_id,
-      linkUrl: moimPaths.post(result.moim_id, postId),
-      dedupeRef: result.comment_id,
-      vars: { moim: await loadMoimName(g.sb, result.moim_id) },
-    });
+    const author = result.post_author_id;
+    const moimId = result.moim_id;
+    const commentId = result.comment_id;
+    notifyMoimAfterResponse(async () =>
+      notifyMoimMany(g.sb, [author], {
+        kind: "moim_comment",
+        moimId,
+        linkUrl: moimPaths.post(moimId, postId),
+        dedupeRef: commentId,
+        vars: { moim: await loadMoimName(g.sb, moimId) },
+        actorId: g.userId,
+      })
+    );
   }
   return moimRpcResponse(result);
 }

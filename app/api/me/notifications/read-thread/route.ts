@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationThreadRead } from "@/lib/notifications/pipeline/notify-read-service";
+import { isMoimNotificationReadTargetPath } from "@/lib/moim/moim-notification-read-target";
 import {
   domainBadgeReadMutationAckFields,
   issueDomainBadgeAuthorityForAck,
@@ -10,7 +11,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const READ_THREAD_TYPES = new Set(["chat_room", "trade_room", "order", "community_post", "call"]);
+const READ_THREAD_TYPES = new Set(["chat_room", "trade_room", "order", "community_post", "call", "moim"]);
 const READ_REASONS = new Set([
   "chat_room_visible",
   "push_tap_room_opened",
@@ -18,6 +19,7 @@ const READ_REASONS = new Set([
   "trade_detail_opened",
   "community_post_opened",
   "call_history_opened",
+  "moim_target_opened",
 ]);
 
 function normalizeCategories(value: unknown, threadType: string): string[] {
@@ -31,6 +33,7 @@ function normalizeCategories(value: unknown, threadType: string): string[] {
     case "order":
       return ["order_status", "delivery_status"];
     case "community_post":
+    case "moim":
       return ["community_activity"];
     case "call":
       return ["missed_call"];
@@ -76,6 +79,9 @@ export async function POST(req: NextRequest) {
   const threadId = String(body.threadId ?? body.roomId ?? "").trim();
   if (!threadId) {
     return NextResponse.json({ ok: false, error: "thread_id_required" }, { status: 400 });
+  }
+  if (threadType === "moim" && !isMoimNotificationReadTargetPath(threadId)) {
+    return NextResponse.json({ ok: false, error: "invalid_thread_id" }, { status: 400 });
   }
 
   const categories = normalizeCategories(body.categories, threadType);
