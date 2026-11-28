@@ -9,6 +9,7 @@ import { CommunityCard } from "@/components/community/ui/CommunityCard";
 import { DibayActionSheet, type DibayActionSheetItem } from "@/components/ui/dibay-overlay/DibayActionSheet";
 import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
 import { buildCommunityCommentCanonicalUrl } from "@/lib/community/share/community-share-url";
+import { scrollElementIntoCenter } from "@/lib/ui/scroll-element-into-center";
 import {
   CM_BTN_GHOST_CLASS,
   CM_SEGMENT_ACTIVE_CLASS,
@@ -65,6 +66,8 @@ type Props = {
   onCommentAuthorBlock: (authorUserId: string, authorLabel: string) => void | Promise<void>;
   onCommentReply: (target: { id: string; name: string }) => void;
   onToast: (message: string) => void;
+  /** 댓글 수정 중인가 — 상세 화면이 하단 입력 바를 숨긴다(수정칸 「저장」을 가리지 않게 · 실기 결함 3) */
+  onEditingChange?: (editing: boolean) => void;
   commentBusy: boolean;
 };
 
@@ -94,6 +97,7 @@ export function CommunityCommentSection({
   onCommentAuthorBlock,
   onCommentReply,
   onToast,
+  onEditingChange,
   commentBusy,
 }: Props) {
   const { t } = useI18n();
@@ -103,6 +107,18 @@ export function CommunityCommentSection({
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const displayRoots = useMemo(() => sortRoots(roots, sortMode), [roots, sortMode]);
   const depthById = useMemo(() => indexDepths(roots), [roots]);
+  const closeEditing = useCallback(
+    (id: string) => setEditingCommentId((cur) => (cur === id ? null : cur)),
+    []
+  );
+  /** 수정 중인 댓글이 목록에서 빠지면(삭제·숨김 뒤 다시 읽기) 수정 상태를 끝낸다 — 입력 바가 영영 숨는 것 방지 */
+  const editingVisible = editingCommentId != null && depthById.has(editingCommentId);
+  useEffect(() => {
+    if (editingCommentId != null && !depthById.has(editingCommentId)) setEditingCommentId(null);
+  }, [depthById, editingCommentId]);
+  useEffect(() => {
+    onEditingChange?.(editingVisible);
+  }, [editingVisible, onEditingChange]);
   const me = viewerUserId?.trim() ?? "";
   const revealId = deepLinkCommentId ?? focusCommentId;
 
@@ -119,7 +135,7 @@ export function CommunityCommentSection({
     if (!depthById.has(revealId)) {
       if (isDeepLink) {
         onToast(t("community_comment_target_missing"));
-        sectionRef.current?.scrollIntoView({ block: "start" });
+        if (sectionRef.current) scrollElementIntoCenter(sectionRef.current, { block: "start" });
         onDeepLinkHandled?.();
       }
       return;
@@ -127,13 +143,8 @@ export function CommunityCommentSection({
     /** 조상 답글 펼침(항목 effect)이 그려진 다음 스크롤 — 한 번만 하므로 다시 그려져도 취소하지 않는다 */
     window.setTimeout(() => {
       const el = document.getElementById(`comment-${revealId}`);
-      if (el) {
-        try {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        } catch {
-          el.scrollIntoView();
-        }
-      }
+      /** 본문 스크롤 영역만 움직인다 — scrollIntoView 는 문서까지 밀어 머리글·하단 탭이 밀렸다 (실기 결함 2) */
+      if (el) scrollElementIntoCenter(el);
       if (isDeepLink) {
         setHighlightId(revealId);
         onDeepLinkHandled?.();
@@ -152,7 +163,11 @@ export function CommunityCommentSection({
   }, []);
 
   const replyTo = useCallback(
-    (node: NeighborhoodCommentNode, authorLabel: string) => onCommentReply({ id: node.id, name: authorLabel }),
+    (node: NeighborhoodCommentNode, authorLabel: string) => {
+      /** 답글을 시작하면 수정은 끝낸다 — 입력 바가 다시 보여야 답글을 쓸 수 있다 */
+      setEditingCommentId(null);
+      onCommentReply({ id: node.id, name: authorLabel });
+    },
     [onCommentReply]
   );
 
@@ -247,7 +262,12 @@ export function CommunityCommentSection({
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 flex min-w-0 items-center gap-2 text-[17px] font-bold text-[var(--cm-text)]">
           <MessageCircle className="h-5 w-5 shrink-0 text-[var(--cm-text-muted)]" strokeWidth={1.8} aria-hidden />
-          <span className="min-w-0 break-words">{t("community_comments_title", { count })}</span>
+          <span className="min-w-0 break-words">
+            {/** 불러오는 동안 「댓글 0」을 보이지 않는다 (실기 결함 4) */}
+            {(commentsLoading || commentsLoadError) && roots.length === 0
+              ? t("community_stat_comments_title")
+              : t("community_comments_title", { count })}
+          </span>
         </h2>
         <div
           className="inline-flex max-w-full shrink-0 gap-0.5 rounded-full border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-0.5"
@@ -306,6 +326,7 @@ export function CommunityCommentSection({
                 onReply={replyTo}
                 editingCommentId={editingCommentId}
                 onEditingChange={setEditingCommentId}
+                onEditingClose={closeEditing}
                 maxLength={maxLength}
                 commentBusy={commentBusy}
               />

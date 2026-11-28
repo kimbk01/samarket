@@ -109,3 +109,27 @@
     animation: none;
   }
 }
+
+/**
+ * 라운지 글 상세 댓글 입력 바 — 화면 하단 고정 (승인 시안 S1 「화면 하단 고정 바」).
+ * 예전 `sticky` 는 글이 짧으면 내용 끝에 붙어 화면 중간에 떠 있었다 (Owner 지적 2026-11-28 · 실기 Samsung·Xiaomi).
+ * 하단 탭이 보이면 탭 바로 위, 키보드로 탭이 숨으면(`data-shell-bottom-nav-keyboard-hidden`) 화면(키보드) 바로 위.
+ * 세로 메뉴(측면 레일)일 때는 하단 탭이 없으므로 화면 맨 아래.
+ */
+.cm-comment-composer-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  /* 화면 맨 아래일 때: 홈 표시줄(키보드 열림 0) + iOS 키보드 가림 높이 */
+  padding-bottom: calc(10px + var(--kb-safe-bottom, 0px) + var(--cm-composer-occlusion, 0px));
+}
+html[data-shell-bottom-nav]:not([data-shell-bottom-nav-side-rail]):not([data-shell-bottom-nav-keyboard-hidden]):not(
+    [data-shell-bottom-nav-scroll-hidden]
+  )
+  .cm-comment-composer-fixed {
+  /* 하단 탭 위: 안전영역은 탭 여백(clearance)에 이미 들어 있다 */
+  bottom: var(--app-bottom-nav-clearance);
+  padding-bottom: 10px;
+}
