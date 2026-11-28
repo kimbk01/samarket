@@ -17,6 +17,7 @@ import {
   MOIM_ADMIN_RESTRICT_DAY_OPTIONS,
   MOIM_ADMIN_RESTRICTIONS,
   MOIM_ADMIN_SANCTION_LEVELS,
+  moimAdminLevelAllowsPeriod,
   type MoimAdminPerson,
   type MoimAdminReportDecision,
   type MoimAdminReportTargetType,
@@ -193,7 +194,8 @@ function DecisionForm({
       reason: reason.trim(),
       contentHide: actioned && canHide && contentHide,
       moimLevel: actioned && level ? level : null,
-      moimEndsAt: actioned && level && endDate ? `${endDate}T23:59:59+08:00` : null,
+      /** 끝나는 날은 추천 제외만 (R4 D-14) */
+      moimEndsAt: actioned && level && moimAdminLevelAllowsPeriod(level) && endDate ? `${endDate}T23:59:59+08:00` : null,
       userRestrict: actioned && who ? { who, restriction, days: days ? Number(days) : null } : null,
       closeSameTarget: closeSame,
     };
@@ -261,7 +263,14 @@ function DecisionForm({
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
               <span className="text-sam-muted">{t("admin_moim_decide_moim_level")}</span>
-              <select className={MOIM_ADMIN_FIELD} value={level} onChange={(e) => setLevel(e.target.value as MoimAdminSanctionLevel | "")}>
+              <select
+                className={MOIM_ADMIN_FIELD}
+                value={level}
+                onChange={(e) => {
+                  setLevel(e.target.value as MoimAdminSanctionLevel | "");
+                  setEndDate("");
+                }}
+              >
                 <option value="">{t("admin_moim_decide_none")}</option>
                 {MOIM_ADMIN_SANCTION_LEVELS.map((l) => (
                   <option key={l} value={l}>
@@ -270,12 +279,14 @@ function DecisionForm({
                 ))}
               </select>
             </label>
-            {level ? (
+            {level && moimAdminLevelAllowsPeriod(level) ? (
               <label className="flex flex-col gap-1">
                 <span className="text-sam-muted">{t("admin_moim_field_ends_at")}</span>
                 <input type="date" className={MOIM_ADMIN_FIELD} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 <span className="text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_hint")}</span>
               </label>
+            ) : level ? (
+              <p className="self-end text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_none")}</p>
             ) : null}
           </div>
           {level ? <p className="text-[12px] text-sam-muted">{t(`admin_moim_level_${level}_effect` as MessageKey)}</p> : null}

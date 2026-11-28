@@ -6,6 +6,8 @@
  * 이 코드베이스의 권한 키 구조가 단일 키라 나누지 않았다). 모임 삭제·복구·콘텐츠 「삭제」는 최고관리자만.
  */
 
+import { MOIM_POLICY_CODE_RE } from "@/lib/moim/moim-report-reasons";
+
 export const MOIM_ADMIN_LIST_TABS = ["all", "normal", "unlisted", "warned", "blocked", "closed", "deleted"] as const;
 export type MoimAdminListTab = (typeof MOIM_ADMIN_LIST_TABS)[number];
 
@@ -73,6 +75,14 @@ export type MoimAdminSanctionFilter = (typeof MOIM_ADMIN_SANCTION_FILTERS)[numbe
 
 export const MOIM_ADMIN_SANCTION_LEVELS = ["unlist", "warn", "block"] as const;
 export type MoimAdminSanctionLevel = (typeof MOIM_ADMIN_SANCTION_LEVELS)[number];
+/**
+ * 끝나는 날을 정할 수 있는 모임 제재 (R4 D-14) — 추천 제외만. 경고·차단은 종료일 없이 어드민이 해제할 때까지 이어진다
+ * (SQL moim_admin_sanction_apply·moim_admin_report_decide 가 `moim_sanction_period_not_allowed` 로 거부 · 표 CHECK).
+ */
+export const MOIM_ADMIN_PERIOD_LEVELS: readonly MoimAdminSanctionLevel[] = ["unlist"];
+export function moimAdminLevelAllowsPeriod(level: unknown): boolean {
+  return typeof level === "string" && (MOIM_ADMIN_PERIOD_LEVELS as readonly string[]).includes(level);
+}
 
 export const MOIM_ADMIN_CONTENT_TYPES = ["post", "comment", "album", "schedule"] as const;
 export type MoimAdminContentType = (typeof MOIM_ADMIN_CONTENT_TYPES)[number];
@@ -103,9 +113,69 @@ export const MOIM_ADMIN_POLICY_INT_KEYS = [
 ] as const;
 export type MoimAdminPolicyIntKey = (typeof MOIM_ADMIN_POLICY_INT_KEYS)[number];
 
-/** 금지어 최대 개수 (SQL 과 같음) · 한 단어 최대 길이 */
+/** 금지어 최대 개수 (SQL 과 같음) · 한 단어 최대 길이 — 가입 질문 금지어(question_banned_words)도 같은 규칙 */
 export const MOIM_ADMIN_BANNED_WORDS_MAX = 500;
 export const MOIM_ADMIN_BANNED_WORD_MAX_LEN = 40;
+/** 단어 목록 정책 키 (R4 §3) */
+export const MOIM_ADMIN_POLICY_WORD_KEYS = ["banned_words", "question_banned_words"] as const;
+export type MoimAdminPolicyWordKey = (typeof MOIM_ADMIN_POLICY_WORD_KEYS)[number];
+
+/** 금지 모임 유형·신고 사유 목록 (R4 §3 · SQL moim_admin_policies_save 와 같은 상한) */
+export const MOIM_ADMIN_PROHIBITED_TYPES_MAX = 20;
+export const MOIM_ADMIN_REPORT_REASONS_MAX = 30;
+export const MOIM_ADMIN_POLICY_LABEL_MAX_LEN = 80;
+
+/** 저장 요청의 목록 항목 (DB jsonb 모양 · snake_case) */
+export type MoimAdminPolicyLabelRow = { code: string; label_ko: string; label_en: string };
+export type MoimAdminReportReasonRow = MoimAdminPolicyLabelRow & { is_active: boolean };
+
+/**
+ * 목록 항목 검사 (SQL 과 같은 규칙) — 코드 `^[a-z_]{2,40}$`·겹침 없음 · 한국어 이름 1~80자(필수) · 영어 이름 0~80자.
+ * 신고 사유는 is_active 가 boolean 이어야 한다(없으면 켜짐). 틀리면 null.
+ */
+export function parseMoimAdminPolicyRows(raw: unknown, kind: "prohibited_types"): MoimAdminPolicyLabelRow[] | null;
+export function parseMoimAdminPolicyRows(raw: unknown, kind: "report_reasons"): MoimAdminReportReasonRow[] | null;
+export function parseMoimAdminPolicyRows(
+  raw: unknown,
+  kind: "prohibited_types" | "report_reasons"
+): MoimAdminPolicyLabelRow[] | MoimAdminReportReasonRow[] | null;
+export function parseMoimAdminPolicyRows(raw: unknown, kind: "prohibited_types" | "report_reasons"): MoimAdminPolicyLabelRow[] | MoimAdminReportReasonRow[] | null {
+  if (!Array.isArray(raw)) return null;
+  const max = kind === "report_reasons" ? MOIM_ADMIN_REPORT_REASONS_MAX : MOIM_ADMIN_PROHIBITED_TYPES_MAX;
+  if (raw.length > max) return null;
+  const seen = new Set<string>();
+  const out: MoimAdminReportReasonRow[] = [];
+  for (const it of raw) {
+    if (!it || typeof it !== "object" || Array.isArray(it)) return null;
+    const o = it as Record<string, unknown>;
+    const code = typeof o.code === "string" ? o.code : "";
+    if (!MOIM_POLICY_CODE_RE.test(code) || seen.has(code)) return null;
+    seen.add(code);
+    const ko = typeof o.label_ko === "string" ? o.label_ko.trim() : "";
+    if (o.label_en != null && typeof o.label_en !== "string") return null;
+    const en = typeof o.label_en === "string" ? o.label_en.trim() : "";
+    if (ko.length < 1 || ko.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN || en.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN) return null;
+    if (o.is_active != null && typeof o.is_active !== "boolean") return null;
+    out.push({ code, label_ko: ko, label_en: en, is_active: o.is_active !== false });
+  }
+  if (kind === "report_reasons") return out;
+  return out.map(({ code, label_ko, label_en }) => ({ code, label_ko, label_en }));
+}
+
+/** 정책 1행 (GET 응답 · 새 열은 옛 DB 에 없을 수 있다) */
+export type MoimAdminPoliciesRow = Record<string, unknown> & {
+  updated_at: string;
+  banned_words: string[] | null;
+  question_banned_words?: string[] | null;
+  prohibited_types?: MoimAdminPolicyLabelRow[] | null;
+  report_reasons?: MoimAdminReportReasonRow[] | null;
+};
+
+/** 저장된 신고 사유 중 새 목록에서 빠진 코드 (R4 §3 — 지우지 않고 끈다 · SQL 은 `moim_policy_report_reason_removed`) */
+export function removedMoimReportReasonCodes(before: readonly { code: string }[] | null | undefined, next: readonly { code: string }[]): string[] {
+  const keep = new Set(next.map((r) => r.code));
+  return (before ?? []).map((r) => r.code).filter((c) => !keep.has(c));
+}
 
 /** 사유 최소 글자 (SQL 은 공백만 아니면 통과 — 화면은 2자 이상) */
 export const MOIM_ADMIN_REASON_MIN_LENGTH = 2;

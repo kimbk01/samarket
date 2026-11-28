@@ -214,7 +214,7 @@
 ### P3. 가입
 - **바로 가입**: [가입하기] → 모임별 프로필 확인(닉네임 기본값) → `moim_join` RPC.
   - RPC 처리: 정원·차단·연령 확인 → `active` → 메신저 방 입장 → 가입 인사 게시판 안내.
-  - 알림: 모임장에게 `moim_member_joined`(묶음 알림, 끄기 가능).
+  - 알림: 모임장에게 `moim_member_joined`(벨 알림함에만 · 끌 수 없음 — 플랫폼 규칙 D-7, 묶지 않음 — D-2).
 - **승인 후 가입**: 질문 답변 → [가입 신청] → `moim_join_requests(pending)` + 멤버 `pending`.
   - 승인권자에게 `moim_join_requested`.
   - 승인 → `active` + 방 입장 + 신청자에게 `moim_join_approved`.
@@ -245,7 +245,7 @@
 
 ### P5. 탈퇴
 - 멤버 → [모임 나가기] → 확인 → `left`, 메신저 모임·일정 방에서 퇴장(`left_at`). 참여 확정된 다가오는 일정은 자동 취소된다.
-- 쓴 글·댓글은 남는다. 작성자 표시는 「나간 멤버」로 바뀐다. 삭제는 탈퇴 전에 직접 하도록 안내한다(당근은 탈퇴 후 삭제를 고객센터로 처리함, 31165).
+- 쓴 글·댓글·사진은 남는다. 작성자 표시는 「나간 멤버」로 바뀐다. **나간 뒤에도 내가 쓴 글·댓글·사진은 직접 지울 수 있다**(2026-11-28 결정 D-36 — 원문 「탈퇴 전에 직접 하도록 안내」 정정).
 - **모임장은 위임 전에는 나갈 수 없다**(P8). 멤버가 모임장 혼자이면 [모임 종료]를 안내한다(P15).
 
 ### P6. 내보내기 · 차단
@@ -349,6 +349,8 @@
 
 ## 7. 알림 매트릭스
 
+- **플랫폼 규칙 (2026-11-28 결정 D-7):** 벨 알림함에는 모든 알림이 늘 저장된다. 「끌 수 있음」은 푸시와 모임별 알림 설정만 뜻한다. 그래서 푸시가 없는 벨 전용 종류는 끌 대상이 없다(X).
+
 - 레지스트리(`lib/notifications/notification-item-registry.ts`)에 `moim_*` 항목을 새로 등록한다. 항목마다 소리 키는 고유하게 둔다(레지스트리 테스트가 강제함).
 - 사용자 설정 분류는 기존 `community_social`(모임 활동)과 `community_chat`(모임 채팅)을 그대로 쓴다. 새 설정 분류는 만들지 않는다.
 - 읽음 처리는 `docs/dibay-notification-read-badge-policy.md` §2 를 따른다. 대상 화면에 들어갔을 때 읽음이 된다.
@@ -357,14 +359,14 @@
 |---|---|---|---|---|---|---|
 | `moim_join_requested` | 승인권자 | O | O | community_social | O | 가입 신청 목록 |
 | `moim_join_approved` / `_rejected` | 신청자 | O | O | community_social | **X(결과)** | 모임 홈 / 모임 공개 페이지 |
-| `moim_member_joined` | 모임장 | O(묶음) | X | community_social | O | 멤버 목록 |
+| `moim_member_joined` | 모임장 | O | X | community_social | **X (벨 전용 — D-7)** | 멤버 목록 |
 | `moim_invited` | 초대받은 사람 | O | O | community_social | O | 초대 수락 화면 |
 | `moim_member_removed` | 대상 | O | O | community_social | **X** | 모임 공개 페이지 |
-| `moim_role_changed` | 대상 | O | X | community_social | O | 모임 홈 |
+| `moim_role_changed` | 대상 | O | X | community_social | **X (벨 전용 — D-7)** | 모임 홈 |
 | `moim_host_transfer_requested` | 위임받을 사람 | O | O | community_social | **X** | 수락 화면 |
-| `moim_host_changed` | 전체 멤버 | O | X | community_social | O | 모임 홈 |
+| `moim_host_changed` | 전체 멤버 | O | X | community_social | **X (벨 전용 — D-7)** | 모임 홈 |
 | `moim_notice_posted` | 멤버 | O | O | community_social | O(모임별 끄기) | 공지 글 |
-| `moim_post_new` | 멤버(켠 사람만) | O | X | community_social | O(기본 꺼짐, D9) | 글 |
+| `moim_post_new` | 멤버(켠 사람만) | O | X | community_social | O(모임별 알림 설정 「새 글」, 기본 꺼짐, D9) | 글 |
 | `moim_comment` | 글쓴이·멘션 대상 | O | O | community_social | O | 글 |
 | `moim_schedule_created` | 멤버 | O | O | community_social | O(모임별 끄기) | 일정 |
 | `moim_schedule_requested` | 일정 호스트 | O | O | community_social | O | 일정 신청 현황 |

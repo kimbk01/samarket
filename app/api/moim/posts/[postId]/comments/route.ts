@@ -1,12 +1,29 @@
 import type { NextRequest } from "next/server";
-import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
+import { NextResponse } from "next/server";
+import { guardMoimRead, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimCommentCreate } from "@/lib/moim/server/moim-rpc.server";
-import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
+import { getMoimPost, listMoimComments, loadMoimName } from "@/lib/moim/server/moim-queries.server";
 import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ postId: string }> };
+
+/**
+ * 이전 댓글 쪽 (R4 #4·5) — ?before=(글 상세 `commentsBefore` 또는 앞 쪽 `nextBefore`). 멤버만(글 상세와 같은 규칙).
+ * 「이전 댓글 더 보기」를 누를 때만 부른다 — 글 상세 첫 진입 요청 수는 그대로.
+ */
+export async function GET(req: NextRequest, { params }: Ctx) {
+  const postId = requireUuid((await params).postId);
+  if (!postId) return moimNotFound();
+  const g = await guardMoimRead(req, { rateKey: "post" });
+  if (!g.ok) return g.response;
+  const found = await getMoimPost(g.sb, postId, g.userId);
+  if (!found) return moimNotFound();
+  if (!found.access.role) return NextResponse.json({ ok: false, error: "moim_not_member" }, { status: 403 });
+  const page = await listMoimComments(g.sb, found.post, g.userId, { before: req.nextUrl.searchParams.get("before") });
+  return NextResponse.json({ ok: true, items: page.items, nextBefore: page.nextBefore });
+}
 
 /** 댓글 — body { body } (멤버만) */
 export async function POST(req: NextRequest, { params }: Ctx) {

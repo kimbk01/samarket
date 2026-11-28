@@ -95,6 +95,7 @@ export function MoimJoinSheet({
               <input
                 className={inMoimSheet(moimCls.input)}
                 value={nickname}
+                maxLength={40}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder={t("moim_profile_nickname_placeholder")}
                 aria-label={t("moim_profile_nickname_label")}
@@ -102,6 +103,7 @@ export function MoimJoinSheet({
               <input
                 className={inMoimSheet(moimCls.input)}
                 value={bio}
+                maxLength={300}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder={t("moim_profile_bio_placeholder")}
                 aria-label={t("moim_profile_bio_label")}

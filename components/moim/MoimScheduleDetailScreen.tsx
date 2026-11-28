@@ -14,6 +14,7 @@ import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimScheduleDto, MoimScheduleParticipantDto } from "@/lib/moim/moim-api-types";
+import { MOIM_LIST_CAP } from "@/lib/moim/moim-api-types";
 import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { canWriteMoimBoard } from "@/components/moim/MoimMemberView";
@@ -36,7 +37,7 @@ const MOTIVATION_MAX = 500;
 type Toast = (message: string, tone?: "default" | "success" | "error") => void;
 
 function useMoimSchedule(scheduleId: string) {
-  const [data, setData] = useState<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[] } | null>(null);
+  const [data, setData] = useState<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[]; participantsCapped?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState(0);
   useEffect(() => {
@@ -44,7 +45,7 @@ function useMoimSchedule(scheduleId: string) {
     setError(null);
     void moimApi.schedule(scheduleId).then((r) => {
       if (!alive) return;
-      if (r.ok) setData({ schedule: r.schedule, participants: r.participants });
+      if (r.ok) setData({ schedule: r.schedule, participants: r.participants, participantsCapped: r.participantsCapped === true });
       else setError(r.error);
     });
     return () => {
@@ -147,13 +148,14 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
         moim={moim}
         schedule={data.schedule}
         participants={data.participants}
+        participantsCapped={data.participantsCapped === true}
         onReload={reload}
         onParticipants={(participants) => setData((d) => (d ? { ...d, participants } : d))}
         onReport={setReport}
         onToast={toast.show}
         onHeaderRight={setRightSlot}
       />
-      <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      <MoimReportSheet moimId={moim.id} reasons={moim.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </>
   );
@@ -163,6 +165,7 @@ function ScheduleBody({
   moim,
   schedule: s,
   participants,
+  participantsCapped,
   onReload,
   onParticipants,
   onReport,
@@ -172,6 +175,8 @@ function ScheduleBody({
   moim: MoimDetailDto;
   schedule: MoimScheduleDto;
   participants: MoimScheduleParticipantDto[];
+  /** R4 #6: 참여자 조회 상한(500)에 닿음 */
+  participantsCapped: boolean;
   onReload: () => void;
   onParticipants: (p: MoimScheduleParticipantDto[]) => void;
   onReport: (target: MoimReportTarget) => void;
@@ -532,6 +537,7 @@ function ScheduleBody({
           <div className={moimCls.sectionHead}>
             <h2 className={moimCls.sectionTitle}>{t("moim_schedule_confirmed_title", { count: confirmed.length })}</h2>
           </div>
+          {participantsCapped ? <p className="px-4 pb-2 text-[12px] text-sam-meta">{t("moim_list_capped_hint", { count: MOIM_LIST_CAP })}</p> : null}
           {confirmed.length === 0 ? (
             <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_confirmed_empty")}</p>
           ) : (

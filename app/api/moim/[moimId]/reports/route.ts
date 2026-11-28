@@ -13,7 +13,7 @@ import {
 import { loadMoimAccess } from "@/lib/moim/server/moim-queries.server";
 import { listMoimStaffReports } from "@/lib/moim/server/moim-staff-reports.server";
 import { MOIM_REPORT_TARGET_TYPES, moimReportCreate, type MoimReportTargetType } from "@/lib/moim/server/moim-rpc.server";
-import { isMoimReportReasonCode } from "@/lib/moim/moim-report-reasons";
+import { isMoimPolicyCode } from "@/lib/moim/moim-report-reasons";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +35,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   return NextResponse.json({ ok: true, ...res });
 }
 
-/** P13 신고 — body { targetType, targetId, reasonCode, detail? } */
+/**
+ * P13 신고 — body { targetType, targetId, reasonCode, detail? }.
+ * 사유 코드는 형식만 본다(R4 §3) — 운영 정책의 켜진 신고 사유인지는 RPC 가 본다(아니면 moim_report_reason_invalid).
+ */
 export async function POST(req: NextRequest, { params }: Ctx) {
   const moimId = requireUuid((await params).moimId);
   if (!moimId) return moimNotFound();
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const body = await readMoimJson<{ targetType?: unknown; targetId?: unknown; reasonCode?: unknown; detail?: unknown }>(req);
   const targetType = (MOIM_REPORT_TARGET_TYPES as readonly unknown[]).includes(body?.targetType) ? (body!.targetType as MoimReportTargetType) : null;
   const targetId = requireUuid(typeof body?.targetId === "string" ? body.targetId : null);
-  if (!targetType || !targetId || !isMoimReportReasonCode(body?.reasonCode)) return moimBadRequest();
+  if (!targetType || !targetId || !isMoimPolicyCode(body?.reasonCode)) return moimBadRequest();
   return moimRpcResponse(
     await moimReportCreate(g.userId, moimId, { targetType, targetId, reasonCode: body!.reasonCode as string, detail: typeof body?.detail === "string" ? body.detail : null }, g.sb)
   );

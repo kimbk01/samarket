@@ -19,7 +19,7 @@ import {
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { MOIM_ADMIN_SANCTION_FILTERS, type MoimAdminPerson } from "@/lib/admin/moim/moim-admin-contract";
-import { MoimAdminPersonCell, MoimAdminTime, moimReasonCodeLabel, useMoimSettleBanner } from "@/components/admin/moim/admin-moim-shared";
+import { MoimAdminPersonCell, MoimAdminTime, useMoimReasonLabel, useMoimSettleBanner } from "@/components/admin/moim/admin-moim-shared";
 import { MoimSanctionRevokeSheet, sanctionStateKey } from "@/components/admin/moim/AdminMoimDetailPage";
 
 type Row = {
@@ -42,6 +42,7 @@ const EXTRAS = ["filter"] as const;
 
 export function AdminMoimSanctionsPage() {
   const { t } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   const q = useCommunityListQuery({ extras: EXTRAS });
   const filter = q.query.extras.filter || "active";
   const { state, reload } = useCommunityAdminJson<ListResponse>(`/api/admin/moim/sanctions?${q.apiParams({ period: false }).toString()}`);
@@ -87,7 +88,7 @@ export function AdminMoimSanctionsPage() {
                 </td>
                 <td className={COMMUNITY_TD}>{t(`admin_moim_level_${r.level}` as MessageKey)}</td>
                 <td className={`${COMMUNITY_TD} max-w-[300px]`}>
-                  <div>{moimReasonCodeLabel(t, r.reason_code)}</div>
+                  <div>{reasonLabel(r.reason_code)}</div>
                   <div className="whitespace-pre-wrap text-[12px] text-sam-muted [overflow-wrap:anywhere]">{r.reason}</div>
                 </td>
                 <td className={COMMUNITY_TD}>

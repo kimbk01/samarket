@@ -94,5 +94,7 @@ export async function POST(
     userId: auth.userId,
     roomId: canon.canonicalRoomId,
   });
+  /** 모임 방 DELETE 대체 경로 거부도 같은 409 코드 (모임 R4 §5(a)) */
+  if (result.error === "moim_room_membership_managed_by_moim") return NextResponse.json(result, { status: 409 });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

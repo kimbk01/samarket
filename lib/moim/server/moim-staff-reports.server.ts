@@ -99,35 +99,40 @@ export async function listMoimStaffReports(
     if (g.type === "post") {
       const p = postMap.get(g.id);
       const firstImage = Array.isArray(p?.images) ? (p?.images as unknown[]).find((x): x is string => typeof x === "string") ?? null : null;
+      const status = normStatus(p?.status);
+      /** R4 #10: 작성자가 지운 글은 내용을 보여 주지 않는다(숨김은 운영진 조치라 보임) */
+      const gone = status === "deleted";
       return {
         ...base,
-        status: normStatus(p?.status),
-        title: excerpt(p?.title, 80),
-        excerpt: excerpt(p?.body),
-        imageUrl: firstImage,
+        status,
+        title: gone ? null : excerpt(p?.title, 80),
+        excerpt: gone ? null : excerpt(p?.body),
+        imageUrl: gone ? null : firstImage,
         postId: p ? p.id : null,
         authorNickname: p && p.author_id ? nickMap.get(p.author_id) ?? null : null,
       };
     }
     if (g.type === "comment") {
       const c = commentMap.get(g.id);
+      const status = normStatus(c?.status);
       return {
         ...base,
-        status: normStatus(c?.status),
+        status,
         title: null,
-        excerpt: excerpt(c?.body),
+        excerpt: status === "deleted" ? null : excerpt(c?.body),
         imageUrl: null,
         postId: c?.post_id ?? null,
         authorNickname: c && c.author_id ? nickMap.get(c.author_id) ?? null : null,
       };
     }
     const a = albumMap.get(g.id);
+    const status = normStatus(a?.status);
     return {
       ...base,
-      status: normStatus(a?.status),
+      status,
       title: null,
       excerpt: null,
-      imageUrl: a?.url ?? null,
+      imageUrl: status === "deleted" ? null : a?.url ?? null,
       postId: null,
       authorNickname: a && a.uploader_id ? nickMap.get(a.uploader_id) ?? null : null,
     };

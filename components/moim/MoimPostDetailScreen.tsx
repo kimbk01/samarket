@@ -19,6 +19,7 @@ import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimRe
 import { MoimAvatar, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { MoimNoticeBadge } from "@/components/moim/MoimPostRow";
+import { DibaySpinner } from "@/components/ui/DibaySpinner";
 
 /**
  * 댓글 칸 머리·안내 (R3 U-05 · D-35): 비회원은 댓글 내용·작성자를 받지 않는다 → 수는 목록과 같은 `post.commentCount`,
@@ -27,10 +28,19 @@ import { MoimNoticeBadge } from "@/components/moim/MoimPostRow";
 export function moimCommentSection(
   viewerIsMember: boolean,
   post: Pick<MoimPostDto, "commentCount">,
-  commentsLength: number
+  commentsLength: number,
+  /** R4 #4·5: 앞 댓글이 더 있으면(받은 쪽이 일부) 수는 글의 `commentCount` 와 받은 수 중 큰 값 */
+  hasOlder = false
 ): { count: number; note: "members_only" | "empty" | null } {
   if (!viewerIsMember) return { count: post.commentCount, note: "members_only" };
+  if (hasOlder) return { count: Math.max(post.commentCount, commentsLength), note: null };
   return { count: commentsLength, note: commentsLength === 0 ? "empty" : null };
+}
+
+/** R4 #4·5: 앞(오래된) 댓글 쪽을 위에 붙인다 — 이미 있는 댓글은 다시 붙이지 않는다 */
+export function prependMoimComments(older: MoimCommentDto[], current: MoimCommentDto[]): MoimCommentDto[] {
+  const seen = new Set(current.map((c) => c.id));
+  return [...older.filter((c) => !seen.has(c.id)), ...current];
 }
 
 function AuthorLine({ author, at }: { author: MoimAuthorDto; at: string }) {
@@ -64,6 +74,9 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
   useMoimNotificationRead(`/moim/${moimId}/posts/${postId}`, !!post);
   const [comments, setComments] = useState<MoimCommentDto[]>([]);
+  /** R4 #4·5: 앞 댓글 커서(null = 처음 댓글까지 다 받음) */
+  const [commentsBefore, setCommentsBefore] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [viewerIsMember, setViewerIsMember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState(0);
@@ -84,6 +97,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
       }
       setPost(r.post);
       setComments(r.comments);
+      setCommentsBefore(r.commentsBefore ?? null);
       setViewerIsMember(r.viewerIsMember);
     });
     return () => {
@@ -91,6 +105,15 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
     };
   }, [postId, key]);
   const reload = useCallback(() => setKey((k) => k + 1), []);
+  const loadOlderComments = async () => {
+    if (!commentsBefore || loadingOlder) return;
+    setLoadingOlder(true);
+    const r = await moimApi.comments(postId, commentsBefore);
+    setLoadingOlder(false);
+    if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
+    setComments((cur) => prependMoimComments(r.items, cur));
+    setCommentsBefore(r.nextBefore);
+  };
 
   const board = post ? moim?.boards.find((b) => b.id === post.boardId) ?? { kind: post.boardKind, name: null } : null;
 
@@ -186,7 +209,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   } else if (can?.hide_post) {
     items.push({ key: "hide", label: t("moim_post_hide_btn"), danger: true, onClick: () => void hidePost() });
   }
-  const commentSection = moimCommentSection(viewerIsMember, post, comments.length);
+  const commentSection = moimCommentSection(viewerIsMember, post, comments.length, !!commentsBefore);
 
   const commentItems: DibayActionSheetItem[] = commentMenu
     ? commentMenu.viewerIsAuthor || can?.hide_post
@@ -223,6 +246,14 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
             <p className="px-4 text-[13px] text-sam-muted">
               {commentSection.note === "members_only" ? t("moim_comments_members_only") : t("moim_comments_empty")}
             </p>
+          ) : null}
+          {/* R4 #4·5: 최신 100개부터 — 앞 댓글은 「이전 댓글 더 보기」 */}
+          {viewerIsMember && commentsBefore ? (
+            <div className="px-4 pb-2">
+              <button type="button" disabled={loadingOlder} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => void loadOlderComments()}>
+                {loadingOlder ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_comments_older_btn")}
+              </button>
+            </div>
           ) : null}
           <div>
             {comments.map((c) => (
@@ -272,7 +303,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
 
       <DibayActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} cancelLabel={t("common_cancel")} items={items} notice={items.length === 0 ? t("moim_menu_empty") : undefined} />
       <DibayActionSheet open={commentMenu != null} onClose={() => setCommentMenu(null)} cancelLabel={t("common_cancel")} items={commentItems} />
-      <MoimReportSheet moimId={moimId} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      <MoimReportSheet moimId={moimId} reasons={moim?.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </div>
   );

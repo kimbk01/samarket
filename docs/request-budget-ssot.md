@@ -69,3 +69,15 @@
 - 미들웨어(`proxy.ts`)·요청 저장소 밖 호출은 `unknown` 으로만 잡힌다(총량 경보에는 포함).
 - 앱이 Supabase 를 직접 부르는 호출(Realtime·Storage·브라우저 클라이언트)은 서버 계수기에 잡히지 않는다.
 - CI 단계에서 라우트 호출 수를 막는 검사는 없다. 가짜 빈 데이터로는 운영 호출 수를 재현하지 못해(측정: 방 메시지 운영 10.6 → 가짜 3) 넣지 않았다. 감지는 운영 감시가 맡는다.
+
+## 6. 대기 중인 등록 (2026-11-28 모임 R4 · 결정 D-40)
+
+모임 GET 라우트 약 15개는 예산 표에 없어서 `unbudgeted_route` 경보(하루 1,000회)로만 감시된다:
+
+- `/api/moim/[moimId]/posts` · `/api/moim/posts/[postId]` · `/api/moim/posts/[postId]/comments`
+- `/api/moim/[moimId]/schedules` · `/api/moim/schedules/[scheduleId]` · `/api/moim/[moimId]/album`
+- `/api/moim/[moimId]/members` · `/api/moim/[moimId]/join-requests` · `/api/moim/[moimId]/invite-links`
+- `/api/moim/invites` · `/api/moim/invite/[token]` · `/api/moim/[moimId]/boards`
+- `/api/moim/[moimId]/notification-prefs` · `/api/moim/[moimId]/permissions` · `/api/moim/[moimId]/reports`
+
+규칙 「초깃값 = 운영 측정」에 따라 추측값으로 등록하지 않는다. R4 병합 뒤 7일간 Vercel `external_api_request ÷ request.count` 로 잰 다음, 소수 첫째 자리에서 올린 값으로 한 PR 에 등록한다.

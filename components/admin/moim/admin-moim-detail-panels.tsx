@@ -26,7 +26,7 @@ import {
   MoimAdminTime,
   MoimContentStatusBadge,
   moimAdminSend,
-  moimReasonCodeLabel,
+  useMoimReasonLabel,
   useMoimAdminAccess,
 } from "@/components/admin/moim/admin-moim-shared";
 
@@ -440,6 +440,7 @@ type ReportRow = { id: string; target_type: string; target_id: string; reason_co
 
 export function MoimReportsPanel({ moimId }: { moimId: string }) {
   const { t } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   const sec = useMoimSection<ReportRow>(moimId, "reports");
   return (
     <MoimSectionBody sec={sec} emptyKey="admin_moim_reports_empty">
@@ -452,7 +453,7 @@ export function MoimReportsPanel({ moimId }: { moimId: string }) {
               </Link>
             </td>
             <td className={`${COMMUNITY_TD} max-w-[320px]`}>
-              <div>{moimReasonCodeLabel(t, r.reason_code)}</div>
+              <div>{reasonLabel(r.reason_code)}</div>
               {r.detail ? <div className="whitespace-pre-wrap text-[12px] text-sam-muted [overflow-wrap:anywhere]">{r.detail}</div> : null}
             </td>
             <td className={COMMUNITY_TD}>

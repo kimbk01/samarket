@@ -59,7 +59,7 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { MoimRoomNoticeMenuItem } from "@/components/moim/MoimRoomNoticeMenuItem";
-import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
+import { moimRoomMemberRoleKey, moimRoomOwnerHref, moimRoomOwnerShowsHome } from "@/lib/moim/use-moim-room-owner";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
@@ -103,6 +103,15 @@ const GROUP_MENU_TRAILING_CLASS =
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2SheetsView();
+  /**
+   * 모임 방 멤버 = 메신저 역할 배지(방장·부방장·멤버) 대신 이름 옆 모임 역할 「· 운영진」 (모임 R4 #18 · 시안 U8).
+   * 이미 받은 /api/moim/rooms 응답의 역할 맵만 쓴다(추가 요청 0). 일반 멤버는 표시 없음.
+   */
+  const moimRoleOwner = vm.isMoimRoom ? vm.moimRoomOwner : null;
+  const moimRoleSuffix = (userId: string) => {
+    const key = moimRoomMemberRoleKey(moimRoleOwner, userId);
+    return key ? ` · ${vm.t(key)}` : "";
+  };
   /**
    * 사진·음성 모음·개수 = 서버 조회(설계 M4 · 2026-11-16 실기: 1:1 모음이 불러온 메시지만 세어 「사진 0」).
    * 메뉴·정보·모음 시트 모두 같은 서버 개수를 쓴다(진입점마다 숫자가 달라지지 않게). 받기 전에는 불러온 메시지 수.
@@ -368,7 +377,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 {vm.isPrivateGroupRoom ? (
                   <div className="mb-4 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] p-4">
                     <p className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">{vm.t("nav_messenger_private_group")}</p>
-                    <p className="mt-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{vm.t("nav_messenger_open_group_settings")}</p>
+                    <p className="mt-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{vm.t("nav_messenger_room_settings")}</p>
                     {vm.canEditPrivateGroupMeta ? (
                       <div className="mt-3 grid gap-2">
                         {/* 그룹 결함 D13: 그룹 사진은 아래 72px 사진 1곳 — 「사진 (갤러리)」 버튼은 그 옆(시안 group-room-drawer-d13-mockup-2026-11-13) */}
@@ -637,11 +646,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <span className="dibay-overlay-menu__text min-w-0 flex-1">
                           <span className="dibay-overlay-menu__label truncate">
                             {displayLabel}
+                            {moimRoleSuffix(member.id)}
                             {isSelf ? ` (${vm.t("nav_messenger_me")})` : ""}
                           </span>
-                          <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                            <GroupMemberRoleBadge role={isRoomOwner ? "owner" : member.memberRole} />
-                          </span>
+                          {moimRoleOwner ? null : (
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                              <GroupMemberRoleBadge role={isRoomOwner ? "owner" : member.memberRole} />
+                            </span>
+                          )}
                         </span>
                       </>
                     );
@@ -723,13 +735,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
 
                 {vm.isMoimRoom && vm.moimRoomOwner ? (
                   <div className="mt-3">
-                    <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
-                      <a href={moimRoomOwnerHref(vm.moimRoomOwner)} data-moim-room-home="menu" className="dibay-overlay-menu__item">
-                        <span className="dibay-overlay-menu__label">
-                          {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
-                        </span>
-                      </a>
-                    </div>
+                    {/* 삭제된 모임이면 「모임 홈」 줄만 숨긴다 (모임 R4 D-3) */}
+                    {moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
+                      <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
+                        <a href={moimRoomOwnerHref(vm.moimRoomOwner)} data-moim-room-home="menu" className="dibay-overlay-menu__item">
+                          <span className="dibay-overlay-menu__label">
+                            {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                          </span>
+                        </a>
+                      </div>
+                    ) : null}
                     <p className={`${OverlayUi.caption} mt-1 px-1`}>{vm.t("moim_room_managed_in_moim")}</p>
                   </div>
                 ) : null}
@@ -859,8 +874,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="sam-text-body font-semibold text-sam-fg">{member.label}</p>
-                            {vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
+                            <p className="sam-text-body font-semibold text-sam-fg">
+                              {member.label}
+                              {moimRoleSuffix(member.id)}
+                            </p>
+                            {moimRoleOwner ? null : vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
                               <GroupMemberRoleBadge role="owner" />
                             ) : member.memberRole === "admin" ? (
                               <GroupMemberRoleBadge role="admin" />
@@ -1249,9 +1267,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   ) : vm.isMoimRoom && vm.moimRoomOwner ? (
                     <div data-moim-room-info="" className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
-                      <a href={moimRoomOwnerHref(vm.moimRoomOwner)} className={`${OverlayUi.btn.secondary} block text-center`}>
-                        {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
-                      </a>
+                      {/* 삭제된 모임이면 「모임 홈」 버튼만 숨긴다 (모임 R4 D-3) */}
+                      {moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
+                        <a
+                          href={moimRoomOwnerHref(vm.moimRoomOwner)}
+                          data-moim-room-home="info"
+                          className={`${OverlayUi.btn.secondary} block text-center`}
+                        >
+                          {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                        </a>
+                      ) : null}
                       <p className={`${OverlayUi.caption} mt-2`}>{vm.t("moim_room_managed_in_moim")}</p>
                     </div>
                   ) : null}

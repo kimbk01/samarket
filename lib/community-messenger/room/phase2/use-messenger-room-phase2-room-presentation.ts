@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
+import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { resolveGroupRoomCapabilities } from "@/lib/community-messenger/group/group-room-permissions";
 import {
@@ -112,8 +112,13 @@ export function useMessengerRoomPhase2RoomPresentation({
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
   /** 모임 소유 방 (docs/dibay-messenger-domain-group-hard-lock.md 「MOIM-owned GROUP rooms」) — 멤버십·방 설정은 모임에서 */
-  const moimRoomOwner = useMoimRoomOwner(isPrivateGroupRoom ? roomId : null);
-  const isMoimRoom = Boolean(moimRoomOwner);
+  const { owner: moimRoomOwner, resolved: moimRoomResolved } = useMoimRoomOwnerState(isPrivateGroupRoom ? roomId : null);
+  /**
+   * 모임 방 판정 중(unknown)인 비공개 그룹방도 모임 방처럼 메신저 운영·나가기·초대 메뉴를 숨긴다 (모임 R4 #14 —
+   * 판정 전에 메뉴가 잠깐 보였다 사라지지 않게). 판정 요청이 실패하면 resolved=true 라 메뉴가 보인다(예전 동작).
+   * 「모임 홈」 같은 모임 진입점은 `moimRoomOwner` 가 있을 때만이라 판정 중에는 보이지 않는다.
+   */
+  const isMoimRoom = Boolean(moimRoomOwner) || Boolean(isPrivateGroupRoom && !moimRoomResolved);
   const domainChromePresentation = useMemo(() => {
     if (!snapshot?.room) return null;
     const tradeProductTitle =

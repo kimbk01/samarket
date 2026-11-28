@@ -575,6 +575,8 @@ type RoomRow = {
   /** Phase3 S2-4 soft-delete tombstone */
   deleted_at?: string | null;
   deleted_by?: string | null;
+  /** 소유 도메인 — `moim` = 모임 소유 방 (모임 R4 §5(b)① 부제 대체 막기) */
+  owner_domain?: string | null;
 };
 
 type ParticipantRow = {
@@ -2160,12 +2162,18 @@ async function fetchRoomProfilesByRoomIds(roomIds: string[]): Promise<Map<string
   return result;
 }
 
+/**
+ * 방 프로필 적용. `moimOwned` = 모임 소유 방(owner_domain='moim') — 멤버 부제를 메신저 기본 부제(공개 DIBAY ID 등)로
+ * 대신 채우지 않는다. 모임 방 신원은 모임 프로필만 (모임 R4 §5(b)① · 계약 §4 신원).
+ */
 function resolveRoomProfileLite(
   baseProfile: CommunityMessengerProfileLite | undefined,
-  roomProfile: RoomProfileRow | DevRoomProfile | undefined
+  roomProfile: RoomProfileRow | DevRoomProfile | undefined,
+  opts?: { moimOwned?: boolean }
 ): CommunityMessengerProfileLite | undefined {
   if (!baseProfile) return undefined;
-  if (!roomProfile) return baseProfile;
+  const moimOwned = opts?.moimOwned === true;
+  if (!roomProfile) return moimOwned ? { ...baseProfile, subtitle: undefined } : baseProfile;
   const isDbProfile = "room_id" in roomProfile;
   const identityMode = (isDbProfile ? roomProfile.identity_mode : roomProfile.identityMode) as CommunityMessengerIdentityMode;
   if (identityMode !== "alias") {
@@ -2174,6 +2182,7 @@ function resolveRoomProfileLite(
       raw && !isCommunityMessengerStickerPublicPath(raw) ? raw : null;
     return {
       ...baseProfile,
+      ...(moimOwned ? { subtitle: undefined } : {}),
       identityMode: "real_name",
       aliasProfile: null,
       avatarUrl: safeAvatar,
@@ -2191,7 +2200,7 @@ function resolveRoomProfileLite(
   return {
     ...baseProfile,
     label: displayName || baseProfile.label,
-    subtitle: bio || baseProfile.subtitle,
+    subtitle: bio || (moimOwned ? undefined : baseProfile.subtitle),
     avatarUrl,
     identityMode: "alias",
     aliasProfile: {
@@ -12731,7 +12740,7 @@ export async function leaveCommunityMessengerRoom(input: {
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, owner_user_id")
+      .select("id, room_type, owner_user_id, owner_domain")
       .eq("id", roomId)
       .maybeSingle();
     if (roomError && !isMissingTableError(roomError)) {
@@ -12739,6 +12748,11 @@ export async function leaveCommunityMessengerRoom(input: {
     }
     if (room) {
       if (trimText(room.owner_user_id) === input.userId) return { ok: false, error: "owner_cannot_leave" };
+      /**
+       * 모임 방 참여 행은 모임에서만 지운다 — 이 DELETE 경로는 모임 방 검사가 없었다 (모임 R4 §5(a) · D-44:
+       * DB DELETE 트리거는 계정 삭제 연쇄 삭제까지 막으므로 넣지 않고 TS 경로에서 막는다)
+       */
+      if (trimText(room.owner_domain) === "moim") return { ok: false, error: "moim_room_membership_managed_by_moim" };
       const { error } = await (sb as any)
         .from("community_messenger_participants")
         .delete()
@@ -15796,9 +15810,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
     /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
     const roomSelectColsDeferSeedNoNoticeBody =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by, owner_domain";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, last_message_meta, chat_domain, domain_identity, deleted_at, deleted_by, owner_domain";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
@@ -16306,9 +16320,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   }
   const tMembersMap0 = performance.now();
+  /** 모임 소유 방 — 멤버 부제를 메신저 기본 부제로 채우지 않는다 (모임 R4 §5(b)①) */
+  const roomMoimOwned = Boolean(room && "owner_domain" in room && trimText(room.owner_domain) === "moim");
   const members = hydratedLabels.members.map((profile) =>
     ({
-      ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),
+      ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id)), { moimOwned: roomMoimOwned }) ??
+        profile),
       memberRole:
         participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === profile.id)?.role ?? undefined,
     }) satisfies CommunityMessengerProfileLite
@@ -16847,14 +16864,15 @@ export async function listCommunityMessengerRoomMembersPage(input: {
   const sb = getSupabaseOrNull();
 
   const mapPageRowsToMembers = async (
-    pageRows: Array<ParticipantRow | DevParticipant>
+    pageRows: Array<ParticipantRow | DevParticipant>,
+    moimOwned = false
   ): Promise<CommunityMessengerProfileLite[]> => {
     const memberIds = dedupeParticipantUserIds(pageRows);
     const roomProfileMap = await fetchRoomProfilesByRoomIds([roomId]);
     const hydrated = await hydrateProfilesWithProfileMap(input.userId, memberIds, { includeSelf: true });
     return hydrated.members.map((profile) =>
       ({
-        ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(roomId, profile.id))) ?? profile),
+        ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(roomId, profile.id)), { moimOwned }) ?? profile),
         memberRole: pageRows.find((item) => participantRowUserId(item) === profile.id)?.role ?? undefined,
       }) satisfies CommunityMessengerProfileLite
     );
@@ -16875,13 +16893,18 @@ export async function listCommunityMessengerRoomMembersPage(input: {
     return { ok: true, members, total, nextOffset };
   }
 
+  /** 방 소유 도메인은 같은 요청에서 함께 읽는다(묶음 조회 · 요청 수 그대로) — 모임 방 부제 대체 막기 (모임 R4 §5(b)①) */
   const { data: myParticipant } = await (sb as any)
     .from("community_messenger_participants")
-    .select("id")
+    .select("id, room:community_messenger_rooms(owner_domain)")
     .eq("room_id", roomId)
     .eq("user_id", input.userId)
     .maybeSingle();
   if (!myParticipant) return { ok: false, error: "room_not_found" };
+  const myParticipantRoom = (myParticipant as { room?: { owner_domain?: string | null } | { owner_domain?: string | null }[] | null })
+    .room;
+  const roomOwnerDomain = Array.isArray(myParticipantRoom) ? myParticipantRoom[0]?.owner_domain : myParticipantRoom?.owner_domain;
+  const membersPageMoimOwned = trimText(roomOwnerDomain) === "moim";
 
   const { data: participantData, error: partErr } = await (sb as any)
     .from("community_messenger_participants")
@@ -16894,7 +16917,7 @@ export async function listCommunityMessengerRoomMembersPage(input: {
   const sorted = sortParticipantsForRoomMemberList(raw);
   const total = sorted.length;
   const pageRows = sorted.slice(offset, offset + pageLimit);
-  const members = await mapPageRowsToMembers(pageRows);
+  const members = await mapPageRowsToMembers(pageRows, membersPageMoimOwned);
   const nextOffset = offset + pageRows.length < total ? offset + pageRows.length : null;
   return { ok: true, members, total, nextOffset };
 }

@@ -58,7 +58,7 @@ describe("채팅 설정 (채팅 시안 4판 「7」)", () => {
     expect(MESSENGER_SETTINGS_ROOT_GROUPS.map((g) => translate("ko", g.rowKey))).toEqual([
       "수신 벨 · 화면 안내 · 마이크 · 카메라",
       "사진 자동 저장 · 대화 백업",
-      "모임 찾기 · 모임 만들기",
+      "모임 · 오픈채팅 찾기 · 만들기",
       "전화번호 · 연락처 · 즐겨찾기",
     ]);
   });

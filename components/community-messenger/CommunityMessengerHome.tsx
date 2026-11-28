@@ -119,7 +119,7 @@ import {
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { moimRoomOwnerHref, peekMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
+import { moimRoomOwnerHref, moimRoomOwnerShowsHome, peekMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import {
   MessengerFriendActionsProvider,
   type MessengerFriendActionsContextValue,
@@ -3326,7 +3326,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setRoomActionSheet(null);
       } else if (result.error === "moim_room_membership_managed_by_moim") {
         /** 모임 방 나가기는 모임에서 — 모임을 알면 「모임 홈」 동작을 단다, 모르면 문구만 (모임 R3 U-14) */
-        const owner = peekMoimRoomOwner(roomId);
+        /** 삭제된 모임이면 「모임 홈」 동작 없이 문구만 (모임 R4 D-3) */
+        const peeked = peekMoimRoomOwner(roomId);
+        const owner = moimRoomOwnerShowsHome(peeked) ? peeked : null;
         showMessengerSnackbar(t("moim_err_moim_room_membership_managed_by_moim"), {
           variant: "error",
           ...(owner

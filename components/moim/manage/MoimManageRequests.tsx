@@ -9,6 +9,7 @@ import type { MoimJoinRequestDto } from "@/lib/moim/moim-api-types";
 import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimAvatar,
+  MoimListCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
@@ -57,6 +58,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
   return (
     <>
       {list.length === 0 ? <MoimManageEmpty textKey="moim_manage_requests_empty" /> : null}
+      <MoimListCappedHint show={state.data.capped} />
       <ul className="flex flex-col gap-3 px-4 pt-4">
         {list.map((req) => (
           <li key={req.id} className={`${moimManageCardClass} p-4`}>

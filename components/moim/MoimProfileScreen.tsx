@@ -109,7 +109,7 @@ export function MoimProfileScreen({ moimId }: { moimId: string }) {
         </label>
         <label className="grid gap-1.5">
           <span className={moimCls.label}>{t("moim_profile_bio_label")}</span>
-          <textarea className={`${moimCls.textarea} min-h-[88px]`} value={bio} onChange={(e) => setBio(e.target.value)} placeholder={t("moim_profile_bio_placeholder")} />
+          <textarea className={`${moimCls.textarea} min-h-[88px]`} value={bio} maxLength={300} onChange={(e) => setBio(e.target.value)} placeholder={t("moim_profile_bio_placeholder")} />
         </label>
         <p className={moimCls.noticeInfo}>{t("moim_profile_privacy_note")}</p>
         {saveError ? <p className={moimCls.noticeBad}>{saveError}</p> : null}

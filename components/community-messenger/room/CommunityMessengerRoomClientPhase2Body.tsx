@@ -342,6 +342,9 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       room.callStubSheet,
       room.leaveRoomConfirmOpen,
       room.reportTarget,
+      /** 모임 방 판정·역할 맵 — 방마다 판정 끝날 때 한 번 바뀐다(말풍선 이름 옆 모임 역할 · 모임 R4 #18) */
+      room.isMoimRoom,
+      room.moimRoomOwner,
     ]
   );
   /** 시트 계층 전용 — 매 렌더 최신 room (타임라인 `view` 의존성 고정과 분리 · group-chat-full-fix-design G1) */

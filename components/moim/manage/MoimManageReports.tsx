@@ -12,6 +12,7 @@ import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-ove
 import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimStaffReportDto } from "@/lib/moim/moim-api-types";
+import { moimReportReasonLabel, type MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimManageEmpty,
@@ -37,14 +38,8 @@ const STATUS_KEY: Record<Exclude<MoimStaffReportDto["status"], "active">, Messag
   missing: "moim_manage_reports_status_missing",
 };
 
-function reasonLabel(t: (k: MessageKey) => string, code: string): string {
-  const key = `moim_report_reason_${code}` as MessageKey;
-  const label = t(key);
-  return label === key ? code : label;
-}
-
-function ReportsBody({ moimId }: { moimId: string }) {
-  const { t } = useI18n();
+function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?: readonly MoimPolicyLabelItem[] | null }) {
+  const { t, language } = useI18n();
   const fmt = useMoimDateFormat();
   const toast = useMoimManageToast();
   const load = useCallback(() => moimApi.staffReports(moimId), [moimId]);
@@ -112,7 +107,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
                 </div>
               </div>
               <p className="mt-2 text-[13px] text-sam-muted">
-                {item.reasons.map((r) => `${reasonLabel(t, r.code)} ${r.count}`).join(" · ")}
+                {item.reasons.map((r) => `${moimReportReasonLabel(language, t, r.code, reportReasons)} ${r.count}`).join(" · ")}
               </p>
               <div className="mt-3 flex gap-2">
                 {href ? (
@@ -167,7 +162,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
 export function MoimManageReports({ moimId }: { moimId: string }) {
   return (
     <MoimManageFrame moimId={moimId} titleKey="moim_manage_reports_title" allow={(d) => d.can.hide_post}>
-      {() => <ReportsBody moimId={moimId} />}
+      {({ detail }) => <ReportsBody moimId={moimId} reportReasons={detail.reportReasons} />}
     </MoimManageFrame>
   );
 }

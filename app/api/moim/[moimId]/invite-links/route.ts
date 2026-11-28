@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { guardMoimRead, guardMoimWrite, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { listMoimInviteLinks, loadMoimAccess } from "@/lib/moim/server/moim-queries.server";
+import { moimListCapped } from "@/lib/moim/moim-api-types";
 import { moimInviteLinkCreate } from "@/lib/moim/server/moim-rpc.server";
 
 export const runtime = "nodejs";
@@ -17,7 +18,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!access) return moimNotFound();
   const links = await listMoimInviteLinks(g.sb, access);
   if (!links) return NextResponse.json({ ok: false, error: "moim_forbidden" }, { status: 403 });
-  return NextResponse.json({ ok: true, links });
+  /** R4 #6: 조회 상한 500 — 만료 링크는 DB 에서 거르므로 500행이면 상한에 닿은 것 */
+  return NextResponse.json({ ok: true, links, capped: moimListCapped(links.length) });
 }
 
 /** P4 초대 링크 만들기 — body { expiresAt: ISO | null } */

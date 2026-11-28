@@ -867,7 +867,7 @@ export function moimAdminCategorySave(adminId: string, input: MoimAdminCategoryI
 
 export function moimAdminPoliciesSave(
   adminId: string,
-  patch: Record<string, number | null | string[]>,
+  patch: Record<string, number | null | string[] | readonly object[]>,
   expectedUpdatedAt: string,
   reason: string,
   sb?: SupabaseServer

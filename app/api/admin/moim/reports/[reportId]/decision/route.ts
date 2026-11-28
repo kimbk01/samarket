@@ -4,7 +4,7 @@
  *   expectedStatus: "received"|"reviewing"  — 화면을 연 때의 상태 (다르면 409)
  *   decision: "actioned"|"dismissed", reason(필수)
  *   contentHide?: bool                       — 글·댓글·사진 숨김 / 일정 취소 / 채팅 메시지 숨김 (모임·멤버 대상은 불가)
- *   moimLevel?: "unlist"|"warn"|"block"|null, moimEndsAt?: ISO|null
+ *   moimLevel?: "unlist"|"warn"|"block"|null, moimEndsAt?: ISO|null — 끝나는 날은 추천 제외만 (R4 D-14 · 경고·차단 + 날짜 = 400 moim_sanction_period_not_allowed)
  *   userRestrict?: { who: "target"|"host", restriction: "post"|"comment"|"all", days: number|null(영구) } | null
  *   closeSameTarget?: bool                   — 같은 대상의 다른 열린 신고도 같은 결과로 닫기
  * }
@@ -25,6 +25,7 @@ import {
   MOIM_ADMIN_RESTRICTIONS,
   MOIM_ADMIN_SANCTION_LEVELS,
   isMoimAdminOpenReportStatus,
+  moimAdminLevelAllowsPeriod,
   type MoimAdminReportDecision,
   type MoimAdminRestriction,
   type MoimAdminRestrictWho,
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   let moimEndsAt: string | null = null;
   if (typeof body.moimEndsAt === "string" && body.moimEndsAt.trim()) {
+    if (moimLevel && !moimAdminLevelAllowsPeriod(moimLevel)) return moimAdminBad("moim_sanction_period_not_allowed");
     const ms = Date.parse(body.moimEndsAt);
     if (!moimLevel || !Number.isFinite(ms) || ms <= Date.now()) return moimAdminBad("moim_sanction_period_invalid");
     moimEndsAt = new Date(ms).toISOString();

@@ -16,6 +16,7 @@ import {
   type MoimAdminListRow,
   type MoimAdminListTab,
   type MoimAdminPerson,
+  type MoimAdminPoliciesRow,
   type MoimAdminReportStatus,
   type MoimAdminReportTargetType,
   type MoimAdminSanctionFilter,
@@ -892,7 +893,7 @@ export async function loadAdminMoimPolicies(sb: Sb) {
   const { data, error } = await sb.from("moim_policies").select("*").eq("id", 1).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
   if (!data) return { ok: false as const, error: "policies_missing" };
-  return { ok: true as const, policies: data as Record<string, unknown> & { updated_at: string; banned_words: string[] | null } };
+  return { ok: true as const, policies: data as MoimAdminPoliciesRow };
 }
 
 /** 알림용 — 모임 이름 */

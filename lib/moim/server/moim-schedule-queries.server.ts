@@ -11,6 +11,7 @@ import type {
   MoimScheduleParticipantDto,
   MoimScheduleParticipantStatus,
 } from "@/lib/moim/moim-api-types";
+import { MOIM_LIST_CAP } from "@/lib/moim/moim-api-types";
 import type { MoimAccess } from "@/lib/moim/server/moim-queries.server";
 
 /**
@@ -110,22 +111,36 @@ async function toSchedules(sb: SupabaseServer, access: MoimAccess, viewerId: str
   });
 }
 
-/** 일정 목록 — scope=upcoming(다가오는, 시작 순) | past(지난·취소, 최근 순) */
+/**
+ * 일정 목록 — scope=upcoming(다가오는, 시작 순) | past(지난·취소, 최근 순).
+ * R4 #4·5: 지난 일정은 글 목록과 같은 시각 커서(`starts_at|id`)로 「더 보기」 — `nextBefore` 가 있으면 더 있다.
+ * 다가오는 일정은 한 쪽(상한 안)만 — 홈은 `limit=3` 으로 앞의 3개만 받는다.
+ */
 export async function listMoimSchedules(
   sb: SupabaseServer,
   access: MoimAccess,
   viewerId: string | null,
-  opts: { scope: "upcoming" | "past"; limit?: number }
-): Promise<MoimScheduleDto[] | null> {
+  opts: { scope: "upcoming" | "past"; limit?: number; before?: string | null }
+): Promise<{ items: MoimScheduleDto[]; nextBefore: string | null } | null> {
   if (!access.role) return null;
   const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
+  const cursor = opts.scope === "past" ? parseMoimTimeCursor(opts.before) : null;
+  if (cursor === "invalid") return { items: [], nextBefore: null };
   let q = sb.from("moim_schedules").select(SCHEDULE_COLS).eq("moim_id", access.moim.id);
-  q =
-    opts.scope === "upcoming"
-      ? q.in("status", ["recruiting", "full", "closed"]).order("starts_at", { ascending: true })
-      : q.in("status", ["done", "cancelled"]).order("starts_at", { ascending: false });
-  const { data } = await q.limit(limit);
-  return toSchedules(sb, access, viewerId, (data ?? []) as ScheduleRow[]);
+  if (opts.scope === "upcoming") {
+    const { data } = await q.in("status", ["recruiting", "full", "closed"]).order("starts_at", { ascending: true }).limit(limit);
+    return { items: await toSchedules(sb, access, viewerId, (data ?? []) as ScheduleRow[]), nextBefore: null };
+  }
+  q = q.in("status", ["done", "cancelled"]);
+  if (cursor) q = applyMoimTimeCursor(q, "starts_at", cursor);
+  const { data } = await q.order("starts_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1);
+  const rows = (data ?? []) as ScheduleRow[];
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    items: await toSchedules(sb, access, viewerId, page),
+    nextBefore: rows.length > limit && last ? moimTimeCursorOf(last as ScheduleRow & Record<string, unknown>, "starts_at") : null,
+  };
 }
 
 /** 모임 안 검색 (시안 U4 ⌕ · 감사 F11) — 멤버만, 제목에 검색어가 있는 일정, 최근 시작 순. `pattern` 은 `moimSearchPattern` 결과 */
@@ -203,7 +218,9 @@ export async function listMoimScheduleParticipants(
     .select("user_id, status, motivation, attendance, created_at")
     .eq("schedule_id", schedule.id)
     .in("status", statuses)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    /** R4 #6: 상한 500 — 닿으면 화면이 「N개까지만 보여요」(응답 `participantsCapped`) */
+    .limit(MOIM_LIST_CAP);
   const rows = (data ?? []) as { user_id: string; status: MoimScheduleParticipantStatus; motivation: string | null; attendance: "unknown" | "present" | "absent" }[];
   const people = await members(sb, schedule.moimId, rows.map((r) => r.user_id));
   return rows.map((r) => {

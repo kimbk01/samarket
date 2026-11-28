@@ -149,10 +149,11 @@ export function MoimWriteScreen({ moimId }: { moimId: string }) {
             </div>
           )}
         </div>
-        <input className={moimCls.input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("moim_write_title_placeholder")} aria-label={t("moim_write_title_label")} />
+        <input className={moimCls.input} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={t("moim_write_title_placeholder")} aria-label={t("moim_write_title_label")} />
         <textarea
           className={`${moimCls.textarea} min-h-[200px]`}
           value={body}
+          maxLength={10000}
           onChange={(e) => setBody(e.target.value)}
           placeholder={t("moim_write_body_placeholder")}
           aria-label={t("moim_write_body_label")}
