@@ -28,6 +28,15 @@ import {
 } from "@/lib/push/dispatch/load-active-push-targets";
 import { resolvePushEnvironment, type PushEnvironment } from "@/lib/push/push-environment";
 import type { PreloadedChatPushFacts, PushTarget } from "@/lib/push/dispatch/push-payload-types";
+import {
+  memberUnreadRoomInputsToLoaderInput,
+  type MemberUnreadRoomInputRow,
+} from "@/lib/notifications/member-unread-room-inputs";
+import { loadMessengerUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-messenger-unread-room-facts-from-participants";
+import { loadTradeStoreOrderUnreadRoomFactsFromParticipants } from "@/lib/notifications/load-trade-store-order-unread-room-facts-from-participants";
+import { computeMemberAppIconFromFacts } from "@/lib/notifications/pipeline/build-domain-badge-authority-http";
+import { resolveMemberAppIconTotalForNativeFcm } from "@/lib/notifications/badge-authority-rebuild/native-fcm-member-app-icon-authority";
+import { MEMBER_NOTIFICATION_A_LOAD_LIMIT } from "@/lib/notifications/badge-authority-rebuild/load-member-notification-a-authority";
 
 /**
  * 2026-11-21 메시지 보내기 3단계 — 채팅 푸시 발송 전 사실을 **받는 사람 전원 한 번에** 읽는다.
@@ -266,10 +275,67 @@ async function loadTargetsBatch(
   return out;
 }
 
+/**
+ * 2026-11-22 보내기 3b — 채팅 푸시 앱 아이콘 숫자(A+B)를 받는 사람 전원 묶음 읽기로.
+ * 기존(`fetchDomainBadgeAuthorityPayload(force)`): 사람마다 안 읽은 방 입력 RPC · 안 읽은 알림 행 · 소유 매장(+매장별 RPC).
+ * 여기: 안 읽은 방 입력 표 1번(RPC 와 같은 select *) · 안 읽은 알림 행 DB 함수 1번(같은 조건·정렬·상한) →
+ * 사람마다 기존 로더 + 같은 계산 함수(`computeMemberAppIconFromFacts`). 앱 아이콘에 사장님 운영 수는 들어가지 않으므로 매장은 읽지 않는다.
+ * 읽기 오류면 null → 사람마다 기존 계산.
+ */
+export async function loadPushBadgeTotalsBatch(
+  svc: SupabaseClient<any>,
+  userIds: readonly string[]
+): Promise<Map<string, number> | null> {
+  const ids = [...new Set(userIds.map((u) => trim(u)).filter(Boolean))];
+  if (!ids.length) return new Map();
+  try {
+    const [inputsRes, bellRes] = await Promise.all([
+      svc.from("member_unread_room_inputs").select("*").in("user_id", ids) as unknown as Promise<
+        Res<MemberUnreadRoomInputRow>
+      >,
+      svc.rpc("notification_bell_unread_rows_many", {
+        p_user_ids: ids,
+        p_limit: MEMBER_NOTIFICATION_A_LOAD_LIMIT,
+      }) as unknown as Promise<Res<{ user_id: string; rows: unknown }>>,
+    ]);
+    if (inputsRes.error || bellRes.error || !Array.isArray(bellRes.data)) return null;
+    const inputsByUser = groupBy((inputsRes.data ?? []) as MemberUnreadRoomInputRow[], (r) =>
+      trim((r as { user_id?: unknown }).user_id)
+    );
+    const bellByUser = new Map<string, unknown[]>();
+    for (const r of bellRes.data) bellByUser.set(trim(r.user_id), Array.isArray(r.rows) ? r.rows : []);
+    const out = new Map<string, number>();
+    const revision = Date.now();
+    await Promise.all(
+      ids.map(async (uid) => {
+        const { loaded, orderMaps } = memberUnreadRoomInputsToLoaderInput(inputsByUser.get(uid) ?? []);
+        const [messengerRooms, tradeStoreRooms] = await Promise.all([
+          loadMessengerUnreadRoomFactsFromParticipants(svc as never, uid, loaded),
+          loadTradeStoreOrderUnreadRoomFactsFromParticipants(svc as never, uid, loaded, orderMaps),
+        ]);
+        const appIcon = computeMemberAppIconFromFacts({
+          uid,
+          bellExplainRows: (bellByUser.get(uid) ?? []) as never,
+          messengerRooms,
+          tradeStoreRooms,
+          revision,
+        });
+        out.set(
+          uid,
+          resolveMemberAppIconTotalForNativeFcm({ memberAppIconWebTotal: appIcon.memberAppIconAuthority.appIconTotal })
+        );
+      })
+    );
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadChatPushFactsBatch(
   svc: SupabaseClient<any>,
   rows: readonly NotificationEventRow[],
-  opts?: { nowMs?: number; environment?: PushEnvironment }
+  opts?: { nowMs?: number; environment?: PushEnvironment; skipBadge?: boolean }
 ): Promise<Map<string, PreloadedChatPushFacts> | null> {
   if (!rows.length) return new Map();
   const nowMs = opts?.nowMs ?? Date.now();
@@ -288,10 +354,11 @@ export async function loadChatPushFactsBatch(
       if (live && live.user_id === row.user_id) present.push(live);
     }
     const userIds = [...new Set(present.map((r) => r.user_id))];
-    const [safety, prefs, targets] = await Promise.all([
+    const [safety, prefs, targets, badges] = await Promise.all([
       loadSafetyBatch(svc, present, nowMs),
       loadPreferencesBatch(svc, userIds, new Date(nowMs)),
       loadTargetsBatch(svc, userIds, environment),
+      opts?.skipBadge ? Promise.resolve(null) : loadPushBadgeTotalsBatch(svc, userIds),
     ]);
     if (!safety) return null;
     const out = new Map<string, PreloadedChatPushFacts>();
@@ -306,6 +373,7 @@ export async function loadChatPushFactsBatch(
         safety: safety.get(row.id) ?? { allow: false, reason: "safety_check_failed" },
         preferences: prefs.get(row.user_id) ?? { readFailed: true },
         targets: targets.get(row.user_id) ?? [],
+        ...(badges && badges.has(row.user_id) ? { badgeTotal: badges.get(row.user_id)! } : {}),
       });
     }
     return out;

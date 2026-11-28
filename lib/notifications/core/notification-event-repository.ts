@@ -172,6 +172,16 @@ export async function createNotificationEvent(
     delivered_at: input.deliveredAt ?? new Date().toISOString(),
     dedupe_key: dedupeKey,
     origin_device_id: input.originDeviceId?.trim() || null,
+    /** 2026-11-22 보내기 3b — 인계 대기를 저장과 함께(기존 저장 뒤 갱신과 같은 값) */
+    ...(input.chatPushHandoffPendingNextAt
+      ? {
+          push_handoff_status: "pending",
+          push_handoff_next_at: input.chatPushHandoffPendingNextAt,
+          push_handoff_claimed_at: null,
+          push_handoff_claim_token: null,
+          push_handoff_last_error: null,
+        }
+      : {}),
     ...(chatDomain && domainIdentityKey
       ? { chat_domain: chatDomain, domain_identity_key: domainIdentityKey }
       : {}),
