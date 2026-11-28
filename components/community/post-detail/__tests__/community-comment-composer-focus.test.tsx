@@ -12,9 +12,6 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   useI18n: () => ({ language: "ko", t: (k: string, v?: Record<string, string | number>) => String(translate("ko", k as MessageKey, v) ?? k) }),
 }));
 vi.mock("@/hooks/use-require-auth-action", () => ({ useRequireAuthAction: () => async () => true }));
-vi.mock("@/components/moim/MoimStickyFooter", () => ({
-  MoimStickyFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
 
 import { CommunityCommentComposerBar } from "@/components/community/post-detail/CommunityCommentComposerForm";
 

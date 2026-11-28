@@ -7,6 +7,7 @@ let commentRows: Record<string, unknown>[] = [];
 let commentError: { message: string } | null = null;
 let profileRows: Record<string, unknown>[] = [];
 let blocks = { blockedByMe: new Set<string>(), blockedMe: new Set<string>() };
+let blockReads = 0;
 
 function chain(result: () => { data: unknown; error: unknown }) {
   const c: Record<string, unknown> = {};
@@ -25,7 +26,10 @@ vi.mock("@/lib/chat/supabase-server", () => ({
 }));
 vi.mock("@/lib/social/user-block-ssot", async (orig) => ({
   ...(await orig<typeof import("@/lib/social/user-block-ssot")>()),
-  fetchBlockDirectionsForViewerSb: async () => blocks,
+  fetchBlockDirectionsForViewerSb: async () => {
+    blockReads += 1;
+    return blocks;
+  },
 }));
 vi.mock("@/lib/community/comment-likes.query", () => ({
   fetchLikedCommentIdsSetForUser: async () => new Set<string>(["c1"]),
@@ -59,6 +63,7 @@ beforeEach(() => {
   commentError = null;
   profileRows = [];
   blocks = { blockedByMe: new Set(), blockedMe: new Set() };
+  blockReads = 0;
 });
 
 describe("listCommunityPostComments", () => {
@@ -96,5 +101,15 @@ describe("listCommunityPostComments", () => {
       ["y", "visible"],
     ]);
     expect(comments[0]).toMatchObject({ content: "", user_id: "", author_name: "", like_count: 0 });
+  });
+
+  it("C3: 라우트가 이미 읽은 차단 방향을 넘기면 다시 읽지 않는다 (한 요청 1회)", async () => {
+    commentRows = [base("x"), base("y", { parent_id: "x" })];
+    const handed = { blockedByMe: new Set(["u-x"]), blockedMe: new Set<string>() };
+    const { comments } = await listCommunityPostComments("p1", "viewer", { blocks: handed });
+    expect(blockReads).toBe(0);
+    expect(comments[0]?.display_state).toBe("blocked_author");
+    await listCommunityPostComments("p1", "viewer");
+    expect(blockReads).toBe(1);
   });
 });
