@@ -11,6 +11,8 @@ export type MoimLocalListState = {
   /** 주소 안내 구분 — `no_address` 대표 주소 없음 · `city_unresolved` 시/군 미확정(다시 저장 필요) */
   areaStatus: MoimViewerAreaDto["status"];
   nextBefore: string | null;
+  /** 보는 사람 모임 동네(시/군) 이름 — 없으면 null (R3 U1-local-title) */
+  cityLabel: string | null;
   loadingMore: boolean;
   reload: () => void;
   loadMore: () => void;
@@ -24,6 +26,7 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
   const [hasAddress, setHasAddress] = useState(true);
   const [areaStatus, setAreaStatus] = useState<MoimViewerAreaDto["status"]>("ok");
   const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [cityLabel, setCityLabel] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const seq = useRef(0);
@@ -47,6 +50,7 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
       setHasAddress(r.hasAddress);
       setAreaStatus(r.areaStatus ?? (r.hasAddress ? "ok" : "no_address"));
       setNextBefore(r.nextBefore);
+      setCityLabel((r.cityLabel ?? "").trim() || null);
       setStatus("ready");
     });
   }, [enabled, q.category, q.q, reloadKey]);
@@ -68,5 +72,5 @@ export function useMoimLocalList(q: { category?: string | null; q?: string | nul
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  return { status, items, hasAddress, areaStatus, nextBefore, loadingMore, reload, loadMore };
+  return { status, items, hasAddress, areaStatus, nextBefore, cityLabel, loadingMore, reload, loadMore };
 }

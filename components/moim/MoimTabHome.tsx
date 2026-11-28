@@ -11,6 +11,7 @@ import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimCardDto, MoimCategoryDto } from "@/lib/moim/moim-api-types";
 import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { MoimMineItem } from "@/components/moim/MoimCard";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { MoimLocalList } from "@/components/moim/MoimLocalList";
 import { useMoimLocalList } from "@/components/moim/use-moim-local-list";
 import { moimCategoryLabel, moimCls } from "@/components/moim/moim-ui";
@@ -20,6 +21,12 @@ import { CommunityTradeSwitchRow } from "@/components/layout/CommunityTradeTitle
 import { DIBAY_SECONDARY_TAB_LABEL_CLASS, dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
 import { useFitSectionTabPadding } from "@/lib/ui/use-fit-section-tab-padding";
 import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
+
+/** 동네 모임 제목 — 시/군 이름이 있으면 「{city} 모임」(시안 U1 「Taguig 모임」), 없으면 「우리 동네 모임」 (R3 U1-local-title) */
+export function moimLocalTitle(city: string | null | undefined, t: (k: MessageKey, v?: Record<string, string | number>) => string): string {
+  const c = (city ?? "").trim();
+  return c ? t("moim_home_local_city_title", { city: c }) : t("moim_home_local_title");
+}
 
 /**
  * 모임 탭 홈 /moim (시안 U1) — 내 모임 · 우리 동네 모임 · 모임 만들기.
@@ -118,8 +125,11 @@ export function MoimTabHome() {
       <div className={moimCls.column}>
 
         {inviteCount > 0 ? (
-          <Link href={moimRoutes.invites} className={`${moimCls.noticeInfo} mx-4 mt-3 flex items-center justify-between gap-2`}>
-            <span>{t("moim_home_invites_banner", { count: inviteCount })}</span>
+          <Link
+            href={moimRoutes.invites}
+            className={`${moimCls.noticeInfo} mx-4 mt-3 flex min-h-[length:var(--sam-tap-min)] items-center justify-between gap-2`}
+          >
+            <span>{t(inviteCount === 1 ? "moim_home_invites_banner_one" : "moim_home_invites_banner", { count: inviteCount })}</span>
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
           </Link>
         ) : null}
@@ -141,7 +151,7 @@ export function MoimTabHome() {
 
         <section>
           <div className={moimCls.sectionHead}>
-            <h2 className={moimCls.sectionTitle}>{t("moim_home_local_title")}</h2>
+            <h2 className={moimCls.sectionTitle}>{moimLocalTitle(list.cityLabel, t)}</h2>
             <span className={moimCls.sectionLink}>{t("moim_home_sort_recent")}</span>
           </div>
           {categories && categories.length === 0 && !categoriesFailed ? (
@@ -154,7 +164,7 @@ export function MoimTabHome() {
       <button
         type="button"
         onClick={onCreate}
-        className={`fixed right-4 ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} inline-flex items-center gap-1.5 rounded-full bg-sam-primary px-4 py-2.5 text-[14px] font-bold text-sam-on-primary shadow-lg active:bg-sam-primary-hover`}
+        className={`fixed right-4 ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} inline-flex min-h-[length:var(--sam-tap-min)] items-center gap-1.5 rounded-full bg-sam-primary px-4 py-2.5 text-[14px] font-bold text-sam-on-primary shadow-lg active:bg-sam-primary-hover`}
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
         {t("moim_home_create_cta")}

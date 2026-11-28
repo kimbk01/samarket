@@ -117,7 +117,7 @@ export function AdminMoimDetailPage({ moimId }: { moimId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <MoimStatusBadge value={m.status} />
         <MoimPlatformBadge value={m.platformState} />
-        {info.warnCount ? <AdminToneBadge tone="warning">{t("admin_moim_warn_count", { n: info.warnCount })}</AdminToneBadge> : null}
+        {info.warnCount ? <AdminToneBadge tone="warning">{t(info.warnCount === 1 ? "admin_moim_warn_count_one" : "admin_moim_warn_count", { n: info.warnCount })}</AdminToneBadge> : null}
         <span className="text-[12px] text-sam-muted">{m.id}</span>
         <div className="ml-auto flex flex-wrap gap-2">
           <LifecycleButtons moimId={m.id} status={m.status} name={m.name} onSettled={settle} />

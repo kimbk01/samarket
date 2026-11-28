@@ -66,8 +66,8 @@ describe("버튼 체계 (F1·F2·F3·F4·F6)", () => {
     expect(sched).toContain('className={`${moimCls.btnDanger} w-full`} onClick={cancelSchedule}');
     expect(sched).not.toContain('className={`${moimCls.btnSecondary} w-full`} onClick={cancelSchedule}');
     const member = read("components/moim/MoimMemberView.tsx");
-    expect(member).toContain("<Link href={moimRoutes.scheduleNew(moim.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>");
-    expect(member).toContain("<Link href={moimRoutes.write(moim.id, writeBoard.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>");
+    /** R3 D-31: 위임 배너가 떠 있으면(primaryCtaTaken) 탭 CTA 는 보조 — 그 밖에는 기본 */
+    expect(member.match(/\$\{primaryCtaTaken \? moimCls\.btnSecondary : moimCls\.btnPrimary\} \$\{moimCls\.btnSm\} w-full gap-1\.5/g)?.length).toBe(2);
   });
 });
 
@@ -103,10 +103,11 @@ describe("F5·F7·F8·F9·F10·F12 (구조 확인)", () => {
     expect(post).not.toContain("grid h-8 w-8 shrink-0 place-items-center text-sam-muted");
   });
 
-  it("F12 메신저 목록 배지 4개 = 4px", () => {
+  it("F12 메신저 목록 배지 4개 = pill (R3 W3 — 배지는 pill · D-13)", () => {
     const lines = read("components/community-messenger/MessengerChatListItem.tsx").split("\n").slice(1140, 1190);
     expect(lines.filter((l) => l.includes("sam-text-xxs") && l.includes("rounded-[6px]"))).toHaveLength(0);
-    expect(lines.filter((l) => l.includes("sam-text-xxs") && l.includes("rounded-ui-rect")).length).toBeGreaterThanOrEqual(4);
+    expect(lines.filter((l) => l.includes("sam-text-xxs") && l.includes("rounded-ui-rect"))).toHaveLength(0);
+    expect(lines.filter((l) => l.includes("sam-text-xxs") && l.includes("rounded-full")).length).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -123,7 +124,7 @@ describe("D3 「1 members」", () => {
 describe("D5 모임장 메뉴 (구조 확인)", () => {
   it("모임장은 「나가기」 대신 위임·종료, 다른 역할은 나가기", () => {
     const s = read("components/moim/MoimDetailScreen.tsx");
-    expect(s).toContain('if (isMember && moim.viewer.role === "host") {');
+    expect(s).toContain('const hostMenu = isMember && moim.viewer.role === "host";');
     expect(s).toContain('router.push(moimRoutes.manageTransfer(moim.id))');
     expect(s).toContain('router.push(moimRoutes.manageClose(moim.id))');
     expect(s).toMatch(/\} else if \(isMember\) \{\n\s*items\.push\(\{ key: "leave"/);
@@ -234,7 +235,9 @@ describe("F11 일정 머리글 ⋮·⤴, 멤버 시트 대화하기 (구조 확�
 
   it("멤버 시트 대화하기: 메신저 1:1 시작 API, 자기 자신 제외", () => {
     const s = read(`${MANAGE}/MoimManageMembers.tsx`);
-    expect(s).toContain('fetch("/api/community-messenger/direct/start"');
+    /** R3 U-04 ①: 메신저 1:1 시작은 공용 훅 하나 (모임 멤버 탭과 같은 동작) */
+    expect(s).toContain('import { useMoimDirectMessage } from "@/components/moim/use-moim-direct-message";');
+    expect(read("components/moim/use-moim-direct-message.ts")).toContain('"/api/community-messenger/direct/start"');
     expect(s).toContain("if (myId && m.userId === myId) return [];");
     expect(s).toContain('t("moim_manage_action_message")');
   });

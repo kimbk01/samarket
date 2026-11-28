@@ -271,12 +271,19 @@ export function moimInviteRespond(
   actorId: string,
   inviteTargetId: string,
   accept: boolean,
-  profile?: MoimMemberProfileInput,
+  /** answers: R3 U-13 — 수락이 가입 신청이 되면 DB 가 같은 `p` 를 `moim_join` 에 넘기고, `moim_join` 은 `p->'answers'` 를 읽는다 */
+  profile?: MoimMemberProfileInput & { answers?: string[] },
   sb?: SupabaseServer
 ) {
+  const { answers, ...rest } = profile ?? {};
   return callMoimRpc<{ status: "active" | "pending" | "declined"; moim_id?: string; request_id?: string; nickname?: string }>(
     "moim_invite_respond",
-    { p_actor: actorId, p_invite_target: inviteTargetId, p_accept: accept, p: profilePayload(profile) },
+    {
+      p_actor: actorId,
+      p_invite_target: inviteTargetId,
+      p_accept: accept,
+      p: profilePayload(profile ? rest : undefined, answers !== undefined ? { answers } : undefined),
+    },
     sb
   );
 }

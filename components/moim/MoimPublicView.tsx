@@ -16,15 +16,24 @@ import { MoimScheduleDateBox, formatMoimScheduleCount, formatMoimScheduleShort }
 import { MoimCover, formatMoimCount, moimCls, moimTopicOrCategoryLabel, useMoimBoardLabel } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
-/** 모임 머리 — 사진 · 이름 · 카테고리·동네 · 멤버 수 · 가입 방식 · 소개 (공개·멤버 공통) */
+/**
+ * 모임 머리 — 사진(왼쪽 아래 카테고리·동네 태그) · 이름 · 멤버 수 · 가입 방식 · 소개 (공개 페이지 · 시안 U3).
+ * 태그는 흰 글자 대신 밝은 pill 위 진한 글자(대비 · D-27 · R3 U3-cover-tag).
+ */
 export function MoimHeadBlock({ moim, showIntro = true }: { moim: MoimDetailDto; showIntro?: boolean }) {
   const { t, language } = useI18n();
   const sub = [moimTopicOrCategoryLabel(moim, language), moim.cityLabel].filter(Boolean).join(" · ");
   return (
     <div>
-      <MoimCover url={moim.coverImageUrl} className="h-[140px] w-full" />
+      <div className="relative">
+        <MoimCover url={moim.coverImageUrl} className="h-[140px] w-full" />
+        {sub ? (
+          <span className="absolute bottom-2 left-3 max-w-[calc(100%-24px)] truncate rounded-full bg-sam-surface px-2.5 py-1 text-[12px] font-bold text-sam-fg">
+            {sub}
+          </span>
+        ) : null}
+      </div>
       <div className="border-b border-sam-border bg-sam-surface px-4 py-3">
-        {sub ? <p className="text-[12px] text-sam-muted">{sub}</p> : null}
         <h1 className="break-words text-[18px] font-bold text-sam-fg">{moim.name}</h1>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-sam-muted">
           <span>{formatMoimCount(moim.memberCount, moim.capacity, t)}</span>
@@ -168,8 +177,11 @@ export function MoimPublicView({
                   <MoimScheduleDateBox iso={s.startsAt} />
                   <span className="min-w-0 flex-1">
                     <b className="block break-words text-[14px] text-sam-fg">{s.title}</b>
-                    <span className="block text-[12px] text-sam-muted">
-                      {formatMoimScheduleShort(s.startsAt, language)} · {formatMoimScheduleCount(s.confirmedCount, s.capacity, t)}
+                    {/* 시안 U3 「시각 · 장소 · 인원」 (D-6) */}
+                    <span className="block break-words text-[12px] text-sam-muted">
+                      {[formatMoimScheduleShort(s.startsAt, language), s.placeText, formatMoimScheduleCount(s.confirmedCount, s.capacity, t)]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   </span>
                 </div>

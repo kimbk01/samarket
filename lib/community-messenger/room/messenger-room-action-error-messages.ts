@@ -61,6 +61,15 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_same_owner");
     case "cannot_kick_admin":
       return t("nav_messenger_cannot_kick_admin");
+    /** 모임 방은 모임이 멤버·설정을 관리 — 일반 실패 문구 대신 이유 안내 (모임 R3 U-14) */
+    case "moim_room_membership_managed_by_moim":
+      return t("moim_err_moim_room_membership_managed_by_moim");
+    case "moim_room_settings_managed_by_moim":
+      return t("moim_err_moim_room_settings_managed_by_moim");
+    case "moim_room_owner_immutable":
+      return t("moim_err_moim_room_owner_immutable");
+    case "moim_room_create_requires_moim":
+      return t("moim_err_moim_room_create_requires_moim");
     case "self_kick_forbidden":
       return t("nav_messenger_self_kick_forbidden");
     case "not_group_room":

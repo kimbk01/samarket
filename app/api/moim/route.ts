@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
     hasAddress: area?.dto.status === "ok",
     /** 주소 안내 문구 구분 — 대표 주소 없음 / 시·군 미확정 (로그인 안 함 = no_address) */
     areaStatus: area?.dto.status ?? "no_address",
+    /** 이미 계산한 모임 동네 이름 — 「{city} 모임」 제목 (R3 U1-local-title · 조회 추가 없음) */
+    cityLabel: area?.dto.status === "ok" ? area.dto.cityLabel : null,
   });
 }
 

@@ -79,14 +79,24 @@ export function MoimProfileScreen({ moimId }: { moimId: string }) {
   return (
     <div className={`${moimCls.page} flex flex-col`}>
       <div className={`${moimCls.column} grid flex-1 content-start gap-4 px-4 pb-28 pt-4`}>
-        <div className="flex items-center gap-3">
-          <MoimAvatar url={avatar} name={nickname} size={64} />
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={uploading} className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => fileRef.current?.click()}>
+        {/* 시안 U10: 가운데 72px 아바타 + 아래 「사진 바꾸기」 글자 버튼 · 「사진 지우기」는 같은 줄 두 번째 글자 버튼 (R3 U10-avatar · 둘 다 44px) */}
+        <div className="flex flex-col items-center gap-1">
+          <MoimAvatar url={avatar} name={nickname} size={72} />
+          <div className="flex flex-wrap items-center justify-center gap-x-4">
+            <button
+              type="button"
+              disabled={uploading}
+              className="inline-flex min-h-[length:var(--sam-tap-min)] items-center px-1 text-[13px] font-bold text-sam-primary"
+              onClick={() => fileRef.current?.click()}
+            >
               {uploading ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_profile_photo_btn")}
             </button>
             {avatar ? (
-              <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm}`} onClick={() => setAvatar(null)}>
+              <button
+                type="button"
+                className="inline-flex min-h-[length:var(--sam-tap-min)] items-center px-1 text-[13px] text-sam-muted"
+                onClick={() => setAvatar(null)}
+              >
                 {t("moim_profile_photo_remove_btn")}
               </button>
             ) : null}

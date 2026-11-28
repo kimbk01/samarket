@@ -249,7 +249,7 @@ export function MoimPostsPanel({ moimId, onResult }: { moimId: string; onResult:
                     {r.is_pinned ? <AdminToneBadge tone="progress">{t("admin_moim_pinned")}</AdminToneBadge> : null}
                     <span>{t(r.visibility === "public" ? "admin_moim_visibility_public" : "admin_moim_visibility_members")}</span>
                     <AdminActionButton variant="ghost" size="sm" className="h-auto! px-0!" onClick={() => setPostFilter(r.id)}>
-                      {t("admin_moim_comments_of_post", { n: r.comment_count })}
+                      {t(r.comment_count === 1 ? "admin_moim_comments_of_post_one" : "admin_moim_comments_of_post", { n: r.comment_count })}
                     </AdminActionButton>
                   </div>
                   {r.hidden_reason ? <div className="text-[12px] text-sam-muted">{t("admin_moim_hidden_reason", { reason: r.hidden_reason })}</div> : null}

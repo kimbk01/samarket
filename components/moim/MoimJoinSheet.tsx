@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibaySheetHeader, DibayUsableAreaSheet } from "@/components/ui/dibay-overlay";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
-import { moimCls } from "@/components/moim/moim-ui";
+import { MoimAvatar, moimCls } from "@/components/moim/moim-ui";
+import { inMoimSheet } from "@/components/moim/MoimReportSheet";
 
 export type MoimJoinValues = { answers: string[]; nickname: string; bio: string };
 
 /**
  * 가입 시트 (시안 U3) — 승인제면 질문 답변 + 이 모임에서 쓸 프로필.
- * 초대 수락에도 같은 시트를 쓴다(questions 없이).
+ * 초대 수락에도 같은 시트를 쓴다(수락이 가입 신청이 되는 초대면 질문도 · R3 U-13).
+ * 프로필은 카드(아바타·닉네임·안내·「수정」)로 보이고, 「수정」을 누르면 입력칸이 열린다 (시안 U3 · R3 U3-sheet-profile-card).
+ * 시트 안 버튼·카드·입력 = 12px (R3 U-07).
  */
 export function MoimJoinSheet({
   open,
@@ -36,6 +39,7 @@ export function MoimJoinSheet({
   const [bio, setBio] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const questionCount = questions.length;
   useEffect(() => {
@@ -44,6 +48,7 @@ export function MoimJoinSheet({
     setNickname(defaultNickname?.trim() || getHydrationSafeCurrentUser()?.nickname || "");
     setBio("");
     setError(null);
+    setEditing(false);
   }, [open, questionCount, defaultNickname]);
 
   const valid = nickname.trim().length > 0 && answers.every((a) => a.trim().length > 0);
@@ -65,7 +70,7 @@ export function MoimJoinSheet({
       header={<DibaySheetHeader title={title} onClose={onClose} closeLabel={t("common_close")} />}
       footer={
         <div className="px-4 pb-3 pt-2">
-          <button type="button" className={`${moimCls.btnPrimary} w-full`} disabled={!valid || busy} onClick={submit}>
+          <button type="button" className={`${inMoimSheet(moimCls.btnPrimary)} w-full`} disabled={!valid || busy} onClick={submit}>
             {submitLabel}
           </button>
         </div>
@@ -76,7 +81,7 @@ export function MoimJoinSheet({
           <label key={i} className="grid gap-1.5">
             <span className={moimCls.label}>{q}</span>
             <textarea
-              className={`${moimCls.textarea} min-h-[72px]`}
+              className={`${inMoimSheet(moimCls.textarea)} min-h-[72px]`}
               value={answers[i] ?? ""}
               onChange={(e) => setAnswers((as) => as.map((x, j) => (j === i ? e.target.value : x)))}
               placeholder={t("moim_join_answer_placeholder")}
@@ -85,24 +90,43 @@ export function MoimJoinSheet({
         ))}
         <div className="grid gap-1.5">
           <span className={moimCls.label}>{t("moim_join_profile_title")}</span>
-          <input
-            className={moimCls.input}
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder={t("moim_profile_nickname_placeholder")}
-            aria-label={t("moim_profile_nickname_label")}
-          />
-          <input
-            className={moimCls.input}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder={t("moim_profile_bio_placeholder")}
-            aria-label={t("moim_profile_bio_label")}
-          />
-          <span className={moimCls.hint}>{t("moim_join_profile_hint")}</span>
+          {editing ? (
+            <>
+              <input
+                className={inMoimSheet(moimCls.input)}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder={t("moim_profile_nickname_placeholder")}
+                aria-label={t("moim_profile_nickname_label")}
+              />
+              <input
+                className={inMoimSheet(moimCls.input)}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder={t("moim_profile_bio_placeholder")}
+                aria-label={t("moim_profile_bio_label")}
+              />
+              <span className={moimCls.hint}>{t("moim_join_profile_hint")}</span>
+            </>
+          ) : (
+            <div className={`${inMoimSheet(moimCls.card)} flex items-center gap-2.5 py-1 pl-3 pr-1`}>
+              <MoimAvatar url={null} name={nickname} size={36} />
+              <span className="min-w-0 flex-1">
+                <b className="block break-words text-[13.5px] text-sam-fg">{nickname || t("moim_profile_nickname_placeholder")}</b>
+                <span className={`${moimCls.hint} block`}>{t("moim_join_profile_card_hint")}</span>
+              </span>
+              <button
+                type="button"
+                className="inline-flex min-h-[length:var(--sam-tap-min)] shrink-0 items-center px-3 text-[13px] text-sam-muted"
+                onClick={() => setEditing(true)}
+              >
+                {t("common_edit")}
+              </button>
+            </div>
+          )}
         </div>
-        <p className={moimCls.noticeInfo}>{t("moim_profile_privacy_short")}</p>
-        {error ? <p className={moimCls.noticeBad}>{error}</p> : null}
+        <p className={inMoimSheet(moimCls.noticeInfo)}>{t("moim_profile_privacy_short")}</p>
+        {error ? <p className={inMoimSheet(moimCls.noticeBad)}>{error}</p> : null}
       </div>
     </DibayUsableAreaSheet>
   );

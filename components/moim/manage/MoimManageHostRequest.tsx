@@ -120,18 +120,21 @@ function HostRequestBody({ detail }: { detail: MoimDetailDto }) {
         onChange={(e) => setReason(e.target.value)}
       />
 
-      <MoimStickyFooter className="-mx-4 mt-4">
-        <div className={moimCls.column}>
-          <button
-            type="button"
-            disabled={!selected || busy || sent}
-            className={`${moimCls.btnPrimary} w-full`}
-            onClick={() => setConfirmOpen(true)}
-          >
-            {t("moim_manage_host_request_btn")}
-          </button>
-        </div>
-      </MoimStickyFooter>
+      {/* R3 G-dis-04: 보낸 뒤에는 막힌 버튼 대신 위 안내 줄만 */}
+      {!sent ? (
+        <MoimStickyFooter className="-mx-4 mt-4">
+          <div className={moimCls.column}>
+            <button
+              type="button"
+              disabled={!selected || busy}
+              className={`${moimCls.btnPrimary} w-full`}
+              onClick={() => setConfirmOpen(true)}
+            >
+              {t("moim_manage_host_request_btn")}
+            </button>
+          </div>
+        </MoimStickyFooter>
+      ) : null}
 
       <DibayConfirmDialog
         open={confirmOpen && selected != null}

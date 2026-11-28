@@ -302,13 +302,16 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
               <div key={`${u}-${i}`} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={u} alt="" className="h-full w-full object-cover" />
+                {/* 누름 영역 44px 투명 버튼 안에 지금 모양(24px 원) 그대로 (R3 U-06) */}
                 <button
                   type="button"
-                  className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-sam-surface text-sam-fg shadow"
+                  className="absolute right-0 top-0 grid h-[length:var(--sam-tap-min)] w-[length:var(--sam-tap-min)] items-start justify-items-end p-1"
                   aria-label={t("moim_write_remove_photo_aria")}
                   onClick={() => setImages((xs) => xs.filter((_, j) => j !== i))}
                 >
-                  <X className="h-3.5 w-3.5" aria-hidden />
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-sam-surface text-sam-fg shadow">
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </span>
                 </button>
               </div>
             ))}
@@ -339,7 +342,7 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
                 type="button"
                 role="radio"
                 aria-checked={joinMode === v}
-                className={`flex-1 py-2.5 text-[13px] ${joinMode === v ? "bg-sam-primary-soft font-bold text-sam-primary" : "text-sam-fg"}`}
+                className={`min-h-[length:var(--sam-segment-tab-height)] flex-1 py-2.5 text-[13px] ${joinMode === v ? "bg-sam-primary-soft font-bold text-sam-primary" : "text-sam-fg"}`}
                 onClick={() => setJoinMode(v)}
               >
                 {v === "first_come" ? t("moim_schedule_first_come_segment") : t("moim_schedule_approval_segment")}
@@ -395,14 +398,17 @@ export function MoimSwitch({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-        checked ? "bg-sam-primary" : "bg-sam-border"
-      }`}
+      className="inline-flex min-h-[length:var(--sam-tap-min)] min-w-[length:var(--sam-tap-min)] shrink-0 items-center justify-center disabled:opacity-50"
     >
+      {/* 누름 영역 44px 투명 버튼 안에 51×31 트랙 그대로 (R3 U-06 · 비활성 50% 는 공용 토글과 같게 D-34) */}
       <span
-        className={`inline-block h-[27px] w-[27px] rounded-full bg-sam-surface shadow transition-transform ${checked ? "translate-x-[22px]" : "translate-x-[2px]"}`}
+        className={`relative inline-flex h-[31px] w-[51px] items-center rounded-full transition-colors ${checked ? "bg-sam-primary" : "bg-sam-border"}`}
         aria-hidden
-      />
+      >
+        <span
+          className={`inline-block h-[27px] w-[27px] rounded-full bg-sam-surface shadow transition-transform ${checked ? "translate-x-[22px]" : "translate-x-[2px]"}`}
+        />
+      </span>
     </button>
   );
 }

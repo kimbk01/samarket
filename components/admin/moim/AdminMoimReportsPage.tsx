@@ -348,7 +348,7 @@ function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onCl
             <TargetPreview target={d.target} />
           </section>
           <section className="space-y-1">
-            <h3 className="font-semibold text-sam-fg">{t("admin_moim_report_same_target", { n: d.history.length })}</h3>
+            <h3 className="font-semibold text-sam-fg">{t(d.history.length === 1 ? "admin_moim_report_same_target_one" : "admin_moim_report_same_target", { n: d.history.length })}</h3>
             <ul className="space-y-1">
               {d.history.map((h) => (
                 <li key={h.id} className="rounded-ui-rect border border-sam-border-soft px-2 py-1.5">

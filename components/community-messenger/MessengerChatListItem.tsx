@@ -1149,14 +1149,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           {moimRoomOwner ? (
             <span
               data-cm-list-moim-badge=""
-              className="shrink-0 rounded-ui-rect bg-sam-primary-soft px-1 py-px sam-text-xxs font-semibold text-sam-primary"
+              className={`shrink-0 rounded-full px-1.5 py-px sam-text-xxs font-semibold ${moimRoomOwner.kind === "schedule" ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-primary-soft text-sam-primary"}`}
             >
-              {/* 일정 방 = 「일정」 · 모임 방 = 「모임」 (설계 §2 · 4번 묶음 D2) */}
+              {/* 일정 방 = 「일정」 · 모임 방 = 「모임」 (설계 §2 · 4번 묶음 D2) · 배지 pill(R3 W3) · 일정은 gray 로 모임과 구분(R3 D-25) */}
               {t(moimRoomOwner.kind === "schedule" ? "moim_chat_list_badge_schedule" : "moim_chat_list_badge")}
             </span>
           ) : null}
           {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
-            <span className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
+            <span className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1.5 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
               {tradeItemStateLabel}
             </span>
           ) : null}
@@ -1168,13 +1168,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         ) : null}
         <div className="mt-[3px] flex min-w-0 items-center gap-1">
           {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
-            <span className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
+            <span className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] px-1.5 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
               {deliveryStepLabel}
             </span>
           ) : null}
           {secondaryHint ? (
             <span
-              className="shrink-0 rounded-ui-rect border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-normal"
+              className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] px-1.5 py-px sam-text-xxs font-normal"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
               {secondaryHint}

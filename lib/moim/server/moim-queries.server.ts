@@ -9,6 +9,7 @@ import {
   MOIM_ACTIONS,
   canMoimAction,
   isMoimRole,
+  moimRoleRank,
   type MoimAction,
   type MoimMemberStatus,
   type MoimPlatformState,
@@ -136,6 +137,23 @@ async function viewerMemberships(sb: SupabaseServer, userId: string | null, moim
   return map;
 }
 
+/**
+ * 카드 목록 select — 모임 열 + 모집 중 일정 관계(1행)를 **같은 select 안에서** 읽는다 (R3 U1-card-badge-sched · 추가 요청 0).
+ * 관계 행은 `RECRUITING_EMBED` 관계 필터(모집 중 · 시작 전 · 1행)로만 줄인다 — 모임 행은 걸러지지 않는다.
+ */
+export const MOIM_CARD_COLS = `${MOIM_COLS}, moim_schedules(id)`;
+
+type MoimCardRow = MoimRow & { moim_schedules?: { id: string }[] | null };
+
+/** 관계(일정) 행 필터 — PostgREST 관계 필터라 부모(모임) 행 수는 그대로 (`!inner` 아님): 모집 중 · 시작 전 · 1행 */
+const RECRUITING_EMBED = { table: "moim_schedules", status: "moim_schedules.status", startsAt: "moim_schedules.starts_at" } as const;
+
+/** 카드 「일정 모집 중」 — 같은 select 로 받은 관계 행이 있으면 true (관계를 안 읽은 호출은 false) */
+export function moimRowHasRecruitingSchedule(r: MoimRow): boolean {
+  const rel = (r as MoimCardRow).moim_schedules;
+  return Array.isArray(rel) && rel.length > 0;
+}
+
 async function toCards(sb: SupabaseServer, rows: MoimRow[], viewerId: string | null): Promise<MoimCardDto[]> {
   const [cats, mine] = await Promise.all([
     categoryMap(sb, rows.map((r) => r.category_id)),
@@ -157,11 +175,24 @@ async function toCards(sb: SupabaseServer, rows: MoimRow[], viewerId: string | n
       lastActivityAt: r.last_activity_at,
       viewerStatus: me?.status ?? null,
       viewerRole: me?.status === "active" ? me.role : null,
+      status: r.status,
+      hasRecruitingSchedule: r.status === "active" && moimRowHasRecruitingSchedule(r),
     };
   });
 }
 
-/** 내 모임 (활성 멤버·가입 신청 중) */
+/**
+ * 내 모임에 넣을 모임인가 (R3 U-12 · 계약 P15 「종료된 모임은 멤버만 30일 동안 기록을 볼 수 있고」):
+ * 운영 중 = 활동 멤버·가입 신청 중 · 종료 = 열람 기간이 안 끝났고(`retention_ended_at` 없음) 내가 활동 멤버였던 모임만.
+ * 상세 화면 열람 판정(`canViewMoim` closed 분기)과 같은 조건.
+ */
+export function isMyMoimListed(m: Pick<MoimRow, "status" | "retention_ended_at">, myStatus: MoimMemberStatus | null | undefined): boolean {
+  if (m.status === "active") return myStatus === "active" || myStatus === "pending";
+  if (m.status === "closed") return !m.retention_ended_at && myStatus === "active";
+  return false;
+}
+
+/** 내 모임 (활성 멤버·가입 신청 중 · 열람 기간 안의 종료 모임) */
 export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<MoimCardDto[]> {
   const { data: mem } = await sb
     .from("moim_members")
@@ -170,10 +201,21 @@ export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<M
     .in("status", ["active", "pending"])
     .order("updated_at", { ascending: false })
     .limit(100);
-  const ids = ((mem ?? []) as { moim_id: string }[]).map((m) => m.moim_id);
+  const memRows = (mem ?? []) as { moim_id: string; status: MoimMemberStatus }[];
+  const ids = memRows.map((m) => m.moim_id);
   if (!ids.length) return [];
-  const { data } = await sb.from("moims").select(MOIM_COLS).in("id", ids).eq("status", "active");
-  const rows = ((data ?? []) as MoimRow[]).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  const myStatus = new Map(memRows.map((m) => [m.moim_id, m.status]));
+  const { data } = await sb
+    .from("moims")
+    .select(MOIM_CARD_COLS)
+    .in("id", ids)
+    .or("status.eq.active,and(status.eq.closed,retention_ended_at.is.null)")
+    .eq(RECRUITING_EMBED.status, "recruiting")
+    .gte(RECRUITING_EMBED.startsAt, new Date().toISOString())
+    .limit(1, { referencedTable: RECRUITING_EMBED.table });
+  const rows = ((data ?? []) as MoimRow[])
+    .filter((m) => isMyMoimListed(m, myStatus.get(m.id)))
+    .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   return toCards(sb, rows, userId);
 }
 
@@ -233,13 +275,16 @@ export async function listLocalMoims(
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
   let query = sb
     .from("moims")
-    .select(MOIM_COLS)
+    .select(MOIM_CARD_COLS)
     .eq("lgu_id", opts.lguId)
     .eq("status", "active")
     .eq("platform_state", "normal")
+    .eq(RECRUITING_EMBED.status, "recruiting")
+    .gte(RECRUITING_EMBED.startsAt, new Date().toISOString())
     .order("last_activity_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(limit + 1);
+    .limit(limit + 1)
+    .limit(1, { referencedTable: RECRUITING_EMBED.table });
   if (opts.categoryId) query = query.eq("category_id", opts.categoryId);
   // 운영 정책 inactive_unlist_days: 마지막 활동이 N일 지난 모임은 동네 목록·검색에서 뺀다 (상태 변경 없음 — 활동이 생기면 바로 다시 보임)
   const inactiveDays = await loadMoimInactiveUnlistDays(sb);
@@ -702,24 +747,60 @@ export async function listReceivedMoimInvites(sb: SupabaseServer, userId: string
   const rows = (data ?? []) as { id: string; moim_id: string; inviter_id: string; created_at: string }[];
   if (!rows.length) return [];
   const { data: moims } = await sb.from("moims").select(MOIM_COLS).in("id", rows.map((r) => r.moim_id)).eq("status", "active");
-  /** 감사 E4: 초대한 사람의 모임별 닉네임을 한 번에 (초대 N건이면 N회 → 1회) */
+  /** 감사 E4: 초대한 사람의 모임별 닉네임·역할을 한 번에 (초대 N건이면 N회 → 1회) */
   const [cardList, { data: inviters }] = await Promise.all([
     toCards(sb, (moims ?? []) as MoimRow[], userId),
     sb
       .from("moim_members")
-      .select("moim_id, user_id, nickname")
+      .select("moim_id, user_id, nickname, role, status")
       .in("moim_id", [...new Set(rows.map((r) => r.moim_id))])
       .in("user_id", [...new Set(rows.map((r) => r.inviter_id))]),
   ]);
   const cards = new Map(cardList.map((c) => [c.id, c]));
-  const nickByPair = new Map(
-    ((inviters ?? []) as { moim_id: string; user_id: string; nickname: string }[]).map((m) => [`${m.moim_id}:${m.user_id}`, m.nickname])
+  const inviterByPair = new Map(
+    ((inviters ?? []) as { moim_id: string; user_id: string; nickname: string; role: string | null; status: string | null }[]).map((m) => [
+      `${m.moim_id}:${m.user_id}`,
+      m,
+    ])
   );
+  /**
+   * R3 U-13: 승인제 모임에서 운영진 미만이 보낸 초대는 DB(`moim_invite_respond` → `moim_join`)가 가입 신청으로 받는다 → 가입 질문 답이 필요하다.
+   * 운영진 이상(활동 멤버)이 보낸 초대는 바로 가입이라 질문을 묻지 않는다. 질문은 필요한 모임만 1회 묶음 조회.
+   */
+  const needsAnswers = (r: (typeof rows)[number]): boolean => {
+    const card = cards.get(r.moim_id);
+    if (!card || card.joinMode !== "approval") return false;
+    const inviter = inviterByPair.get(`${r.moim_id}:${r.inviter_id}`);
+    const role = inviter && inviter.status === "active" && isMoimRole(inviter.role) ? inviter.role : null;
+    return !role || moimRoleRank(role) < moimRoleRank("staff");
+  };
+  const questionMoimIds = [...new Set(rows.filter(needsAnswers).map((r) => r.moim_id))];
+  const questionsByMoim = new Map<string, string[]>();
+  if (questionMoimIds.length) {
+    const { data: qs } = await sb
+      .from("moim_join_questions")
+      .select("moim_id, question, sort_order")
+      .in("moim_id", questionMoimIds)
+      .order("sort_order");
+    for (const q of ((qs ?? []) as { moim_id: string; question: string; sort_order: number }[])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)) {
+      const list = questionsByMoim.get(q.moim_id) ?? [];
+      list.push(q.question);
+      questionsByMoim.set(q.moim_id, list);
+    }
+  }
   const out: MoimReceivedInviteDto[] = [];
   for (const r of rows) {
     const card = cards.get(r.moim_id);
     if (!card) continue;
-    out.push({ id: r.id, moim: card, inviterNickname: nickByPair.get(`${r.moim_id}:${r.inviter_id}`) ?? "", createdAt: r.created_at });
+    out.push({
+      id: r.id,
+      moim: card,
+      inviterNickname: inviterByPair.get(`${r.moim_id}:${r.inviter_id}`)?.nickname ?? "",
+      createdAt: r.created_at,
+      joinQuestions: needsAnswers(r) ? questionsByMoim.get(r.moim_id) ?? [] : [],
+    });
   }
   return out;
 }
