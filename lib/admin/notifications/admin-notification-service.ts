@@ -17,6 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";
+import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_NOTIFICATION_RETENTION_DAYS,
@@ -61,6 +62,17 @@ export async function resolveAdminRecipientAuthority(
   const role = await resolveEffectiveAdminRole(sb, userId);
   if (!role || !isPrivilegedAdminRole(role)) return { active: false };
   const isSuperAdmin = isSuperAdminRole(role);
+  // 재감사 5: 정지된 운영자(최고관리자 제외)는 관리자 경로가 막혀 문의를 열 수 없다(앱 `isSuspendedNonSuperAdminActor`) —
+  // 알림 받는 사람·담당자로도 보지 않는다(정지 담당자 = 「받을 수 없는 담당자 → 해제 + 전원」 경로).
+  // 프로필을 못 읽으면 정지가 아닌 것으로 본다(알림을 끊지 않는 쪽 · 화면은 관리자 API 가 막는다).
+  if (!isSuperAdmin) {
+    const { data: profile, error: profileErr } = await sb.from("profiles").select("status").eq("id", userId).maybeSingle();
+    if (profileErr) {
+      console.error("[admin-notification] recipient_profile_read_failed", { userId, error: profileErr.message });
+    } else if (isSuspendedMemberAccount(profile as { status?: string | null } | null)) {
+      return { active: false };
+    }
+  }
   const permissions = await loadEffectiveStaffPermissions(sb, userId, role, membership.admin_tier ?? null);
   return { active: true, isSuperAdmin, permissions };
 }

@@ -16,6 +16,11 @@ import { loadSupportCustomerMessageAnswers } from "@/lib/support/support-admin-w
  * - 보내기 직전 판정·글쓴이 제외는 앱 즉시 발송(`notifyAdminsOfCustomerMessage`)과 같다(이미 답 받은 글이면 보내지 않음).
  * - 실패는 기록만(권한 저장은 이미 끝남). 돌려준 값 = 다시 알린 글 수.
  */
+/** 재감사 7: 한 번에 다시 알리는 글 수 · 동시 발송 수 · id 목록 나누기 */
+export const RENOTIFY_MAX_MESSAGES = 200;
+const RENOTIFY_CONCURRENCY = 5;
+const ID_CHUNK = 100;
+
 export async function renotifyReleasedSupportCases(sb: SupabaseClient, caseIds: readonly string[]): Promise<number> {
   const ids = [...new Set(caseIds.map((s) => String(s).trim()).filter(Boolean))].slice(0, 200);
   if (ids.length === 0) return 0;
@@ -28,8 +33,15 @@ export async function renotifyReleasedSupportCases(sb: SupabaseClient, caseIds: 
     console.error("[support] released_renotify_cases_failed", { error: error.message });
     return 0;
   }
-  let sent = 0;
+  // 재감사 7: 한 번에 다시 알리는 글 수 상한 + 동시 5개 — 문의·글이 많아도 응답 뒤 작업이 시간 제한에 끊기지 않게
+  type Job = { c: SupportCaseRow; id: string; body: string; actor: string; isFirst: boolean };
+  const jobs: Job[] = [];
+  let capped = false;
   for (const c of (cases ?? []) as SupportCaseRow[]) {
+    if (jobs.length >= RENOTIFY_MAX_MESSAGES) {
+      capped = true;
+      break;
+    }
     const answers = await loadSupportCustomerMessageAnswers(sb, { caseId: c.id });
     if (!answers) {
       console.error("[support] released_renotify_message_failed", { caseId: c.id });
@@ -39,34 +51,52 @@ export async function renotifyReleasedSupportCases(sb: SupabaseClient, caseIds: 
     // 제목 「새 고객 문의」 = 그 문의의 첫 고객 글(목록은 최신 먼저 — 마지막이 가장 오래된 글 · L9 와 같은 뜻)
     const firstId = answers.customers[answers.customers.length - 1]?.id ?? "";
     if (pending.length === 0) continue;
-    const { data: bodies, error: bErr } = await sb
-      .from("support_messages")
-      .select("id, body, sender_user_id, created_at")
-      .eq("case_id", c.id)
-      .in("id", pending);
-    if (bErr) {
-      console.error("[support] released_renotify_message_failed", { caseId: c.id, error: bErr.message });
-      continue;
-    }
-    // 오래된 글부터(알림함 순서 = 고객이 쓴 순서)
-    const rows = ((bodies ?? []) as { id: string; body?: string; sender_user_id?: string | null; created_at?: string }[])
-      .slice()
-      .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
-    for (const m of rows) {
-      try {
-        await notifyAdminsOfCustomerMessage(sb, {
-          // 담당이 풀린 뒤 상태 — 전원 발송 경로로 간다
-          caseRow: { ...c, assigned_admin_id: null },
-          messageId: m.id,
-          body: String(m.body ?? ""),
-          actorUserId: String(m.sender_user_id ?? ""),
-          isNewCase: m.id === firstId,
-        });
-        sent += 1;
-      } catch (e) {
-        console.error("[support] released_renotify_failed", { caseId: c.id, error: (e as Error).message });
+    const rows: { id: string; body?: string; sender_user_id?: string | null; created_at?: string }[] = [];
+    let readFailed = false;
+    for (let i = 0; i < pending.length; i += ID_CHUNK) {
+      const { data: bodies, error: bErr } = await sb
+        .from("support_messages")
+        .select("id, body, sender_user_id, created_at")
+        .eq("case_id", c.id)
+        .in("id", pending.slice(i, i + ID_CHUNK));
+      if (bErr) {
+        console.error("[support] released_renotify_message_failed", { caseId: c.id, error: bErr.message });
+        readFailed = true;
+        break;
       }
+      rows.push(...((bodies ?? []) as typeof rows));
     }
+    if (readFailed) continue;
+    // 오래된 글부터(알림함 순서 = 고객이 쓴 순서)
+    rows.sort((x, y) => String(x.created_at ?? "").localeCompare(String(y.created_at ?? "")));
+    for (const m of rows) {
+      if (jobs.length >= RENOTIFY_MAX_MESSAGES) {
+        capped = true;
+        break;
+      }
+      jobs.push({ c, id: m.id, body: String(m.body ?? ""), actor: String(m.sender_user_id ?? ""), isFirst: m.id === firstId });
+    }
+  }
+  if (capped) console.error("[support] released_renotify_capped", { max: RENOTIFY_MAX_MESSAGES, cases: ids.length });
+  let sent = 0;
+  for (let i = 0; i < jobs.length; i += RENOTIFY_CONCURRENCY) {
+    await Promise.all(
+      jobs.slice(i, i + RENOTIFY_CONCURRENCY).map(async (j) => {
+        try {
+          await notifyAdminsOfCustomerMessage(sb, {
+            // 담당이 풀린 뒤 상태 — 전원 발송 경로로 간다
+            caseRow: { ...j.c, assigned_admin_id: null },
+            messageId: j.id,
+            body: j.body,
+            actorUserId: j.actor,
+            isNewCase: j.isFirst,
+          });
+          sent += 1;
+        } catch (e) {
+          console.error("[support] released_renotify_failed", { caseId: j.c.id, error: (e as Error).message });
+        }
+      })
+    );
   }
   return sent;
 }

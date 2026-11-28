@@ -85,7 +85,8 @@ type Deferred = { resolve: (body: unknown, status?: number) => void };
 type Call = { url: string; method: string; body: Record<string, unknown> | null };
 let calls: Call[] = [];
 let pendingDetail: Record<string, Deferred[]> = {};
-let patchResponder: (call: Call) => { status: number; body: unknown } = () => ({ status: 200, body: { ok: true } });
+type PatchResult = { status: number; body: unknown };
+let patchResponder: (call: Call) => PatchResult | Promise<PatchResult> = () => ({ status: 200, body: { ok: true } });
 
 function jsonResponse(body: unknown, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
@@ -100,7 +101,7 @@ beforeEach(() => {
   pendingDetail = {};
   patchResponder = () => ({ status: 200, body: { ok: true } });
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = String(input);
     const method = String(init?.method ?? "GET").toUpperCase();
     const call: Call = { url, method, body: init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null };
@@ -110,7 +111,7 @@ beforeEach(() => {
     }
     const m = /^\/api\/admin\/support\/cases\/([^/?]+)$/.exec(url);
     if (m && method === "PATCH") {
-      const r = patchResponder(call);
+      const r = await patchResponder(call);
       return jsonResponse(r.body, r.status);
     }
     if (m) {
@@ -340,5 +341,120 @@ describe("U12 · U10 (구조 확인)", () => {
     expect(q("[data-admin-support-send]")?.className).toContain("min-h-11");
     expect(q("[data-admin-support-resolve]")?.className).toContain("min-h-11");
     expect(q("[data-admin-support-send]")?.className).toContain("lg:min-h-0");
+  });
+});
+
+/** 저장(PATCH) 응답을 손으로 풀기 */
+function deferredPatch() {
+  let release: (r: PatchResult) => void = () => {};
+  const p = new Promise<PatchResult>((r) => {
+    release = r;
+  });
+  patchResponder = () => p;
+  return async (r: PatchResult) => {
+    await act(async () => {
+      release(r);
+    });
+    await flush();
+  };
+}
+
+const draftValue = () => q<HTMLTextAreaElement>("[data-admin-support-composer] textarea")?.value ?? null;
+
+describe("PR #687 재감사 1·2·3 — A 저장 중 B 로 바꾸면 B 가 멈추지 않고, A 결과가 B 에 섞이지 않는다 (동작)", () => {
+  it("1: A 저장 끝난 뒤 B 상세가 그려진다(A 다시 읽기로 B 응답이 버려지지 않음)", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    await typeDraft("answer A");
+    const finishPatch = deferredPatch();
+    await click(q("[data-admin-support-send]"));
+    await click(q('[data-admin-support-row="B"]'));
+    await finishPatch({ status: 200, body: { ok: true } });
+    // 저장 뒤 A 상세를 다시 읽지 않는다
+    expect(pendingDetail.A ?? []).toHaveLength(0);
+    await resolveDetail("B");
+    expect(centerText()).toContain("SP-B");
+    expect(centerText()).toContain("msg of B");
+  });
+
+  it("2: A 저장 실패 문구가 B 화면에 뜨지 않는다", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    await typeDraft("answer A");
+    const finishPatch = deferredPatch();
+    await click(q("[data-admin-support-send]"));
+    await click(q('[data-admin-support-row="B"]'));
+    await resolveDetail("B");
+    await finishPatch({ status: 400, body: { ok: false, error: "status_conflict" } });
+    expect(centerText()).toContain("SP-B");
+    expect(host!.textContent ?? "").not.toContain("admin_support_error_status_conflict");
+  });
+
+  it("3: A 답변 성공이 B 에 쓰던 답을 지우지 않는다", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    await typeDraft("answer A");
+    const finishPatch = deferredPatch();
+    await click(q("[data-admin-support-send]"));
+    await click(q('[data-admin-support-row="B"]'));
+    await resolveDetail("B");
+    await typeDraft("draft for B");
+    await finishPatch({ status: 200, body: { ok: true } });
+    // (수정 전 코드는 여기서 A 를 다시 읽으며 기다린다 — 그 응답도 풀어 저장 흐름을 끝까지 돌린다)
+    if (pendingDetail.A?.length) await resolveDetail("A");
+    await flush();
+    expect(draftValue()).toBe("draft for B");
+  });
+});
+
+describe("PR #687 재감사 6 — 글 INSERT 이벤트로는 목록을 다시 읽지 않는다 (동작)", () => {
+  it("열린 문의 상세만 다시 읽고 목록 GET 은 없다", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    const listCalls = () => calls.filter((c) => c.url.startsWith("/api/admin/support/cases?")).length;
+    const before = listCalls();
+    await act(async () => {
+      dispatchAdminSupportMessageInsert({ caseId: "A", senderAdminId: null });
+      dispatchAdminSupportMessageInsert({ caseId: "B", senderAdminId: null });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    await flush();
+    expect(listCalls()).toBe(before);
+    expect(pendingDetail.A?.length).toBe(1);
+  });
+});
+
+describe("PR #687 재감사 8 — 답을 쓰는 사이 새 고객 글이 화면에 나타나면 알린다 (동작)", () => {
+  it("쓰는 중 + 다시 읽기에 새 고객 글 → 안내 · 쓰는 중 아니면 안내 없음", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    await typeDraft("writing…");
+    await act(async () => {
+      dispatchAdminSupportMessageInsert({ caseId: "A", senderAdminId: null });
+    });
+    await flush();
+    const d = pendingDetail.A?.shift();
+    expect(d).toBeTruthy();
+    await act(async () => {
+      d!.resolve({
+        ok: true,
+        case: caseRow("A", { last_message_at: "2026-11-28T03:00:00Z" }),
+        messages: [
+          { id: "m-A", case_id: "A", sender_type: "USER", message_type: "PUBLIC", body: "msg of A", created_at: "2026-11-28T00:00:00Z", sender_admin_id: null, deleted_at: null, edited_at: null },
+          { id: "m-A2", case_id: "A", sender_type: "MEMBER", message_type: "PUBLIC", body: "new from customer", created_at: "2026-11-28T03:00:00Z", sender_admin_id: null, deleted_at: null, edited_at: null },
+        ],
+        followupIssues: [],
+      });
+    });
+    await flush();
+    expect(centerText()).toContain("new from customer");
+    expect(host!.textContent ?? "").toContain("admin_support_notice_unseen_customer_messages");
   });
 });

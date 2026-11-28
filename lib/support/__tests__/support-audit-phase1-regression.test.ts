@@ -1557,6 +1557,42 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     }
   });
 
+  it("재감사 7: re-notify after release is capped (200 messages) and id lists are read in chunks of 100", async () => {
+    const caseOpen = randomUUID();
+    const msgs = Array.from({ length: 250 }, (_, i) => ({
+      id: `m-${String(i).padStart(3, "0")}`,
+      case_id: caseOpen,
+      sender_type: "MEMBER",
+      sender_user_id: U,
+      message_type: "PUBLIC",
+      body: `b${i}`,
+      created_at: new Date(Date.UTC(2026, 11, 2) + i * 1000).toISOString(),
+      deleted_at: null,
+    }));
+    const { sb } = makeDb({
+      support_cases: [{ id: caseOpen, public_case_no: "SC-9", status: "WAITING_ADMIN", assigned_admin_id: ADMIN, requester_user_id: U, audience: "MEMBER" }],
+      support_messages: msgs,
+    });
+    const inSizes: number[] = [];
+    const origFrom = (sb as { from: (t: string) => Record<string, unknown> }).from;
+    (sb as { from: unknown }).from = (t: string) => {
+      const b = origFrom(t) as { in: (c: string, v: unknown[]) => unknown };
+      const origIn = b.in;
+      b.in = (c: string, v: unknown[]) => {
+        if (t === "support_messages" && c === "id") inSizes.push(v.length);
+        return origIn(c, v);
+      };
+      return b;
+    };
+    adminNotifyCalls.length = 0;
+    const { renotifyReleasedSupportCases, RENOTIFY_MAX_MESSAGES } = await import("@/lib/support/support-released-case-renotify");
+    const sent = await renotifyReleasedSupportCases(sb, [caseOpen]);
+    expect(RENOTIFY_MAX_MESSAGES).toBe(200);
+    expect(sent).toBe(200);
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied")).toHaveLength(200);
+    expect(Math.max(...inSizes)).toBeLessThanOrEqual(100);
+  });
+
   it("L5: the assignee is the author (admin asked as a member) → every other support admin, not the author", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");

@@ -344,6 +344,6 @@ describe("재감사 D1-b — 답을 쓰는 사이 고객 글이 더 왔다는 �
   });
   it("(구조 확인) patchCase 가 unseenCustomerMessages > 0 이면 안내를 띄운다", () => {
     const src = read(PAGE);
-    expect(src).toContain('if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");');
+    expect(src).toContain('if (stillOpen && Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");');
   });
 });

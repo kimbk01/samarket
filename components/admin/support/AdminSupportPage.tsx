@@ -313,6 +313,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const [composerMode, setComposerMode] = useState<"public" | "internal">("public");
   const [draft, setDraft] = useState("");
+  /** 재감사 8: 실시간 다시 읽기 때 직전 상세·쓰는 중인 답과 비교 */
+  const detailRef = useRef<AdminSupportLoadedDetail | null>(null);
+  const draftRef = useRef("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -388,6 +391,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         setError(json.error ?? "load_failed");
         return;
       }
+      // 재감사 8: 답을 쓰는 동안 같은 문의에 새 고객 글이 화면에 나타나면 알린다(보낼 때 화면에 보이던 글 = 본 글)
+      const prev = detailRef.current;
+      if (prev && prev.caseId === caseId && draftRef.current.trim()) {
+        const known = new Set(prev.messages.map((m) => m.id));
+        const arrived = (json.messages ?? []).some(
+          (m) => !known.has(m.id) && m.message_type === "PUBLIC" && m.sender_type !== "ADMIN"
+        );
+        if (arrived) setError("reply_unseen_customer_messages");
+      }
       setDetail({
         caseId,
         case: json.case,
@@ -454,6 +466,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   useEffect(() => {
     activeIdRef.current = activeId;
     shownCaseIdRef.current = activeCase?.id ?? null;
+    detailRef.current = detail;
+    draftRef.current = draft;
     loadListRef.current = loadList;
     casesRef.current = cases;
     tabRef.current = tab;
@@ -500,7 +514,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       // 점검 H1: 열린 문의만 다시 읽고, 응답은 loadDetail 의 순번·문의 대조를 거친다
       const open = activeIdRef.current;
       if (open && caseId === open) void loadDetail(open);
-      scheduleList();
+      // 재감사 6: 목록 값(상태·마지막 글·미읽음)은 같은 트랜잭션의 support_cases UPDATE 로 오고 아래에서 거른다 — 여기서 목록을 다시 읽지 않는다
     });
     const channel = sb
       .channel("admin-support-queue", privateRealtimeChannelOptions())
@@ -559,21 +573,23 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         body: JSON.stringify(payload),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; unseenCustomerMessages?: number };
+      // 재감사 1·2: 그사이 다른 문의를 눌렀으면 저장한 문의의 상세를 다시 읽지 않고(열린 문의 응답이 버려져 멈춤) 결과 문구도 띄우지 않는다
+      const stillOpen = activeIdRef.current === writeCaseId;
       if (!res.ok || !json.ok) {
         const code = json.error ?? "action_failed";
         // 점검 M6: 본 뒤에 문의가 바뀌었다(고객 새 글 등) — 상세를 다시 읽고 안내를 남긴다
-        if (code === "case_updated") await loadDetail(writeCaseId);
-        setError(code);
+        if (stillOpen && code === "case_updated") await loadDetail(writeCaseId);
+        if (stillOpen) setError(code);
         return false;
       }
-      await loadDetail(writeCaseId);
+      if (stillOpen) await loadDetail(writeCaseId);
       await loadList();
       // 재감사 D1-b: 답을 쓰는 사이 고객 글이 더 왔다 — 문의는 「답변 필요」에 남았다는 것을 알린다
-      if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
+      if (stillOpen && Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
       return true;
     } catch {
       // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
-      setError("network_error");
+      if (activeIdRef.current === writeCaseId) setError("network_error");
       return false;
     } finally {
       ownWriteRef.current = { caseId: writeCaseId, until: Date.now() + ADMIN_SUPPORT_OWN_WRITE_GRACE_MS };
@@ -611,11 +627,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const sendComposer = async () => {
     const text = draft.trim();
     if (!text || !activeCase) return;
+    const sentCaseId = activeCase.id;
     const ok =
       composerMode === "public"
         ? await patchCase(buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at), activeCase.id)
         : await patchCase({ action: "reply", body: text, internalNote: true }, activeCase.id);
-    if (ok) setDraft("");
+    // 재감사 3: 그사이 다른 문의로 바꿨으면 그 문의에 쓰는 답을 지우지 않는다
+    if (ok && activeIdRef.current === sentCaseId) setDraft("");
   };
 
   const filtersActive =

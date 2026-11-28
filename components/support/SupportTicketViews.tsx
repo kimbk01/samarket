@@ -1009,7 +1009,7 @@ export function SupportTicketDetail({
   onClose: () => void;
   /** 「확인했어요」 성공 — 쓰기 화면에서 연 상세면 쓰기 화면으로, 아니면 닫기 (M2) */
   onClosedByRequester: () => void;
-  /** 종료+안 읽은 답변 「확인」 — 위와 같은 규칙 (M2). 없으면 닫기 */
+  /** 종료+안 읽은 답변 「확인」·답변 대기 「확인」 — 위와 같은 규칙 (M2 · 재감사 4). 없으면 닫기 */
   onDone?: () => void;
   onNewInquiry: (fromCase: { audience: "MEMBER" | "OWNER"; ownerStoreId: string | null } | null) => void;
   onUnauthorized: () => void;
@@ -1351,7 +1351,7 @@ export function SupportTicketDetail({
               </div>
             </>
           ) : (
-            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} data-support-ticket-ok="waiting" onClick={onClose}>
+            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} data-support-ticket-ok="waiting" onClick={onDone ?? onClose}>
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           )}

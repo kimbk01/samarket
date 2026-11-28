@@ -294,6 +294,15 @@ describe("M2 진행 중 상세의 「확인했어요」·「확인」 → 쓰기
     expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("쓰던 글");
   });
 
+  it("재감사 4: 답변 대기 상세 「확인」 → 쓰기 화면 · 입력 그대로", async () => {
+    await openDetailFromCompose(() => ({ ok: true, case: caseRow({ status: "WAITING_ADMIN", requester_unread_count: 0 }), messages: [questionMsg] }));
+    click(q('[data-support-ticket-ok="waiting"]'));
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(q('[data-support-ticket-view="detail"]')).toBeNull();
+    expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("쓰던 글");
+  });
+
   it("직접 연 상세(푸시·목록)의 확인했어요 → 닫기(그대로)", async () => {
     route = (url, init) =>
       url.startsWith("/api/support/cases/c1")
