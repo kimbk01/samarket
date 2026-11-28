@@ -976,4 +976,38 @@ describe("재감사 2차 2 — 어드민 답변 replay 는 고객 알림을 보�
     expect(db.notification_events.filter((n) => n.dedupe_key === key)).toHaveLength(1);
     expect(db.support_messages.filter((m) => m.sender_type === "ADMIN")).toHaveLength(1);
   });
+
+  it("3차 재감사 D4: 첫 요청이 저장 뒤 「답변 정리」 전에 끊겼다(본 시각 기록 없음 · 상태 WAITING_USER) → 재전송이 응답 뒤에 정리를 다시 해 답 못 받은 고객 글이 「답변 필요」로", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    const seenFirst = String(db.support_cases[0].last_message_at);
+    const later = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "답 쓰는 사이 온 글" });
+    if (!later.ok) throw new Error(later.error);
+    await flush();
+    const rid = randomUUID();
+    const r1 = await adminReplySupportCase(sb, {
+      adminUserId: ADMIN,
+      caseId: a.case.id,
+      body: "답",
+      clientRequestId: rid,
+      seenLastMessageAt: seenFirst,
+    });
+    if (!r1.ok) throw new Error(r1.error);
+    await flush();
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+    // 끊김 흉내: DB 함수만 커밋(WAITING_USER) · 정리(본 시각 기록·상태 맞춤) 없음
+    db.support_case_events = db.support_case_events.filter((e) => e.event_type !== "admin_reply_seen");
+    db.support_cases[0].status = "WAITING_USER";
+    const r2 = await adminReplySupportCase(sb, {
+      adminUserId: ADMIN,
+      caseId: a.case.id,
+      body: "답",
+      clientRequestId: rid,
+      seenLastMessageAt: seenFirst,
+    });
+    expect(r2.ok && r2.replayed).toBe(true);
+    await settle();
+    expect(db.support_case_events.filter((e) => e.event_type === "admin_reply_seen")).toHaveLength(1);
+    expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+  });
 });
