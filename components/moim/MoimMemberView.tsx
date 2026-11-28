@@ -9,7 +9,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
@@ -460,13 +460,13 @@ function MoimMembersTab({ moim, onReport, onToast }: { moim: MoimDetailDto; onRe
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [target, setTarget] = useState<MoimMemberDto | null>(null);
-  const [myId, setMyId] = useState<string | null>(null);
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-member-view");
   const { openMessage, messaging } = useMoimDirectMessage({
     onError: (m) => onToast(m, "error"),
     onOpened: () => setTarget(null),
   });
 
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
 
   useEffect(() => {
     let alive = true;

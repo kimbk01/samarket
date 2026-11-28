@@ -1,9 +1,9 @@
 "use client";
 
 import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { Ban, LogOut, MessageCircle, MoreVertical, PenLine, Star, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -130,8 +130,8 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
   }, []);
 
   const router = useRouter();
-  const [myId, setMyId] = useState<string | null>(null);
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-manage-members");
   /** 시안 U7 「✉ 대화하기」 (감사 F11) — 모임 공용 1:1 시작 훅 (R3 U-04 ①) */
   const { openMessage } = useMoimDirectMessage({
     onError: (message) => toast.show(message, "error"),
