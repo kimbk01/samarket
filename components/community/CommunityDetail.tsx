@@ -54,6 +54,11 @@ import {
 import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
 import { CommunityCommentComposerBar } from "./post-detail/CommunityCommentComposerForm";
 import { CommunityReportSheet } from "./post-detail/CommunityReportSheet";
+import {
+  COMMUNITY_DETAIL_KB_ARTICLE_CLASS,
+  COMMUNITY_DETAIL_KB_ROOT_CLASS,
+  CommunityDetailKeyboardSpacer,
+} from "./post-detail/community-detail-keyboard";
 import type { CommunityReportReasonCode } from "@/lib/reports/community-report-reasons";
 import { COMMUNITY_COMMENT_QUERY_KEY } from "@/lib/community/share/community-share-url";
 import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
@@ -524,7 +529,7 @@ export function CommunityDetail({
   }, [me, post.author_id]);
 
   return (
-    <div className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
+    <div className={`community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))] ${COMMUNITY_DETAIL_KB_ROOT_CLASS}`}>
       <CommunityPostDetailHeader
         titleText={tier1Title}
         backHref={backToFeedHref}
@@ -532,7 +537,7 @@ export function CommunityDetail({
         onShare={communityShare.share}
       />
 
-      <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
+      <article ref={articleRef} className={`w-full min-w-0 px-4 pb-6 ${COMMUNITY_DETAIL_KB_ARTICLE_CLASS}`}>
         <div className="mx-auto max-w-3xl">
           <CommunityCard>
           <CommunityPostCategoryRow
@@ -674,6 +679,7 @@ export function CommunityDetail({
             <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
         </div>
       </article>
+      <CommunityDetailKeyboardSpacer />
 
       <CommunityReportSheet
         open={reportOpen}
