@@ -49,7 +49,13 @@ import {
   openSupportModal,
 } from "@/lib/support/support-modal-controller";
 import { buildGenericSupportTriageContext } from "@/lib/support/support-context";
-import { readSupportTicketDraft, supportTicketDraftKey } from "@/lib/support/support-ticket-form";
+import {
+  initSupportTicketForm,
+  readSupportTicketDraft,
+  setSupportTicketBody,
+  supportTicketDraftKey,
+  writeSupportTicketDraft,
+} from "@/lib/support/support-ticket-form";
 import { supportPrimaryCtaToneClass } from "@/lib/support/support-owner-cta";
 
 const src = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
@@ -214,6 +220,21 @@ describe("M1 기기 ◁ = 화면 ‹ 와 같이 한 단계 뒤로 (동작)", () 
     expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("쓰던 글");
   });
 
+  it("병합 전 L1: 진행 중 상세의 추가 문의 입력 중 화면 ‹ → 입력 칸만 닫힘(◁ 와 같음) · 한 번 더 ‹ → 쓰기 화면", async () => {
+    await openDetailFromCompose(() => ({ ok: true, case: caseRow(), messages: [questionMsg, answerMsg()] }));
+    click(q('[data-support-ticket-followup-open="1"]'));
+    await flush();
+    expect(q('[data-support-ticket-followup="1"]')).not.toBeNull();
+    click(q('[data-support-ticket-view="detail"] [data-support-ticket-back="1"]'));
+    await flush();
+    expect(q('[data-support-ticket-view="detail"]')).not.toBeNull();
+    expect(q('[data-support-ticket-followup="1"]')).toBeNull();
+    click(q('[data-support-ticket-view="detail"] [data-support-ticket-back="1"]'));
+    await flush();
+    expect(q('[data-support-ticket-view="detail"]')).toBeNull();
+    expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("쓰던 글");
+  });
+
   it("추가 문의 입력 중 ◁ → 입력 칸만 닫힘 · 글은 남고 문의별로 저장 · 다시 열면 그대로", async () => {
     route = (url) =>
       url.startsWith("/api/support/cases/c1")
@@ -301,6 +322,37 @@ describe("M2 진행 중 상세의 「확인했어요」·「확인」 → 쓰기
     expect(getSupportModalState().phase).toBe("open");
     expect(q('[data-support-ticket-view="detail"]')).toBeNull();
     expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("쓰던 글");
+  });
+
+  it("병합 전 B: 종료+안 읽은 답변 「확인」 뒤 옛 푸시로 다시 열면 「종료된 문의예요」 (옛 답변 없음)", async () => {
+    let served = false;
+    route = (url) => {
+      if (!url.startsWith("/api/support/cases/cB")) return { ok: false };
+      // 서버는 종료+안 읽은 답변 내용을 한 번만 준다(그 뒤 빈 목록)
+      const first = !served;
+      served = true;
+      return {
+        ok: true,
+        closed: true,
+        case: caseRow({ id: "cB", status: "RESOLVED", requester_unread_count: first ? 1 : 0 }),
+        messages: first ? [{ ...answerMsg(), case_id: "cB", body: "OLD ANSWER" }] : [],
+      };
+    };
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => {
+      openSupportModal({ caseId: "cB" });
+    });
+    await flush();
+    expect(document.body.textContent).toContain("OLD ANSWER");
+    click(q('[data-support-ticket-ok="closed_unread"]'));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+    act(() => {
+      openSupportModal({ caseId: "cB" });
+    });
+    await flush();
+    expect(q('[data-support-ticket-closed="1"]')).not.toBeNull();
+    expect(document.body.textContent).not.toContain("OLD ANSWER");
   });
 
   it("직접 연 상세(푸시·목록)의 확인했어요 → 닫기(그대로)", async () => {
@@ -412,6 +464,24 @@ describe("U2 입력 직후 닫아도 저장 (동작)", () => {
     click(q('[data-support-modal-close="1"]'));
     expect(getSupportModalState().phase).toBe("closed");
     expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("급하게 쓴 글");
+  });
+});
+
+describe("병합 전 C — 초안 카드가 떠 있을 때 새로 쓴 글도 저장 (동작)", () => {
+  it("카드 있음 → 아래 칸에 입력 → 카드 닫힘 · 닫기 → 저장본 = 새 글", async () => {
+    route = (url) => (url.startsWith("/api/support/cases?") ? { ok: true, cases: [] } : { ok: false });
+    const ctx = memberCtx();
+    writeSupportTicketDraft(supportTicketDraftKey(ctx), setSupportTicketBody(initSupportTicketForm(ctx), "옛 초안"));
+    await act(async () => root.render(<SupportModalHost />));
+    openCompose(ctx);
+    await flush();
+    expect(q('[data-support-ticket-draft="1"]')).not.toBeNull();
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "새로 쓴 글");
+    await flush();
+    expect(q('[data-support-ticket-draft="1"]')).toBeNull();
+    click(q('[data-support-modal-close="1"]'));
+    expect(getSupportModalState().phase).toBe("closed");
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("새로 쓴 글");
   });
 });
 

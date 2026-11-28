@@ -489,6 +489,9 @@ export function SupportTicketCompose({
 
   const update = useCallback((fn: (s: SupportTicketFormState) => SupportTicketFormState) => {
     touchedRef.current = true;
+    // 병합 전 C: 「작성 중인 문의가 있어요」 카드를 두고 새로 입력을 시작하면 카드를 닫고 새 글을 저장한다
+    // (화면에 보이는 글 = 저장되는 글 하나 · 카드가 떠 있는 동안 입력이 저장되지 않던 것)
+    setDraft(null);
     setState(fn);
   }, []);
 
@@ -1187,7 +1190,13 @@ export function SupportTicketDetail({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="detail">
-      <SupportTicketHeader titleId={titleId} title={headerTitle} onBack={onBack ?? null} onClose={onClose} />
+      <SupportTicketHeader
+        titleId={titleId}
+        title={headerTitle}
+        // 병합 전 L1: 화면 ‹ 도 기기 ◁ 와 같이 — 추가 문의 입력칸이 열려 있으면 먼저 닫는다(계약 §6)
+        onBack={onBack ? () => (followUpOpen && !closedView ? setFollowUpOpen(false) : onBack()) : null}
+        onClose={onClose}
+      />
       {/* 최종 감사 U-2: 종료 문의도 같은 상태 줄 — 종료+안 읽은 답변 = 「새 답변」, 종료 = 「종료」(계약 §14 U1) */}
       {supportCase ? (
         <TopRow
@@ -1266,7 +1275,11 @@ export function SupportTicketDetail({
               roleTone="secondary"
               className={SUPPORT_BTN}
               data-support-ticket-ok="closed_unread"
-              onClick={onDone ?? onClose}
+              onClick={() => {
+                // 병합 전 B: 「확인」 = 답변을 확인함 → 기억한 내용을 지운다(그 뒤 옛 푸시로 다시 열면 「종료된 문의예요」 · 계약 §6)
+                closedUnreadSeen.delete(caseId);
+                (onDone ?? onClose)();
+              }}
             >
               {t("support_ticket_ok")}
             </DibayOverlayButton>

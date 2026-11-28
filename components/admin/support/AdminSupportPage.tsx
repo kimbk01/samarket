@@ -306,6 +306,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const followupIssues = shownDetail?.followupIssues ?? NO_FOLLOWUPS;
   /** 상세 요청 순번 — 늦게 온 옛 응답(다른 문의·같은 문의의 이전 요청)은 버린다 */
   const detailSeqRef = useRef(0);
+  const listSeqRef = useRef(0);
   const activeIdRef = useRef<string | null>(activeId);
   /** 화면에 보이는 문의 id — 확인 창을 기다리는 사이 다른 문의로 바뀌었는지 저장 직전에 본다 */
   const shownCaseIdRef = useRef<string | null>(activeCase?.id ?? null);
@@ -324,6 +325,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
   const loadList = useCallback(async () => {
+    // 재감사(PR #687) 1: 가장 최근 목록 요청의 응답만 그린다(탭·조건을 바꾼 뒤 늦게 온 옛 응답이 덮지 않게)
+    const seq = ++listSeqRef.current;
+    const isLatest = () => seq === listSeqRef.current;
     setListLoading(true);
     try {
       const qs = new URLSearchParams({ tab });
@@ -346,6 +350,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         total?: number;
         error?: string;
       };
+      if (!isLatest()) return;
       // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
       if (!res.ok || !json.ok) {
         setListError({ code: json.error ?? "load_failed", httpStatus: res.status });
@@ -357,9 +362,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       setListTotal(typeof json.total === "number" ? json.total : (json.cases ?? []).length);
       if (json.counts) setCounts(json.counts);
     } catch {
-      setListError({ code: "network_error" });
+      if (isLatest()) setListError({ code: "network_error" });
     } finally {
-      setListLoading(false);
+      if (isLatest()) setListLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 조건은 주소(apiQueryString/refreshKey) 하나로 바뀐다
   }, [lq.refreshKey]);
@@ -527,6 +532,17 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         ) {
           return;
         }
+        // 병합 전 L2: 다른 어드민이 **열린 문의**의 상태·담당을 바꿨으면 상세도 다시 읽는다(종료된 문의에 답 칸이 남지 않게)
+        const shownCase = detailRef.current?.caseId === caseId ? detailRef.current.case : null;
+        if (
+          shownCase &&
+          caseId === activeIdRef.current &&
+          newRow &&
+          (String(newRow.status ?? "") !== String(shownCase.status ?? "") ||
+            String(newRow.assigned_admin_id ?? "") !== String(shownCase.assigned_admin_id ?? ""))
+        ) {
+          void loadDetail(caseId);
+        }
         if (
           shouldRefetchSupportListForCaseChange({
             eventType: payload.eventType,
@@ -577,13 +593,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       const stillOpen = activeIdRef.current === writeCaseId;
       if (!res.ok || !json.ok) {
         const code = json.error ?? "action_failed";
-        // 점검 M6: 본 뒤에 문의가 바뀌었다(고객 새 글 등) — 상세를 다시 읽고 안내를 남긴다
-        if (stillOpen && code === "case_updated") await loadDetail(writeCaseId);
+        // 점검 M6 · 병합 전 L2: 문의가 그사이 바뀌었다(고객 새 글·다른 어드민의 종료·상태 변경) — 상세를 다시 읽고 안내를 남긴다
+        if (stillOpen && ADMIN_SUPPORT_RELOAD_ON_ERROR.has(code)) await loadDetail(writeCaseId);
         if (stillOpen) setError(code);
         return false;
       }
       if (stillOpen) await loadDetail(writeCaseId);
-      await loadList();
+      // 재감사(PR #687) 1: 누를 때의 옛 조건이 아니라 지금 탭·조건으로 다시 읽는다
+      await loadListRef.current();
       // 재감사 D1-b: 답을 쓰는 사이 고객 글이 더 왔다 — 문의는 「답변 필요」에 남았다는 것을 알린다
       if (stillOpen && Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
       return true;
@@ -1406,6 +1423,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     </div>
   );
 }
+
+/** 병합 전 L2: 이 오류면 상세가 낡은 것 — 다시 읽는다 */
+const ADMIN_SUPPORT_RELOAD_ON_ERROR = new Set(["case_updated", "case_closed", "status_conflict", "invalid_transition"]);
 
 export function AdminSupportPage({ initialCaseId }: { initialCaseId?: string }) {
   return (

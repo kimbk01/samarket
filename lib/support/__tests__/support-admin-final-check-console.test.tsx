@@ -38,10 +38,13 @@ vi.mock("@/lib/admin/operator-ux/admin-confirm-action", () => ({
   confirmAdminAction: vi.fn(async () => ({ ok: true })),
 }));
 const realtimeTables: string[] = [];
+const realtimeHandlers: Record<string, (payload: unknown) => void> = {};
 vi.mock("@/lib/supabase/client", () => {
   const channel: { on: (...a: unknown[]) => unknown; subscribe: () => unknown } = {
-    on: (_kind: unknown, filter: unknown) => {
-      realtimeTables.push(String((filter as { table?: string })?.table ?? ""));
+    on: (_kind: unknown, filter: unknown, handler?: unknown) => {
+      const table = String((filter as { table?: string })?.table ?? "");
+      realtimeTables.push(table);
+      if (typeof handler === "function") realtimeHandlers[table] = handler as (payload: unknown) => void;
       return channel;
     },
     subscribe: () => channel,
@@ -96,7 +99,12 @@ function jsonResponse(body: unknown, status = 200) {
 let root: Root | null = null;
 let host: HTMLDivElement | null = null;
 
+let deferLists = false;
+let pendingLists: ((ids: string[]) => void)[] = [];
+
 beforeEach(() => {
+  deferLists = false;
+  pendingLists = [];
   calls = [];
   pendingDetail = {};
   patchResponder = () => ({ status: 200, body: { ok: true } });
@@ -107,6 +115,11 @@ beforeEach(() => {
     const call: Call = { url, method, body: init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null };
     calls.push(call);
     if (url.startsWith("/api/admin/support/cases?")) {
+      if (deferLists) {
+        return new Promise<Response>((resolve) => {
+          pendingLists.push((ids: string[]) => resolve(jsonResponse({ ok: true, cases: ids.map((id) => caseRow(id)), counts: {}, total: ids.length })));
+        });
+      }
       return jsonResponse({ ok: true, cases: [caseRow("A"), caseRow("B")], counts: {}, total: 2 });
     }
     const m = /^\/api\/admin\/support\/cases\/([^/?]+)$/.exec(url);
@@ -456,5 +469,62 @@ describe("PR #687 재감사 8 — 답을 쓰는 사이 새 고객 글이 화면�
     await flush();
     expect(centerText()).toContain("new from customer");
     expect(host!.textContent ?? "").toContain("admin_support_notice_unseen_customer_messages");
+  });
+});
+
+describe("PR #687 재감사(2차) 1 — 목록은 가장 최근 요청의 응답만 그린다 (동작)", () => {
+  it("먼저 보낸 목록 응답이 늦게 와도 나중 요청 결과를 덮지 않는다", async () => {
+    await mount();
+    deferLists = true;
+    const emit = async () => {
+      await act(async () => {
+        realtimeHandlers.support_cases?.({ eventType: "INSERT", new: { id: "NEW" }, old: null });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+      await flush();
+    };
+    await emit(); // 목록 요청 #1
+    await emit(); // 목록 요청 #2
+    expect(pendingLists).toHaveLength(2);
+    await act(async () => pendingLists[1](["NEWEST"]));
+    await flush();
+    await act(async () => pendingLists[0](["STALE"]));
+    await flush();
+    expect(q('[data-admin-support-row="NEWEST"]')).toBeTruthy();
+    expect(q('[data-admin-support-row="STALE"]')).toBeNull();
+  });
+});
+
+describe("병합 전 L2 — 열린 문의가 다른 곳에서 바뀌면 상세를 다시 읽는다 (동작)", () => {
+  it("열린 문의 상태 변경 실시간 → 상세 다시 읽기 · 다른 문의 변경 → 안 읽음", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    const gets = () => calls.filter((c) => c.method === "GET" && c.url === "/api/admin/support/cases/A").length;
+    const before = gets();
+    await act(async () => {
+      realtimeHandlers.support_cases?.({ eventType: "UPDATE", new: { ...caseRow("B"), status: "RESOLVED" }, old: { id: "B" } });
+    });
+    await flush();
+    expect(gets()).toBe(before);
+    await act(async () => {
+      realtimeHandlers.support_cases?.({ eventType: "UPDATE", new: { ...caseRow("A"), status: "RESOLVED" }, old: { id: "A" } });
+    });
+    await flush();
+    expect(gets()).toBe(before + 1);
+  });
+
+  it("답변이 case_closed 로 거절되면 상세를 다시 읽는다", async () => {
+    await mount();
+    await click(q('[data-admin-support-row="A"]'));
+    await resolveDetail("A");
+    patchResponder = () => ({ status: 400, body: { ok: false, error: "case_closed" } });
+    const gets = () => calls.filter((c) => c.method === "GET" && c.url === "/api/admin/support/cases/A").length;
+    const before = gets();
+    await typeDraft("late answer");
+    await click(q("[data-admin-support-send]"));
+    expect(gets()).toBe(before + 1);
   });
 });

@@ -262,13 +262,21 @@ export function clearSupportTicketDraft(key: string): void {
   }
 }
 
-/** 이어 쓰기 — 저장된 분야·세부·내용을 현재 폼에 적용(대상이 같고 분야 고정과 맞을 때만 분야 적용) */
+/** 이어 쓰기 — 저장된 대상·분야·세부·내용을 현재 폼에 적용(분야 고정이면 대상·분야는 그대로) */
 export function applySupportTicketDraft(
   state: SupportTicketFormState,
   draft: SupportTicketDraft
 ): SupportTicketFormState {
   let next: SupportTicketFormState = state;
-  if (draft.audience === state.audience) {
+  // 병합 전 L5: 「매장으로」 바꿔 쓴 초안 — 대상(·매장)을 초안대로 되돌린 뒤 분야를 적용한다(카드 내용 = 이어 쓴 결과)
+  if (draft.audience !== state.audience && !state.categoryLocked && (draft.audience === "MEMBER" || draft.storeId)) {
+    next = switchSupportTicketAudience(next, {
+      audience: draft.audience,
+      storeId: draft.audience === "OWNER" ? draft.storeId : null,
+      sourceSurface: draft.audience === "OWNER" ? "owner_customer_center" : "mypage_customer_center",
+    });
+  }
+  if (draft.audience === next.audience) {
     if (draft.category && !state.categoryLocked) {
       next = selectSupportTicketCategory(next, draft.category);
     }
