@@ -52,10 +52,7 @@ import {
   CommunityPostDetailStatsActions,
 } from "./post-detail/CommunityPostDetailStatsActions";
 import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
-import {
-  CommunityCommentComposerBar,
-  CommunityCommentKeyboardKeeper,
-} from "./post-detail/CommunityCommentComposerForm";
+import { CommunityCommentComposerBar } from "./post-detail/CommunityCommentComposerForm";
 import { CommunityReportSheet } from "./post-detail/CommunityReportSheet";
 import type { CommunityReportReasonCode } from "@/lib/reports/community-report-reasons";
 import { COMMUNITY_COMMENT_QUERY_KEY } from "@/lib/community/share/community-share-url";
@@ -153,8 +150,6 @@ export function CommunityDetail({
     setDeepLinkCommentId(id || null);
   }, [post.id]);
   const clearDeepLink = useCallback(() => setDeepLinkCommentId(null), []);
-  /** 댓글 수정 중에는 하단 입력 바를 숨긴다 — 키보드 위 바가 수정칸 「저장」을 가리던 결함 (실기 결함 3) */
-  const [commentEditing, setCommentEditing] = useState(false);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [likedByViewer, setLikedByViewer] = useState(post.viewer?.liked_by_viewer ?? false);
   const [savedByViewer, setSavedByViewer] = useState(post.viewer?.saved_by_viewer ?? false);
@@ -652,7 +647,24 @@ export function CommunityDetail({
             onCommentAuthorBlock={onCommentAuthorBlock}
             onCommentReply={startReply}
             onToast={showToast}
-            onEditingChange={setCommentEditing}
+            composer={
+              <CommunityCommentComposerBar
+                    value={commentText}
+                    onChange={(v) => {
+                      setCommentText(v);
+                      if (commentSubmitErr) clearSubmitError();
+                    }}
+                    onSubmit={() => void submitComment()}
+                    busy={commentActionBusy}
+                    isLoggedIn={!!me?.id}
+                    placeholder={t("community_comment_placeholder_detail")}
+                    me={meForComposer}
+                    replyTo={replyTarget}
+                    onCancelReply={cancelReply}
+                    maxLength={commentMaxLength}
+                    error={commentSubmitErr}
+                  />
+            }
             commentBusy={commentActionBusy}
           />
 
@@ -662,24 +674,6 @@ export function CommunityDetail({
         </div>
       </article>
 
-      {commentEditing ? <CommunityCommentKeyboardKeeper /> : (
-      <CommunityCommentComposerBar
-        value={commentText}
-        onChange={(v) => {
-          setCommentText(v);
-          if (commentSubmitErr) clearSubmitError();
-        }}
-        onSubmit={() => void submitComment()}
-        busy={commentActionBusy}
-        isLoggedIn={!!me?.id}
-        placeholder={t("community_comment_placeholder_detail")}
-        me={meForComposer}
-        replyTo={replyTarget}
-        onCancelReply={cancelReply}
-        maxLength={commentMaxLength}
-        error={commentSubmitErr}
-      />
-      )}
       <CommunityReportSheet
         open={reportOpen}
         kind={reportTarget?.kind === "comment" ? "comment" : "post"}
