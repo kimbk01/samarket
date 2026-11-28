@@ -273,12 +273,14 @@ export async function notifyMoimJoinRequested(
 
 /** 새 멤버 → 모임장에게 벨만 (설계 §7 moim_member_joined · B2). 가입 1건 = 알림 1건(알림 저장소가 같은 키를 갱신하지 않음) */
 export async function notifyMoimMemberJoined(sb: SupabaseServer, moimId: string, memberId: string, name: string): Promise<void> {
-  const [{ data }, moim, member] = await Promise.all([
-    sb.from("moims").select("host_user_id").eq("id", moimId).maybeSingle(),
-    loadMoimName(sb, moimId),
+  /** R4 #7·8: 모임장·모임 이름을 한 번에 읽는다(따로 읽던 `loadMoimName` 1회 줄임) */
+  const [{ data }, member] = await Promise.all([
+    sb.from("moims").select("host_user_id, name").eq("id", moimId).maybeSingle(),
     sb.from("moim_members").select("nickname, joined_at").eq("moim_id", moimId).eq("user_id", memberId).maybeSingle(),
   ]);
-  const host = ((data as { host_user_id?: string | null } | null)?.host_user_id ?? "").trim();
+  const moimRow = data as { host_user_id?: string | null; name?: string | null } | null;
+  const host = (moimRow?.host_user_id ?? "").trim();
+  const moim = (moimRow?.name ?? "").trim();
   if (!host || host === memberId) return;
   const row = (member.data ?? null) as { nickname?: string; joined_at?: string | null } | null;
   const memberName = name.trim() || (row?.nickname ?? "").trim();

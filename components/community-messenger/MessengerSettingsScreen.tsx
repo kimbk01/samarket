@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
+import { moimRoutes } from "@/lib/moim/moim-client-api";
 import { MESSENGER_CONTACTS_SETTINGS_HREF } from "@/lib/community-messenger/contacts/contacts-contract";
 import { syncMessengerImageAutoSaveEnabled } from "@/lib/community-messenger/attachment/messenger-image-auto-save";
 import {
@@ -246,11 +247,29 @@ function SettingsConversationPage({
   );
 }
 
+/**
+ * 「모임·오픈채팅」 묶음 4줄 (모임 R4 D-42 · 계약 §2 — 오픈채팅은 「모임」이 아니다).
+ * 모임 찾기·만들기 = 모임 탭(`/moim`·`/moim/new`), 오픈채팅 찾기·만들기 = 기존 메신저 오픈채팅 화면.
+ * 화면 키 `settings=meeting` 은 내부 주소라 그대로 둔다.
+ */
 function SettingsMeetingPage({ onOpenOpenChatDiscovery, onOpenOpenGroupCreate }: MessengerSettingsScreenProps) {
   const { t } = useI18n();
+  const router = useRouter();
   return (
     <>
       <SectionLabel>{t("cm_settings_page_meeting")}</SectionLabel>
+      <NavRow
+        title={t("cm_settings_moim_find")}
+        description={t("cm_settings_moim_find_desc")}
+        onClick={() => router.push(moimRoutes.tab)}
+        dataPage="moim-find"
+      />
+      <NavRow
+        title={t("cm_settings_meeting_create")}
+        description={t("cm_settings_moim_create_desc")}
+        onClick={() => router.push(moimRoutes.create)}
+        dataPage="moim-create"
+      />
       <NavRow
         title={t("cm_ui_find_meeting")}
         description={t("cm_ui_open_joinable_meetings")}
@@ -258,8 +277,8 @@ function SettingsMeetingPage({ onOpenOpenChatDiscovery, onOpenOpenGroupCreate }:
         dataPage="meeting-find"
       />
       <NavRow
-        title={t("cm_settings_meeting_create")}
-        description={t("cm_ui_create_open_group_room")}
+        title={t("cm_ui_create_open_group_room")}
+        description={t("cm_settings_open_chat_create_desc")}
         onClick={onOpenOpenGroupCreate}
         dataPage="meeting-create"
       />

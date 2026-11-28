@@ -23,6 +23,7 @@ import { useMoimDirectMessage } from "@/components/moim/use-moim-direct-message"
 import { canOpenMoimMembers } from "./MoimManageHub";
 import {
   MoimAvatar,
+  MoimListCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
@@ -183,7 +184,10 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
             </span>,
             true
           ),
-          onClick: () => setDialog("remove"),
+          onClick: () => {
+            setBanReason("");
+            setDialog("remove");
+          },
         });
       if (c.ban_member)
         items.push({
@@ -319,22 +323,25 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         ) : moimMembersWithNote(members.state.data.members).length === 0 ? (
           <MoimManageEmpty textKey="moim_manage_notes_empty" />
         ) : (
-          <ul className="divide-y divide-sam-border-soft bg-sam-surface">
-            {moimMembersWithNote(members.state.data.members).map((m) => (
-              <li key={m.userId}>
-                <button type="button" className={`${Sam.listRow.interactive} flex w-full items-start gap-3 px-4 py-3 text-left`} onClick={() => openNote(m)}>
-                  <MoimAvatar url={m.avatarUrl} name={m.nickname} size={40} />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      <span className="break-all text-[15px] font-medium text-sam-fg">{m.nickname}</span>
-                      <MoimRoleBadge role={m.role} />
+          <>
+            <MoimListCappedHint show={members.state.data.notesCapped} />
+            <ul className="divide-y divide-sam-border-soft bg-sam-surface">
+              {moimMembersWithNote(members.state.data.members).map((m) => (
+                <li key={m.userId}>
+                  <button type="button" className={`${Sam.listRow.interactive} flex w-full items-start gap-3 px-4 py-3 text-left`} onClick={() => openNote(m)}>
+                    <MoimAvatar url={m.avatarUrl} name={m.nickname} size={40} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="break-all text-[15px] font-medium text-sam-fg">{m.nickname}</span>
+                        <MoimRoleBadge role={m.role} />
+                      </span>
+                      <span className="mt-0.5 block whitespace-pre-wrap break-words text-[13px] text-sam-muted">{m.note}</span>
                     </span>
-                    <span className="mt-0.5 block whitespace-pre-wrap break-words text-[13px] text-sam-muted">{m.note}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )
       ) : banned.state.status === "loading" ? (
         <MoimManageLoading />
@@ -343,21 +350,24 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
       ) : banned.state.data.banned.length === 0 ? (
         <MoimManageEmpty textKey="moim_manage_banned_empty" />
       ) : (
-        <ul className="divide-y divide-sam-border-soft bg-sam-surface">
-          {banned.state.data.banned.map((b) => (
-            <li key={b.userId} className="flex items-center gap-3 px-4 py-3">
-              <MoimAvatar url={b.avatarUrl} name={b.nickname} size={40} />
-              <span className="min-w-0 flex-1">
-                <span className="block break-all text-[15px] font-medium text-sam-fg">{b.nickname}</span>
-                <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
-                {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
-              </span>
-              <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
-                {t("moim_manage_unban_btn")}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <MoimListCappedHint show={banned.state.data.capped} />
+          <ul className="divide-y divide-sam-border-soft bg-sam-surface">
+            {banned.state.data.banned.map((b) => (
+              <li key={b.userId} className="flex items-center gap-3 px-4 py-3">
+                <MoimAvatar url={b.avatarUrl} name={b.nickname} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-all text-[15px] font-medium text-sam-fg">{b.nickname}</span>
+                  <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
+                  {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
+                </span>
+                <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
+                  {t("moim_manage_unban_btn")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       <DibayActionSheet
@@ -434,20 +444,43 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         />
       </DibayBottomSheet>
 
-      <DibayConfirmDialog
+      {/* R4 #2 — 내보내기도 차단처럼 사유(선택 · 300자)를 받는다(P6 「사유 선택(선택)」) · 사유는 운영 기록에만 남는다 */}
+      <DibayBottomSheet
         open={dialog === "remove" && target != null}
+        onClose={closeAll}
         title={t("moim_manage_remove_confirm_title", { name: target?.nickname ?? "" })}
-        description={t("moim_manage_remove_confirm_body")}
-        cancelLabel={t("moim_manage_cancel_btn")}
-        confirmLabel={t("moim_manage_remove_btn")}
-        confirmTone="destructive"
-        busy={busy}
-        onCancel={closeAll}
-        onConfirm={() => {
-          if (!target) return;
-          void run(() => moimApi.removeMember(moimId, target.userId, false), "moim_manage_removed_toast", members.reload);
-        }}
-      />
+        footer={
+          <DibayOverlayActions
+            actions={[
+              { key: "cancel", label: t("moim_manage_cancel_btn"), roleTone: "secondary", onClick: closeAll },
+              {
+                key: "remove",
+                label: t("moim_manage_remove_btn"),
+                roleTone: "destructive",
+                loading: busy,
+                onClick: () => {
+                  if (!target) return;
+                  const why = banReason.trim();
+                  void run(() => moimApi.removeMember(moimId, target.userId, false, why || null), "moim_manage_removed_toast", members.reload);
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <p className="text-[14px] text-sam-fg">{t("moim_manage_remove_confirm_body")}</p>
+        <label className="mt-3 block text-[13px] font-medium text-sam-muted" htmlFor="moim-remove-reason">
+          {t("moim_manage_reason_optional_label")}
+        </label>
+        <textarea
+          id="moim-remove-reason"
+          className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[88px]`}
+          maxLength={300}
+          value={banReason}
+          placeholder={t("moim_manage_ban_reason_placeholder")}
+          onChange={(e) => setBanReason(e.target.value)}
+        />
+      </DibayBottomSheet>
 
       <DibayBottomSheet
         open={dialog === "ban" && target != null}

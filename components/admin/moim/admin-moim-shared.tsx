@@ -5,7 +5,7 @@
  * 권한: 화면·조회·쓰기 = 권한 키 `moim` · 모임 삭제/복구·콘텐츠 삭제 = 최고관리자 (버튼은 최고관리자에게만 보인다).
  */
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminShell } from "@/components/admin/AdminShellContext";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
@@ -16,6 +16,8 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { MoimAdminPerson } from "@/lib/admin/moim/moim-admin-contract";
 import { MOIM_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/moim/moim-admin-contract";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
+import { activeMoimReportReasons, moimReportReasonLabel, parseMoimReportReasons, type MoimPolicyLabelItem, type MoimReportReasonItem } from "@/lib/moim/moim-report-reasons";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { CommunitySheetResult } from "@/components/admin/community/kit/CommunityAdminKit";
 
 export const MOIM_ADMIN_REASON = { minLength: MOIM_ADMIN_REASON_MIN_LENGTH } as const;
@@ -84,11 +86,67 @@ export function moimMemberStatusKey(status: string | null | undefined): MessageK
   return `admin_moim_member_status_${status ?? "active"}` as MessageKey;
 }
 
-export function moimReasonCodeLabel(t: (key: MessageKey) => string, code: string | null | undefined): string {
+/**
+ * 신고 사유 표시 이름 (R4 §3) — 운영 정책의 사유 이름(앱 언어)을 먼저, 없으면 기존 문구 키, 그것도 없으면 코드.
+ * 정책 목록을 모르면(`opts` 없음 · 불러오는 중) 기존 문구 키로 보인다.
+ */
+export function moimReasonCodeLabel(
+  t: (key: MessageKey) => string,
+  code: string | null | undefined,
+  opts?: { lang: AppLanguageCode; reasons: readonly MoimPolicyLabelItem[] | null }
+): string {
   if (!code) return "—";
-  const key = `moim_report_reason_${code}` as MessageKey;
-  const label = t(key);
-  return label === key ? code : label;
+  return moimReportReasonLabel(opts?.lang ?? "ko", t, code, opts?.reasons ?? null);
+}
+
+/**
+ * 어드민 화면의 신고 사유 목록 — 정책 화면과 같은 GET(/api/admin/moim/policies)을 어드민 세션에서 한 번만 읽어 함께 쓴다.
+ * 실패·옛 DB(열 없음) = null → 기본 12개·기존 문구 키. 정책을 저장하면 `invalidateMoimAdminReportReasons()` 로 비운다.
+ */
+let adminReasonsPromise: Promise<MoimReportReasonItem[] | null> | null = null;
+
+function loadAdminReportReasons(): Promise<MoimReportReasonItem[] | null> {
+  if (!adminReasonsPromise) {
+    adminReasonsPromise = fetch("/api/admin/moim/policies", { credentials: "include", cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ policies?: { report_reasons?: unknown } }>) : null))
+      .then((json) => parseMoimReportReasons(json?.policies?.report_reasons))
+      .catch(() => {
+        adminReasonsPromise = null;
+        return null;
+      });
+  }
+  return adminReasonsPromise;
+}
+
+export function invalidateMoimAdminReportReasons(): void {
+  adminReasonsPromise = null;
+}
+
+/** 시험 전용 */
+export function __setMoimAdminReportReasonsForTests(value: MoimReportReasonItem[] | null): void {
+  adminReasonsPromise = Promise.resolve(value);
+}
+
+export function useMoimAdminReportReasons(): MoimReportReasonItem[] | null {
+  const [reasons, setReasons] = useState<MoimReportReasonItem[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadAdminReportReasons().then((v) => {
+      if (alive) setReasons(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return reasons;
+}
+
+/** 화면용 — 사유 코드 → 표시 이름 (정책 데이터 우선) · 직접 제재에 고를 수 있는 켜진 사유 */
+export function useMoimReasonLabel() {
+  const { t, language } = useI18n();
+  const reasons = useMoimAdminReportReasons();
+  const label = useCallback((code: string | null | undefined) => moimReasonCodeLabel(t, code, { lang: language, reasons }), [t, language, reasons]);
+  return { label, reasons, activeReasons: activeMoimReportReasons(reasons) };
 }
 
 /** 실제 계정 (닉네임 · DIBAY ID) → 회원 상세 */

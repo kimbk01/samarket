@@ -10,6 +10,7 @@ import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimCategoryDto, MoimViewerAreaDto } from "@/lib/moim/moim-api-types";
 import { MOIM_TEXT_LIMITS_FALLBACK, type MoimTextLimitsDto } from "@/lib/moim/moim-api-types";
+import { moimProhibitedTypeLabel, moimProhibitedTypesOrDefault, type MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
@@ -20,17 +21,13 @@ import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 
 const STEPS = 4;
 const MAX_QUESTIONS = 3;
-/** 금지 모임 유형 안내 (설계 §2.5 · D10 — 27663 목록) */
-export const MOIM_PROHIBITED_TYPE_KEYS: readonly MessageKey[] = [
-  "moim_rule_commercial",
-  "moim_rule_religion",
-  "moim_rule_politics",
-  "moim_rule_dating",
-  "moim_rule_mlm",
-  "moim_rule_personal_info",
-  "moim_rule_external_messenger",
-  "moim_rule_illegal",
-];
+/**
+ * 금지 모임 유형 안내 (설계 §2.5 · D10 — 27663 목록 · R4 §3 운영 정책 `prohibited_types`).
+ * 목록은 글자 수 정책과 같은 응답(`limits.prohibitedTypes`)으로 받고, 없으면(옛 DB) 기본 8개(`MOIM_PROHIBITED_TYPE_CODES`).
+ */
+export function moimCreateProhibitedTypes(limits: Pick<MoimTextLimitsDto, "prohibitedTypes">): MoimPolicyLabelItem[] {
+  return moimProhibitedTypesOrDefault(limits.prohibitedTypes ?? null);
+}
 
 function parseYear(v: string): number | null {
   const n = Number(v.trim());
@@ -39,7 +36,7 @@ function parseYear(v: string): number | null {
 
 /** 모임 만들기 4단계 (시안 U2 · 설계 P1, 카테고리 드롭다운으로 1단계 합침 — 2026-11-12) — 중간 저장 없음 */
 export function MoimCreateWizard() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const toast = useMoimToast();
@@ -361,7 +358,7 @@ export function MoimCreateWizard() {
             </div>
             <label className="grid gap-1.5">
               <span className={moimCls.label}>{t("moim_profile_nickname_label")}</span>
-              <input className={moimCls.input} value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder={t("moim_profile_nickname_placeholder")} />
+              <input className={moimCls.input} value={nickname} maxLength={40} onChange={(e) => setNickname(e.target.value)} placeholder={t("moim_profile_nickname_placeholder")} />
               <span className={moimCls.hint}>{t("moim_profile_privacy_note")}</span>
             </label>
           </section>
@@ -372,12 +369,12 @@ export function MoimCreateWizard() {
             <h2 className={moimCls.sectionTitle}>{t("moim_create_rules_title")}</h2>
             <p className={moimCls.hint}>{t("moim_create_rules_lead")}</p>
             <ul className={`${moimCls.card} grid gap-1.5 p-3 text-[13px] text-sam-fg`}>
-              {MOIM_PROHIBITED_TYPE_KEYS.map((k) => (
-                <li key={k} className="flex gap-2">
+              {moimCreateProhibitedTypes(limits).map((item) => (
+                <li key={item.code} className="flex gap-2">
                   <span aria-hidden className="text-sam-danger">
                     ×
                   </span>
-                  <span>{t(k)}</span>
+                  <span>{moimProhibitedTypeLabel(language, t, item)}</span>
                 </li>
               ))}
             </ul>

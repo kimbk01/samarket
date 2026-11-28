@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ postId: string }> };
 
-/** 글 + 댓글 (볼 수 있는 경우만) */
+/** 글 + 댓글 최신 쪽 (볼 수 있는 경우만) · `commentsBefore` 가 있으면 앞 댓글은 `GET …/comments?before=` (R4 #4·5) */
 export async function GET(req: NextRequest, { params }: Ctx) {
   const postId = requireUuid((await params).postId);
   if (!postId) return moimNotFound();
@@ -16,8 +16,8 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const found = await getMoimPost(g.sb, postId, g.userId);
   if (!found) return moimNotFound();
-  const comments = found.access.role ? await listMoimComments(g.sb, found.post, g.userId) : [];
-  return NextResponse.json({ ok: true, post: found.post, comments, viewerIsMember: !!found.access.role });
+  const page = found.access.role ? await listMoimComments(g.sb, found.post, g.userId) : { items: [], nextBefore: null };
+  return NextResponse.json({ ok: true, post: found.post, comments: page.items, commentsBefore: page.nextBefore, viewerIsMember: !!found.access.role });
 }
 
 /** 글 수정 (작성자) */

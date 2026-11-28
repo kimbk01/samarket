@@ -123,6 +123,7 @@ import {
   markMessengerRoomLayoutSettling,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
+import { moimRoomMemberRoleKey } from "@/lib/moim/use-moim-room-owner";
 import {
   noteCmRoomR5TimelineComponentMount,
   noteCmRoomR5TimelineFirstRowDom,
@@ -600,7 +601,21 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /** 통화 줄 결과 글자 = 화면 언어 (언어 SSOT 6번) */
   const { language: callLineLanguage } = useI18n();
   const vm = useMessengerRoomPhase2View();
-  const resolveMessageSenderLabel = useDeliveryRoomMessageSenderLabel(vm);
+  const resolveBaseMessageSenderLabel = useDeliveryRoomMessageSenderLabel(vm);
+  /**
+   * 모임 방 말풍선 이름 옆 모임 역할 「· 운영진」 (모임 R4 #18 · 시안 U8). 이미 받은 /api/moim/rooms 역할 맵만 쓴다 —
+   * 메시지마다 요청 없음(메신저 핫 경로). 일반 멤버·내 메시지·모임 방이 아니면 그대로.
+   */
+  const moimRoleOwnerForBubble = vm.isMoimRoom ? vm.moimRoomOwner : null;
+  const resolveMessageSenderLabel = useCallback(
+    (message: Parameters<typeof resolveBaseMessageSenderLabel>[0]) => {
+      const base = resolveBaseMessageSenderLabel(message);
+      if (!moimRoleOwnerForBubble || message.isMine) return base;
+      const roleKey = moimRoomMemberRoleKey(moimRoleOwnerForBubble, message.senderId);
+      return roleKey ? `${base} · ${vm.t(roleKey)}` : base;
+    },
+    [moimRoleOwnerForBubble, resolveBaseMessageSenderLabel, vm]
+  );
   const hydrationPass = useCmRoomPhase2HydrationPass();
   const viewportPaintRecordedRef = useRef(false);
   const pass2FirstRowProbeAttachedRef = useRef(false);

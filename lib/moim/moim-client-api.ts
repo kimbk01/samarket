@@ -23,6 +23,7 @@ import type {
   MoimViewerAreaDto,
   MoimStaffReportDto,
   MoimTextLimitsDto,
+  MoimPageDto,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -144,8 +145,8 @@ export const moimApi = {
   leave: (moimId: string) => call(`/api/moim/${enc(moimId)}/leave`, { method: "POST" }),
   close: (moimId: string, confirmName: string) => call(`/api/moim/${enc(moimId)}/close`, { method: "POST", json: { confirmName } }),
 
-  members: (moimId: string) => call<{ members: MoimMemberDto[] }>(`/api/moim/${enc(moimId)}/members`),
-  banned: (moimId: string) => call<{ banned: MoimBannedDto[] }>(`/api/moim/${enc(moimId)}/members?view=banned`),
+  members: (moimId: string) => call<{ members: MoimMemberDto[]; notesCapped?: boolean }>(`/api/moim/${enc(moimId)}/members`),
+  banned: (moimId: string) => call<{ banned: MoimBannedDto[]; capped?: boolean }>(`/api/moim/${enc(moimId)}/members?view=banned`),
   setRole: (moimId: string, userId: string, role: Exclude<MoimRole, "host">) =>
     call(`/api/moim/${enc(moimId)}/members/${enc(userId)}`, { method: "PATCH", json: { role } }),
   setNote: (moimId: string, userId: string, note: string) =>
@@ -154,7 +155,7 @@ export const moimApi = {
     call(`/api/moim/${enc(moimId)}/members/${enc(userId)}/remove`, { method: "POST", json: { ban, reason: reason ?? null } }),
   unban: (moimId: string, userId: string) => call(`/api/moim/${enc(moimId)}/members/${enc(userId)}/unban`, { method: "POST" }),
 
-  joinRequests: (moimId: string) => call<{ requests: MoimJoinRequestDto[] }>(`/api/moim/${enc(moimId)}/join-requests`),
+  joinRequests: (moimId: string) => call<{ requests: MoimJoinRequestDto[]; capped?: boolean }>(`/api/moim/${enc(moimId)}/join-requests`),
   /** M6 운영진 신고 확인 (hide_post) — 대상별 묶음, 신고자 정보 없음 */
   staffReports: (moimId: string) => call<{ reports: MoimStaffReportDto[]; capped: boolean }>(`/api/moim/${enc(moimId)}/reports`),
   decideJoin: (moimId: string, requestId: string, approve: boolean, reason?: string | null) =>
@@ -173,7 +174,7 @@ export const moimApi = {
   respondHostTransfer: (transferId: string, accept: boolean) =>
     call<{ accepted: boolean; moim_id?: string }>(`/api/moim/host-transfers/${enc(transferId)}`, { method: "POST", json: { accept } }),
 
-  inviteLinks: (moimId: string) => call<{ links: MoimInviteLinkDto[] }>(`/api/moim/${enc(moimId)}/invite-links`),
+  inviteLinks: (moimId: string) => call<{ links: MoimInviteLinkDto[]; capped?: boolean }>(`/api/moim/${enc(moimId)}/invite-links`),
   createInviteLink: (moimId: string, expiresAt: string | null) =>
     call<{ invite_id: string; token: string }>(`/api/moim/${enc(moimId)}/invite-links`, { method: "POST", json: { expiresAt } }),
   revokeInviteLink: (inviteId: string) => call(`/api/moim/invite-links/${enc(inviteId)}`, { method: "DELETE" }),
@@ -199,7 +200,11 @@ export const moimApi = {
     call<{ items: MoimPostDto[]; nextBefore: string | null; noticeBoardId: string | null }>(`/api/moim/${enc(moimId)}/posts?pinned=1&limit=1`),
   createPost: (moimId: string, input: { boardId: string; title?: string; body: string; images?: string[]; visibility?: "members" | "public" }) =>
     call<{ post_id: string; board_kind: string }>(`/api/moim/${enc(moimId)}/posts`, { method: "POST", json: input }),
-  post: (postId: string) => call<{ post: MoimPostDto; comments: MoimCommentDto[]; viewerIsMember: boolean }>(`/api/moim/posts/${enc(postId)}`),
+  post: (postId: string) =>
+    call<{ post: MoimPostDto; comments: MoimCommentDto[]; commentsBefore?: string | null; viewerIsMember: boolean }>(`/api/moim/posts/${enc(postId)}`),
+  /** R4 #4·5 「이전 댓글 더 보기」 — before = 글 상세 `commentsBefore` 또는 앞 쪽 `nextBefore` */
+  comments: (postId: string, before: string) =>
+    call<MoimPageDto<MoimCommentDto>>(`/api/moim/posts/${enc(postId)}/comments?before=${encodeURIComponent(before)}`),
   updatePost: (postId: string, patch: Partial<{ title: string; body: string; images: string[]; visibility: "members" | "public" }>) =>
     call(`/api/moim/posts/${enc(postId)}`, { method: "PATCH", json: patch }),
   removePost: (postId: string, reason?: string | null) =>
@@ -218,12 +223,15 @@ export const moimApi = {
   /** 모임 안 검색 (시안 U4 ⌕ · 감사 F11) — 멤버만 · 2~40자 */
   search: (moimId: string, q: string) =>
     call<{ posts: MoimPostDto[]; schedules: MoimScheduleDto[] }>(`/api/moim/${enc(moimId)}/search?q=${encodeURIComponent(q)}`),
-  schedules: (moimId: string, scope: "upcoming" | "past" = "upcoming") =>
-    call<{ items: MoimScheduleDto[] }>(`/api/moim/${enc(moimId)}/schedules?scope=${scope}`),
+  /** R4 #4·5 · #7·8: `limit`(홈 = 3) · `before`(지난 일정 다음 쪽 커서) */
+  schedules: (moimId: string, scope: "upcoming" | "past" = "upcoming", opts: { limit?: number; before?: string | null } = {}) =>
+    call<MoimPageDto<MoimScheduleDto>>(
+      `/api/moim/${enc(moimId)}/schedules?scope=${scope}${opts.limit ? `&limit=${opts.limit}` : ""}${opts.before ? `&before=${encodeURIComponent(opts.before)}` : ""}`
+    ),
   createSchedule: (moimId: string, input: MoimScheduleClientInput) =>
     call<{ schedule_id: string; room_id: string }>(`/api/moim/${enc(moimId)}/schedules`, { method: "POST", json: input }),
   schedule: (scheduleId: string) =>
-    call<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[] }>(`/api/moim/schedules/${enc(scheduleId)}`),
+    call<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[]; participantsCapped?: boolean }>(`/api/moim/schedules/${enc(scheduleId)}`),
   updateSchedule: (scheduleId: string, input: MoimScheduleClientInput) =>
     call(`/api/moim/schedules/${enc(scheduleId)}`, { method: "PATCH", json: input }),
   cancelSchedule: (scheduleId: string) => call(`/api/moim/schedules/${enc(scheduleId)}`, { method: "DELETE" }),

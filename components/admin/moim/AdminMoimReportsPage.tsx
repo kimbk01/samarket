@@ -29,7 +29,7 @@ import {
   MOIM_ADMIN_REPORT_TARGET_TYPES,
   type MoimAdminPerson,
 } from "@/lib/admin/moim/moim-admin-contract";
-import { MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, moimReasonCodeLabel, moimRoleKey } from "@/components/admin/moim/admin-moim-shared";
+import { MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, useMoimReasonLabel, moimRoleKey } from "@/components/admin/moim/admin-moim-shared";
 import { MoimReportDecisionPanel, type MoimReportDecisionBanner, type MoimReportResultAction } from "@/components/admin/moim/AdminMoimReportDecisionForm";
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 
@@ -74,6 +74,7 @@ const EXTRAS = ["type", "view", "reportId", "moimId"] as const;
 
 export function AdminMoimReportsPage() {
   const { t, language } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   const q = useCommunityListQuery({
     extras: EXTRAS,
     statuses: MOIM_ADMIN_REPORT_STATUSES,
@@ -217,7 +218,7 @@ export function AdminMoimReportsPage() {
                   </Link>
                 </td>
                 <td className={`${COMMUNITY_TD} max-w-[320px]`}>
-                  <div>{moimReasonCodeLabel(t, r.reason_code)}</div>
+                  <div>{reasonLabel(r.reason_code)}</div>
                   {r.detail ? <div className="whitespace-pre-wrap text-[12px] text-sam-muted [overflow-wrap:anywhere]">{r.detail}</div> : null}
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -306,6 +307,7 @@ function TargetPreview({ target }: { target: Record<string, unknown> | null }) {
 
 function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onClose: () => void; onChanged: () => void }) {
   const { t } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   const [banner, setBanner] = useState<MoimReportDecisionBanner>(null);
   const { state, reload } = useCommunityAdminJson<DetailResponse>(`/api/admin/moim/reports/${encodeURIComponent(reportId)}`);
   const d = state.status === "ok" ? state.data : null;
@@ -331,7 +333,7 @@ function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onCl
             <div>
               <dt className="text-sam-muted">{t("admin_moim_col_reason")}</dt>
               <dd>
-                {moimReasonCodeLabel(t, d.report.reason_code)}
+                {reasonLabel(d.report.reason_code)}
                 {d.report.detail ? <div className="whitespace-pre-wrap text-sam-muted [overflow-wrap:anywhere]">{d.report.detail}</div> : null}
               </dd>
             </div>
@@ -353,7 +355,7 @@ function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onCl
               {d.history.map((h) => (
                 <li key={h.id} className="rounded-ui-rect border border-sam-border-soft px-2 py-1.5">
                   <div className="flex flex-wrap justify-between gap-2">
-                    <span>{moimReasonCodeLabel(t, h.reason_code)} · {t(`admin_moim_report_status_${h.status}` as MessageKey)}</span>
+                    <span>{reasonLabel(h.reason_code)} · {t(`admin_moim_report_status_${h.status}` as MessageKey)}</span>
                     <MoimAdminTime iso={h.created_at} />
                   </div>
                   <MoimAdminPersonCell person={h.reporter} />

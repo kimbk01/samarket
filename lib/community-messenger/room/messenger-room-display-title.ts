@@ -6,7 +6,7 @@
  * - 1:1: 「새 대화」(`cm_ui_new_conversation`) · 「회원 {6자}」(`cm_svc_member_fallback`)
  * - 비공개 그룹: 「그룹 N명」(`cm_svc_group_members`, N 은 저장 값)
  *   · 「A, B 외 N명」(`cm_svc_group_and_more`, 이름 목록·N 은 저장 값 — 이름은 그대로)
- * - 공개 그룹: 「공개 그룹방」(`cm_svc_open_group_room`)
+ * - 공개 그룹(오픈채팅): 「오픈채팅」(`cm_svc_open_group_room`) · 예전 「공개 그룹방」(`cm_svc_open_group_room_legacy`)
  * 그룹 방에 사람이 「새 대화」라고 이름을 붙였으면 그대로다(1:1 만 대응).
  */
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -58,15 +58,18 @@ type Matchers = {
 
 let matchers: Matchers | null = null;
 
-function fixedTitles(key: MessageKey): Set<string> {
-  return new Set([...LANGS.map((lang) => translate(lang, key)), key].map((v) => v.trim().toLowerCase()));
+function fixedTitles(...keys: MessageKey[]): Set<string> {
+  return new Set(
+    keys.flatMap((key) => [...LANGS.map((lang) => translate(lang, key)), key]).map((v) => v.trim().toLowerCase())
+  );
 }
 
 function getMatchers(): Matchers {
   if (!matchers) {
     matchers = {
       directDefault: fixedTitles("cm_ui_new_conversation"),
-      openGroup: fixedTitles("cm_svc_open_group_room"),
+      /** 예전 대체 제목 「공개 그룹방」·「Open group」(이미 저장된 방)도 알아본다 — 이름을 「오픈채팅」으로 바꿈 (모임 R4 §1) */
+      openGroup: fixedTitles("cm_svc_open_group_room", "cm_svc_open_group_room_legacy"),
       member: templatePatterns("cm_svc_member_fallback", "id", "[0-9a-f]{6}"),
       groupMembers: templatePatterns("cm_svc_group_members", "count", "\\d{1,4}"),
       groupAndMore: andMorePatterns(),

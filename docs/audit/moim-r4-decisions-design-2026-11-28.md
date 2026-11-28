@@ -50,7 +50,7 @@
 |---|---|---|
 | 읽기 전용 | 이미 된다(`moim__rooms_set_locked`) | — |
 | 보관 `moim_closed_retention_due` | 종료 모임만 대상이다. 삭제된 모임 방은 영원히 보관되지 않는다 | 삭제된 모임도 대상으로 넣는다. 기준 시각은 `coalesce(closed_at, deleted_at)`, 기간은 종료 모임과 같은 정책값 `closed_retention_days`(운영 30)다(D-43) |
-| 복구 `moim_admin_restore` | 보관·열람 끝 기록을 되돌리지 않는다 | 복구하면 방 보관을 풀고 `retention_ended_at` 을 비운다. 종료 모임이면 다음 작업이 종료 기준으로 다시 판정한다(D-43) |
+| 복구 `moim_admin_restore` | 보관·열람 끝 기록을 되돌리지 않는다 | 복구하면 방 보관을 풀고 `retention_ended_at` 을 비운다. 종료 모임이면 다음 작업이 종료 기준으로 다시 판정한다(D-43). **구현 정정(재감사 4)**: 보관 작업이 직접 보관한 참여 행만 새 표 `moim_retention_archived_participants` 에 적고, 복구 때 그 행만 푼다(대표 방·일정 방 모두). 사용자가 스스로 보관한 방은 그대로 둔다. 일정 `room_archived_at` 도 보관 작업이 찍은 시각인 것만 비운다 |
 | 「모임 홈」 진입점 4곳(머리글·메뉴·방 정보·나가기 거부 안내) | 삭제된 모임에도 보이고, 누르면 빈 화면 | `/api/moim/rooms` 가 `moimStatus` 를 같이 준다. 삭제된 모임이면 진입점만 숨긴다. 모임 방 판정(`isMoimRoom`)은 그대로라 나가기·초대 메뉴가 다시 생기지 않는다. 메신저 hard-lock 문서에 예외 한 줄 |
 
 ### 2-3. 문서만 고치는 결정

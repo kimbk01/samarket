@@ -3,6 +3,7 @@
  * 날짜는 ISO 문자열. 사람 표시는 모임별 프로필(닉네임·사진)만 — 전화번호·DIBAY ID·주소는 넣지 않는다(설계 §4).
  */
 import type { MoimAction, MoimMemberStatus, MoimPlatformState, MoimRole, MoimStatus } from "@/lib/moim/moim-permission-contract";
+import type { MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 
 export type MoimCategoryDto = {
   id: string;
@@ -27,7 +28,17 @@ export type MoimViewerAreaDto =
  * 모임 이름·소개 글자 수 (운영 `moim_policies` · 감사 B11). 만들기·정보 수정 화면이 입력 단계에서 바로 보여 주고 막는다.
  * 값이 비어 있으면 서버 검사(`moim_create`·`moim_update_info`)와 같은 기본값: 이름 1~60 · 소개 0~2000.
  */
-export type MoimTextLimitsDto = { nameMin: number; nameMax: number; introMin: number; introMax: number };
+export type MoimTextLimitsDto = {
+  nameMin: number;
+  nameMax: number;
+  introMin: number;
+  introMax: number;
+  /**
+   * 금지 모임 유형 안내 (운영 `moim_policies.prohibited_types` · R4 §3) — 만들기 화면이 같은 응답으로 받는다.
+   * 없으면(옛 DB·읽기 실패) 화면이 기본 8개를 쓴다.
+   */
+  prohibitedTypes?: MoimPolicyLabelItem[];
+};
 
 export const MOIM_TEXT_LIMITS_FALLBACK: MoimTextLimitsDto = { nameMin: 1, nameMax: 60, introMin: 0, introMax: 2000 };
 
@@ -113,6 +124,11 @@ export type MoimDetailDto = {
   upcomingSchedules: { id: string; title: string; startsAt: string; placeText: string | null; confirmedCount: number; capacity: number | null; status: string }[];
   /** 종료 후 멤버 열람 기간(일, 운영 정책) — 모임장에게만 채움, 정책 없음·비모임장 = null */
   closedRetentionDays: number | null;
+  /**
+   * 신고 시트에 보일 켜진 신고 사유 (운영 `moim_policies.report_reasons` · R4 §3 — 정책 공유 캐시라 추가 요청 없음).
+   * null·없음 = 옛 DB·읽기 실패 → 시트가 기본 12개를 쓴다.
+   */
+  reportReasons?: MoimPolicyLabelItem[] | null;
   viewer: {
     loggedIn: boolean;
     status: MoimMemberStatus | null;
@@ -167,6 +183,18 @@ export type MoimReceivedInviteDto = {
   /** R3 U-13: 수락이 가입 신청이 되는 초대(승인제 · 초대한 사람이 운영진 미만)일 때만 가입 질문, 그 밖은 빈 배열 */
   joinQuestions: string[];
 };
+
+/**
+ * R4 #6: 운영 목록(가입 신청·차단·초대 링크·메모·일정 참여자) 한 번에 받는 상한 — 서버 조회 상한과 화면 안내(「N개까지만」)가 같은 값을 쓴다.
+ * 응답 `capped`(메모는 `notesCapped`) = 받은 수가 상한에 닿음.
+ */
+export const MOIM_LIST_CAP = 500;
+export function moimListCapped(count: number): boolean {
+  return count >= MOIM_LIST_CAP;
+}
+
+/** R4 #4·5: 시각 커서 쪽 — `nextBefore` 를 그대로 다음 요청 `before` 로 돌려준다(null = 마지막 쪽) */
+export type MoimPageDto<T> = { items: T[]; nextBefore: string | null };
 
 export type MoimApiOk<T> = { ok: true } & T;
 export type MoimApiError = { ok: false; error: string; code?: string };

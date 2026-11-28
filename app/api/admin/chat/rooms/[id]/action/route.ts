@@ -15,6 +15,10 @@ import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { resolveTradeMessengerRoomForAdmin } from "@/lib/admin-chats/trade-messenger-room";
 import { runCmRoomActionCas } from "@/lib/admin-community-messenger/admin-chat-moderation-cas";
 import { adminServerText } from "@/lib/i18n/admin-server-language";
+import {
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY,
+} from "@/lib/admin-community-messenger/moim-room-admin-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,6 +115,18 @@ export async function POST(
       source: `admin_trade_chat:${paramId.trim()}`,
     });
     if (!cm.ok) {
+      /** 모임 방 읽기 전용 = 모임 어드민에서 (모임 R4 §5(c)) — 이 화면은 error 를 그대로 띄우므로 안내 문구 + code */
+      if (cm.error === MOIM_ROOM_READONLY_MANAGED_BY_MOIM) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: await adminServerText(MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY),
+            code: cm.error,
+            messengerRoomId,
+          },
+          { status: cm.status }
+        );
+      }
       return NextResponse.json({ ok: false, error: cm.error, messengerRoomId }, { status: cm.status });
     }
     messengerApplied = true;

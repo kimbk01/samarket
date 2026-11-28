@@ -9,7 +9,17 @@ import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
-import { MoimManageFrame, MoimManageForbidden, moimManageCardClass } from "./moim-manage-shared";
+import {
+  MoimManageFrame,
+  MoimManageForbidden,
+  canOpenMoimMembers,
+  canOpenMoimTransfer,
+  canRequestMoimHostChange,
+  moimManageCardClass,
+} from "./moim-manage-shared";
+
+/** 권한 판정은 `moim-manage-shared` 하나 (R4 #17 뒤로 경로와 같은 조건) — 기존 가져오기 경로 유지 */
+export { canOpenMoimMembers, canOpenMoimTransfer, canRequestMoimHostChange } from "./moim-manage-shared";
 
 type HubEntry = {
   key: string;
@@ -19,21 +29,6 @@ type HubEntry = {
   count?: number | null;
   danger?: boolean;
 };
-
-/** 모임장 위임 화면 — 권한이 있거나, 모임장인데 경고 때문에 막힌 경우(이유를 보여 주기 위해) */
-export function canOpenMoimTransfer(detail: MoimDetailDto): boolean {
-  return detail.can.transfer_host || (detail.viewer.role === "host" && detail.status === "active" && detail.platformState === "warned");
-}
-
-/** P8 미접속 모임장 변경 요청 — 부모임장·운영진, 운영 중인 모임 (모임장 30일 미접속 판정은 서버) */
-export function canRequestMoimHostChange(detail: MoimDetailDto): boolean {
-  return (detail.viewer.role === "co_host" || detail.viewer.role === "staff") && detail.status === "active";
-}
-
-export function canOpenMoimMembers(detail: MoimDetailDto): boolean {
-  const c = detail.can;
-  return c.remove_member || c.ban_member || c.set_role || c.write_note;
-}
 
 function HubBody({ detail }: { detail: MoimDetailDto }) {
   const { t } = useI18n();

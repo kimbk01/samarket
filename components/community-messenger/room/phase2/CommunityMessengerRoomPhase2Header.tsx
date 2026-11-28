@@ -56,7 +56,7 @@ import {
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
-import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
+import { moimRoomOwnerHref, moimRoomOwnerShowsHome } from "@/lib/moim/use-moim-room-owner";
 
 /** 통화 선택 시트 — 📞 를 누를 때만 불러온다 (방 첫 화면 번들·방 진입 경로에 연락처 코드를 넣지 않음) */
 const MessengerCallChoiceSheetLazy = lazy(
@@ -429,7 +429,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             type="button"
             onClick={() => vm.setActiveSheet("menu")}
             className="flex min-w-0 flex-1 items-center gap-2 self-center text-left active:opacity-80"
-            aria-label={vm.t("nav_messenger_open_group_settings")}
+            aria-label={vm.t(vm.isPrivateGroupRoom ? "nav_messenger_room_settings" : "nav_messenger_open_group_settings")}
             data-group-header-identity="1"
           >
             <div className="relative h-9 w-9 shrink-0 self-center overflow-hidden rounded-full">
@@ -513,7 +513,8 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         )}
 
         <div className="flex shrink-0 items-center gap-0 self-center">
-          {vm.isMoimRoom && vm.moimRoomOwner ? (
+          {/* 삭제된 모임이면 「모임 홈」이 빈 화면이라 숨긴다 — 모임 방 판정은 그대로 (모임 R4 D-3) */}
+          {vm.isMoimRoom && moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
             <button
               type="button"
               data-moim-room-home="header"
@@ -544,7 +545,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
               className={`${CM_ROOM_HEADER_TOUCH_BTN_CLASS} text-[color:var(--cm-room-brand-green)]`}
-              aria-label={vm.t("nav_messenger_open_group_settings")}
+              aria-label={vm.t(vm.isPrivateGroupRoom ? "nav_messenger_room_settings" : "nav_messenger_open_group_settings")}
             >
               <span className={`${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-group-settings-pressed-bg)]`}>
                 <Settings className="h-6 w-6" strokeWidth={2} aria-hidden />

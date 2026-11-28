@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ moimId: string }> };
 
-/** 일정 목록 (멤버만) — ?scope=upcoming|past */
+/** 일정 목록 (멤버만) — ?scope=upcoming|past · ?limit=1~100 · ?before=(지난 일정 다음 쪽 커서 · R4 #4·5) */
 export async function GET(req: NextRequest, { params }: Ctx) {
   const moimId = requireUuid((await params).moimId);
   if (!moimId) return moimNotFound();
@@ -19,9 +19,15 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const access = await loadMoimAccess(g.sb, moimId, g.userId);
   if (!access) return moimNotFound();
-  const items = await listMoimSchedules(g.sb, access, g.userId, { scope: req.nextUrl.searchParams.get("scope") === "past" ? "past" : "upcoming" });
-  if (!items) return NextResponse.json({ ok: false, error: "moim_not_member" }, { status: 403 });
-  return NextResponse.json({ ok: true, items });
+  const sp = req.nextUrl.searchParams;
+  const limitRaw = Number(sp.get("limit"));
+  const page = await listMoimSchedules(g.sb, access, g.userId, {
+    scope: sp.get("scope") === "past" ? "past" : "upcoming",
+    limit: Number.isInteger(limitRaw) && limitRaw > 0 ? limitRaw : undefined,
+    before: sp.get("before"),
+  });
+  if (!page) return NextResponse.json({ ok: false, error: "moim_not_member" }, { status: 403 });
+  return NextResponse.json({ ok: true, items: page.items, nextBefore: page.nextBefore });
 }
 
 /** P10 일정 만들기 */

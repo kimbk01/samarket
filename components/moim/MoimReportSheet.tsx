@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibaySheetHeader, DibayUsableAreaSheet } from "@/components/ui/dibay-overlay";
 import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
-import { MOIM_REPORT_REASON_CODES, type MoimReportReasonCode } from "@/lib/moim/moim-report-reasons";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { activeMoimReportReasons, moimReportReasonLabel, type MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 import { chipClass, moimCls } from "@/components/moim/moim-ui";
 
 /** 신고 대상 — 계약 P13 (모임·멤버·글·댓글·일정·앨범). 서버 `MOIM_REPORT_TARGET_TYPES` 와 같은 이름 (R3 W6 · 일정 추가) */
@@ -21,21 +21,34 @@ export function inMoimSheet(cls: string): string {
     .join(" ");
 }
 
+/**
+ * 신고 시트에 보일 사유 (R4 §3) — 모임 상세의 `reportReasons`(운영 정책의 켜진 사유). 없으면(옛 DB) 기본 12개.
+ */
+export function moimReportSheetReasons(reportReasons: readonly MoimPolicyLabelItem[] | null | undefined): MoimPolicyLabelItem[] {
+  return activeMoimReportReasons(reportReasons ?? null);
+}
+
 /** 신고 시트 — 사유 칩 + 선택 메모 (설계 §6 P13) */
 export function MoimReportSheet({
   moimId,
   target,
+  reasons,
   onClose,
   onDone,
 }: {
   moimId: string;
   /** null 이면 닫힘 */
   target: MoimReportTarget | null;
+  /**
+   * 모임 상세의 `reportReasons` (R4 §3). 넘기지 않으면 화면 간 공유 상세(`moimApi.detail` — 60초 공유·동시 호출 1회)에서 읽는다.
+   */
+  reasons?: readonly MoimPolicyLabelItem[] | null;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
-  const { t } = useI18n();
-  const [reason, setReason] = useState<MoimReportReasonCode | null>(null);
+  const { t, language } = useI18n();
+  const [loadedReasons, setLoadedReasons] = useState<MoimPolicyLabelItem[] | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
   const [detail, setDetail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +59,20 @@ export function MoimReportSheet({
     setDetail("");
     setError(null);
   }, [target]);
+
+  /** 화면이 처음 그릴 때 같이 읽는다 — 화면도 같은 상세를 같은 때 부르므로 공유 상세의 한 번 호출에 합쳐진다(추가 요청 0) */
+  useEffect(() => {
+    /** 로그인 전(손님)은 신고할 수 없고 공유 상세도 저장되지 않는다 — 부르지 않는다 */
+    if (reasons !== undefined || !getHydrationSafeCurrentUser()?.id) return;
+    let alive = true;
+    void moimApi.detail(moimId).then((r) => {
+      if (alive && r.ok) setLoadedReasons(r.moim.reportReasons ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [reasons, moimId]);
+  const list = moimReportSheetReasons(reasons !== undefined ? reasons : loadedReasons);
 
   const submit = async () => {
     if (!target || !reason || busy) return;
@@ -83,15 +110,15 @@ export function MoimReportSheet({
       <div className="grid gap-3 px-4 pb-2">
         <p className={moimCls.hint}>{t("moim_report_lead")}</p>
         <div className="flex flex-wrap gap-1.5">
-          {MOIM_REPORT_REASON_CODES.map((code) => (
+          {list.map((item) => (
             <button
-              key={code}
+              key={item.code}
               type="button"
-              aria-pressed={reason === code}
-              className={chipClass(reason === code)}
-              onClick={() => setReason(code)}
+              aria-pressed={reason === item.code}
+              className={chipClass(reason === item.code)}
+              onClick={() => setReason(item.code)}
             >
-              {t(`moim_report_reason_${code}` as MessageKey)}
+              {moimReportReasonLabel(language, t, item.code, list)}
             </button>
           ))}
         </div>

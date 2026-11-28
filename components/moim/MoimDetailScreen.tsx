@@ -33,6 +33,11 @@ const MANAGE_ACTIONS: readonly MoimAction[] = [
   "close",
 ];
 
+/** R4 #15: 모임 머리글 ⋮ — 로그인했을 때만 (메뉴 항목이 모두 로그인 뒤에만 생긴다) */
+export function moimDetailMenuVisible(moim: Pick<MoimDetailDto, "viewer">): boolean {
+  return moim.viewer.loggedIn;
+}
+
 /** 모임 상세 — 화면끼리 공유(60초·쓰기 성공 시 비움, 감사 E2). reload() = 저장값 무시하고 다시 */
 export function useMoimDetail(moimId: string) {
   const [moim, setMoim] = useState<MoimDetailDto | null>(null);
@@ -140,9 +145,12 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
               <Search className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
             </button>
           ) : null}
-          <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
-            <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
-          </button>
+          {/* R4 #15: 로그아웃 방문자에게는 메뉴 항목이 없다(신고·멤버 메뉴 모두 로그인 필요) → ⋮ 를 그리지 않는다 */}
+          {moimDetailMenuVisible(moim) ? (
+            <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
+              <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
         </div>
       ) : null,
     [moim, t, canShareInvite, shareInvite, isMember, router]
@@ -248,7 +256,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
         notice={items.length === 0 ? t("moim_menu_empty") : undefined}
       />
       {shareSheet}
-      <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      <MoimReportSheet moimId={moim.id} reasons={moim.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </>
   );

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { guardMoimRead, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { getMoimSchedule, listMoimScheduleParticipants } from "@/lib/moim/server/moim-schedule-queries.server";
+import { moimListCapped } from "@/lib/moim/moim-api-types";
 import { loadScheduleAccess, readMoimScheduleInput } from "@/lib/moim/server/moim-schedule-input.server";
 import { moimScheduleCancel, moimScheduleUpdate } from "@/lib/moim/server/moim-rpc.server";
 import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!access) return moimNotFound();
   const schedule = await getMoimSchedule(g.sb, access, g.userId, scheduleId);
   if (!schedule) return NextResponse.json({ ok: false, error: "moim_not_member" }, { status: 403 });
-  return NextResponse.json({ ok: true, schedule, participants: await listMoimScheduleParticipants(g.sb, schedule) });
+  const participants = await listMoimScheduleParticipants(g.sb, schedule);
+  /** R4 #6: 참여자 상한 500 에 닿으면 `participantsCapped` */
+  return NextResponse.json({ ok: true, schedule, participants, participantsCapped: moimListCapped(participants.length) });
 }
 
 /** 일정 수정 (관리권자) */

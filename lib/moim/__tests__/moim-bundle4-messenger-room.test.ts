@@ -70,7 +70,7 @@ describe("D2 일정 방 → 일정 상세, 모임 방 → 모임 홈", () => {
               { id: "aaaaaaaa-1111-4111-8111-111111111111", owner_ref_id: "m1" },
               { id: "bbbbbbbb-2222-4222-8222-222222222222", owner_ref_id: "s1" },
             ],
-            moims: [{ id: "m1", name: "Moim" }],
+            moims: [{ id: "m1", name: "Moim", status: "active", platform_state: "normal", moim_members: [], moim_permissions: [] }],
             moim_schedules: [{ id: "s1", moim_id: "m1" }],
           }),
         }),
@@ -80,8 +80,10 @@ describe("D2 일정 방 → 일정 상세, 모임 방 → 모임 홈", () => {
     const { NextRequest } = await import("next/server");
     const res = await GET(new NextRequest("https://x.test/api/moim/rooms?ids=aaaaaaaa-1111-4111-8111-111111111111,bbbbbbbb-2222-4222-8222-222222222222"));
     const body = (await res.json()) as { owners: Record<string, unknown> };
-    expect(body.owners["bbbbbbbb-2222-4222-8222-222222222222"]).toEqual({ moimId: "m1", kind: "schedule", moimName: "Moim", scheduleId: "s1" });
-    expect(body.owners["aaaaaaaa-1111-4111-8111-111111111111"]).toEqual({ moimId: "m1", kind: "moim", moimName: "Moim" });
+    /** 모임 R4: moimStatus(D-3)·memberRoles(#18)·canStartDm(D-45) 이 같은 응답에 붙는다 — 보는 사람이 활성 멤버가 아니면 [1:1] 없음 */
+    const r4 = { moimStatus: "active", memberRoles: {}, canStartDm: false };
+    expect(body.owners["bbbbbbbb-2222-4222-8222-222222222222"]).toEqual({ moimId: "m1", kind: "schedule", moimName: "Moim", scheduleId: "s1", ...r4 });
+    expect(body.owners["aaaaaaaa-1111-4111-8111-111111111111"]).toEqual({ moimId: "m1", kind: "moim", moimName: "Moim", ...r4 });
     vi.doUnmock("@/lib/moim/server/moim-route-guard.server");
   });
 });

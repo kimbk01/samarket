@@ -71,7 +71,7 @@ describe("채팅 하위 화면 주소", () => {
       ["?section=settings", "채팅 설정"],
       ["?section=settings&settings=call", "통화"],
       ["?section=settings&settings=conversation", "대화"],
-      ["?section=settings&settings=meeting", "모임"],
+      ["?section=settings&settings=meeting", "모임·오픈채팅"],
       ["?section=settings&settings=friends", "친구"],
       ["?section=search", "채팅 검색"],
     ];
@@ -122,7 +122,7 @@ describe("채팅 홈 — 하위 화면 연결", () => {
     expect(home).toContain('groupType: "private_group"');
   });
 
-  it("모임 만들기·모임 찾기는 채팅 설정 「모임」에서 그대로 열린다", () => {
+  it("오픈채팅 만들기·찾기는 채팅 설정 「모임·오픈채팅」에서 그대로 열린다", () => {
     expect(home).toContain('const onOpenOpenGroupCreateStable = useCallback(() => setGroupCreateStep("open_group"), []);');
     expect(home).toContain('openHomeOverlay("public-group-find")');
   });

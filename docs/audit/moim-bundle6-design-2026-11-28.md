@@ -47,7 +47,7 @@
 - 버튼 역할은 `moimCls`(`components/moim/moim-ui.tsx`) 한 곳에서만 정한다. 모임 화면은 `Sam.btn.*` 을 직접 쓰지 않는다.
   - **기본** `btnPrimary`(초록): 화면의 핵심 동작 1개
   - **보조** `btnSecondary`(흰 바탕 테두리, `outlineCombo`): 그 밖의 동작 전부
-  - **위험** `btnDanger`(빨강, `dangerCombo`): 숨기기·삭제·내보내기·차단·회수·종료·일정 취소·거절
+  - **위험** `btnDanger`(빨강, `dangerCombo`): 숨기기·삭제·내보내기·차단·회수·종료·일정 취소·거절·모임 나가기(2026-11-28 결정 D-38 — 지금 코드가 위험 줄)
 - 비활성은 `disabledToken` 하나로 한다.
 
 | ID | 바꿀 것 (main 위치) |

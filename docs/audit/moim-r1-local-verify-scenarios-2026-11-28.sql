@@ -90,7 +90,7 @@ select pg_temp.r('A-13 schedule_closed logged', format('select count(*)::text fr
 
 -- A-17 admin stale role
 select pg_temp.r('A-17 admin role with stale expected', format('select public.moim_admin_member_role(%L, %L, %L, %L, %L, %L)->>%L', pg_temp.id('c12'), pg_temp.id('M1'), pg_temp.id('c7'), 'staff', 'reason text ok', 'co_host', 'ok'));
-select pg_temp.r('A-17 duplicate warn sanction', format('select (public.moim_admin_sanction_apply(%L, %L, %L, %L, %L, null)->>%L) || '','' || (public.moim_admin_sanction_apply(%L, %L, %L, %L, %L, null)->>%L)', pg_temp.id('c12'), pg_temp.id('M1'), 'warn', 'spam', 'reason text ok', 'ok', pg_temp.id('c12'), pg_temp.id('M1'), 'warn', 'spam', 'reason text ok', 'ok'));
+select pg_temp.r('A-17 duplicate warn sanction', format('select (public.moim_admin_sanction_apply(%L, %L, %L, %L, %L, null)->>%L) || '','' || (public.moim_admin_sanction_apply(%L, %L, %L, %L, %L, null)->>%L)', pg_temp.id('c12'), pg_temp.id('M1'), 'warn', 'commercial', 'reason text ok', 'ok', pg_temp.id('c12'), pg_temp.id('M1'), 'warn', 'commercial', 'reason text ok', 'ok'));
 
 -- A-18 invite link usage counted on approval; inviter kept
 insert into ids values ('M2', (public.moim_create(pg_temp.id('c10'), '{"name":"R1 Approval","intro":"intro text long enough","category_id":"11111111-0000-0000-0000-000000000001","nickname":"h10","join_mode":"approval"}')->>'moim_id')::uuid);

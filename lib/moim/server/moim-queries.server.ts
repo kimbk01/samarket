@@ -32,7 +32,10 @@ import type {
   MoimViewerAreaDto,
 } from "@/lib/moim/moim-api-types";
 import { MOIM_TEXT_LIMITS_FALLBACK, type MoimTextLimitsDto } from "@/lib/moim/moim-api-types";
+/** R4 #6: 운영 목록 상한(가입 신청·차단·초대 링크·메모) — 화면 안내와 같은 값 */
+import { MOIM_LIST_CAP, moimListCapped } from "@/lib/moim/moim-api-types";
 import { normalizeMoimSearchQuery } from "@/lib/moim/moim-search-query";
+import { activeMoimReportReasons, parseMoimPolicyLabelItems, parseMoimReportReasons, type MoimReportReasonItem } from "@/lib/moim/moim-report-reasons";
 
 /**
  * 모임 읽기 (서버 전용, service_role). 보이는 범위는 여기서 정한다:
@@ -219,38 +222,77 @@ export async function listMyMoims(sb: SupabaseServer, userId: string): Promise<M
   return toCards(sb, rows, userId);
 }
 
-/** 정책 1행 · 프로세스 5분 캐시 — categories 요청 수를 늘리지 않는다(요청 예산 2.0 유지). 최종 판정은 서버 RPC */
-let moimTextLimitsCache: { at: number; value: MoimTextLimitsDto } | null = null;
+/**
+ * 정책 1행 · 프로세스 5분 캐시 — categories 요청 수를 늘리지 않는다(요청 예산 2.0 유지). 최종 판정은 서버 RPC.
+ * R4 §3: 같은 1행으로 금지 모임 유형(만들기 화면 limits)·신고 사유(모임 상세 → 신고 시트)도 함께 둔다(추가 요청 0).
+ * 새 열이 없는 옛 DB 면 예전 열만 다시 읽는다(글자 수 정책이 기본값으로 떨어지지 않게). 읽기 실패는 캐시하지 않는다.
+ */
+type MoimPolicyCacheValue = { limits: MoimTextLimitsDto; reportReasons: MoimReportReasonItem[] | null };
+let moimTextLimitsCache: { at: number; value: MoimPolicyCacheValue } | null = null;
+let moimTextLimitsInflight: Promise<MoimPolicyCacheValue> | null = null;
 const MOIM_TEXT_LIMITS_TTL_MS = 5 * 60_000;
+const MOIM_POLICY_TEXT_COLS = "name_min_len, name_max_len, intro_min_len, intro_max_len";
+const MOIM_POLICY_CACHE_MISS: MoimPolicyCacheValue = { limits: MOIM_TEXT_LIMITS_FALLBACK, reportReasons: null };
 
 function positiveIntOr(v: unknown, fallback: number): number {
   return typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : fallback;
 }
 
-export async function loadMoimTextLimits(sb: SupabaseServer): Promise<MoimTextLimitsDto> {
-  const now = Date.now();
-  if (moimTextLimitsCache && now - moimTextLimitsCache.at < MOIM_TEXT_LIMITS_TTL_MS) return moimTextLimitsCache.value;
-  const { data, error } = await sb
+async function readMoimPolicyCacheRow(sb: SupabaseServer): Promise<MoimPolicyCacheValue | null> {
+  let res: { data: unknown; error: unknown } = await sb
     .from("moim_policies")
-    .select("name_min_len, name_max_len, intro_min_len, intro_max_len")
+    .select(`${MOIM_POLICY_TEXT_COLS}, prohibited_types, report_reasons`)
     .eq("id", 1)
     .maybeSingle();
-  if (error) return MOIM_TEXT_LIMITS_FALLBACK;
-  const row = (data ?? {}) as Record<string, unknown>;
+  if (res.error) res = await sb.from("moim_policies").select(MOIM_POLICY_TEXT_COLS).eq("id", 1).maybeSingle();
+  if (res.error) return null;
+  const row = (res.data ?? {}) as Record<string, unknown>;
   const f = MOIM_TEXT_LIMITS_FALLBACK;
-  const value: MoimTextLimitsDto = {
+  const prohibitedTypes = parseMoimPolicyLabelItems(row.prohibited_types);
+  const limits: MoimTextLimitsDto = {
     nameMin: positiveIntOr(row.name_min_len, f.nameMin),
     nameMax: positiveIntOr(row.name_max_len, f.nameMax),
     introMin: positiveIntOr(row.intro_min_len, f.introMin),
     introMax: positiveIntOr(row.intro_max_len, f.introMax),
+    ...(prohibitedTypes ? { prohibitedTypes } : {}),
   };
-  moimTextLimitsCache = { at: now, value };
-  return value;
+  return { limits, reportReasons: parseMoimReportReasons(row.report_reasons) };
+}
+
+async function loadMoimPolicyCached(sb: SupabaseServer): Promise<MoimPolicyCacheValue> {
+  const now = Date.now();
+  if (moimTextLimitsCache && now - moimTextLimitsCache.at < MOIM_TEXT_LIMITS_TTL_MS) return moimTextLimitsCache.value;
+  /** 상세·categories 가 동시에 불러도 한 번만 읽는다 */
+  if (moimTextLimitsInflight) return moimTextLimitsInflight;
+  const inflight: Promise<MoimPolicyCacheValue> = readMoimPolicyCacheRow(sb)
+    .then(
+      (value) => {
+        if (!value) return MOIM_POLICY_CACHE_MISS;
+        moimTextLimitsCache = { at: now, value };
+        return value;
+      },
+      () => MOIM_POLICY_CACHE_MISS
+    )
+    .finally(() => {
+      if (moimTextLimitsInflight === inflight) moimTextLimitsInflight = null;
+    });
+  moimTextLimitsInflight = inflight;
+  return inflight;
+}
+
+export async function loadMoimTextLimits(sb: SupabaseServer): Promise<MoimTextLimitsDto> {
+  return (await loadMoimPolicyCached(sb)).limits;
+}
+
+/** 운영 신고 사유 목록 (켜짐·꺼짐 모두) — null = 옛 DB·읽기 실패 */
+export async function loadMoimReportReasons(sb: SupabaseServer): Promise<MoimReportReasonItem[] | null> {
+  return (await loadMoimPolicyCached(sb)).reportReasons;
 }
 
 /** 시험 전용 */
 export function __resetMoimTextLimitsCacheForTests() {
   moimTextLimitsCache = null;
+  moimTextLimitsInflight = null;
 }
 
 async function loadMoimClosedRetentionDays(sb: SupabaseServer): Promise<number | null> {
@@ -259,11 +301,29 @@ async function loadMoimClosedRetentionDays(sb: SupabaseServer): Promise<number |
   return typeof n === "number" && n > 0 ? n : null;
 }
 
+/**
+ * R4 #7·8: 동네 목록·검색마다 정책 1행을 다시 읽지 않는다 — 글자 수 정책(`loadMoimTextLimits`)과 같은 프로세스 5분 캐시.
+ * 읽기 실패는 캐시하지 않는다(다음 요청이 다시 읽음).
+ */
+let moimInactiveUnlistDaysCache: { at: number; value: number | null } | null = null;
+
 async function loadMoimInactiveUnlistDays(sb: SupabaseServer): Promise<number | null> {
-  const { data } = await sb.from("moim_policies").select("inactive_unlist_days").eq("id", 1).maybeSingle();
+  const now = Date.now();
+  if (moimInactiveUnlistDaysCache && now - moimInactiveUnlistDaysCache.at < MOIM_TEXT_LIMITS_TTL_MS) return moimInactiveUnlistDaysCache.value;
+  const { data, error } = await sb.from("moim_policies").select("inactive_unlist_days").eq("id", 1).maybeSingle();
+  if (error) return null;
   const n = (data as { inactive_unlist_days: number | null } | null)?.inactive_unlist_days;
-  return typeof n === "number" && n > 0 ? n : null;
+  const value = typeof n === "number" && n > 0 ? n : null;
+  moimInactiveUnlistDaysCache = { at: now, value };
+  return value;
 }
+
+/** 시험 전용 */
+export function __resetMoimInactiveUnlistDaysCacheForTests() {
+  moimInactiveUnlistDaysCache = null;
+}
+
+
 
 /** 우리 동네 모임 — 같은 LGU · 정상 노출(normal)만 · 최근 활동순 (설계 §6 P2) */
 export async function listLocalMoims(
@@ -443,16 +503,19 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
   if (!access) return null;
   const { moim, me, role } = access;
   const isMember = !!role;
+  /** R4 §3: 신고 시트 사유 = 운영 정책(공유 캐시 · 추가 요청 0). 신고는 로그인해야 하므로 로그인한 사람에게만 */
+  const reportReasonsP = viewerId ? loadMoimReportReasons(sb) : Promise.resolve(null);
 
   const [cats, host, questions, boards, pendingReq, ban, transfer, pinned, recent, closedRetentionDays] = await Promise.all([
     categoryMap(sb, [moim.category_id]),
     authorMap(sb, moim.id, [moim.host_user_id]),
     sb.from("moim_join_questions").select("question, sort_order").eq("moim_id", moim.id).order("sort_order"),
     sb.from("moim_boards").select("id, kind, name, write_min_role, sort_order, is_active").eq("moim_id", moim.id).order("sort_order"),
-    viewerId
+    /** R4 #7·8: 가입 신청 대기·차단 여부는 비멤버 화면(가입 버튼)에만 쓴다 — 활동 멤버는 둘 다 있을 수 없어 읽지 않는다 */
+    viewerId && !isMember
       ? sb.from("moim_join_requests").select("id").eq("moim_id", moim.id).eq("user_id", viewerId).eq("status", "pending").maybeSingle()
       : Promise.resolve({ data: null }),
-    viewerId
+    viewerId && !isMember
       ? sb.from("moim_bans").select("id").eq("moim_id", moim.id).eq("user_id", viewerId).is("released_at", null).maybeSingle()
       : Promise.resolve({ data: null }),
     viewerId
@@ -481,12 +544,14 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
   const kindById = new Map(((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"] }[]).map((b) => [b.id, b.kind]));
   const [postAuthors, upcoming] = await Promise.all([
     authorMap(sb, moim.id, [...pinnedRows, ...recentRows].map((r) => r.author_id)),
-    moim.status === "active" ? listUpcomingScheduleTeasers(sb, moim.id, 3) : Promise.resolve([]),
+    /** R4 #7·8: 공개 페이지(비멤버)만 미리보기를 쓴다 — 멤버 홈은 일정 목록(`scope=upcoming&limit=3`)으로 내 참여 배지까지 받는다 */
+    moim.status === "active" && !isMember ? listUpcomingScheduleTeasers(sb, moim.id, 3) : Promise.resolve([]),
   ]);
 
   const boardRows = ((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"]; name: string | null; write_min_role: MoimRole; sort_order: number; is_active: boolean }[]).map(
     (b) => ({ id: b.id, kind: b.kind, name: b.name, writeMinRole: b.write_min_role, sortOrder: b.sort_order, isActive: b.is_active })
   );
+  const reportReasonRows = await reportReasonsP;
 
   return {
     id: moim.id,
@@ -513,6 +578,7 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     recentPosts: postsFrom(recentRows, viewerId, postAuthors, kindById),
     upcomingSchedules: upcoming,
     closedRetentionDays,
+    reportReasons: reportReasonRows ? activeMoimReportReasons(reportReasonRows) : null,
     viewer: {
       loggedIn: !!viewerId,
       status: me?.status ?? null,
@@ -531,7 +597,12 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
 }
 
 /** 멤버 목록 — 멤버만. 재가입 횟수·운영진 메모는 메모 권한(write_note) 있는 사람만 */
-export async function listMoimMembers(sb: SupabaseServer, access: MoimAccess): Promise<MoimMemberDto[] | null> {
+export async function listMoimMembers(
+  sb: SupabaseServer,
+  access: MoimAccess,
+  /** R4 #6: 메모가 상한(500)에 닿았는지 — 라우트가 응답 `notesCapped` 로 넘긴다 */
+  out?: { notesCapped?: boolean }
+): Promise<MoimMemberDto[] | null> {
   if (!access.role) return null;
   const staffView = moimCanMap(access).write_note;
   const { data } = await sb
@@ -544,8 +615,10 @@ export async function listMoimMembers(sb: SupabaseServer, access: MoimAccess): P
   const rows = (data ?? []) as MemberRow[];
   let notes = new Map<string, string>();
   if (staffView && rows.length) {
-    const { data: n } = await sb.from("moim_member_notes").select("target_user_id, body").eq("moim_id", access.moim.id);
-    notes = new Map(((n ?? []) as { target_user_id: string; body: string }[]).map((x) => [x.target_user_id, x.body]));
+    const { data: n } = await sb.from("moim_member_notes").select("target_user_id, body").eq("moim_id", access.moim.id).limit(MOIM_LIST_CAP);
+    const noteRows = (n ?? []) as { target_user_id: string; body: string }[];
+    if (out) out.notesCapped = moimListCapped(noteRows.length);
+    notes = new Map(noteRows.map((x) => [x.target_user_id, x.body]));
   }
   const rank: Record<MoimRole, number> = { host: 0, co_host: 1, staff: 2, member: 3 };
   return rows
@@ -582,7 +655,7 @@ export async function listMoimJoinRequests(sb: SupabaseServer, access: MoimAcces
   if (!moimCanMap(access).decide_join) return null;
   const moimId = access.moim.id;
   const [{ data: reqs }, { data: qs }] = await Promise.all([
-    sb.from("moim_join_requests").select("id, user_id, answers, created_at").eq("moim_id", moimId).eq("status", "pending").order("created_at"),
+    sb.from("moim_join_requests").select("id, user_id, answers, created_at").eq("moim_id", moimId).eq("status", "pending").order("created_at").limit(MOIM_LIST_CAP),
     sb.from("moim_join_questions").select("question, sort_order").eq("moim_id", moimId).order("sort_order"),
   ]);
   const list = (reqs ?? []) as { id: string; user_id: string; answers: unknown; created_at: string }[];
@@ -613,7 +686,8 @@ export async function listMoimBans(sb: SupabaseServer, access: MoimAccess): Prom
     .select("user_id, reason, created_at")
     .eq("moim_id", access.moim.id)
     .is("released_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(MOIM_LIST_CAP);
   const rows = (data ?? []) as { user_id: string; reason: string | null; created_at: string }[];
   const authors = await authorMap(sb, access.moim.id, rows.map((r) => r.user_id));
   return rows.map((r) => ({
@@ -632,10 +706,11 @@ export async function listMoimInviteLinks(sb: SupabaseServer, access: MoimAccess
     .select("id, token, expires_at, usage_count, created_at")
     .eq("moim_id", access.moim.id)
     .is("revoked_at", null)
-    .order("created_at", { ascending: false });
-  const now = Date.now();
+    /** 만료 링크는 DB 에서 거른다 — 그래야 500행 = 상한에 닿음(capped) 이 정확하다 (R4 재감사 6) */
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .order("created_at", { ascending: false })
+    .limit(MOIM_LIST_CAP);
   return ((data ?? []) as { id: string; token: string; expires_at: string | null; usage_count: number; created_at: string }[])
-    .filter((r) => !r.expires_at || Date.parse(r.expires_at) > now)
     .map((r) => ({ id: r.id, token: r.token, expiresAt: r.expires_at, usageCount: r.usage_count, createdAt: r.created_at }));
 }
 
@@ -715,17 +790,33 @@ export async function getMoimPost(
   return { post, access };
 }
 
-export async function listMoimComments(sb: SupabaseServer, post: MoimPostDto, viewerId: string | null): Promise<MoimCommentDto[]> {
-  const { data } = await sb
-    .from("moim_comments")
-    .select("id, post_id, author_id, body, created_at")
-    .eq("post_id", post.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: true })
-    .limit(500);
-  const rows = (data ?? []) as { id: string; post_id: string; author_id: string | null; body: string; created_at: string }[];
+/** R4 #4·5: 댓글 한 쪽 수 — 최신 쪽부터, 「이전 댓글 더 보기」로 앞쪽을 받는다 */
+export const MOIM_COMMENT_PAGE = 100;
+
+/**
+ * 댓글 쪽 (R4 #4·5 · 글 목록과 같은 시각 커서): 최신 N개를 받아 오래된 순으로 돌려준다.
+ * `nextBefore` 가 있으면 그보다 앞(오래된) 댓글이 더 있다. 잘못된 커서는 빈 쪽(DB 로 보내지 않음).
+ * 새 댓글을 단 뒤 첫 쪽을 다시 받으면 방금 쓴 댓글이 늘 보인다.
+ */
+export async function listMoimComments(
+  sb: SupabaseServer,
+  post: MoimPostDto,
+  viewerId: string | null,
+  opts: { before?: string | null; limit?: number } = {}
+): Promise<{ items: MoimCommentDto[]; nextBefore: string | null }> {
+  const limit = Math.min(Math.max(opts.limit ?? MOIM_COMMENT_PAGE, 1), MOIM_COMMENT_PAGE);
+  const cursor = parseMoimTimeCursor(opts.before);
+  if (cursor === "invalid") return { items: [], nextBefore: null };
+  let q = sb.from("moim_comments").select("id, post_id, author_id, body, created_at").eq("post_id", post.id).eq("status", "active");
+  if (cursor) q = applyMoimTimeCursor(q, "created_at", cursor);
+  const { data } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1);
+  const fetched = (data ?? []) as { id: string; post_id: string; author_id: string | null; body: string; created_at: string }[];
+  const page = fetched.slice(0, limit);
+  const oldest = page[page.length - 1];
+  const nextBefore = fetched.length > limit && oldest ? moimTimeCursorOf(oldest, "created_at") : null;
+  const rows = page.reverse();
   const authors = await authorMap(sb, post.moimId, rows.map((r) => r.author_id));
-  return rows.map((r) => ({
+  const items = rows.map((r) => ({
     id: r.id,
     postId: r.post_id,
     body: r.body,
@@ -733,6 +824,7 @@ export async function listMoimComments(sb: SupabaseServer, post: MoimPostDto, vi
     createdAt: r.created_at,
     viewerIsAuthor: !!viewerId && viewerId === r.author_id,
   }));
+  return { items, nextBefore };
 }
 
 /** 받은 모임 초대 (대기 중) */

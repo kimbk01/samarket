@@ -15,7 +15,7 @@ import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { DibayActionSheetItem } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { MoimBoardDto, MoimDetailDto, MoimMemberDto, MoimPostDto } from "@/lib/moim/moim-api-types";
+import type { MoimBoardDto, MoimDetailDto, MoimMemberDto, MoimPostDto, MoimScheduleDto } from "@/lib/moim/moim-api-types";
 import { moimRoleRank } from "@/lib/moim/moim-permission-contract";
 import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { MoimNoticeLine, MoimPostRow } from "@/components/moim/MoimPostRow";
@@ -23,7 +23,7 @@ import { MoimStateNotice } from "@/components/moim/MoimPublicView";
 import { useMoimDirectMessage } from "@/components/moim/use-moim-direct-message";
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimAlbumTab, MoimPinnedAlbumSection } from "@/components/moim/MoimAlbum";
-import { MoimScheduleCard, useMoimSchedules } from "@/components/moim/moim-schedule-ui";
+import { MoimScheduleCard } from "@/components/moim/moim-schedule-ui";
 import {
   MoimAvatar,
   MoimEmptyState,
@@ -138,6 +138,55 @@ export function MoimMemberView({
   );
 }
 
+/** 멤버 홈의 다가오는 일정 수 (R4 #7·8 — 서버에서 3개만 받는다) */
+export const MOIM_HOME_UPCOMING_LIMIT = 3;
+
+/**
+ * 일정 목록 쪽 (R4 #4·5): 첫 쪽 + 「더 보기」(지난 일정 시각 커서). 이미 받은 일정은 다시 붙이지 않는다.
+ * `limit` 을 주면 그만큼만 받는다(멤버 홈 = 3 · R4 #7·8).
+ */
+export function mergeMoimSchedulePage(prev: MoimScheduleDto[] | null, next: MoimScheduleDto[]): MoimScheduleDto[] {
+  const list = prev ?? [];
+  const seen = new Set(list.map((s) => s.id));
+  return [...list, ...next.filter((s) => !seen.has(s.id))];
+}
+
+function useMoimSchedulePage(moimId: string, scope: "upcoming" | "past", limit?: number) {
+  const [items, setItems] = useState<MoimScheduleDto[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [key, setKey] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    setItems(null);
+    setFailed(false);
+    setNextBefore(null);
+    void moimApi.schedules(moimId, scope, { limit }).then((r) => {
+      if (!alive) return;
+      if (!r.ok) {
+        setFailed(true);
+        return;
+      }
+      setItems(r.items);
+      setNextBefore(r.nextBefore ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [moimId, scope, limit, key]);
+  const loadMore = async () => {
+    if (!nextBefore || more) return;
+    setMore(true);
+    const r = await moimApi.schedules(moimId, scope, { limit, before: nextBefore });
+    setMore(false);
+    if (!r.ok) return;
+    setItems((prev) => mergeMoimSchedulePage(prev, r.items));
+    setNextBefore(r.nextBefore ?? null);
+  };
+  return { items, failed, nextBefore, more, loadMore, retry: () => setKey((k) => k + 1) };
+}
+
 function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }) {
   const boardLabel = useMoimBoardLabel();
   const byId = useMemo(() => new Map(moim.boards.map((b) => [b.id, b])), [moim.boards]);
@@ -153,7 +202,7 @@ function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }
 /** 홈 — 다가오는 일정 (앞의 3개) */
 function MoimHomeUpcoming({ moim, onSeeAll }: { moim: MoimDetailDto; onSeeAll: () => void }) {
   const { t } = useI18n();
-  const { items, failed, retry } = useMoimSchedules(moim.id, "upcoming");
+  const { items, failed, retry } = useMoimSchedulePage(moim.id, "upcoming", MOIM_HOME_UPCOMING_LIMIT);
   return (
     <section>
       <div className={moimCls.sectionHead}>
@@ -171,7 +220,7 @@ function MoimHomeUpcoming({ moim, onSeeAll }: { moim: MoimDetailDto; onSeeAll: (
         <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_upcoming_empty")}</p>
       ) : (
         <div className="grid gap-2 px-4">
-          {items.slice(0, 3).map((s) => (
+          {items.slice(0, MOIM_HOME_UPCOMING_LIMIT).map((s) => (
             <MoimScheduleCard key={s.id} schedule={s} />
           ))}
         </div>
@@ -233,7 +282,7 @@ function MoimHomeTab({
 function MoimSchedulesTab({ moim, primaryCtaTaken }: { moim: MoimDetailDto; primaryCtaTaken: boolean }) {
   const { t } = useI18n();
   const [scope, setScope] = useState<"upcoming" | "past">("upcoming");
-  const { items, failed, retry } = useMoimSchedules(moim.id, scope);
+  const { items, failed, retry, nextBefore, more, loadMore } = useMoimSchedulePage(moim.id, scope);
   const canCreate = moim.can.create_schedule;
   return (
     <div>
@@ -264,11 +313,21 @@ function MoimSchedulesTab({ moim, primaryCtaTaken }: { moim: MoimDetailDto; prim
         ) : items.length === 0 ? (
           <MoimEmptyState>{scope === "upcoming" ? t("moim_schedule_upcoming_empty") : t("moim_schedule_past_empty")}</MoimEmptyState>
         ) : (
-          <div className="grid gap-2 px-4">
-            {items.map((s) => (
-              <MoimScheduleCard key={s.id} schedule={s} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-2 px-4">
+              {items.map((s) => (
+                <MoimScheduleCard key={s.id} schedule={s} />
+              ))}
+            </div>
+            {/* R4 #4·5: 지난 일정 「더 보기」 (글 목록과 같은 시각 커서) */}
+            {nextBefore ? (
+              <div className="px-4 pt-2">
+                <button type="button" disabled={more} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => void loadMore()}>
+                  {more ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>

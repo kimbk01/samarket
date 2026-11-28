@@ -27,11 +27,11 @@ import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-
 import {
   MOIM_ADMIN_DETAIL_TABS,
   MOIM_ADMIN_SANCTION_LEVELS,
+  moimAdminLevelAllowsPeriod,
   type MoimAdminCategoryRow,
   type MoimAdminPerson,
   type MoimAdminSanctionLevel,
 } from "@/lib/admin/moim/moim-admin-contract";
-import { MOIM_REPORT_REASON_CODES } from "@/lib/moim/moim-report-reasons";
 import {
   MOIM_ADMIN_FIELD,
   MOIM_ADMIN_REASON,
@@ -42,7 +42,7 @@ import {
   MoimStatusBadge,
   moimAdminSend,
   moimMemberStatusKey,
-  moimReasonCodeLabel,
+  useMoimReasonLabel,
   moimRoleKey,
   useMoimAdminAccess,
   useMoimSettleBanner,
@@ -542,6 +542,7 @@ export function sanctionStateKey(r: { revoked_at: string | null; ends_at: string
 
 function SanctionsPanel({ moimId, name, status, onResult }: { moimId: string; name: string; status: string; onResult: (k: CommunitySheetSettle) => void }) {
   const { t } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   const sec = useMoimSection<SanctionRow>(moimId, "sanctions");
   const [applying, setApplying] = useState(false);
   const [revoke, setRevoke] = useState<SanctionRow | null>(null);
@@ -565,7 +566,7 @@ function SanctionsPanel({ moimId, name, status, onResult }: { moimId: string; na
               <tr key={r.id} className="border-b border-sam-border-soft align-top">
                 <td className={COMMUNITY_TD}>{t(`admin_moim_level_${r.level}` as MessageKey)}</td>
                 <td className={`${COMMUNITY_TD} max-w-[320px]`}>
-                  <div>{moimReasonCodeLabel(t, r.reason_code)}</div>
+                  <div>{reasonLabel(r.reason_code)}</div>
                   <div className="whitespace-pre-wrap text-[12px] text-sam-muted [overflow-wrap:anywhere]">{r.reason}</div>
                 </td>
                 <td className={COMMUNITY_TD}>
@@ -627,6 +628,7 @@ export function MoimSanctionApplySheet({
   onSettled: (k: CommunitySheetSettle) => void;
 }) {
   const { t } = useI18n();
+  const { label: reasonLabel, activeReasons } = useMoimReasonLabel();
   const [level, setLevel] = useState<MoimAdminSanctionLevel>("unlist");
   const [reasonCode, setReasonCode] = useState<string>("");
   const [endDate, setEndDate] = useState("");
@@ -635,8 +637,9 @@ export function MoimSanctionApplySheet({
   /** 처리 전 신고 = received·reviewing (moim_reports.status CHECK) — 재감사 M-1 */
   const openReports = reports.rows.filter((r) => r.status === "received" || r.status === "reviewing");
   const [reportId, setReportId] = useState("");
-  /** 끝나는 날(PHT) 23:59:59 까지 */
-  const endsAt = endDate ? `${endDate}T23:59:59+08:00` : null;
+  /** 끝나는 날(PHT) 23:59:59 까지 — 추천 제외만 (R4 D-14 · 경고·차단은 어드민이 해제할 때까지) */
+  const periodAllowed = moimAdminLevelAllowsPeriod(level);
+  const endsAt = periodAllowed && endDate ? `${endDate}T23:59:59+08:00` : null;
   return (
     <CommunityActionSheet
       title={t("admin_moim_sanction_apply")}
@@ -658,7 +661,14 @@ export function MoimSanctionApplySheet({
       <div className="grid gap-2 text-[13px]">
         <label className="flex flex-col gap-1">
           <span className="text-sam-muted">{t("admin_moim_col_level")}</span>
-          <select className={MOIM_ADMIN_FIELD} value={level} onChange={(e) => setLevel(e.target.value as MoimAdminSanctionLevel)}>
+          <select
+            className={MOIM_ADMIN_FIELD}
+            value={level}
+            onChange={(e) => {
+              setLevel(e.target.value as MoimAdminSanctionLevel);
+              setEndDate("");
+            }}
+          >
             {MOIM_ADMIN_SANCTION_LEVELS.map((l) => (
               <option key={l} value={l}>
                 {t(`admin_moim_level_${l}` as MessageKey)}
@@ -670,9 +680,9 @@ export function MoimSanctionApplySheet({
           <span className="text-sam-muted">{t("admin_moim_field_reason_code")}</span>
           <select className={MOIM_ADMIN_FIELD} value={reasonCode} onChange={(e) => setReasonCode(e.target.value)}>
             <option value="">{t("admin_moim_pick")}</option>
-            {MOIM_REPORT_REASON_CODES.map((c) => (
-              <option key={c} value={c}>
-                {moimReasonCodeLabel(t, c)}
+            {activeReasons.map(({ code }) => (
+              <option key={code} value={code}>
+                {reasonLabel(code)}
               </option>
             ))}
           </select>
@@ -683,16 +693,20 @@ export function MoimSanctionApplySheet({
             <option value="">{t("admin_moim_field_report_link_none")}</option>
             {openReports.map((r) => (
               <option key={r.id} value={r.id}>
-                {`${t(`admin_moim_target_${r.target_type}` as MessageKey)} · ${moimReasonCodeLabel(t, r.reason_code)}`}
+                {`${t(`admin_moim_target_${r.target_type}` as MessageKey)} · ${reasonLabel(r.reason_code)}`}
               </option>
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sam-muted">{t("admin_moim_field_ends_at")}</span>
-          <input type="date" className={MOIM_ADMIN_FIELD} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          <span className="text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_hint")}</span>
-        </label>
+        {periodAllowed ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-sam-muted">{t("admin_moim_field_ends_at")}</span>
+            <input type="date" className={MOIM_ADMIN_FIELD} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <span className="text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_hint")}</span>
+          </label>
+        ) : (
+          <p className="text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_none")}</p>
+        )}
       </div>
     </CommunityActionSheet>
   );
@@ -710,13 +724,14 @@ export function MoimSanctionRevokeSheet({
   onSettled: (k: CommunitySheetSettle) => void;
 }) {
   const { t } = useI18n();
+  const { label: reasonLabel } = useMoimReasonLabel();
   return (
     <CommunityActionSheet
       title={t("admin_moim_sanction_revoke")}
       rows={[
         { label: t("admin_moim_col_name"), value: moimName },
         { label: t("admin_moim_col_level"), value: t(`admin_moim_level_${sanction.level}` as MessageKey) },
-        { label: t("admin_moim_col_reason"), value: moimReasonCodeLabel(t, sanction.reason_code) },
+        { label: t("admin_moim_col_reason"), value: reasonLabel(sanction.reason_code) },
       ]}
       reason={MOIM_ADMIN_REASON}
       confirmLabel={t("admin_moim_sanction_revoke")}

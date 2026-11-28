@@ -63,7 +63,7 @@ insert into ids values ('S3', (public.moim_schedule_create(pg_temp.id('d1'), pg_
 select public.moim_schedule_join(pg_temp.id('d3'), pg_temp.id('S3'), null) \g /dev/null
 select public.moim_schedule_decide(pg_temp.id('d1'), pg_temp.id('S3'), pg_temp.id('d3'), true) \g /dev/null
 select public.moim_schedule_join(pg_temp.id('d4'), pg_temp.id('S3'), null) \g /dev/null
-insert into ids values ('R1', (public.moim_report_create(pg_temp.id('d5'), pg_temp.id('M1'), jsonb_build_object('target_type', 'schedule', 'target_id', pg_temp.id('S3'), 'reason_code', 'spam'))->>'report_id')::uuid);
+insert into ids values ('R1', (public.moim_report_create(pg_temp.id('d5'), pg_temp.id('M1'), jsonb_build_object('target_type', 'schedule', 'target_id', pg_temp.id('S3'), 'reason_code', 'commercial'))->>'report_id')::uuid);
 select pg_temp.r('B-06 report cancel notify count', format('select jsonb_array_length(public.moim_admin_report_decide(%L, %L, %L, %L, %L, %L::jsonb)->%L)::text', pg_temp.id('d12'), pg_temp.id('R1'), 'received', 'actioned', 'reason text ok', '{"content_hide":true}', 'schedule_notify_user_ids'));
 
 -- B-13 admin content post hide -> author_id
@@ -71,16 +71,16 @@ insert into ids values ('P2', (public.moim_post_create(pg_temp.id('d5'), pg_temp
 select pg_temp.r('B-13 admin hide author', format('select (public.moim_admin_content(%L, %L, %L, %L, %L)->>%L = %L)::text', pg_temp.id('d12'), 'post', pg_temp.id('P2'), 'hide', 'reason text ok', 'author_id', pg_temp.id('d5')));
 
 -- B-15 (re-audit F5) report hide on already hidden post -> changed=false; on active post -> true
-insert into ids values ('R2', (public.moim_report_create(pg_temp.id('d6'), pg_temp.id('M1'), jsonb_build_object('target_type', 'post', 'target_id', pg_temp.id('P2'), 'reason_code', 'spam'))->>'report_id')::uuid);
+insert into ids values ('R2', (public.moim_report_create(pg_temp.id('d6'), pg_temp.id('M1'), jsonb_build_object('target_type', 'post', 'target_id', pg_temp.id('P2'), 'reason_code', 'commercial'))->>'report_id')::uuid);
 select pg_temp.r('B-15 hide already hidden', format('select public.moim_admin_report_decide(%L, %L, %L, %L, %L, %L::jsonb)->%L->0->>%L', pg_temp.id('d12'), pg_temp.id('R2'), 'received', 'actioned', 'reason text ok', '{"content_hide":true}', 'actions', 'changed'));
 insert into ids values ('P3', (public.moim_post_create(pg_temp.id('d5'), pg_temp.id('M1'), jsonb_build_object('board_id', (select id from public.moim_boards where moim_id = pg_temp.id('M1') and kind = 'free'), 'body', 'post three'))->>'post_id')::uuid);
-insert into ids values ('R3', (public.moim_report_create(pg_temp.id('d6'), pg_temp.id('M1'), jsonb_build_object('target_type', 'post', 'target_id', pg_temp.id('P3'), 'reason_code', 'spam'))->>'report_id')::uuid);
+insert into ids values ('R3', (public.moim_report_create(pg_temp.id('d6'), pg_temp.id('M1'), jsonb_build_object('target_type', 'post', 'target_id', pg_temp.id('P3'), 'reason_code', 'commercial'))->>'report_id')::uuid);
 select pg_temp.r('B-15 hide active post', format('select public.moim_admin_report_decide(%L, %L, %L, %L, %L, %L::jsonb)->%L->0->>%L', pg_temp.id('d12'), pg_temp.id('R3'), 'received', 'actioned', 'reason text ok', '{"content_hide":true}', 'actions', 'changed'));
 
 -- B-10 sanction revoke
-insert into ids values ('X1', (public.moim_admin_sanction_apply(pg_temp.id('d12'), pg_temp.id('M1'), 'unlist', 'spam', 'reason text ok', null)->>'sanction_id')::uuid);
+insert into ids values ('X1', (public.moim_admin_sanction_apply(pg_temp.id('d12'), pg_temp.id('M1'), 'unlist', 'commercial', 'reason text ok', null)->>'sanction_id')::uuid);
 select pg_temp.r('B-10 revoke unlist', format('select (r->>%L) || %L || jsonb_array_length(r->%L)::text from (select public.moim_admin_sanction_revoke(%L, %L, %L) r) t', 'level', ' n=', 'notify_user_ids', pg_temp.id('d12'), pg_temp.id('X1'), 'reason text ok'));
-insert into ids values ('X2', (public.moim_admin_sanction_apply(pg_temp.id('d12'), pg_temp.id('M1'), 'block', 'spam', 'reason text ok', null)->>'sanction_id')::uuid);
+insert into ids values ('X2', (public.moim_admin_sanction_apply(pg_temp.id('d12'), pg_temp.id('M1'), 'block', 'commercial', 'reason text ok', null)->>'sanction_id')::uuid);
 select pg_temp.r('B-10 revoke block', format('select (r->>%L) || %L || jsonb_array_length(r->%L)::text from (select public.moim_admin_sanction_revoke(%L, %L, %L) r) t', 'level', ' n=', 'notify_user_ids', pg_temp.id('d12'), pg_temp.id('X2'), 'reason text ok'));
 
 -- B-11 reminders: chosen until acked, re-chosen with new time
