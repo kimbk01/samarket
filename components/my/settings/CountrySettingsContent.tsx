@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { useClientMemberId } from "@/hooks/use-client-membership-state";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -15,9 +15,12 @@ import {
 type CountryOption = { code: string; name: string };
 
 export function CountrySettingsContent() {
+  return <SettingsMemberGate source="settings-country">{(userId) => <CountrySettingsContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function CountrySettingsContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 설정을 읽거나 쓰지 않는다(예전 "me" 대체 키는 기기 캐시를 실제 회원 키와 갈라 놓았다 — 관심이웃 전체 수정 설계 v2 §6) */
-  const userId = useClientMemberId("settings-country") ?? "";
   const fallbackCountries = useMemo(
     (): CountryOption[] => [
       { code: "PH", name: t("settings_country_ph") },
@@ -30,7 +33,6 @@ export function CountrySettingsContent() {
   const [current, setCurrent] = useState("PH");
 
   useEffect(() => {
-    if (!userId) return;
     const supabase = getSupabaseClient();
     let cancelled = false;
     if (supabase) {
@@ -63,14 +65,11 @@ export function CountrySettingsContent() {
   /** 행 탭 = 즉시 저장 — 실패 시 스토어가 원래 값으로 되돌리고(구독으로 표시 복귀) 토스트(S13) */
   const select = useCallback(
     (code: string) => {
-      if (!userId) return;
       setCurrent(code);
       void updateUserSettings(userId, { preferred_country: code });
     },
     [userId]
   );
-
-  if (!userId) return null;
 
   return (
     <ul

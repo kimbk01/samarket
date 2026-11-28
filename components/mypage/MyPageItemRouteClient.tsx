@@ -18,7 +18,6 @@ import {
   useClientMembershipRecoveryFailed,
   useClientMembershipState,
 } from "@/hooks/use-client-membership-state";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   isMypageItemWithoutHubWait,
   mypageItemScreenTemplate,
@@ -46,8 +45,7 @@ export function MyPageItemRouteClient({
   const membership = useClientMembershipState("mypage-item-route");
   const membershipRecoveryFailed = useClientMembershipRecoveryFailed();
   // 세션 사용자 있으면 member 취급 (terminal checking 에서 "…" 고착 방지 — MyContent 와 동일)
-  const sessionUser = getCurrentUser();
-  const sessionMember = Boolean(sessionUser?.id) || membership.status === "member";
+  const sessionMember = membership.status === "member"; /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   const noHubWait = isMypageItemWithoutHubWait(section, item);
   const hubEnabled = sessionMember && !noHubWait;
   const template = mypageItemScreenTemplate(section, item);

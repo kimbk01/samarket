@@ -95,7 +95,12 @@ function membershipFromCache(): ClientMembershipState {
   return { status: "checking" };
 }
 
+/** 비회원 확정 시각 — 이 시간 안에 붙는 화면은 다시 확인하지 않는다(한 목록의 카드 묶음) */
+let guestSettledAt = 0;
+const GUEST_RECHECK_AFTER_MS = 30_000;
+
 function publish(state: ClientMembershipState, recoveryFailed = false): void {
+  if (state.status === "guest" && storeSnapshot.state.status !== "guest") guestSettledAt = Date.now();
   storeSnapshot = { state, recoveryFailed, revision: storeSnapshot.revision + 1 };
   listeners.forEach((listener) => listener());
 }
@@ -123,6 +128,17 @@ function subscribe(listener: () => void): () => void {
 }
 
 function getSnapshot(): MembershipStoreSnapshot {
+  /**
+   * 확인 중인데 프로필 캐시가 이미 회원이면 그 자리에서 회원으로 — 구독(전역 리스너)이 붙기 전에 캐시가 찬 경우도
+   * 첫 화면이 「확인 중」을 거치지 않는다. 그래서 화면이 `getCurrentUser()` 로 보충 읽기를 하지 않아도 된다
+   * (관심이웃 전체 수정 설계 v2 §6 내정보 5곳). 같은 캐시 값이면 같은 객체를 돌려준다(useSyncExternalStore 안정 계약).
+   */
+  if (storeSnapshot.state.status === "checking") {
+    const cached = getCurrentUser();
+    if (cached?.id) {
+      storeSnapshot = { state: { status: "member", profile: cached }, recoveryFailed: false, revision: storeSnapshot.revision + 1 };
+    }
+  }
   return storeSnapshot;
 }
 
@@ -176,12 +192,20 @@ function scheduleMembershipRetry(source: string): void {
   }, delayMs);
 }
 
-function ensureMembershipResolved(source: string): Promise<ClientMembershipState> {
+function ensureMembershipResolved(source: string, opts?: { force?: boolean }): Promise<ClientMembershipState> {
   const cachedState = membershipFromCache();
   if (cachedState.status === "member") {
     clearRecoveryCycleOnSettled();
     if (storeSnapshot.state.status !== "member") publish(cachedState);
     return Promise.resolve(cachedState);
+  }
+  /**
+   * 비회원 확정은 화면이 붙을 때마다 다시 확인하지 않는다 — 카드 100장 목록이 마운트마다 확인 중→비회원으로 두 번 다시 그리고
+   * 세션 확인을 다시 돌리던 것(설계 v2 §6 「이미 확정이면 즉시 반환」 · PR-B 재감사 B5). 로그인·세션 변경은 아래 명시 이벤트가 force 로 다시 확인한다.
+   * 단 `GUEST_RECHECK_AFTER_MS` 가 지나면 다음 화면이 붙을 때 다시 확인 — 프로필 읽기 일시 실패가 비회원으로 굳지 않게(2차 재감사 1번).
+   */
+  if (!opts?.force && storeSnapshot.state.status === "guest" && Date.now() - guestSettledAt < GUEST_RECHECK_AFTER_MS) {
+    return Promise.resolve(storeSnapshot.state);
   }
 
   if (inflight) return inflight;
@@ -239,14 +263,14 @@ function resetMembershipStoreForAuthChange(reason: string): void {
     publish({ status: "member", profile: cached });
     return;
   }
-  void ensureMembershipResolved(reason);
+  void ensureMembershipResolved(reason, { force: true });
 }
 
 /** online/visible 복귀 — terminal 상태였을 때만 새 cycle 1회 재개 */
 function resumeMembershipRecoveryIfTerminal(reason: string): void {
   if (!recoveryTerminal) return;
   beginNewMembershipRecoveryCycle(reason);
-  void ensureMembershipResolved(reason);
+  void ensureMembershipResolved(reason, { force: true });
 }
 
 /** 확인 실패 화면의 [다시 시도] — 명시 사용자 이벤트로 새 recovery cycle 1회 */
@@ -329,6 +353,22 @@ export function useClientMemberId(source: string): string | null {
   return state.status === "member" ? state.profile.id : null;
 }
 
+/**
+ * 회원별 목록 캐시 키의 「보는 사람」 부분 (관심이웃 전체 수정 설계 v2 §6 · PR-B 재감사 B4).
+ * - 회원: 회원 id · 비회원 확정: "guest"(불러와서 서버의 로그인 필요 응답을 따른다)
+ * - 확인 중: null(목록 훅은 키가 없으면 기다림 — 확인 중 키로 불렀다가 회원 키로 또 부르는 2회 요청 없음)
+ * - 확인 재시도 소진: "unresolved"(무한 로딩 금지 — 서버 쿠키 판정으로 불러온다)
+ * 예전 `getCurrentUser()?.id ?? "session"`: 첫 렌더 한 번 읽어 회원이 확인돼도 "session" 키에 머물렀다.
+ */
+export function useClientViewerCacheKey(source: string): string | null {
+  const id = useClientMemberId(source);
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  if (id) return id;
+  if (snapshot.state.status === "guest") return "guest";
+  if (snapshot.recoveryFailed) return "unresolved";
+  return null;
+}
+
 /** checking 중 재시도 소진(일시 장애) 여부 — 확인 실패 + 다시 시도 표시용 */
 export function useClientMembershipRecoveryFailed(): boolean {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -374,6 +414,7 @@ export function resetClientMembershipStateForTests(): void {
   inflight = null;
   listeners.clear();
   storeSnapshot = { state: { status: "checking" }, recoveryFailed: false, revision: 0 };
+  guestSettledAt = 0;
   lastUnsettledCause = "loading";
   recoveryGeneration = 0;
   recoveryAttempt = 0;

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useClientMemberId } from "@/hooks/use-client-membership-state";
+import { useClientViewerCacheKey } from "@/hooks/use-client-membership-state";
 import {
   getFavoritedPostsPage,
   type FavoritedPostPageItem,
@@ -86,12 +86,12 @@ function FavoriteProductsBody({
   const { t } = useI18n();
   /** 거래 H RP-2: 내가 신고한 글은 찜 목록에서도 자리 카드로 가린다(서버 `reports` 기준) */
   const router = useRouter();
-  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 목록 캐시 키를 만들지 않는다(목록 훅은 키가 없으면 읽지 않음). 예전 "session" 대체 키는 회원별 캐시와 갈라졌다(설계 v2 §6) */
-  const viewerKey = useClientMemberId("favorite-products") ?? "";
+  /** 보는 사람 키 = 회원 상태 SSOT (`useClientViewerCacheKey` — 확인 중엔 기다리고, 비회원·확인 실패도 불러온다 · 설계 v2 §6) */
+  const viewerKey = useClientViewerCacheKey("favorite-products");
   /** 서버 세션 여부 — 회원 상태보다 늦게 맞춰도 찜 목록은 표시 */
   const [sessionAuthenticated, setSessionAuthenticated] = useState<boolean | null>(null);
   const [counts, setCountsState] = useState<Record<FavoriteManageTabId, number> | null>(
-    () => favoriteCountsCache.get(viewerKey) ?? null
+    () => (viewerKey ? favoriteCountsCache.get(viewerKey) ?? null : null)
   );
   const viewerKeyRef = useRef(viewerKey);
   viewerKeyRef.current = viewerKey;
@@ -103,7 +103,7 @@ function FavoriteProductsBody({
     ) => {
       setCountsState((prev) => {
         const value = typeof next === "function" ? next(prev) : next;
-        favoriteCountsCache.set(viewerKeyRef.current, value);
+        if (viewerKeyRef.current) favoriteCountsCache.set(viewerKeyRef.current, value);
         return value;
       });
     },

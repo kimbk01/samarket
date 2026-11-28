@@ -202,6 +202,8 @@ export function useMypageCursorList<T>({
       void loadFirst(cacheKey, false);
     }
     setLoadMoreError(false);
+    /** 보는 사람이 바뀌면(비회원·확인 실패 키 → 회원 키) 앞 키의 401 「로그인 안내」를 들고 가지 않는다 (관심이웃 설계 v2 §13 · 재감사) */
+    setUnauthorized(false);
   }, [cacheKey, loadFirst]);
 
   const reload = useCallback(async () => {

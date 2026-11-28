@@ -9,7 +9,6 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import {
@@ -66,7 +65,7 @@ function MarketplaceSellHubContent() {
   /** GROUP 2-B: 첫 그림 = 스냅샷 값 또는 스켈레톤, 「—」는 조회 실패일 때만 (`lib/trade/sell-hub-overview-client.ts`) */
   const membership = useClientMembershipState("trade-sell-hub");
   const viewerId =
-    (membership.status === "member" ? membership.profile.id : getCurrentUser()?.id)?.trim() ?? "";
+    (membership.status === "member" ? membership.profile.id : "").trim(); /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   if (viewerId) seedSellHubOverview(viewerId);
   const overview = useSyncExternalStore(subscribeSellHubOverview, getSellHubOverviewState, () => null);
   const current = overview && overview.viewerId === viewerId ? overview : null;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useClientMemberId } from "@/hooks/use-client-membership-state";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   getUserSettings,
@@ -23,9 +23,12 @@ type TradePresenceSettings = {
 };
 
 export function ChatSettingsContent() {
+  return <SettingsMemberGate source="settings-chat">{(userId) => <ChatSettingsContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function ChatSettingsContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 설정을 읽거나 쓰지 않는다(예전 "me" 대체 키는 기기 캐시를 실제 회원 키와 갈라 놓았다 — 관심이웃 전체 수정 설계 v2 §6) */
-  const userId = useClientMemberId("settings-chat") ?? "";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
   const [tradePresence, setTradePresence] = useState<TradePresenceSettings | null>(null);
   const [tradePresenceErr, setTradePresenceErr] = useState<string | null>(null);
@@ -34,7 +37,6 @@ export function ChatSettingsContent() {
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
-    if (!userId) return;
     refresh();
     void syncUserSettings(userId).then(() => refresh());
     return subscribeUserSettings(({ userId: changedUserId }) => {
@@ -43,7 +45,6 @@ export function ChatSettingsContent() {
   }, [refresh, userId]);
 
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -86,7 +87,7 @@ export function ChatSettingsContent() {
 
   /** 채팅 푸시·미리보기 — `user_settings` 저장(실패 시 스토어가 되돌림 + 토스트) */
   const toggle = (key: "chat_push_enabled" | "chat_preview_enabled", next: boolean) =>
-    userId ? updateUserSettings(userId, { [key]: next }) : Promise.resolve(false);
+    updateUserSettings(userId, { [key]: next });
 
   /** 거래 접속 상태 — 낙관 반영 → PATCH → 실패 시 이전 값 복귀 + 토스트(S16 오류 표시 통일) */
   const patchTradePresence = async (partial: Partial<TradePresenceSettings>): Promise<boolean> => {
@@ -122,8 +123,6 @@ export function ChatSettingsContent() {
   };
 
   const rowClass = "flex min-h-[52px] items-center justify-between gap-3 border-b border-sam-border-soft py-3";
-
-  if (!userId) return null;
 
   return (
     <div className="space-y-0" data-testid="chat-settings">

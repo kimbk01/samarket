@@ -78,11 +78,10 @@ export function MyContent({
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
 
-  const sessionUser = getCurrentUser();
-  const membership = useClientMembershipState("mypage-root");
+  const membership = useClientMembershipState("mypage-root"); /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   const treatAsMember =
-    Boolean(sessionUser?.id) || membership.status === "member";
-  const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
+    membership.status === "member";
+  const isConfirmedGuest = membership.status === "guest";
 
   const membershipCheckFailed = useClientMembershipRecoveryFailed() && !treatAsMember;
 
