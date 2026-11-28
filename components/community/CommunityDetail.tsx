@@ -54,6 +54,7 @@ import {
 import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
 import { CommunityCommentComposerBar } from "./post-detail/CommunityCommentComposerForm";
 import { CommunityReportSheet } from "./post-detail/CommunityReportSheet";
+import { CommunityDetailKeyboardGap } from "./post-detail/community-detail-keyboard-gap";
 import type { CommunityReportReasonCode } from "@/lib/reports/community-report-reasons";
 import { COMMUNITY_COMMENT_QUERY_KEY } from "@/lib/community/share/community-share-url";
 import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
@@ -166,6 +167,8 @@ export function CommunityDetail({
   const [deleteErr, setDeleteErr] = useState("");
   const [promoteOpen, setPromoteOpen] = useState(false);
   const articleRef = useRef<HTMLElement | null>(null);
+  /** 키보드 열림 동안 하단 여백 보정 대상 (`CommunityDetailKeyboardGap`) */
+  const detailRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -524,7 +527,8 @@ export function CommunityDetail({
   }, [me, post.author_id]);
 
   return (
-    <div className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
+    <div ref={detailRootRef} className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
+      <CommunityDetailKeyboardGap rootRef={detailRootRef} articleRef={articleRef} />
       <CommunityPostDetailHeader
         titleText={tier1Title}
         backHref={backToFeedHref}
