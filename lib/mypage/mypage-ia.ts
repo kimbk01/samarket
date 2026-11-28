@@ -135,7 +135,9 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
         rows: [
           link("/mypage/section/community/liked-posts", "mypage_mnav_community_liked_posts", "heart"),
           link("/mypage/section/community/favorite-posts", "mypage_mnav_community_favorite_posts", "star"),
-          link("/mypage/section/community/community-friends", "mypage_mnav_community_community_friends", "users"),
+          link("/mypage/section/community/community-friends", "mypage_mnav_community_community_friends", "users", {
+            valueSource: { kind: "summary-count", field: "neighborFollowCount", format: "people" },
+          }),
         ],
       },
     ],
@@ -214,7 +216,6 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
         titleKey: "mypage_ia_grp_security_people",
         rows: [
           link(MYPAGE_DEVICE_PERMISSIONS_HREF, "mypage_ia_device_permissions", "shield"),
-          link("/mypage/section/account/favorite-users", "settings_following_users", "users"),
           link("/mypage/section/account/blocked-users", "settings_blocked_users", "user-block"),
           link("/mypage/section/account/hidden-users", "settings_hidden_users", "eye-off"),
           link("/mypage/trust", "mypage_trust_title", "star"),

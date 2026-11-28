@@ -49,6 +49,9 @@ export async function GET(req: NextRequest) {
   const offsetRaw = req.nextUrl.searchParams.get("offset")?.trim() ?? "0";
   const limitRaw = req.nextUrl.searchParams.get("limit")?.trim() ?? "";
   const neighborOnly = req.nextUrl.searchParams.get("neighborOnly") === "1";
+  /** 내정보 › 관심이웃 화면(시안 ②): 본인 글 빼기 · 관심이웃 한 명만 (관심이웃 설계 B) */
+  const neighborExcludeSelf = neighborOnly && req.nextUrl.searchParams.get("neighborSelf") === "0";
+  const neighborTargetId = neighborOnly ? req.nextUrl.searchParams.get("neighborTarget")?.trim() || null : null;
   const hashtag = normalizeCommunityHashtagQuery(req.nextUrl.searchParams.get("tag"));
   const keywordQ = sanitizeCommunityKeywordQuery(req.nextUrl.searchParams.get("q"));
 
@@ -154,7 +157,7 @@ export async function GET(req: NextRequest) {
         globalFeed ? "all" : locationId ?? "none",
         category ?? "all",
         authorId ?? "all",
-        neighborOnly ? "neighbor-only" : "all-users",
+        neighborOnly ? `neighbor-only:${neighborExcludeSelf ? "noself" : "self"}:${neighborTargetId ?? "all"}` : "all-users",
         hashtag ? `tag:${hashtag}` : "tag:none",
         keywordQ ? `q:${keywordQ}` : "q:none",
         feedCursor ? `c:${encodeCommunityFeedCursor(feedCursor)}` : String(offset),
@@ -171,6 +174,8 @@ export async function GET(req: NextRequest) {
           cursor: feedCursor,
           viewerUserId,
           neighborOnly,
+          neighborOnlyExcludeSelf: neighborExcludeSelf,
+          neighborOnlyTargetId: neighborTargetId,
           feedSort,
           topics,
           hashtag: hashtag || undefined,

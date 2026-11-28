@@ -12,10 +12,9 @@ import {
   getCurrentUser,
   getHydrationSafeCurrentUser,
 } from "@/lib/auth/get-current-user";
-import {
-  fetchCommunityUserRelationSnapshot,
-  invalidateCommunityUserRelationSnapshot,
-} from "@/lib/community/user-relation-client";
+import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
+import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
+import { useNeighborFollowToggle } from "@/components/community/ui/NeighborFollowButton";
 import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS, OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
@@ -27,9 +26,13 @@ type Props = {
   targetUserId?: string | null;
   canReport?: boolean;
   onReport?: () => void;
+  /** 토스트 이름 — 작성자 표시 이름 */
+  targetName?: string;
+  /** 글 상세 첫 데이터(`post.viewer`) — 본문 아래 안내와 같은 값으로 시작 */
+  relationSeed?: { following?: boolean | null; blocked?: boolean | null };
 };
 
-export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }: Props) {
+export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport, targetName, relationSeed }: Props) {
   const { t, safeT } = useI18n();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
@@ -41,12 +44,18 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [busy, setBusy] = useState(false);
-  const [following, setFollowing] = useState<boolean | null>(null);
-  const [blocked, setBlocked] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [undoHide, setUndoHide] = useState<(() => void) | null>(null);
   const peerId = typeof targetUserId === "string" ? targetUserId.trim() : "";
   const hasMemberPeer = Boolean(peerId);
+  /** 관심이웃·차단 상태 = 본문 아래 안내와 같은 저장소 (감사 E1 — 두 버튼이 서로 다른 값을 보던 결함) */
+  const follow = useNeighborFollowToggle({
+    targetUserId: peerId,
+    name: targetName?.trim() || t("community_member_fallback"),
+    seed: relationSeed,
+  });
+  const following = follow.following;
+  const blocked = follow.blocked;
 
   useEffect(() => {
     setMounted(true);
@@ -61,42 +70,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
     }, undo ? DIBAY_TOAST_ACTION_MS : DIBAY_TOAST_MS);
   }, []);
 
-  const load = useCallback(async () => {
-    if (!me?.id || !peerId || me.id === peerId) return;
-    try {
-      const relation = await fetchCommunityUserRelationSnapshot(peerId);
-      setFollowing(relation.following);
-      setBlocked(relation.blocked === true);
-    } catch {
-      /* ignore */
-    }
-  }, [me?.id, peerId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   const toggleFollow = async () => {
     if (!hasMemberPeer) return;
-    if (!me?.id) {
-      void requireAction("friend_add", () => undefined);
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/community/neighbor-relations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: peerId }),
-      });
-      const j = (await res.json()) as { ok?: boolean; following?: boolean };
-      invalidateCommunityUserRelationSnapshot(peerId);
-      if (j.ok && typeof j.following === "boolean") setFollowing(j.following);
-      else await load();
-    } finally {
-      setBusy(false);
-      setOpen(false);
-    }
+    setOpen(false);
+    await follow.toggle();
   };
 
   const toggleBlock = async () => {
@@ -129,10 +106,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetUserId: peerId }),
       });
-      const j = (await res.json()) as { ok?: boolean; blocked?: boolean };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; blocked?: boolean };
       invalidateCommunityUserRelationSnapshot(peerId);
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
-        setBlocked(j.blocked);
+        applyBlockToNeighborRelation(peerId, j.blocked);
         if (j.blocked) {
           showToast(t("community_block_success_toast"));
           router.refresh();
@@ -206,9 +183,9 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
               className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden max-w-[min(92vw,280px)] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)] sm:min-w-[12rem]"
               role="menu"
             >
-              {hasMemberPeer ? (
+              {hasMemberPeer && blocked !== true ? (
                 <li role="none">
-                  <button type="button" role="menuitem" disabled={busy} className={itemClass} onClick={() => void toggleFollow()}>
+                  <button type="button" role="menuitem" disabled={busy || follow.busy} className={itemClass} onClick={() => void toggleFollow()}>
                     {following ? t("community_neighbor_follow_remove") : t("community_neighbor_follow_add")}
                   </button>
                 </li>
@@ -250,6 +227,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
           </>
         ) : null}
       </div>
+      {follow.toastNode}
       {toast ? (
         <DibayToast
           message={toast}

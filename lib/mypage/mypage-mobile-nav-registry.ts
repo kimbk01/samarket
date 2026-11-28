@@ -78,7 +78,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     items: [
       navItem("account", "profile"),
       navItem("account", "account-info"),
-      navItem("account", "favorite-users"),
       navItem("account", "blocked-users"),
       navItem("account", "hidden-users"),
     ],

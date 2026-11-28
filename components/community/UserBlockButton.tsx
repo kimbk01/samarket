@@ -14,6 +14,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
 
 export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
   const { t } = useI18n();
@@ -76,6 +77,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       invalidateCommunityUserRelationSnapshot(targetUserId);
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
         const nextBlocked = j.blocked;
+        applyBlockToNeighborRelation(targetUserId, nextBlocked);
         setBlocked((prev) => (prev === nextBlocked ? prev : nextBlocked));
         invalidateHomePostsCache();
         router.refresh();

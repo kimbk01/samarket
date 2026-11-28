@@ -45,17 +45,7 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
 
   return (
     <div className="mt-4 space-y-4">
-      <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_hub_neighbor_only")}</h2>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("community_hub_neighbor_hint")}</p>
-        <Link
-          href={philifeAppPaths.home}
-          className="mt-3 inline-block rounded-ui-rect bg-sam-ink px-3 py-2 sam-text-body-secondary font-medium text-white"
-        >
-          {t("community_hub_open_feed")}
-        </Link>
-      </section>
-
+      {/* 「관심이웃 글만 보기」 안내 카드 삭제 — 운영에서 피드 필터가 꺼져 있어 없는 기능을 안내했다 (관심이웃 감사 E10) */}
       <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_hub_my_posts")}</h2>
         {err ? <p className="mt-2 sam-text-body-secondary text-red-600">{err}</p> : null}

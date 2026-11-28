@@ -101,7 +101,6 @@ exports[`내정보 홈 = 분류 허브 (IA 2026-11-02) > IA 구조 스냅샷 1`]
       {
         "rows": [
           "mypage_ia_device_permissions → /mypage/section/settings/device-permissions",
-          "settings_following_users → /mypage/section/account/favorite-users",
           "settings_blocked_users → /mypage/section/account/blocked-users",
           "settings_hidden_users → /mypage/section/account/hidden-users",
           "mypage_trust_title → /mypage/trust",

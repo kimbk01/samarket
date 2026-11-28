@@ -26,7 +26,6 @@ export const MYPAGE_NAV: MyPageTabNav[] = [
       { id: "home", labelKey: "mypage_comp_nav_sec_account_home_label", descriptionKey: "mypage_comp_nav_sec_account_home_desc" },
       { id: "profile", labelKey: "mypage_comp_nav_sec_account_profile_label", descriptionKey: "mypage_comp_nav_sec_account_profile_desc" },
       { id: "basic", labelKey: "mypage_comp_nav_sec_account_basic_label", descriptionKey: "mypage_comp_nav_sec_account_basic_desc" },
-      { id: "favorite-users", labelKey: "mypage_comp_nav_sec_account_favorite_users_label", descriptionKey: "mypage_comp_nav_sec_account_favorite_users_desc" },
       { id: "blocked-users", labelKey: "mypage_comp_nav_sec_account_blocked_users_label", descriptionKey: "mypage_comp_nav_sec_account_blocked_users_desc" },
       { id: "hidden-users", labelKey: "mypage_comp_nav_sec_account_hidden_users_label", descriptionKey: "mypage_comp_nav_sec_account_hidden_users_desc" },
     ],

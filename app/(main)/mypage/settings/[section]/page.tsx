@@ -5,7 +5,7 @@ const SECTION_REDIRECTS: Record<string, string> = {
   notifications: "/mypage/section/settings/notifications",
   "quiet-hours": "/mypage/section/settings/notifications",
   "order-notifications": "/mypage/section/settings/notifications",
-  following: "/mypage/section/account/favorite-users",
+  following: "/mypage/section/community/community-friends",
   "blocked-users": "/mypage/section/account/blocked-users",
   "hidden-users": "/mypage/section/account/hidden-users",
   autoplay: "/mypage/section/settings/video-autoplay",

@@ -69,18 +69,13 @@ export function PhilifeWriteSkeleton() {
   );
 }
 
-/** `/philife/my` 내 활동 본문 — 안내 한 줄 · 카드 2개(동네 전용 · 내 글 목록) */
+/** `/philife/my` 내 활동 본문 — 안내 한 줄 · 카드 1개(내 글 목록) */
 export function PhilifeMyHubBodySkeleton() {
   return (
     <SkeletonShell testId="philife-my-skeleton">
       <div className="flex min-w-0 flex-col gap-3 pt-2">
         <span className={`block h-4 w-[70%] ${BONE}`} />
         <div className="mt-1 flex flex-col gap-4">
-          <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
-            <span className={`block h-4 w-32 ${BONE}`} />
-            <span className={`mt-2 block h-3.5 w-[80%] ${BONE}`} />
-            <span className={`mt-3 block h-9 w-28 ${BONE}`} />
-          </section>
           <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
             <span className={`block h-4 w-24 ${BONE}`} />
             <div className="mt-3 divide-y divide-sam-border-soft">

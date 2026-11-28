@@ -16,16 +16,20 @@ import type { MemberCommunitySection, MemberCommunityTabPayload } from "@/lib/ad
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
+import { AdminMemberNeighborFollowSection } from "@/components/admin/users/AdminMemberNeighborFollowSection";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
 import { adminCommunityLabel } from "@/lib/admin/status-labels/community-status-labels";
 
-const SECTIONS: MemberCommunitySection[] = ["posts", "comments", "reports", "ads"];
+/** `neighbors` = 관심이웃(관심이웃 설계 E) — 별도 API, 커뮤니티 탭 집계 조회를 다시 하지 않는다 */
+type PanelSection = MemberCommunitySection | "neighbors";
+const SECTIONS: PanelSection[] = ["posts", "comments", "reports", "ads", "neighbors"];
 
-export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
+export function AdminMemberCommunityPanel({ userId, memberName }: { userId: string; memberName?: string }) {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
-  const [section, setSection] = useState<MemberCommunitySection>("posts");
+  const [section, setSection] = useState<PanelSection>("posts");
   const [page, setPage] = useState(1);
   const [state, setState] = useState<{ kind: "loading" } | { kind: "error" } | { kind: "ok"; data: MemberCommunityTabPayload }>({
     kind: "loading",
@@ -37,6 +41,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
   };
 
   useEffect(() => {
+    if (section === "neighbors") return;
     let cancelled = false;
     setState({ kind: "loading" });
     (async () => {
@@ -62,13 +67,29 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
     };
   }, [userId, section, page]);
 
+  /** 관심이웃은 자체 API — 커뮤니티 집계가 실패·로딩 중이어도 열 수 있다 (관심이웃 재감사 7) */
+  if (section === "neighbors" && state.kind !== "ok") {
+    return (
+      <div className="space-y-3">
+        <AdminActionButton variant="secondary" size="sm" onClick={() => setSection("posts")}>
+          {t("admin_users_cc_overview_posts")}
+        </AdminActionButton>
+        <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+          <AdminMemberNeighborFollowSection userId={userId} memberName={memberName?.trim() || userId} />
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "loading") {
     return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed")}
+      <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 py-8 text-center text-sm font-semibold text-sam-danger`}>
+        <p>{safeT("admin_users_cc_load_failed")}</p>
+        <AdminActionButton variant="secondary" size="sm" onClick={() => setSection("neighbors")}>
+          {t("admin_users_cc_neighbors")}
+        </AdminActionButton>
       </div>
     );
   }
@@ -102,7 +123,7 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
           syncUrl={false}
           value={section}
           onChange={(id) => {
-            setSection(id as MemberCommunitySection);
+            setSection(id as PanelSection);
             setPage(1);
           }}
           tabs={SECTIONS.map((id) => ({
@@ -114,7 +135,9 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
                   ? t("admin_users_cc_overview_comments")
                   : id === "reports"
                     ? t("admin_users_cc_overview_reports")
-                    : safeT("admin_users_cc_summary_ads"),
+                    : id === "neighbors"
+                      ? t("admin_users_cc_neighbors")
+                      : safeT("admin_users_cc_summary_ads"),
           }))}
           className="min-w-0 flex-1"
         />
@@ -124,6 +147,9 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
       </div>
 
       <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+        {section === "neighbors" ? (
+          <AdminMemberNeighborFollowSection userId={userId} memberName={memberName?.trim() || userId} />
+        ) : null}
         {section === "posts" ? (
           <table className="min-w-full border-collapse text-[13px]">
             <thead>
@@ -212,7 +238,9 @@ export function AdminMemberCommunityPanel({ userId }: { userId: string }) {
           </p>
         ) : null}
       </div>
-      <AdminMemberPager page={page} hasNext={hasNext} onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => p + 1)} />
+      {section === "neighbors" ? null : (
+        <AdminMemberPager page={page} hasNext={hasNext} onPrev={() => setPage((p) => Math.max(1, p - 1))} onNext={() => setPage((p) => p + 1)} />
+      )}
     </div>
   );
 }
