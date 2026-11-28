@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import {
   CM_BTN_PILL_PRIMARY_CLASS,
@@ -135,7 +136,7 @@ export function CommunityCommentComposerBar({
   const n = (me?.name || "?").trim() || "?";
 
   return (
-    <MoimStickyFooter compact className="z-20">
+    <CommunityCommentFixedBar>
       <div id="comment-composer" className="mx-auto max-w-3xl">
         {replyTo ? (
           <div className="flex items-center justify-between gap-2 pb-1.5 text-[12px] text-[var(--cm-text-muted)]">
@@ -192,6 +193,12 @@ export function CommunityCommentComposerBar({
           />
           <button
             type="submit"
+            /**
+             * 누르는 순간 입력칸 포커스를 빼앗지 않는다 — 키보드가 닫히며 바가 내려가 첫 탭이 버튼을 놓치던 결함
+             * (실기 2026-11-28 Samsung·Xiaomi: 키보드 열린 채 「게시」 첫 탭 무시 · 결함 1)
+             */
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
             disabled={busy || !isLoggedIn || !value.trim() || overLimit}
             className={`mb-0.5 shrink-0 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
             aria-label={t("community_comment_post_aria")}
@@ -209,6 +216,49 @@ export function CommunityCommentComposerBar({
           </p>
         ) : null}
       </div>
-    </MoimStickyFooter>
+    </CommunityCommentFixedBar>
   );
+}
+
+/**
+ * 화면 하단 고정 바 + 같은 높이의 자리(본문 끝 댓글이 바에 가리지 않게) — 승인 시안 S1.
+ * 위치는 `.cm-comment-composer-fixed`(하단 탭 위 / 키보드 위). 키보드 보정은 앱 공용 계약 그대로:
+ * `data-form-keyboard-footer` + 포커스 칸 보이기, iOS 는 키보드 가림 높이만큼 아래 여백.
+ */
+function CommunityCommentFixedBar({ children }: { children: React.ReactNode }) {
+  const { effectiveViewportBottom, keyboardOpen, keyboardOcclusionInset } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(72);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setBarHeight(Math.ceil(el.getBoundingClientRect().height)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const occlusion = keyboardOpen ? Math.max(0, Math.round(keyboardOcclusionInset)) : 0;
+  return (
+    <>
+      <div aria-hidden style={{ height: barHeight }} />
+      <div
+        ref={barRef}
+        data-form-keyboard-footer="1"
+        className="cm-comment-composer-fixed border-t border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-4 pt-2"
+        style={{ ["--cm-composer-occlusion" as string]: `${occlusion}px` }}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
+/**
+ * 댓글 수정 중(하단 입력 바를 숨긴 동안)에도 포커스한 칸과 짝 버튼(「저장」)을 키보드 위로 올려 주는 키보드 보정만 유지한다.
+ * 입력 바(`MoimStickyFooter`)가 같은 훅을 쓰므로 둘 중 하나만 화면에 둔다 (재감사 2026-11-28 · 실기 결함 3).
+ */
+export function CommunityCommentKeyboardKeeper() {
+  const { effectiveViewportBottom } = useFormKeyboardViewport();
+  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
+  return null;
 }

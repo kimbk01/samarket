@@ -42,6 +42,8 @@ type Props = {
   onReply: (node: NeighborhoodCommentNode, authorLabel: string) => void;
   editingCommentId: string | null;
   onEditingChange: (id: string | null) => void;
+  /** 수정 중인 칸이 사라지면(답글 숨기기·목록에서 빠짐) 그 수정만 끝낸다 — 다른 댓글 수정은 건드리지 않음 */
+  onEditingClose: (id: string) => void;
   maxLength: number | null;
   commentBusy: boolean;
 };
@@ -77,6 +79,7 @@ export function CommunityCommentItem({
   onReply,
   editingCommentId,
   onEditingChange,
+  onEditingClose,
   maxLength,
   commentBusy,
 }: Props) {
@@ -102,6 +105,14 @@ export function CommunityCommentItem({
     if (!revealCommentId || revealCommentId === node.id) return;
     if (treeHasId(node, revealCommentId)) setRepliesOpen(true);
   }, [revealCommentId, node]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const id = node.id;
+    return () => onEditingClose(id);
+    // 수정이 끝나거나 이 칸이 사라질 때 한 번
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, node.id]);
 
   useEffect(() => {
     if (editing) {
@@ -192,7 +203,13 @@ export function CommunityCommentItem({
           ) : null}
 
           {editing ? (
-            <div className="mt-1.5 space-y-2">
+            <form
+              className="mt-1.5 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void onSave();
+              }}
+            >
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -211,9 +228,13 @@ export function CommunityCommentItem({
               ) : null}
               <div className="flex flex-wrap gap-2">
                 <button
-                  type="button"
+                  type="submit"
+                  /** 키보드 위로 수정칸과 함께 보이게 (K-07 짝 버튼) — 하단 입력 바를 숨긴 뒤에도 「저장」이 키보드에 가리지 않게 */
+                  data-form-keyboard-keep-visible="1"
                   disabled={saving || !draft.trim() || overLimit}
-                  onClick={() => void onSave()}
+                  /** 누르는 순간 수정칸 포커스를 빼앗지 않는다 — 키보드가 닫히며 버튼이 움직여 첫 탭을 놓치지 않게 (실기 결함 1) */
+                  onPointerDown={(e) => e.preventDefault()}
+                  onMouseDown={(e) => e.preventDefault()}
                   className={`min-h-11 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
                 >
                   {t("community_save")}
@@ -227,7 +248,7 @@ export function CommunityCommentItem({
                   {t("common_cancel")}
                 </button>
               </div>
-            </div>
+            </form>
           ) : isVisible ? (
             <p data-user-content="" className={`mt-1 break-words [overflow-wrap:anywhere] ${CM_COMMENT_BODY_CLASS}`}>
               {depth > 0 && parentAuthorName ? (
@@ -309,6 +330,7 @@ export function CommunityCommentItem({
                       onReply={onReply}
                       editingCommentId={editingCommentId}
                       onEditingChange={onEditingChange}
+                      onEditingClose={onEditingClose}
                       maxLength={maxLength}
                       commentBusy={commentBusy}
                     />

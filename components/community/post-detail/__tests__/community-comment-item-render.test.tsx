@@ -53,6 +53,7 @@ function render(n: NeighborhoodCommentNode) {
       onReply={() => undefined}
       editingCommentId={null}
       onEditingChange={() => undefined}
+      onEditingClose={() => undefined}
       maxLength={500}
       commentBusy={false}
     />
@@ -115,6 +116,7 @@ describe("CommunityCommentItem", () => {
         onReply={() => undefined}
         editingCommentId={null}
         onEditingChange={() => undefined}
+      onEditingClose={() => undefined}
         maxLength={500}
         commentBusy={false}
       />
