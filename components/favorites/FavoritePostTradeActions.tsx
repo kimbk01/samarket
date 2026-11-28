@@ -6,9 +6,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
-import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import {
   openCreateTradeChat,
@@ -36,14 +35,9 @@ const BTN_PRIMARY =
 export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [authBump, setAuthBump] = useState(0);
-  useEffect(() => {
-    const bump = () => setAuthBump((n) => n + 1);
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, bump);
-    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, bump);
-  }, []);
-
-  const user = getCurrentUser();
+  /** 지금 보는 회원 = 회원 상태 SSOT(설계 v2 §6) — 예전: 로그인 변경 신호로 다시 그리며 렌더 중 캐시를 읽음(신호 없는 캐시 변경을 놓침) */
+  const memberId = useClientMemberId("favorite-trade-actions");
+  const user = memberId ? { id: memberId } : null;
   const appSettings = getAppSettings();
   const chatEnabled = appSettings.chatEnabled !== false;
   const allowChatAfterSold = appSettings.allowChatAfterSold === true;
@@ -95,7 +89,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     return () => {
       cancelled = true;
     };
-  }, [post.id, post.type, user?.id, listingOwnerId, authBump]);
+  }, [post.id, post.type, user?.id, listingOwnerId]);
 
   useEffect(() => {
     const onRoomResolved = (ev: Event) => {

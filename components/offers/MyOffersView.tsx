@@ -13,7 +13,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStateView } from "@/components/mypage/ds";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import { formatPrice } from "@/lib/utils/format";
 
@@ -74,7 +74,8 @@ type Props = {
 export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
   const { t } = useI18n();
   const router = useRouter();
-  const viewer = getCurrentUser()?.id ?? "session";
+  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 목록 캐시 키를 만들지 않는다(목록 훅은 키가 없으면 읽지 않음). 예전 "session" 대체 키는 회원별 캐시와 갈라졌다(설계 v2 §6) */
+  const viewer = useClientMemberId("my-offers");
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<PriceOfferListItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PriceOfferListItem | null>(null);
@@ -90,7 +91,7 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
     [mode]
   );
   const list = useMypageCursorList<PriceOfferListItem>({
-    cacheKey: `my-offers:${viewer}:${mode}`,
+    cacheKey: viewer ? `my-offers:${viewer}:${mode}` : null,
     fetchPage,
     getId: (o) => o.id,
   });

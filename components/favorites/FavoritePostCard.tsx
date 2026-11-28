@@ -5,7 +5,7 @@ import { PostCard } from "@/components/post/PostCard";
 import { FavoritePostTradeActions } from "@/components/favorites/FavoritePostTradeActions";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import { useTradeListCompositionMap } from "@/lib/trade/category-form/use-trade-list-composition-map";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 
 interface FavoritePostCardProps {
@@ -16,12 +16,14 @@ interface FavoritePostCardProps {
 /** 찜 목록 카드 — 홈/카테고리 리스트와 동일한 PostCard + composition overlay */
 export function FavoritePostCard({ post, onUnfavorite }: FavoritePostCardProps) {
   const { propsForCategoryId } = useTradeListCompositionMap();
+  /** 내 글 판정 = 회원 상태 SSOT 의 회원 id(설계 v2 §6) */
+  const viewerId = useClientMemberId("favorite-post-card");
   const composition = propsForCategoryId(post.category_id);
   /** 볼 수 없는 글(숨김·삭제, 남의 글) — 카드는 흐리게(PostCard), 채팅·판매자 정보 버튼은 두지 않는다. 찜 해제는 하트로 */
   const status = String(post.status ?? "").toLowerCase();
   const unavailable =
     (status === "hidden" || status === "deleted") &&
-    postAuthorUserId(post as unknown as Record<string, unknown>) !== (getCurrentUser()?.id ?? "");
+    postAuthorUserId(post as unknown as Record<string, unknown>) !== (viewerId ?? "");
   return (
     <PostCard
       post={post}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 import type { ChatProductSummary as ChatProductSummaryType } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
@@ -82,7 +82,9 @@ export function ChatProductSummary({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
-  const viewerId = mounted ? getCurrentUser()?.id ?? null : null;
+  /** 회원 id = 회원 상태 SSOT(설계 v2 §6) — 하이드레이션 차이가 없게 마운트 뒤에만 쓴다 */
+  const memberId = useClientMemberId("chat-product-summary");
+  const viewerId = mounted ? memberId : null;
   /** 설계 §1-3: 이번 실행 중 숨김·삭제 방송을 받은 글 */
   const removedByBroadcast = useTradeListingRemoved(isPhilifeCard ? null : product.id);
   const showOwnerAdEntry =

@@ -87,6 +87,7 @@ import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { shouldShowNoTopicsAdminLink } from "@/lib/philife/write-no-topics";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
@@ -237,7 +238,9 @@ export function PhilifeNeighborhoodWriteForm({
   /** 링크 시트: null = 닫힘 */
   const [linkDraft, setLinkDraft] = useState<string | null>(null);
   const [linkErr, setLinkErr] = useState("");
-  const me = getCurrentUser();
+  /** 지금 보는 회원 = 회원 상태 SSOT(설계 v2 §6) — 관리자 주제 링크·작성자 id 판정. 제출 순간 확인(아래)은 그 순간 읽기 */
+  const writeMembership = useClientMembershipState("philife-write");
+  const me = writeMembership.status === "member" ? writeMembership.profile : null;
 
   useEffect(() => {
     legacyPhotoCountRef.current = mergePostBodyImages({ content, candidates: imageUrls }).length;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -15,7 +15,8 @@ import type { VideoAutoplayMode } from "@/lib/types/settings-db";
 
 export function VideoAutoplayContent() {
   const { t } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
+  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 설정을 읽거나 쓰지 않는다(예전 "me" 대체 키는 기기 캐시를 실제 회원 키와 갈라 놓았다 — 관심이웃 전체 수정 설계 v2 §6) */
+  const userId = useClientMemberId("settings-video-autoplay") ?? "";
   const [mode, setMode] = useState<VideoAutoplayMode>("wifi_only");
 
   const options = useMemo(
@@ -32,6 +33,7 @@ export function VideoAutoplayContent() {
     setMode((s.video_autoplay_mode as VideoAutoplayMode) ?? "wifi_only");
   }, [userId]);
   useEffect(() => {
+    if (!userId) return;
     refresh();
     void syncUserSettings(userId).then(() => refresh());
     return subscribeUserSettings(({ userId: changedUserId }) => {
@@ -41,9 +43,12 @@ export function VideoAutoplayContent() {
 
   /** 즉시 저장 — 실패 시 스토어가 되돌리고(구독으로 표시 복귀) 토스트 (S15) */
   const select = (value: VideoAutoplayMode) => {
+    if (!userId) return;
     setMode(value);
     void updateUserSettings(userId, { video_autoplay_mode: value });
   };
+
+  if (!userId) return null;
 
   return (
     <ul

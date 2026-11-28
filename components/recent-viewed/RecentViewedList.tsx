@@ -14,7 +14,7 @@ import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyGroup, MyStateView } from "@/components/mypage/ds";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import {
   MYPAGE_RECENCY_BUCKETS,
   mypageRecencyBucket,
@@ -80,7 +80,8 @@ export function RecentViewedScreen({
   embedded = false,
 }: { embedded?: boolean } = {}) {
   const { t } = useI18n();
-  const viewer = getCurrentUser()?.id ?? "session";
+  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 목록 캐시 키를 만들지 않는다(목록 훅은 키가 없으면 읽지 않음). 예전 "session" 대체 키는 회원별 캐시와 갈라졌다(설계 v2 §6) */
+  const viewer = useClientMemberId("recent-viewed");
   const [confirmClear, setConfirmClear] = useState(false);
   const { run, pending } = useMypageSubmitGuard();
 
@@ -98,7 +99,7 @@ export function RecentViewedScreen({
     };
   }, []);
   const list = useMypageCursorList<RecentViewEntry>({
-    cacheKey: `mypage:recent-views:${viewer}`,
+    cacheKey: viewer ? `mypage:recent-views:${viewer}` : null,
     fetchPage,
     getId: entryPostId,
   });

@@ -318,6 +318,17 @@ export function useClientMembershipState(source: string): ClientMembershipState 
   return snapshot.state;
 }
 
+/**
+ * 지금 보는 회원 id — 회원 상태 SSOT 에서 id 만 꺼낸다(확인 중·비회원이면 null).
+ * 화면이 그릴 때 회원 id 가 필요하면 `getCurrentUser()` 를 한 번 읽지 말고 이것을 쓴다 — 캐시가 늦게 차도 다시 그린다
+ * (관심이웃 전체 수정 설계 v2 §6 · 주소로 바로 연 화면이 회원 정보를 빈 값·"me"·"session" 키로 들던 결함).
+ * 문자열이라 프로필 수정(새 객체)마다 effect 가 다시 돌지 않는다.
+ */
+export function useClientMemberId(source: string): string | null {
+  const state = useClientMembershipState(source);
+  return state.status === "member" ? state.profile.id : null;
+}
+
 /** checking 중 재시도 소진(일시 장애) 여부 — 확인 실패 + 다시 시도 표시용 */
 export function useClientMembershipRecoveryFailed(): boolean {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

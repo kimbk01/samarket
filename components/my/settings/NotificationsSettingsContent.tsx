@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -149,7 +149,8 @@ function formatConsentTimePht(iso: string | null): string {
 
 export function NotificationsSettingsContent() {
   const { t, language } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
+  /** 지금 보는 회원 id = 회원 상태 SSOT — 모르면 설정을 읽거나 쓰지 않는다(예전 "me" 대체 키는 기기 캐시를 실제 회원 키와 갈라 놓았다 — 관심이웃 전체 수정 설계 v2 §6) */
+  const userId = useClientMemberId("settings-notifications") ?? "";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
 
   const [commerceEmailOn, setCommerceEmailOn] = useState(true);
@@ -176,6 +177,7 @@ export function NotificationsSettingsContent() {
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
   useEffect(() => {
+    if (!userId) return;
     refresh();
     void syncUserSettings(userId).then(() => refresh());
     return subscribeUserSettings(({ userId: changedUserId }) => {
@@ -184,6 +186,7 @@ export function NotificationsSettingsContent() {
   }, [refresh, userId]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -216,6 +219,7 @@ export function NotificationsSettingsContent() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -312,7 +316,8 @@ export function NotificationsSettingsContent() {
   );
 
   const saveUserSetting = useCallback(
-    (partial: Parameters<typeof updateUserSettings>[1]) => updateUserSettings(userId, partial),
+    (partial: Parameters<typeof updateUserSettings>[1]) =>
+      userId ? updateUserSettings(userId, partial) : Promise.resolve(false),
     [userId],
   );
 
@@ -372,6 +377,8 @@ export function NotificationsSettingsContent() {
   );
 
   const timeInputClass = `${Sam.input.base} ${Sam.focusRing} !min-h-[40px] w-auto rounded-ui-rect !py-1.5 text-[16px]`;
+
+  if (!userId) return null;
 
   return (
     <div className="space-y-2" data-testid="notifications-settings">

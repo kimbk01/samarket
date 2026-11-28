@@ -11,7 +11,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import {
@@ -194,7 +194,8 @@ export const PostCard = memo(function PostCard({
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const currency = getAppSettings().defaultCurrency || "KRW";
-  const viewerId = getCurrentUser()?.id ?? null;
+  /** 내 글 판정 = 회원 상태 SSOT 의 회원 id(설계 v2 §6) */
+  const viewerId = useClientMemberId("post-card");
   const detailHref = `/post/${post.id}`;
   const showOwnerTradeActions =
     isTradePostForOwnerMenu(post.type) && isPostListOwnedByViewer(post, viewerId);

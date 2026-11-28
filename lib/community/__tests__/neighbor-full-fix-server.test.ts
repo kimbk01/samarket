@@ -168,4 +168,12 @@ describe("차단 — 상태 지정 (같은 「차단」 두 번 = 그대로 차�
   it("uuid 가 아니면 400", async () => {
     expect((await postBlock({ targetUserId: "x", blocked: true })).status).toBe(400);
   });
+
+  it("옛 토글 요청(blocked 없음)은 400 blocked_required — 차단·해제 호출 없음 (PR-B: 한 배포 호환 종료)", async () => {
+    alreadyBlocked = true;
+    const r = await postBlock({ targetUserId: PEER });
+    expect(r.status).toBe(400);
+    expect(r.json.error).toBe("blocked_required");
+    expect(blockCalls).toHaveLength(0);
+  });
 });
