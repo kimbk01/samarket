@@ -79,7 +79,7 @@
      - 남은 멤버가 없으면 `moim_close` 와 같은 정리를 한다(종료·일정 취소·방 읽기 전용).
   2. 모든 모임의 활성·대기 멤버 행 → `moim__deactivate_member` + 상태 `left`.
   3. 대기 가입 신청 → `cancelled`.
-  4. 받은·보낸 초대 대기분 → `declined`.
+  4. 받은 초대 대기분 → `declined`, 보낸 초대 대기분 → `cancelled`(보낸 사람이 없어짐 — 2026-11-28 결정 D-19, R1 에서 정정).
 - **호출 위치** — TS `app/api/admin/users/[id]/delete/route.ts`:
   - **withdraw(탈퇴)·purge(영구 삭제) 두 모드 모두**, 프로필을 바꾸거나 Auth 를 삭제하기 **전에** 부른다.
   - 실패하면 삭제를 멈추고 500 을 돌려준다(반쯤 처리된 상태를 남기지 않는다).

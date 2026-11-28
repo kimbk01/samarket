@@ -1,6 +1,6 @@
 /**
  * POST /api/admin/moim/moims/[moimId]/sanctions — 모임 제재 적용 (설계 moim §6 P14 · §8). 권한 키 `moim`.
- * body { level: "unlist"|"warn"|"block", reasonCode(신고 사유 코드), reason, endsAt?: ISO }
+ * body { level: "unlist"|"warn"|"block", reasonCode(신고 사유 코드), reason, endsAt?: ISO, reportId?: 같은 모임 신고 id(선택 · R1 A-16) }
  * 알림 `moim_sanctioned`(필수 — 끌 수 없음): 추천 제외·경고 = 모임장 · 차단 = 전체 멤버. 신고 연결은 M6.
  */
 import type { NextRequest } from "next/server";
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!gate.ok) return gate.response;
   const moimId = moimAdminUuid((await params).moimId);
   if (!moimId) return moimAdminBad("moim_not_found", 404);
-  const body = await moimAdminJson<{ level?: unknown; reasonCode?: unknown; reason?: unknown; endsAt?: unknown }>(req);
+  const body = await moimAdminJson<{ level?: unknown; reasonCode?: unknown; reason?: unknown; endsAt?: unknown; reportId?: unknown }>(req);
   const level = (MOIM_ADMIN_SANCTION_LEVELS as readonly unknown[]).includes(body?.level) ? (body?.level as MoimAdminSanctionLevel) : null;
   if (!level) return moimAdminBad("moim_sanction_level_invalid");
   if (!isMoimReportReasonCode(body?.reasonCode)) return moimAdminBad("moim_report_reason_invalid");
@@ -32,7 +32,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!Number.isFinite(ms)) return moimAdminBad("moim_sanction_period_invalid");
     endsAt = new Date(ms).toISOString();
   }
-  const r = await moimAdminSanctionApply(gate.actor.userId, moimId, { level, reasonCode: body?.reasonCode as string, reason, endsAt }, gate.sb);
+  let reportId: string | null = null;
+  if (body?.reportId != null && body.reportId !== "") {
+    reportId = moimAdminUuid(body.reportId);
+    if (!reportId) return moimAdminBad("moim_report_not_found", 404);
+  }
+  const r = await moimAdminSanctionApply(gate.actor.userId, moimId, { level, reasonCode: body?.reasonCode as string, reason, endsAt, reportId }, gate.sb);
   if (r.ok) {
     await notifyMoimMany(gate.sb, r.notify_user_ids ?? [], {
       kind: "moim_sanctioned",

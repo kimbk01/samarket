@@ -44,25 +44,30 @@ export type MoimPermissionRule = {
   adjustable: boolean;
   /** 바꿀 때 내려갈 수 있는 가장 낮은 역할 */
   floorRole: MoimRole;
+  /**
+   * 바꿀 때 올라갈 수 있는 가장 높은 역할 — 설계 §5.2 「(조정)」 칸만 움직인다(R1 A-02).
+   * DB `moim_permission_ceiling` 과 같은 값(시험이 대조). 조정 불가 행동은 기본값과 같다.
+   */
+  ceilingRole: MoimRole;
 };
 
 export const MOIM_PERMISSION_DEFAULTS: Readonly<Record<MoimAction, MoimPermissionRule>> = {
-  edit_info: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
-  decide_join: { defaultMinRole: "staff", adjustable: true, floorRole: "staff" },
-  manage_invite_link: { defaultMinRole: "staff", adjustable: true, floorRole: "staff" },
-  send_invite: { defaultMinRole: "member", adjustable: true, floorRole: "member" },
-  pin_notice: { defaultMinRole: "staff", adjustable: true, floorRole: "staff" },
-  manage_boards: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
-  hide_post: { defaultMinRole: "staff", adjustable: false, floorRole: "staff" },
-  create_schedule: { defaultMinRole: "member", adjustable: true, floorRole: "member" },
+  edit_info: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
+  decide_join: { defaultMinRole: "staff", adjustable: true, floorRole: "staff", ceilingRole: "co_host" },
+  manage_invite_link: { defaultMinRole: "staff", adjustable: true, floorRole: "staff", ceilingRole: "co_host" },
+  send_invite: { defaultMinRole: "member", adjustable: true, floorRole: "member", ceilingRole: "staff" },
+  pin_notice: { defaultMinRole: "staff", adjustable: true, floorRole: "staff", ceilingRole: "co_host" },
+  manage_boards: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host", ceilingRole: "co_host" },
+  hide_post: { defaultMinRole: "staff", adjustable: false, floorRole: "staff", ceilingRole: "staff" },
+  create_schedule: { defaultMinRole: "member", adjustable: true, floorRole: "member", ceilingRole: "staff" },
   /** 설계 §5.2 「멤버 내보내기·차단 O O X X」(조정 없음) · 시안 U7 — 2026-11-27 감사 B6 */
-  remove_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
-  ban_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host" },
+  remove_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host", ceilingRole: "co_host" },
+  ban_member: { defaultMinRole: "co_host", adjustable: false, floorRole: "co_host", ceilingRole: "co_host" },
   /** 설계 §5.2 「운영진 메모 O / O(조정) / O(조정)」 — 운영진 기본 허용 */
-  write_note: { defaultMinRole: "staff", adjustable: true, floorRole: "staff" },
-  set_role: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
-  transfer_host: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
-  close: { defaultMinRole: "host", adjustable: false, floorRole: "host" },
+  write_note: { defaultMinRole: "staff", adjustable: true, floorRole: "staff", ceilingRole: "host" },
+  set_role: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
+  transfer_host: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
+  close: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
 };
 
 const ROLE_RANK: Readonly<Record<MoimRole, number>> = { host: 4, co_host: 3, staff: 2, member: 1 };
@@ -93,14 +98,16 @@ export function canMoimAction(ctx: MoimPermissionContext, action: MoimAction): b
   if (!ctx.viewerRole) return false;
   const rule = MOIM_PERMISSION_DEFAULTS[action];
   const override = rule.adjustable ? ctx.overrides?.[action] : undefined;
-  const minRole = override ?? rule.defaultMinRole;
+  /** 저장값이 상한을 넘으면 상한으로 본다 (DB moim_actor_can 과 같음 · R1 A-02) */
+  const minRole =
+    override && moimRoleRank(override) > moimRoleRank(rule.ceilingRole) ? rule.ceilingRole : override ?? rule.defaultMinRole;
   return moimRoleRank(ctx.viewerRole) >= moimRoleRank(minRole);
 }
 
 /** 모임장이 action 의 최소 역할을 role 로 바꿀 수 있는가 (DB moim_permissions_set 과 같은 규칙) */
 export function isAllowedMoimPermissionOverride(action: MoimAction, role: MoimRole): boolean {
   const rule = MOIM_PERMISSION_DEFAULTS[action];
-  return rule.adjustable && moimRoleRank(role) >= moimRoleRank(rule.floorRole);
+  return rule.adjustable && moimRoleRank(role) >= moimRoleRank(rule.floorRole) && moimRoleRank(role) <= moimRoleRank(rule.ceilingRole);
 }
 
 /** 모임 역할 → 메신저 방 역할 (DB moim__cm_role) */

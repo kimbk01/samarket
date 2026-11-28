@@ -1,4 +1,5 @@
 import "server-only";
+import { applyMoimTimeCursor, moimTimeCursorOf, parseMoimTimeCursor } from "@/lib/moim/server/moim-time-cursor.server";
 
 import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { moimRoleRank, type MoimRole } from "@/lib/moim/moim-permission-contract";
@@ -153,6 +154,8 @@ export async function listUpcomingScheduleTeasers(sb: SupabaseServer, moimId: st
     .select("id, title, starts_at, confirmed_count, capacity, status")
     .eq("moim_id", moimId)
     .in("status", ["recruiting", "full", "closed"])
+    /** R1 A-19: 공개 미리보기는 시작 전 일정만 (시작한 일정은 비회원에게 「다가오는 일정」이 아니다) */
+    .gt("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
     .limit(limit);
   return ((data ?? []) as { id: string; title: string; starts_at: string; confirmed_count: number; capacity: number | null; status: string }[]).map((r) => ({
@@ -221,8 +224,10 @@ export async function listMoimAlbum(
     .eq("status", "active");
   if (opts.pinnedOnly) q = q.eq("is_pinned", true);
   if (opts.scheduleId) q = q.eq("schedule_id", opts.scheduleId);
-  if (opts.before) q = q.lt("created_at", opts.before);
-  const { data } = await q.order("created_at", { ascending: false }).limit(limit + 1);
+  const cursor = parseMoimTimeCursor(opts.before);
+  if (cursor === "invalid") return { items: [], nextBefore: null };
+  if (cursor) q = applyMoimTimeCursor(q, "created_at", cursor);
+  const { data } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1);
   const rows = (data ?? []) as { id: string; url: string; is_pinned: boolean; schedule_id: string | null; uploader_id: string | null; created_at: string }[];
   const page = rows.slice(0, limit);
   const people = await members(sb, access.moim.id, page.map((r) => r.uploader_id));
@@ -239,7 +244,7 @@ export async function listMoimAlbum(
         viewerIsUploader: !!viewerId && viewerId === r.uploader_id,
       };
     }),
-    nextBefore: rows.length > limit ? page[page.length - 1]?.created_at ?? null : null,
+    nextBefore: rows.length > limit && page.length ? moimTimeCursorOf(page[page.length - 1] as { id: string } & Record<string, unknown>, "created_at") : null,
   };
 }
 
