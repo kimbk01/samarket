@@ -10,6 +10,16 @@ import {
 } from "@/lib/support/open-support-center";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import { supportContextFromEnterQuery } from "@/lib/support/support-enter-href";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type EnterError = "missing_context" | "open_failed";
+
+/** 최종 점검 U6: 오류 코드마다 맞는 문구 */
+export const SUPPORT_ENTER_ERROR_KEYS: Record<EnterError, MessageKey> = {
+  missing_context: "support_enter_missing_context",
+  open_failed: "support_enter_open_failed",
+};
 
 /**
  * Cold-start bootstrap alias only — opens Support Modal, then leaves enter route.
@@ -17,7 +27,7 @@ import { supportContextFromEnterQuery } from "@/lib/support/support-enter-href";
 export function SupportCenterEnterClient() {
   const { safeT } = useI18n();
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<EnterError | null>(null);
 
   useEffect(() => {
     // 세션 맥락 우선, 없으면 알림 링크 쿼리 (`buildSupportEnterHref`)
@@ -41,8 +51,8 @@ export function SupportCenterEnterClient() {
     <div className="flex min-h-[40vh] flex-col items-center justify-center bg-sam-app px-4 py-8">
       {error ? (
         <>
-          <p className="text-center text-sm text-sam-muted">
-            {safeT("support_enter_missing_context")}
+          <p className="text-center text-sm text-sam-muted" data-support-enter-error={error}>
+            {safeT(SUPPORT_ENTER_ERROR_KEYS[error])}
           </p>
           {/* 막다른 화면 금지 — 고객센터로 나가는 CTA */}
           <button
@@ -54,9 +64,8 @@ export function SupportCenterEnterClient() {
           </button>
         </>
       ) : (
-        <p className="text-sm text-sam-muted">
-          {safeT("common_loading")}
-        </p>
+        /* 최종 점검 U6: 글자 대신 DIBAY 스피너(문의 창과 같은 대기 모양) */
+        <DibayPendingSpinner layout="inline" />
       )}
     </div>
   );

@@ -2,6 +2,7 @@
  * Support Phase 3B — label / list / badge SSOT + D1 in-app notice
  * (docs/support-center/support-ui-notification-ssot-spec.md §3B, §3C D1).
  */
+import { translate } from "@/lib/i18n/messages";
 import { readFileSync } from "node:fs";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { join } from "node:path";
@@ -82,20 +83,20 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
   it("every status maps to Korean admin wording", () => {
     const expected: Record<string, string> = {
       OPEN: "접수",
-      WAITING_ADMIN: "답변 대기",
+      WAITING_ADMIN: "답변 필요",
       // UI U7 (2026-11-27): 탭·알약 같은 이름
       WAITING_USER: "고객 확인 대기",
       RESOLVED: "종료",
       ARCHIVED: "보관",
     };
-    for (const s of SUPPORT_CASE_STATUSES) expect(supportAdminStatusLabel(s, true)).toBe(expected[s]);
-    expect(supportAdminStatusLabel("weird", true)).toBe("확인 필요");
-    expect(supportAudienceLabel("OWNER", true)).toBe("사장님");
-    expect(supportAudienceLabel("MEMBER", true)).toBe("회원");
-    expect(supportPriorityLabel("URGENT", true)).toBe("긴급");
+    for (const s of SUPPORT_CASE_STATUSES) expect(supportAdminStatusLabel(s, (k) => translate("ko", k))).toBe(expected[s]);
+    expect(supportAdminStatusLabel("weird", (k) => translate("ko", k))).toBe("확인 필요");
+    expect(supportAudienceLabel("OWNER", (k) => translate("ko", k))).toBe("사장님");
+    expect(supportAudienceLabel("MEMBER", (k) => translate("ko", k))).toBe("회원");
+    expect(supportPriorityLabel("URGENT", (k) => translate("ko", k))).toBe("긴급");
   });
 
-  it("admin page / control plane read the SSOT (no local maps, no raw enums)", () => {
+  it("admin page reads the SSOT (no local maps, no raw enums) (구조 확인)", () => {
     const page = read("components/admin/support/AdminSupportPage.tsx");
     expect(page).not.toMatch(/function statusLabel\(/);
     expect(page).not.toMatch(/function roleLabel\(/);
@@ -103,8 +104,7 @@ describe("B1 admin vocabulary — one SSOT for status / role / priority", () => 
     expect(page).toContain("supportAdminStatusLabel");
     expect(page).toContain("supportReferenceLabel(safeT, activeCase.reference_type)");
     expect(page).not.toContain("· {activeCase.priority}");
-    const loader = read("lib/admin/support-control-plane/load-support-control-plane.ts");
-    expect(loader).toContain("subject: c.initial_summary || c.public_case_no");
+    // 최종 점검 L11: control-plane 읽기 모델은 호출처 0 이라 삭제됨
   });
 
   it("B7 queue Realtime is queue-wide; search is debounced", () => {

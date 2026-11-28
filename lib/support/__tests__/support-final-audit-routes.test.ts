@@ -1,6 +1,8 @@
 /**
  * 고객 문의 최종 감사 2026-11-28 — 라우트 동작 (D1·D3·D4·D5·L3·L4·L10). 네트워크·DB 없음(가짜 클라이언트).
  */
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -115,12 +117,9 @@ describe("support final audit 2026-11-28 — routes", () => {
     expect(body.cases[0]).toMatchObject({ id: CASE, requester_unread_count: 1 });
   });
 
-  it("D3: the support control plane requires the support permission", async () => {
-    state.adminAllowed = false;
-    const { GET } = await import("@/app/api/admin/support-control-plane/route");
-    const res = await GET();
-    expect(state.adminKeys).toEqual(["support"]);
-    expect(res.status).toBe(403);
+  it("D3·L11 (구조 확인): the unused support control plane route is gone (호출처 0 — 최종 점검 L11)", () => {
+    expect(existsSync(join(process.cwd(), "app/api/admin/support-control-plane/route.ts"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "lib/admin/support-control-plane"))).toBe(false);
   });
 
   it("D4: guidance read and write require the support permission", async () => {

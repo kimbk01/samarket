@@ -394,9 +394,10 @@ describe("U-14 진행 중 문의 불러오기 실패 = 오류 줄 + 다시 시�
   });
 
   it("(구조 확인) 다시 시도 버튼 44px", () => {
-    expect(src("components/support/SupportTicketViews.tsx")).toMatch(
-      /data-support-ticket-active-retry="1"\s+className="min-h-11/
-    );
+    // 최종 점검 U14(2026-11-28): 다시 시도 = 한 모양(SupportRetryButton · SUPPORT_RETRY_BTN)
+    const v = src("components/support/SupportTicketViews.tsx");
+    expect(v).toMatch(/<SupportRetryButton\s+data-support-ticket-active-retry="1"/);
+    expect(v).toMatch(/const SUPPORT_RETRY_BTN =\s+"[^"]*min-h-11/);
   });
 });
 

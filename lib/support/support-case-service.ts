@@ -17,10 +17,10 @@ import {
 } from "@/lib/admin/notifications/admin-notification-service";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
-  loadSupportAdminReplySeenAt,
+  buildSupportCustomerRepliedTitle,
+  loadSupportCustomerMessageAnswers,
+  releaseSupportAssigneeOnActiveCases,
   supportCustomerMessageNeedsAdmin,
-  supportReplySawMessage,
-  type SupportReplyRow,
 } from "@/lib/support/support-admin-work-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -235,11 +235,8 @@ export async function notifyAdminsOfCustomerMessage(
   // 어드민 일이 이미 끝났다(답변·종료·이미 답 받은 글) → 알림은 만들지 않고, 재생 함수가 보는 발송 대기열 키만
   // 「처리됨(delivered)」으로 남긴다. (키를 못 남겨도 작업자가 보내기 직전 같은 판정으로 건너뛴다.)
   const workDone = verdict === "skip";
-  const title = translateBy(
-    "ko",
-    input.isNewCase ? "admin_support_notify_new_title" : "admin_support_notify_followup_title",
-    { no: c.public_case_no }
-  );
+  // 최종 점검 L9: 제목 = 발송 대기열 작업자와 같은 카탈로그 키 함수
+  const title = buildSupportCustomerRepliedTitle(input.isNewCase, c.public_case_no);
   const base = {
     kind: "support_customer_replied",
     title,
@@ -284,20 +281,9 @@ export async function notifyAdminsOfCustomerMessage(
     // Self-heal: the assignee lost admin authority but the revoke-time release did not run
     // (or failed). Return the case to the unassigned queue so it is not stranded,
     // then fall through to the unassigned fan-out so this message is not lost.
-    const { data: released } = await sb
-      .from("support_cases")
-      .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
-      .eq("id", c.id)
-      .eq("assigned_admin_id", assignee)
-      .select("id");
-    if (released && released.length > 0) {
-      await recordCaseEvent(sb, {
-        caseId: c.id,
-        eventType: "assignee_released_admin_revoked",
-        actorUserId: null,
-        payload: { previous_assignee: assignee, trigger: "customer_reply" },
-      });
-    }
+    // 최종 점검 L2: 담당 해제 규칙 1곳 — 진행 중 문의만(그사이 종료된 문의의 담당 기록은 그대로)
+    const released = await releaseSupportAssigneeOnActiveCases(sb, { assigneeId: assignee, caseId: c.id, trigger: "customer_reply" });
+    if (released.error) console.error("[support] assignee_release_failed", { caseId: c.id, error: released.error });
   }
 
   const broadcast = await createAdminNotification(sb, {
@@ -348,10 +334,7 @@ async function resolveSupportAdminNotifications(sb: SupabaseClient, caseId: stri
 
 /**
  * 최종 감사 D1 (2026-11-28 · 재감사 4회 반영) — 공개 답변 1건의 정리. 규칙은 `supportReplySawMessage` 하나:
- *  ① 이 답변의 「본 시각」을 맨 먼저 기록 ② 최신 어드민 답변 전 고객 글마다 「본 답변이 있나」 계산
- *  ③ 답 받은 글 알림만 전원 읽음 ④ 상태 = 아무도 안 본 글 있으면 WAITING_ADMIN, 없으면 WAITING_USER
- *     (CAS: 마지막 글 = 최신 어드민 답변. 동시 정리에서 다른 답변의 본 시각 기록 전에 읽은 쪽이 마지막이면
- *      WAITING_ADMIN 으로 남을 수 있다 — 남기는 쪽 오류(일이 숨지 않음), 다음 답변·종료 때 바로잡힘) ⑤ 남은 글 알림이 없으면 만든다.
+ *  ① 이 답변의 「본 시각」을 맨 먼저 기록 ② 나머지는 `reconcileSupportAdminWork`(답변 삭제와 같은 함수 · 최종 점검 M5)
  * 돌려준 값 = 아무도 안 본 고객 글 수.
  */
 export async function settleAdminWorkAfterSeenReply(
@@ -373,35 +356,59 @@ export async function settleAdminWorkAfterSeenReply(
   if (seenErr) seenErr = (await sb.from("support_case_events").insert(seenRow)).error;
   // 4차 재감사: 기록이 끝내 실패해도 멈추지 않는다 — 이 답변은 「안 봤음」으로 계산돼 상태·알림이 남는 쪽(보수적)으로 간다.
   if (seenErr) console.error("[support] reply_seen_event_failed", { caseId: c.id, error: seenErr.message });
-  const msgs = (cols: string) => sb.from("support_messages").select(cols).eq("case_id", c.id).eq("message_type", "PUBLIC").is("deleted_at", null);
-  const [replyRes, seenMap] = await Promise.all([
-    msgs("id, created_at").eq("sender_type", "ADMIN").order("created_at", { ascending: false }).limit(SUPPORT_MESSAGES_LIST_LIMIT),
-    loadSupportAdminReplySeenAt(sb, c.id),
-  ]);
-  const replies = (replyRes.data ?? []) as unknown as SupportReplyRow[];
-  // 4차 재감사: 기준 = **최신** 어드민 답변(이 답변보다 늦은 다른 답변이 있으면 그것) — 어느 답변의 정리가 마지막에 돌아도 같은 결론
-  const latestReplyAt = replies[0]?.created_at ?? replyAt;
-  const custRes = replyRes.error
-    ? null
-    : await msgs("id, created_at")
-        .in("sender_type", ["MEMBER", "OWNER"])
-        .lt("created_at", latestReplyAt)
-        .order("created_at", { ascending: false })
-        .limit(SUPPORT_MESSAGES_LIST_LIMIT);
-  if (replyRes.error || !custRes || custRes.error || !seenMap) {
-    console.error("[support] reply_seen_settle_read_failed", {
-      caseId: c.id,
-      error: replyRes.error?.message ?? custRes?.error?.message ?? "seen_events",
-    });
+  return reconcileSupportAdminWork(sb, { caseRow: c, mode: "reply", fallbackLatestReplyAt: replyAt });
+}
+
+/**
+ * 최종 점검 M5 (2026-11-28) — 「고객 글마다 답 받았나」(`supportReplySawMessage`)로 문의 상태·어드민 알림을 맞추는 단일 함수.
+ * - reply (공개 답변 직후): 최신 어드민 답변 **앞** 고객 글만 본다.
+ *     ③ 답 받은 글 알림만 전원 읽음 ④ 상태 = 아무도 안 본 글 있으면 WAITING_ADMIN, 없으면 WAITING_USER
+ *     (CAS: 마지막 글 = 최신 어드민 답변. 동시 정리에서 다른 답변의 본 시각 기록 전에 읽은 쪽이 마지막이면
+ *      WAITING_ADMIN 으로 남을 수 있다 — 남기는 쪽 오류(일이 숨지 않음), 다음 답변·종료 때 바로잡힘) ⑤ 남은 글 알림이 없으면 만든다.
+ * - delete (어드민이 공개 답변을 지운 뒤): 문의가 WAITING_USER 이고, 남은 답변 기준으로 답을 못 받은 고객 글이 생겼으면
+ *     WAITING_ADMIN 으로 되돌린다(CAS: 상태 + 읽은 `last_message_at` 그대로 · 마지막 글 시각은 바꾸지 않음) →
+ *     그 글 알림이 이미 읽혔으면 받은 어드민 전원 「안 읽음」으로 되살리고, 없으면 만든다(같은 dedupe 키).
+ * 돌려준 값 = 아무도 안 본(답 못 받은) 고객 글 수 — delete 는 되돌렸을 때만.
+ */
+async function reconcileSupportAdminWork(
+  sb: SupabaseClient,
+  input: { caseRow: SupportCaseRow; mode: "reply" | "delete"; fallbackLatestReplyAt?: string | null }
+): Promise<number> {
+  const c = input.caseRow;
+  if (input.mode === "delete" && c.status !== "WAITING_USER") return 0;
+  const answers = await loadSupportCustomerMessageAnswers(sb, {
+    caseId: c.id,
+    onlyBeforeLatestReply: input.mode === "reply",
+    fallbackLatestReplyAt: input.fallbackLatestReplyAt ?? null,
+    limit: SUPPORT_MESSAGES_LIST_LIMIT,
+  });
+  if (!answers) {
+    console.error("[support] reply_seen_settle_read_failed", { caseId: c.id, mode: input.mode });
     return 0;
   }
-  type Cust = { id: string; created_at: string };
-  const customers = (custRes.data ?? []) as unknown as Cust[];
-  const answered = (m: Cust) =>
-    replies.some((r) => Date.parse(r.created_at) >= Date.parse(m.created_at) && supportReplySawMessage(r, seenMap, m.created_at));
-  const done = customers.filter(answered);
-  const unanswered = customers.filter((m) => !answered(m));
+  const done = answers.customers.filter((m) => m.answered);
+  const unanswered = answers.customers.filter((m) => !m.answered);
   const workRef = { table: "support_cases", id: c.id };
+  if (input.mode === "delete") {
+    if (unanswered.length === 0) return 0;
+    const { data: moved, error: moveErr } = await sb
+      .from("support_cases")
+      .update({ status: "WAITING_ADMIN", updated_at: new Date().toISOString() })
+      .eq("id", c.id)
+      .eq("status", "WAITING_USER")
+      .eq("last_message_at", c.last_message_at)
+      .select("id");
+    if (moveErr) {
+      console.error("[support] reply_delete_status_failed", { caseId: c.id, error: moveErr.message });
+      return 0;
+    }
+    // 그사이 고객 글·다른 답변으로 상태가 바뀌었다 → 그쪽 경로가 맞춘다
+    if (!moved || moved.length === 0) return 0;
+    await reopenCustomerMessageAdminAlerts(sb, c.id, unanswered.map((m) => m.id));
+    await notifyUnansweredCustomerMessages(sb, c, unanswered.map((m) => m.id));
+    return unanswered.length;
+  }
+  const latestReplyAt = answers.latestReplyAt;
   await Promise.all([
     resolveAdminNotificationsForWork(sb, {
       workRef,
@@ -412,20 +419,33 @@ export async function settleAdminWorkAfterSeenReply(
   ]);
   // 상태 맞춤 — CAS: 마지막 글 = 최신 어드민 답변(그 뒤 고객 글이 오면 DB 함수가 WAITING_ADMIN 으로 이미 맞춤 · 건드리지 않음)
   //   아무도 안 본 글 남음 → WAITING_ADMIN · 모두 답 받음 → WAITING_USER (다른 답변의 정리가 먼저 되돌려 둔 것을 바로잡음)
-  const target = unanswered.length > 0 ? { from: "WAITING_USER", to: "WAITING_ADMIN" } : { from: "WAITING_ADMIN", to: "WAITING_USER" };
-  const { error: backErr } = await sb
-    .from("support_cases")
-    .update({ status: target.to, updated_at: new Date().toISOString() })
-    .eq("id", c.id)
-    .eq("status", target.from)
-    .eq("last_message_at", latestReplyAt);
-  if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
+  if (latestReplyAt) {
+    const target = unanswered.length > 0 ? { from: "WAITING_USER", to: "WAITING_ADMIN" } : { from: "WAITING_ADMIN", to: "WAITING_USER" };
+    const { error: backErr } = await sb
+      .from("support_cases")
+      .update({ status: target.to, updated_at: new Date().toISOString() })
+      .eq("id", c.id)
+      .eq("status", target.from)
+      .eq("last_message_at", latestReplyAt);
+    if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
+  }
   if (unanswered.length === 0) return 0;
-  // 남은 글 알림이 없으면 만든다(같은 dedupe 키 — 있으면 그대로). 본문은 남은 글만 읽는다.
-  const bodies = await msgs("id, body, sender_user_id").in("id", unanswered.map((m) => m.id));
+  // 남은 글 알림이 없으면 만든다(같은 dedupe 키 — 있으면 그대로).
+  await notifyUnansweredCustomerMessages(sb, c, unanswered.map((m) => m.id));
+  return unanswered.length;
+}
+
+/** 남은 고객 글의 알림을 (없으면) 만든다 — 본문은 그 글만 읽는다. 발송은 응답 뒤(같은 판정 · 같은 dedupe 키). */
+async function notifyUnansweredCustomerMessages(sb: SupabaseClient, c: SupportCaseRow, messageIds: readonly string[]): Promise<void> {
+  if (messageIds.length === 0) return;
+  const bodies = await sb
+    .from("support_messages")
+    .select("id, body, sender_user_id")
+    .eq("case_id", c.id)
+    .in("id", [...messageIds]);
   if (bodies.error) {
     console.error("[support] reply_unseen_body_read_failed", { caseId: c.id, error: bodies.error.message });
-    return unanswered.length;
+    return;
   }
   for (const m of (bodies.data ?? []) as unknown as { id: string; body: string; sender_user_id: string | null }[]) {
     notifyAdminsAfterResponse(sb, {
@@ -436,8 +456,29 @@ export async function settleAdminWorkAfterSeenReply(
       isNewCase: false,
     });
   }
-  return unanswered.length;
 }
+
+/**
+ * 최종 점검 M5 — 답변 삭제로 다시 「답변 필요」가 된 고객 글의 어드민 알림이 이미 읽혔으면, 받은 어드민 전원 「안 읽음」으로 되살린다.
+ * (그 문의 · 그 글 dedupe 키만 · 100개씩). 실패는 기록만 — 문의 상태(WAITING_ADMIN)·탭 숫자로는 이미 보인다.
+ */
+async function reopenCustomerMessageAdminAlerts(sb: SupabaseClient, caseId: string, messageIds: readonly string[]): Promise<void> {
+  const keys = messageIds.map((id) => `support_customer_replied:${id}`);
+  for (let i = 0; i < keys.length; i += 100) {
+    const { error } = await sb
+      .from("admin_notifications")
+      .update({ read_at: null })
+      .eq("work_ref_table", "support_cases")
+      .eq("work_ref_id", caseId)
+      .eq("kind", "support_customer_replied")
+      .in("dedupe_key", keys.slice(i, i + 100))
+      .not("read_at", "is", null);
+    if (error) console.error("[support] reply_delete_alert_reopen_failed", { caseId, error: error.message });
+  }
+}
+
+/** 글 본문 상한 — 새 글·어드민 답변 수정 공통 (최종 점검 L8) */
+export const SUPPORT_MESSAGE_BODY_MAX = 8000;
 
 /** 고객 글 목록 상한 (최종 감사 L11) — 한 문의 글이 이보다 많으면 **최신** 이만큼(재감사 L11-a) */
 const SUPPORT_MESSAGES_LIST_LIMIT = 1000;
@@ -658,6 +699,8 @@ export async function openSupportCaseFromContext(
         userId: input.userId,
         caseId: existing.id,
         body: followUpText,
+        // 최종 점검 L6: 위 진행 중 문의 조회(본인 · 같은 매장 — 매장 소유는 위에서 확인)에서 읽은 행 — 문의 행을 다시 읽지 않는다
+        caseRow: existing,
       });
       if (!appended.ok) return { ok: false, error: appended.error };
       // SSOT §6 (F4): 고객이 다른 세부를 골라 접수했는데 같은 분야 진행 중 문의에 붙었다 → 고른 세부를 사건 기록에 남긴다.
@@ -1076,7 +1119,8 @@ export async function adminEditSupportMessage(
   sb: SupabaseClient,
   input: { adminUserId: string; caseId: string; messageId: string; body: string }
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
-  const body = input.body.trim();
+  // 최종 점검 L8: 새 글과 같은 정리·상한(앞뒤 공백 제거 · 8000자 — appendSupportMessage 와 같은 상수)
+  const body = input.body.trim().slice(0, SUPPORT_MESSAGE_BODY_MAX);
   if (!body) return { ok: false, error: "empty_body" };
   const own = await loadOwnAdminMessage(sb, input);
   if (!own.ok) return own;
@@ -1160,6 +1204,12 @@ export async function adminDeleteSupportMessage(
   // 남은 위험 ②: 숫자 CAS 가 빗나가면(그사이 새 답변·고객 열람) 더 내리지 않는다 — 덜 세는 일(답변 놓침)을 만들지 않는다.
   // 남는 것은 「1 더 많음」뿐이고, 고객이 문의를 열면 실제 글 기준으로 다시 맞춰진다(markSupportCaseReadForRequester).
   await q;
+  // 최종 점검 M5: 지운 공개 답변이 고객 글의 유일한 답이었으면 문의를 「답변 필요」로 되돌리고 그 글 알림을 다시 살린다
+  // (답변 정리와 같은 판정 `reconcileSupportAdminWork`). 실패는 기록만 — 삭제는 이미 끝났다.
+  if (own.message.message_type === "PUBLIC") {
+    const latest = await getSupportCaseForAdmin(sb, input.caseId);
+    if (latest.ok) await reconcileSupportAdminWork(sb, { caseRow: latest.case, mode: "delete" });
+  }
   return { ok: true };
 }
 
@@ -1175,7 +1225,7 @@ export async function appendSupportMessage(
     systemSeed?: boolean;
   }
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
-  const body = input.body.trim().slice(0, 8000);
+  const body = input.body.trim().slice(0, SUPPORT_MESSAGE_BODY_MAX);
   if (!body) return { ok: false, error: "empty_body" };
 
   let senderType: "MEMBER" | "OWNER" | "ADMIN" | "SYSTEM" = "SYSTEM";
@@ -1217,9 +1267,18 @@ export async function appendSupportMessage(
 
 export async function postRequesterSupportMessage(
   sb: SupabaseClient,
-  input: { userId: string; caseId: string; body: string }
+  input: {
+    userId: string;
+    caseId: string;
+    body: string;
+    /** 최종 점검 L6: 호출 측이 이미 본인·매장 확인으로 읽은 문의 행 — 주면 다시 읽지 않는다(id·요청자가 같을 때만) */
+    caseRow?: SupportCaseRow | null;
+  }
 ): Promise<{ ok: true; message: SupportMessageRow } | { ok: false; error: string }> {
-  const gate = await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
+  const gate =
+    input.caseRow && input.caseRow.id === input.caseId && input.caseRow.requester_user_id === input.userId
+      ? ({ ok: true, case: input.caseRow } as const)
+      : await getSupportCaseForUser(sb, { userId: input.userId, caseId: input.caseId });
   if (!gate.ok) return gate;
   if (gate.case.status === "RESOLVED" || gate.case.status === "ARCHIVED") {
     return { ok: false, error: "case_closed" };
@@ -1574,7 +1633,16 @@ export async function adminReplySupportCase(
 
 export async function adminUpdateSupportCaseStatus(
   sb: SupabaseClient,
-  input: { adminUserId: string; caseId: string; status: SupportCaseStatus }
+  input: {
+    adminUserId: string;
+    caseId: string;
+    status: SupportCaseStatus;
+    /**
+     * 최종 점검 M6: 진행 중 문의를 종료(RESOLVED)할 때 어드민 화면이 본 문의 `last_message_at`. 주면 그 뒤 새 글이 왔을 때
+     * 닫지 않는다(`case_updated` → 화면이 다시 읽어 새 고객 글을 보여 준다). 없으면(옛 호출) 지금과 같다. 보관·보관 해제는 무시.
+     */
+    seenLastMessageAt?: string | null;
+  }
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
   const gate = await getSupportCaseForAdmin(sb, input.caseId);
   if (!gate.ok) return gate;
@@ -1604,6 +1672,11 @@ export async function adminUpdateSupportCaseStatus(
   if (closing) {
     patch.resolved_at = now;
   }
+  // 최종 점검 M6: 본 뒤 새 글이 왔으면 닫지 않는다(고객 「확인했어요」와 같은 보호)
+  const seen = closing && typeof input.seenLastMessageAt === "string" ? input.seenLastMessageAt.trim() : "";
+  if (seen && !sameInstant(seen, gate.case.last_message_at)) {
+    return { ok: false, error: "case_updated" };
+  }
   // SSOT §8 F6: a closed case needs no admin action — its admin unread count goes to 0.
   if (closing || input.status === "ARCHIVED") {
     patch.admin_unread_count = 0;
@@ -1617,13 +1690,14 @@ export async function adminUpdateSupportCaseStatus(
 
   // CAS on the status we validated — two admins acting at once: exactly one transition,
   // one status_changed event, one customer notification.
-  const { data, error } = await sb
+  let statusQ = sb
     .from("support_cases")
     .update(patch)
     .eq("id", input.caseId)
-    .eq("status", gate.case.status)
-    .select("*")
-    .maybeSingle();
+    .eq("status", gate.case.status);
+  // M6: 위 비교와 쓰기 사이에 새 글이 와도 닫지 않는다
+  if (seen) statusQ = statusQ.eq("last_message_at", gate.case.last_message_at);
+  const { data, error } = await statusQ.select("*").maybeSingle();
   if (error || !data) {
     // DEF-14: moving a closed case back to active collides with another active case on the
     // same key (customer already opened a new one) — surface a stable code.
@@ -1636,6 +1710,8 @@ export async function adminUpdateSupportCaseStatus(
       if (latest.ok && latest.case.status === input.status) {
         return { ok: true, case: latest.case };
       }
+      // M6: 상태는 그대로인데 마지막 글이 바뀌었다(본 뒤 새 글) → 화면이 다시 읽게
+      if (seen && latest.ok && latest.case.status === gate.case.status) return { ok: false, error: "case_updated" };
       return { ok: false, error: "status_conflict" };
     }
     console.error("[support] status_update_failed", { caseId: input.caseId, error: error.message });
@@ -2172,9 +2248,12 @@ export async function markSupportCaseReadForAdmin(
   sb: SupabaseClient,
   caseId: string,
   /** 2차 재감사 E: 화면에 돌려준 글 목록의 기준 시각. 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다 */
-  seenLastMessageAt?: string | null
+  seenLastMessageAt?: string | null,
+  /** 최종 점검 L6: 호출 측(상세 GET)이 이미 읽은 문의 행 — 주면 다시 읽지 않는다(id 가 같을 때만) */
+  caseRow?: SupportCaseRow | null
 ): Promise<{ ok: true; wrote: boolean } | { ok: false; error: string }> {
-  const gate = await getSupportCaseForAdmin(sb, caseId);
+  // 최종 점검 M8: 바뀔 값이 없으면(미읽음 0 · 계산값 = 지금 값) UPDATE 를 보내지 않는다 — 실시간 UPDATE 메아리 없음
+  const gate = caseRow && caseRow.id === caseId ? ({ ok: true, case: caseRow } as const) : await getSupportCaseForAdmin(sb, caseId);
   if (!gate.ok) return gate;
   const unread = Number(gate.case.admin_unread_count ?? 0);
   if (!Number.isFinite(unread) || unread <= 0) {

@@ -38,6 +38,8 @@ import {
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 import { withPushSoundMode, type PushSoundMode } from "@/lib/push/dispatch/push-sound-mode";
 import {
+  loadSupportCustomerRepliedTitle,
+  releaseSupportAssigneeOnActiveCases,
   supportCustomerMessageNeedsAdmin,
   supportMessageIdFromDedupeKey,
 } from "@/lib/support/support-admin-work-check";
@@ -215,7 +217,7 @@ async function enqueueOutbox(
   input: CreateAdminNotificationInput,
   error: string
 ): Promise<boolean> {
-  const { error: qErr } = await sb.rpc("admin_notification_outbox_enqueue", {
+  const { data, error: qErr } = await sb.rpc("admin_notification_outbox_enqueue", {
     p_source_key: input.dedupeKey,
     p_kind: input.kind,
     p_payload: input as unknown as Record<string, unknown>,
@@ -225,6 +227,31 @@ async function enqueueOutbox(
     // Last line of defence: source replay (e.g. support_messages) re-derives the event.
     console.error("[admin-notification] outbox_enqueue_failed", { dedupeKey: input.dedupeKey, error: qErr.message });
     return false;
+  }
+  // 고객 문의 최종 점검 L1: 같은 키가 이미 있다(on conflict do nothing → false). 그 행이 「처리됨(delivered)」 표지 —
+  // 예: 일시 WAITING_USER 때 남긴 「어드민 일 끝남」 표지 — 이면 작업자가 다시 꺼내지 않고 재생 함수도 키가 있어 건너뛰어
+  // 이 알림이 영구히 안 나간다 → 그 행을 이번 알림으로 되살린다(대기 · 시도 0 · 지금). 작업자가 보내기 직전 같은 판정을 한다.
+  if (data === false && input.kind === "support_customer_replied") {
+    const now = new Date().toISOString();
+    const { error: rErr } = await sb
+      .from("admin_notification_outbox")
+      .update({
+        status: "pending",
+        attempts: 0,
+        next_attempt_at: now,
+        payload: input as unknown as Record<string, unknown>,
+        last_error: error.slice(0, 1000),
+        delivered_at: null,
+        claim_token: null,
+        updated_at: now,
+      })
+      .eq("source_key", input.dedupeKey)
+      .eq("status", "delivered")
+      .select("id");
+    if (rErr) {
+      console.error("[admin-notification] outbox_revive_failed", { dedupeKey: input.dedupeKey, error: rErr.message });
+      return false;
+    }
   }
   return true;
 }
@@ -312,6 +339,8 @@ async function pushNewNotification(
 
 /** 권한 조회 동시 실행 묶음 크기 (L8 — DB 연결을 한꺼번에 많이 쓰지 않게) */
 const AUTHORITY_LOOKUP_CHUNK = 10;
+/** 푸시 동시 발송 묶음 크기 (고객 문의 최종 점검 L5) */
+const PUSH_SEND_CHUNK = 10;
 
 /**
  * Create admin notifications (fan-out). Recipients are filtered by CURRENT authority;
@@ -398,8 +427,17 @@ export async function createAdminNotification(
 
   let pushed = 0;
   if (input.push) {
-    for (const row of inserted) {
-      if (await pushNewNotification(sb, row, resolveAuthority, sendPush)) pushed += 1;
+    // 고객 문의 최종 점검 L5: 받는 사람별 푸시를 차례로 하지 않고 10명씩 동시에 — 발송 기록(받는 사람별 행 · claim)은 그대로 1행씩.
+    for (let i = 0; i < inserted.length; i += PUSH_SEND_CHUNK) {
+      const results = await Promise.all(
+        inserted.slice(i, i + PUSH_SEND_CHUNK).map((row) =>
+          pushNewNotification(sb, row, resolveAuthority, sendPush).catch((e: unknown) => {
+            console.error("[admin-notification] push_failed", { id: row.id, error: (e as Error)?.message ?? String(e) });
+            return false;
+          })
+        )
+      );
+      pushed += results.filter(Boolean).length;
     }
   }
 
@@ -455,21 +493,9 @@ async function releaseUnreachableSupportAssignees(
   const caseId = input.workRef?.table === "support_cases" ? input.workRef.id : "";
   if (!caseId) return;
   for (const uid of staleAssignees) {
-    const { data: released } = await sb
-      .from("support_cases")
-      .update({ assigned_admin_id: null, updated_at: new Date().toISOString() })
-      .eq("id", caseId)
-      .eq("assigned_admin_id", uid)
-      .not("status", "in", "(RESOLVED,ARCHIVED)")
-      .select("id");
-    if (released && released.length > 0) {
-      await sb.from("support_case_events").insert({
-        case_id: caseId,
-        event_type: "assignee_released_admin_revoked",
-        actor_user_id: null,
-        payload: { previous_assignee: uid, trigger: "outbox_replay" },
-      });
-    }
+    // 최종 점검 L2: 담당 해제 규칙 1곳(`releaseSupportAssigneeOnActiveCases`)
+    const r = await releaseSupportAssigneeOnActiveCases(sb, { assigneeId: uid, caseId, trigger: "outbox_replay" });
+    if (r.error) console.error("[admin-notification] support_assignee_release_failed", { caseId, error: r.error });
   }
 }
 
@@ -583,6 +609,15 @@ export async function runAdminNotificationDeliveryWorker(
     } else if (supportGate === "skip") {
       res = { ok: true, created: 0, skippedRecipients: 0, pushed: 0 };
     } else {
+      // 고객 문의 최종 점검 L9: 고객 글 알림 제목은 저장값(5분 재생 SQL 의 한국어 고정 문장 포함)이 아니라
+      // 앱 즉시 발송과 같은 카탈로그 키로 다시 만든다(첫 글 여부·문의 번호는 문의·글에서). 못 읽으면 저장값 그대로.
+      if (input.kind === "support_customer_replied" && input.workRef?.table === "support_cases") {
+        const title = await loadSupportCustomerRepliedTitle(sb, {
+          caseId: input.workRef.id,
+          messageId: supportMessageIdFromDedupeKey(input.dedupeKey),
+        }).catch(() => null);
+        if (title) input.title = title;
+      }
       res = await createAdminNotification(sb, input, { resolveAuthority, sendPush }, { fromOutbox: true });
     }
     // 고객 문의 남은 위험 ⑤: 담당자에게 보낸 고객 글 알림을 담당자가 받을 수 없으면(권한 잃음) 담당을 풀고 support 권한 전원에게 —

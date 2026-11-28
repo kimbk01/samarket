@@ -1,322 +1,137 @@
 # 고객센터 문의(접수형) 단일 정의 — SSOT
 
-- 작성: 2026-11-27 · 상태: **확정** — Owner 「구현 진행」(2026-11-27) · 구현 PR `fix/support-inquiry-ssot` (§11 구현 기록). ★ 표시 = 이 PR 로 바뀐 동작
-- 기준 코드: `origin/main` **45493ecb7** · 운영 DB `ckdosyydvgzqwpbwuhon` 읽기 전용 조회 (증거: `docs/audit/customer-support-inquiry-reaudit-2026-11-27/evidence.md`)
-- 이 문서가 고객센터 **문의**의 유일한 정의다. `support-ui-notification-ssot-spec.md`(2026-10-05, 채팅식)는 **역사 기록**으로만 남는다(아래 §9 대체 표).
-- 범위 밖(별도 SSOT): 고객센터 게시판(`docs/dibay-customer-center-content-hard-lock.md`), 고객지원 화면 구성·뒤로(`docs/audit/customer-support-ssot-2026-11-26/report.md`), FAB 허용 화면(`support-fab-visibility-owner-lock.md`).
+- 상태: **확정 — 현재 동작만 적는다** (2026-11-28 최종 점검 뒤 다시 씀 · 브랜치 `fix/support-final-check-2026-11-28`). 옛 「현재/목표」 표·수정 기록은 지웠다 → 12절 기록 목록과 git 기록.
+- 이 문서가 고객센터 **문의**의 유일한 정의다. `support-ui-notification-ssot-spec.md`(2026-10-05, 채팅식)는 역사 기록.
+- 범위 밖(별도 SSOT): 고객센터 게시판 `docs/dibay-customer-center-content-hard-lock.md` · 고객지원 화면 구성·뒤로 `docs/audit/customer-support-ssot-2026-11-26/report.md` · FAB 허용 화면 `support-fab-visibility-owner-lock.md`.
+- 결함 번호는 감사 문서마다 따로 매겨졌다(같은 「D1」이 여러 문서에 있다). 이 문서는 번호 대신 **규칙**으로 적는다.
 
 ## 1. 무엇이 무엇인가
 
 | 이름 | 정의 | 단일 출처 |
 |---|---|---|
-| 문의 1건 | `support_cases` 행 1개. 대상 MEMBER(회원) / OWNER(사장님, `owner_store_id` 필수) | `lib/support/support-case-service.ts` |
-| 문의 내용 | `support_messages` (PUBLIC = 고객·어드민 공개, INTERNAL_NOTE = 어드민 메모) | 같은 파일 · DB 함수 `support_append_message` |
-| 분야·세부 | 코드 레지스트리 + 어드민 「문의 유형 관리」 이름·순서·숨김 덮어쓰기(`support_category_settings`, 운영 0행 = 코드 기본값) | `lib/support/support-category-registry.ts`, `support-category-settings.ts` |
-| 고객 화면 | 한 화면 쓰기 → 접수 완료 → 내 문의(질문·답변) | `components/support/SupportModalHost.tsx`, `SupportTicketViews.tsx` |
-| 어드민 화면 | `/admin/support` 3열(목록·대화·맥락) | `components/admin/support/AdminSupportPage.tsx` |
+| 문의 1건 | `support_cases` 1행. 대상 MEMBER(회원) / OWNER(사장님, `owner_store_id` 필수) | `lib/support/support-case-service.ts` |
+| 문의 내용 | `support_messages` — PUBLIC(고객·어드민 공개) / INTERNAL_NOTE(어드민 메모) | 같은 파일 · DB 함수 `support_append_message` |
+| 사건 기록 | `support_case_events` — 상태 변경·담당·수정 원문·`admin_reply_seen`(답변마다 본 시각) | 같은 파일 |
+| 분야·세부 | 코드 레지스트리 + 어드민 「문의 유형 관리」 덮어쓰기(`support_category_settings`) | `support-category-registry.ts`, `support-category-settings.ts` |
+| 고객 화면 | 문의 창(전체 화면): 쓰기 → 접수 완료 → 상세 · 「내 문의」 페이지 | `components/support/SupportModalHost.tsx`, `SupportTicketViews.tsx`, `SupportCasesHistoryList.tsx` |
+| 어드민 화면 | `/admin/support` (목록·대화·맥락) | `components/admin/support/AdminSupportPage.tsx` |
 
-## 2. 상태와 전이 (현재 = 코드 확인)
+## 2. 상태와 전이
 
-| 상태 | 뜻 | 고객 화면 | 어드민 탭 |
-|---|---|---|---|
-| OPEN | 접수됨, 어드민 답 없음 | 내 문의에 보임 「답변 대기」 | 답변 필요 |
-| WAITING_ADMIN | 고객이 추가로 씀 | 보임 | 답변 필요 |
-| WAITING_USER | 어드민 답변함 | 보임 「답변 완료」 · 「추가 문의」「확인했어요」 | 고객 확인 대기 |
-| RESOLVED | 종료 | **사라짐**(목록·상세 내용 모두) | 종료 |
-| ARCHIVED | 보관(종료에서만) | 사라짐 | 보관 |
+| 상태 | 고객 화면 이름·색 | 어드민 이름·색(탭 = 알약) |
+|---|---|---|
+| OPEN | 답변 대기 · 노랑 | 답변 필요 · 빨강 |
+| WAITING_ADMIN | 답변 대기 · 노랑 | 답변 필요 · 빨강 |
+| WAITING_USER | 답변 완료 · 초록 | 고객 확인 대기 · 노랑 |
+| RESOLVED | 종료 · 회색 (안 읽은 답변이 있으면 「새 답변」 · 초록) | 종료 · 회색 |
+| ARCHIVED | 종료 · 회색 (〃) | 보관 · 회색 |
 
-| 동작 | 누가 | 전이 | 근거 |
-|---|---|---|---|
-| 접수 | 고객 | 없음 → OPEN (첫 글 = 시드, 어드민 미읽음 **증가 안 함** — F2) | `support-case-service.ts:394-403` · DB 함수 ELSE 분기 |
-| 같은 분야 진행 중 문의가 있을 때 접수 | 고객 | 기존 문의에 추가 → WAITING_ADMIN. 접수 완료 화면 = 「진행 중인 문의에 추가했어요」 + **기존 문의의** 분야·세부·번호 (F4) · 고객이 고른 세부는 어드민 대화에 표시(D8). 붙이려던 문의가 그사이 종료됐으면 새 문의로 접수(2차 F) | `:272-345` · 유일 인덱스 `uq_support_cases_one_active_per_key` |
-| 추가 문의 | 고객 | → WAITING_ADMIN, 어드민 미읽음 +1. **1분 5건 · 1시간 30건 초과 = 429 `rate_limited`**(접수 포함 · 최종 감사 D5) | `postRequesterSupportMessage` · `support-customer-rate-limit.ts` |
-| 답변 | 어드민 | → WAITING_USER, 고객 미읽음 +1. 화면이 본 마지막 글 시각(`seenLastMessageAt`) **뒤에 온 고객 글이 있으면 WAITING_ADMIN 으로 되돌리고** 그 글 알림은 남긴다(답변별 본 시각 `admin_reply_seen` · 최종 감사 D1 · §16-1) | `adminReplySupportCase` |
-| 확인했어요 | 고객 | **WAITING_USER 에서만**(그 밖 = `invalid_transition` · 최종 감사 L6) → RESOLVED (알림 없음). 화면이 본 마지막 글 시각(`seenLastMessageAt`)과 다르면 닫지 않고 `case_updated` → 화면이 다시 읽어 새 답변을 보여 줌 (2차 A) | `requesterCloseSupportCase` |
-| 상담 종료 | 어드민 | → RESOLVED, 고객 「종료」 알림 (F3) | `adminUpdateSupportCaseStatus` |
-| 재오픈 | **어드민만** (고객 API 의 reopen = 400, 재감사 D12) | RESOLVED/ARCHIVED → OPEN, 고객 알림 (보관 문의 화면에도 「재오픈」 · U-11) | `reopenSupportCase` |
-| 보관 / 보관 해제 | 어드민 | RESOLVED ↔ ARCHIVED (알림 없음) | 같은 함수 |
-| 담당 지정 | 어드민(support) | 진행 중 문의만(종료·보관 = `case_closed`) · 읽은 담당자 CAS(경합 = `case_updated`) · 최종 감사 L1 | `adminAssignSupportCase` |
+단일 정의: 고객 = `supportRequesterStatusPill` (`lib/support/support-status-label.ts`) · 어드민 = `components/admin/support/admin-support-status.ts` + `supportAdminStatusLabel(status, t)`.
 
-★ 목표 추가 전이 (**Owner 결정 2026-11-27 「7일로 정하기」**): WAITING_USER 이고 마지막 **공개 글**(`last_message_at`) 뒤 **7일** 동안 고객 글이 없으면 자동 RESOLVED (F7).
-- 「마지막 글」 = 고객·어드민 **공개 글**만. 어드민 메모(INTERNAL_NOTE)는 시계를 다시 시작하지 않는다(재감사 D13 — DB 함수 `20271127230000`, 운영 적용 전에는 메모도 시계를 다시 시작한다).
-- 고객 알림 없음(고객 「확인했어요」와 같은 취급). 사건 기록 `status_changed` · `by: "auto_7d"`.
-- 고객이 답변을 아직 안 읽었으면(`requester_unread_count>0`) §3-1 규칙대로 내용이 보이고, 읽으면 사라진다.
-- 종료 시 `admin_unread_count = 0` (F6 와 같은 규칙).
-- 실행: 기존 정기 작업(cron)에 붙이는 것을 우선 — 새 cron 추가 여부·주기는 구현 설계에서 정한다(요청 예산 `docs/request-budget-ssot.md` 준수).
+| 동작 | 누가 | 결과 |
+|---|---|---|
+| 접수 | 고객 | 새 문의 OPEN, 첫 글 = 시드, `admin_unread_count = 1`. 같은 분야 진행 중 문의가 있으면 거기에 붙여 WAITING_ADMIN (접수 완료 = 「진행 중인 문의에 추가했어요」 + 기존 문의 번호). 붙이려던 문의가 그사이 종료됐으면 새 문의. 첫 글·세션 실패면 빈 문의 삭제 |
+| 추가 문의 | 고객 | WAITING_ADMIN, 어드민 미읽음 +1 |
+| 속도 제한 | 고객 | 접수·추가 문의 합쳐 **1분 5건 · 1시간 30건** 초과 = 429 `rate_limited` |
+| 답변 | 어드민(support) | DB 함수가 WAITING_USER · 고객 미읽음 +1 → 3절 「답변 정리」로 아무도 안 본 고객 글이 남으면 WAITING_ADMIN |
+| 답변 삭제 | 그 어드민 | 내용 숨김(고객 화면 빈 자리) · 그 답변 알림이 안 읽혔으면 고객 미읽음 −1 · 남은 답변 기준으로 다시 판정 → 답 못 받은 고객 글이 생기면 WAITING_ADMIN + 그 글 어드민 알림 되살림 |
+| 답변 수정 | 그 어드민 | 8000자 상한 · 수정 전 원문은 사건 기록 · 고객 화면 「수정됨」 |
+| 확인했어요 | 고객 | **WAITING_USER 에서만** (그 밖 `invalid_transition`). 화면이 본 마지막 글 시각과 다르면 `case_updated` → 다시 읽어 새 답변을 보여 줌. 성공 = RESOLVED, 알림 없음 |
+| 상담 종료 | 어드민 | RESOLVED, 고객 「종료」 알림. 화면이 본 마지막 글 시각(`seenLastMessageAt`)과 다르면 **409 `case_updated`**(그 뒤 온 고객 글을 못 본 종료 방지) → 다시 읽음 |
+| 보관 / 보관 해제 | 어드민 | RESOLVED ↔ ARCHIVED (알림 없음) |
+| 재오픈 | 어드민만 (고객 API reopen = 400) | RESOLVED·ARCHIVED → OPEN, 고객 알림 |
+| 담당 지정 | 어드민(support) | 진행 중 문의만(종료·보관 = `case_closed`) · 읽은 담당자 CAS(경합 = `case_updated`) · 같은 사람 재지정 = 변화 없음 |
+| 7일 자동 종료 | 정기 작업(매시 첫 실행, 판정 = 작업 시작 시각) | WAITING_USER 이고 마지막 **공개 글** 뒤 7일 → RESOLVED, 고객 알림 없음, 사건 `auto_7d` |
 
-## 3. 알림 — 누가 무엇을 받는가
+모든 상태 변경은 CAS(읽은 상태·시각과 같을 때만). 어드민 메모는 `last_message_at`·상태를 바꾸지 않는다. 종료 문의엔 공개 글 불가(DB 함수가 잠금 안에서 거부, 글 시각 = 잠금 뒤 `clock_timestamp`).
 
-### 3-1 고객(요청자)
+## 3. 알림
 
-| 사건 | 알림 종류 | 푸시·알림함 | 누르면 | 현재 판정 |
-|---|---|---|---|---|
-| 접수 | 없음 | — | — | 코드 PASS (10-04 이후 발송 0건) |
-| 어드민 답변 | `support_admin_replied` (category inquiry_answered) | 둘 다, 푸시 설정 「공지」 | 문의 상세 | 코드 PASS · 운영 발송 sent 32 |
-| 어드민 종료 | `support_case_resolved` | 둘 다 | 「종료된 문의」 빈 화면 | **FAIL (F3)** |
-| 어드민 재오픈 | `support_case_reopened` | 둘 다 | 문의 상세 | 코드 PASS |
-| 담당 지정 | 없음 (D2) | — | — | 코드 PASS (09-24 이후 0건) |
-| 문의를 열면 | 그 문의의 고객 알림 읽음 처리 | — | — | 코드 PASS · 종료 문의 알림은 F5 |
+### 3-1 고객
+| 사건 | 종류 | 누르면 |
+|---|---|---|
+| 어드민 답변 | `support_admin_replied` | 문의 상세 |
+| 어드민 종료 | `support_case_resolved` | 안 읽은 답변이 있으면 그 내용 + 「확인」, 없으면 「종료된 문의예요」 + 「문의하기」 |
+| 어드민 재오픈 | `support_case_reopened` | 문의 상세 |
+| 접수·담당 지정·자동 종료 | 없음 | — |
 
-★ 목표 (**Owner 결정 2026-11-27 「권장안으로 정하기」** — 11-10 「종료 문의는 사라짐」을 이렇게 좁힌다): 고객이 아직 읽지 않은 답변이 있는 문의(`requester_unread_count>0`)는 종료돼도 질문·답변을 보여 주고 버튼은 「확인」만 둔다. 고객이 그 화면을 열면 읽음(0)이 되고, 그 뒤로는 지금처럼 목록·상세에서 사라진다. 읽은 답변이 없는 종료 문의는 지금 그대로 숨김 (F3).
+고객 알림·푸시는 어드민 응답 뒤(`keepAliveAfterResponse`)에 보낸다. 고객이 상세를 열면 **보여 준 글**의 알림만 읽음.
 
 ### 3-2 어드민
+- 종류: `support_customer_replied`(고객 글 1건 = 1알림, 키 `support_customer_replied:<글 id>`, 제목 「새 고객 문의 · SC-…」/「고객 추가 문의 · SC-…」 — 앱 즉시 발송·대기열 재생 모두 카탈로그 키) · `support_case_assigned`.
+- 받는 사람: 담당자(support 권한) / 담당자 없거나 담당자 = 글쓴이 → support 권한 어드민 전원. 보낸 사람 본인 제외. 푸시는 10명씩 동시.
+- **「이 고객 글에 어드민 일이 남았나」 (단일 규칙 `supportReplySawMessage`)**: 문의가 OPEN·WAITING_ADMIN 이고, 그 글 뒤 어드민 공개 답변 중 **그 글을 본 답변**이 없을 때. 「봤다」 = 답변이 저장 직후 맨 먼저 남긴 `admin_reply_seen.seen_at ≥ 글 시각`. 기록이 아직 없는 답변 = 안 봤음(2026-11-28 이전 옛 답변만 봤음). 앱 즉시 발송·대기열 작업자·답변 정리·답변 삭제가 모두 이 규칙 하나(`reconcileSupportAdminWork`).
+- **답변 정리**: 본 시각 기록 → 답 받은 글 알림만 받은 어드민 전원 읽음 + 담당 지정 알림 읽음 → 상태를 최신 어드민 답변 기준으로 맞춤(안 본 글 있음 = WAITING_ADMIN, 없음 = WAITING_USER, CAS 마지막 글 = 최신 답변) → 남은 글 알림 없으면 만듦.
+- 그 밖에 일이 끝나면(종료·보관·「확인했어요」·자동 종료) 받은 어드민 전원 읽음. 어드민이 상세를 열면 그 어드민 것만, 보여 준 글까지.
+- 발송 실패 = outbox(재시도 8회) · 5분 재생 SQL(OPEN·WAITING_ADMIN, 72시간). 판정 「끝난 일」이면 처리됨 표시. 처리됨 표시가 있는데 다시 보내야 하면 그 행을 대기로 되살린다.
+- 담당자가 support 권한을 잃으면 진행 중 문의의 담당을 풀고(규칙 1곳 `releaseSupportAssigneeOnActiveCases`) 답 못 받은 고객 글 **전부**를 support 전원에게 다시 보낸다(응답 뒤).
+- 토스트·소리: 고객 공개 글 1건 = 1회, 어드민 본인 행동·본인이 고객으로 쓴 글 = 0.
 
-| 사건 | 현재 | ★ 목표 |
+## 4. 숫자(배지)
+| 숫자 | 정의 | 읽는 곳 |
 |---|---|---|
-| 새 문의 접수 | 콘솔이 열려 있을 때만 토스트·소리(Realtime) · 사이드바 숫자(75초, 화면 보일 때만). **어드민 알림함·푸시 0 (F1)** | 담당자 없음 → `support` 권한 활성 어드민 전원에게 어드민 알림(kind `support_customer_replied`, 제목 「새 고객 문의 · SC-…」) + 푸시 1회. dedupe = `support_customer_replied:<첫 글 id>` (새 종류를 만들지 않는다 — 회원 알림 종류 `support_case_created` 와 이름 충돌 방지) |
-| 고객 추가 문의 | 담당자 있으면 그 담당자만 알림함+푸시, **없으면 0 (F1)** | 담당자 있으면 담당자, 없으면 `support` 권한 어드민 전원 |
-| 담당 지정 | 지정된 어드민에게 알림 없음(종류 `support_case_assigned` 정의만 있고 만드는 곳 0 — F14). 대신 5분 주기 재생 함수가 지난 72시간 고객 글(**최초 문의 포함**)을 새 담당자에게 한꺼번에 보냄 — 이미 읽은 글도 (F13) | 지정 시 「담당 지정」 1건만, 재생은 지정 이후 글만 |
-| 어드민이 문의를 열면 | 미읽음 0 · 그 어드민의 알림 읽음 | 그대로 |
-| 종료 | 미읽음 숫자 그대로 남음 (F6) | 종료·보관 시 `admin_unread_count = 0` |
+| 고객 FAB | 진행 중 문의 + 종료됐지만 안 읽은 답변 있는 문의의 `requester_unread_count` 합 | `GET /api/support/cases?summary=unread` · 같은 사용자·대상 요청 공유 + 5초 캐시 · 다시 읽음 = 고객지원 알림 도착·재연결·앱 복귀·창 닫힘(진행 중이면 끝난 뒤 1번 더) · 사용자 바뀜·401 = 0 |
+| 어드민 사이드바 | OPEN+WAITING_ADMIN 수 | `admin-bell` |
+| 어드민 목록 빨간 숫자 | `admin_unread_count` (첫 글 1 · 종료 시 0) | 목록 행 |
 
-어드민 알림 행의 수명 (재감사 D3 — 계약 빈칸 보완):
-- 받는 사람 = 담당자(support 권한 필수) 또는 support 권한 전원. 보낸 사람 본인은 받지 않는다(D10).
-- 어드민이 그 문의를 열면 → 그 어드민 것만 읽음.
-- 그 문의의 어드민 일이 끝나면(공개 답변·종료·보관·고객 「확인했어요」·자동 종료) → **받은 어드민 전원** 읽음. 단 공개 답변은 **어드민이 본 글까지만**(`seenLastMessageAt` 이하 글 · 최종 감사 D1).
-- 「이 글에 어드민 일이 남았나」 = 이 글 뒤 어드민 공개 답변 중 이 글을 **본**(본 시각 기록 ≥ 글 시각) 답변이 없음 (`support-admin-work-check.ts` · §16-1 D1).
-- 담당자 = 글쓴이(본인 제외로 받을 사람 0) → support 전원(L5). 담당자가 support 권한을 잃어 담당이 풀리면 → 남은 고객 글을 support 전원에게 다시(L2).
-- 발송(권한 확인·저장·푸시)은 고객 응답 뒤에 끝까지 진행(재감사 D6). 실패분은 outbox·5분 재생 함수가 다시 만든다.
-
-토스트·소리 규칙(현행 유지): 고객 PUBLIC 글 INSERT 1건 = 토스트 1 + 소리 1, 어드민 자신의 행동은 0 (`lib/admin/admin-ops-sound-decision.ts`).
-
-## 4. 숫자(배지) 정의
-
-| 숫자 | 정의 | 보이는 곳 |
-|---|---|---|
-| 고객 FAB 숫자 | 진행 중 문의 + 종료됐지만 안 읽은 답변이 있는 문의의 `requester_unread_count` 합 (F3) · 전용 응답 `GET /api/support/cases?summary=unread` (최종 감사 L10) | FAB 허용 화면만 (`support-fab-route-registry.ts`) |
-| 어드민 사이드바 | 상태 OPEN+WAITING_ADMIN 문의 수 | 사이드바 「고객지원」 · 대시보드 |
-| 어드민 목록 빨간 숫자 | `admin_unread_count` — ★ 새 문의 첫 글도 1로 셈(F2), 종료 시 0(F6) | 목록 행 |
-
-★ FAB 숫자는 고객지원 알림이 왔을 때만 다시 읽는다(지금은 모든 알림마다 목록 전체 — F11).
-
-## 5. 로그인 / 비로그인
-
-| 상황 | 동작 | 판정 |
-|---|---|---|
-| 비로그인 「문의하기」 | 로그인/가입 안내 → 맥락 저장 → 로그인 후 같은 창 | 코드 PASS · 화면 NOT_PROVEN |
-| 비로그인 푸시·링크로 문의 상세 | 상세 401 → 로그인 안내 | 코드 PASS · 화면 NOT_PROVEN |
-| 쓰는 중 세션 만료 | 접수 401 → 로그인 안내, 내용은 기기 임시 저장 → 「이어 쓰기」 | 코드 PASS · 화면 NOT_PROVEN |
-| 고객 API 5개 | 로그인 필수, 서버가 본인·매장 소유 재확인 | 코드 PASS |
-| 어드민 API | `support` 권한 (control-plane·안내문 포함 · 최종 감사 D3·D4) | 코드 PASS |
-| DB 직접 조회·실시간 (RLS) | 고객 직접 SELECT 없음(서버 API 만) · 어드민 = support 권한(`internal.support_admin_has_support_permission`) — `20271128200000` (최종 감사 D2·D6) | **운영 적용 전** |
-| 고객 응답 필드 | 화면이 쓰는 것만(`support-requester-view.ts`) — 담당자·우선순위·어드민 id 등 내부 값 없음 (L3) | 코드 PASS |
-
-★ 창을 열 때 로그인 확인 중에는 쓰기 화면 대신 로딩을 보인다(비로그인에게 쓰기 화면이 잠깐 보이는 것 방지).
-
-## 6. CTA
-
-| 화면 | 버튼 | 결과 | 비활성 |
-|---|---|---|---|
-| 허브·FAB·맥락 화면 | 문의하기 | 쓰기 화면 | 사장님인데 매장 없음(버튼은 보이되 비활성 + 안내 1번 · U-12) |
-| 쓰기 | 문의 접수 | 접수 완료 (★ 기존 문의에 붙었으면 「진행 중인 문의에 추가했어요」 — F4) | 분야·세부·내용 없음, 전송 중 |
-| 접수 완료 | 내 문의 보기 / 확인 | 내 문의 목록 / 닫기 | — |
-| 문의 상세(답변 완료) | 추가 문의 / 확인했어요 | WAITING_ADMIN / RESOLVED | 전송 중 |
-| 어드민 상세 | 답변·메모 저장·나에게 배정·배정 해제·우선순위·상담 종료·재오픈·보관 | §2 | 바쁨·빈칸·종료 문의 답변 |
-
-## 7. AI 자동 답변 (현재 없음)
-
-- 코드·계획·DB 모두 없음. 규칙형 안내(`support_guidance_entries` 운영 2행, API 2개)는 11-10 이후 호출처 0.
-- ★ 권장 순서(Owner 결정 필요): ① 어드민 답변 **초안**(어드민이 고쳐서 보냄, 고객에게 자동 발송 없음) → ② 고객 1차 안내(등록 안내 범위 안에서만, 근거 없으면 상담사로; 돈·계정·신고 제외). F1·F2 수정 뒤.
-
-## 8. 결함 → 수정 계획 (구현 결과 = §11)
-
-| # | 수정 | 바뀌는 곳 | 승인 종류 |
-|---|---|---|---|
-| F1 | 어드민 알림 `support_case_created` 신설 · 미배정 추가 문의도 support 권한 어드민 전원 | `support-case-service.ts`, `admin-notification-kinds.ts`, 어드민 알림함 문구 키 | 구현 승인 |
-| F2 | 접수 첫 글도 어드민 미읽음 +1 (상태는 OPEN 유지) | DB 함수 `support_append_message` 시드 분기 | **운영 DB 적용 승인** |
-| F3 | 고객이 읽지 않은 답변이 있으면 종료돼도 내용 표시(§3-1) — 상세 API 가 종료 + `requester_unread_count>0` 이면 내용 반환 후 읽음 처리, 내 문의 목록·FAB 숫자에도 그 문의 포함 | 고객 상세·목록 API, `SupportTicketViews` 종료 화면 | 결정 완료(Owner 11-27) · **구현 승인 대기** |
-| F4 | 기존 문의에 붙은 경우 접수 완료 화면에 그대로 알림, 어드민 대화에 고객이 고른 세부를 표시 | `SupportModalHost`·`SupportTicketViews`·open API 응답 `created` 사용 | 구현 승인 |
-| F5 | 종료 문의의 미읽음 고객 알림 19건 읽음 처리 + 종료 시 그 문의 알림 읽음 | 데이터 정리 + 종료 함수 | **운영 DB 쓰기 승인** |
-| F6 | 종료·보관 시 `admin_unread_count=0` + 기존 6건 정리 | 종료 함수 + 데이터 | **운영 DB 쓰기 승인**(6건) |
-| F7 | WAITING_USER 7일 자동 종료(§2) | 정기 작업 + 종료 함수 | 결정 완료(Owner 11-27, 7일) · **구현 승인 대기** |
-| F8 | 이 문서를 SSOT 로, 옛 문서 상단에 「대체됨」 표시 | 문서 | 구현 승인 |
-| F9 | 어드민 알림 제목 문구 키 (코드·DB 재생 함수 두 곳) | `support-case-service.ts:773` · DB `admin_notification_replay_support_replies` | 구현 승인 + **운영 DB 적용 승인** |
-| F10 | API `closeAfter` 제거 · 재오픈 상태 조건 | 어드민 API·서비스 | 구현 승인 |
-| F11 | FAB 숫자 재조회는 고객지원 알림일 때만 | `use-support-requester-unread.ts` | 구현 승인 |
-| F12 | 안내 API 2개 — AI 2단계에 재사용 또는 삭제 | — | AI 결정과 함께 |
-| F13 | 재생은 지정 시각 이후 글만 (지정 전 글은 F1 로 이미 전원에게 알림) | DB 재생 함수 | **운영 DB 적용 승인** |
-| F14 | 다른 어드민이 지정하면 지정된 어드민에게 `support_case_assigned` 1건 | `adminAssignSupportCase` | 구현 승인 |
-| F15 | 상태 변경 API 는 정해진 전이만 허용 (종료 → 진행 중은 재오픈 경로로만) | 어드민 API·`adminUpdateSupportCaseStatus` | 구현 승인 |
-
-배포 구분: F2·F9(재생 함수)·F13 = DB 함수, F5·F6 = DB 데이터, 나머지 = 웹. 네이티브 변경 없음. 통화·메신저 코드 무관.
-
-## 9. 옛 문서 대체 표 (`support-ui-notification-ssot-spec.md` → 이 문서)
-
-| 옛 정의 (10-05) | 지금 (11-10 이후) |
+## 5. 로그인 · 권한 · 노출
+| 항목 | 규칙 |
 |---|---|
-| 채팅식 시트(분야→세부→안내→대화) | 접수형 한 화면 쓰기 |
-| 앱 사용 중 인앱 배너(D1) | 제거 (6b6f8f440) |
-| 허브 「상담 내역」 숫자 | 제거 → FAB 숫자 |
-| 종료 상담 「새 문의하기」로 내용 보며 새 문의 | 종료 문의 내용 숨김 |
-| 문의 상세 실시간 갱신 | 제거 |
+| 비로그인 「문의하기」 | 로그인/가입 안내(맥락 저장) → 로그인 뒤 같은 창. 창을 열 때 로그인 확인 중 = 스피너 |
+| 고객 API (`/api/support/**`) | 로그인 필수 · 본인 + 사장님 문의는 매장 소유 재확인 · 응답 필드 고정(`support-requester-view.ts`: 담당자·우선순위·어드민 id·어드민 미읽음 없음, 삭제 글 본문 비움, `edited_at` 포함) · DB 오류 원문 대신 고정 키 |
+| 어드민 API (`/api/admin/support/**`) | 전부 `requireAdminPermission("support")` (목록·상세·PATCH·분야 설정·안내문) |
+| DB 직접 조회·실시간 (RLS) | 고객 직접 SELECT 없음 · 어드민 = `internal.support_admin_has_support_permission` (활성 membership + support 권한) — 운영 적용 2026-11-28. **정지 운영자 제외**는 `20271128210000` (운영 적용 = Owner 승인 대기) |
 
-## 10. 검증 행렬 (수정 후)
+## 6. 화면 · CTA
+공통: 문의 창 버튼 = **44px · 모서리 4px** (`SUPPORT_BTN`), 다시 시도 = `SupportRetryButton` 하나, 로딩 = DIBAY 스피너 하나. 사장님 문의의 주 버튼 = **갈색**(누를 수 있을 때·전송 중), 진짜 비활성만 회색 — 정의 `support-owner-cta.ts` 하나.
 
-1. 코드: 관련 vitest(현재 기준선 25파일 218건 PASS) + 신규 계약 시험(F1 수신자 표·F2 미읽음·F6 종료 0·F11 재조회 조건).
-2. 운영 DB: 시험 문의 1건 → `admin_notifications` 행·`push_status`, `admin_unread_count=1`, 종료 후 0.
-3. 실기기(Owner 계정·휴대폰): 고객 접수 → 어드민 휴대폰 푸시 → 어드민 답변 → 고객 푸시 → 고객 확인/추가 문의. 앱 실행 상한 10회.
-
-## 11. 구현 기록 (2026-11-27, `fix/support-inquiry-ssot`)
-
-| # | 구현 | DB 변경 |
+| 화면 | 버튼 | 결과 · 비활성 |
 |---|---|---|
-| F1 | `notifyAdminsOfCustomerMessage` — 새 문의·추가 문의 모두 같은 함수. 담당자 있으면 담당자, 없거나 권한 잃었으면 support 권한 전원 | 없음 |
-| F2 | 문의 행을 만들 때 첫 글이 시드면 `admin_unread_count = 1` (DB 함수는 그대로) | **없음**(설계 때 예상한 DB 함수 변경 불필요) |
-| F3 | 상세 API: 종료 + `requester_unread_count>0` 이면 내용 반환 후 읽음 / 목록 API `requesterVisibleActiveOrFilter()` / 종료 화면 안내 + 「확인」 | 없음 |
-| F4 | open 응답 `created=false` → 접수 완료 화면 「진행 중인 문의에 추가했어요」 + 기존 문의의 분야·세부·접수 시각. 고른 세부는 사건 `followup_issue_selected` | 없음 |
-| F5 | 고객 「확인했어요」 시 그 문의 알림 읽음 처리. 기존 19건 = `data-cleanup.sql` | **데이터 정리 승인 필요** |
-| F6 | 어드민 종료·보관·고객 종료·자동 종료 시 `admin_unread_count = 0`. 기존 6건 = `data-cleanup.sql` | **데이터 정리 승인 필요** |
-| F7 | `autoCloseStaleAnsweredSupportCases` — 새 cron 없이 `/api/cron/admin-notification-delivery`(5분)에서 매시 첫 실행만(UTC 분 0~4) = 하루 24번 조회 | 없음 |
-| F9 | 어드민 알림 제목 = 카탈로그 키(`admin_support_notify_*`, ko). DB 재생 함수의 `'문의 '` 문구는 F1 이후 재생할 글이 없어 그대로 둔다 | 없음 |
-| F10 | 답변 API `closeAfter` 삭제 · 재오픈 상태 CAS | 없음 |
-| F11 | FAB 숫자는 `SUPPORT_NOTIFICATION_ARRIVED_EVENT`(고객지원 알림 INSERT)에서만 재조회 | 없음 |
-| F13 | F1 이 모든 고객 글에 같은 dedupe 키로 알림을 만들므로 DB 재생 함수가 지난 글을 다시 보내지 않는다 | **없음**(DB 함수 변경 불필요) |
-| F14 | 다른 어드민이 지정하면 지정된 어드민에게 `support_case_assigned` 1건(제목 「담당 문의 지정 · SC-…」) | 없음 |
-| F15 | 상태 API 는 RESOLVED·ARCHIVED 로만(그 밖 = `invalid_transition`). 종료 → 진행 중은 재오픈 경로만 | 없음 |
-| §5 | 창을 열 때 로그인 확인 중이면 쓰기 화면 대신 DIBAY 스피너(비로그인에게 쓰기 화면이 잠깐 보이던 것) | 없음 |
-| F12 | 안내 API 2개 — AI 결정 때까지 그대로 | — |
+| 고객지원 허브 · FAB · 맥락 화면 | 문의하기 | 쓰기 화면. 사장님인데 매장 없음 = 보이되 비활성 + 안내 1번 |
+| 쓰기 | 분야·세부(44px) · 문의 접수 | 접수 완료. 비활성 = 분야·세부·내용 없음·전송 중 · 회원↔매장 전환(누르는 영역 44×44, 매장 있는 회원만) · 쓰는 글 자동 저장(닫기·뒤로·상세 열기 때 바로 저장) |
+| 쓰기 — 진행 중인 문의 | 행(60px, 알약, ›) | 같은 창 상세. 돌아오면 입력 그대로(쓰기 화면은 숨긴 채 유지) · 불러오기 실패 = 안내 + 다시 시도 |
+| 접수 완료 | 내 문의 보기(보조) · 확인(보조) | 내 문의 / 닫기 |
+| 상세 — 답변 대기 | 확인(보조) | 닫기 |
+| 상세 — 답변 완료 | 추가 문의(보조) · 확인했어요(주, 위에 「문의가 종료되고 목록에서 사라져요」 한 줄) | 입력칸 + 취소·보내기 (추가 문의 글은 문의별 임시 저장, 보내거나 취소하면 지움) / 종료 |
+| 상세 — 종료+안 읽은 답변 | 확인(보조) | 닫기(그 뒤 내용 숨김) |
+| 상세 — 종료 | 문의하기 | 같은 대상 새 쓰기 |
+| 내 문의 (회원·사장님 같은 컴포넌트) | 행 · 더 보기 · 빈 목록(회원 = 「문의하기」, 사장님 = 안내만) | 상세. 안내 「종료된 문의는 답변을 확인하면 목록에서 사라져요」 |
 
-시험: `lib/support/__tests__/support-audit-phase1-regression.test.ts` 「support inquiry SSOT 2026-11-27」 9건.
+- **뒤로**: 화면 ‹ 와 기기 ◁ 는 같다 — 한 단계 뒤로(분야 선택·요금표·진행 중 상세 → 쓰기, 추가 문의 입력 → 닫힘). 첫 단계에서만 창을 닫는다. 「진행 중인 문의」에서 연 상세의 「확인했어요」·「확인」도 쓰기 화면으로 돌아간다. 푸시·목록에서 바로 연 상세는 닫는다.
+- 초점: 상세를 열면 상세 제목, 돌아오면 눌렀던 행. 전송 중 버튼도 이름이 읽힌다.
+- 안내 문구: 답변은 **알림**으로 알려 드린다(사장님 화면엔 FAB 없음).
+- 어드민: 답변·메모 / 나에게 배정·해제 / 우선순위(NORMAL·HIGH·URGENT) / 상담 종료 / 보관 / 재오픈(종료·보관 모두) / 보관 해제 / 수정·삭제(본인 글, 삭제는 사유+재입력). **다른 문의를 누르면 상세를 바로 비우고, 지금 열린 문의의 응답만 그리며, 모든 동작은 화면에 보이는 문의 = 열린 문의일 때만 그 id 로 보낸다.** 좁은 화면에서 주 동작은 44px. 종료 문의는 공개 답변 칸 대신 「재오픈」 안내. 답을 쓰는 사이 고객 글이 더 오면 「답을 쓰는 사이 고객 글이 더 왔어요」 · `case_updated` 면 다시 읽고 「그사이 문의가 바뀌어 다시 불러왔어요」.
 
-## 12. 수정 후 재감사 기록 (2026-11-27, `fix/support-inquiry-reaudit2`)
+## 7. 실시간 · 요청 예산
+- 고객: 문의 표 실시간 구독 없음(서버 API 만). FAB 은 4절 신호로만 다시 읽음.
+- 어드민: 공통 구독(Provider)은 support 권한일 때만 `support_messages` INSERT·`support_cases` INSERT/UPDATE 를 받는다. 콘솔은 글 INSERT 를 공통 구독의 창 이벤트로 받는다. 다시 읽기는 목록에 보이는 값(상태·담당·마지막 글·우선순위·어드민 미읽음)이나 숫자에 닿는 값(상태·담당·어드민 미읽음)이 바뀔 때만, 목록 밖 문의 변경은 30초에 1번. 내 작업 메아리는 보내는 동안만 건너뜀. 읽음 처리는 값이 바뀔 때만 UPDATE.
+- 요청 예산(`lib/perf/request-budget.ts` · `docs/request-budget-ssot.md`): `/api/support/cases` 3 · `/api/support/cases/[caseId]` 7 · `/api/support/cases/open` 11 · `/api/admin/support/cases` 12 · `/api/admin/support/cases/[caseId]` 13.
 
-근거 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/final-reaudit.md`. Owner 「수정 진행」.
+## 8. 보관 · 정리
+- `support_cases`·`support_messages`·`support_case_events`(본 시각·수정 원문 포함) = 업무 기록, **정리하지 않는다**(문의 삭제 시 함께 삭제).
+- outbox 처리된 고객센터 행 = 30일 뒤 정기 작업이 정리(1회 1000행).
+- `admin_notifications` = 보관 정리는 `ADMIN_NOTIFICATION_ARCHIVE_ENABLED=1` 일 때만(어드민 알림 공통 설정).
+- 안내문 API(`/api/support/guidance`, `/api/admin/support/guidance`) = 화면 호출 0, AI 자동 답변 결정 때 쓰거나 지운다(Owner 「AI 는 이후」). control-plane API 는 호출 0 이라 삭제.
 
-| # | 수정 | DB |
-|---|---|---|
-| D1 | 상세 조회는 문의 id 가 바뀔 때만(콜백 고정) · 늦게 온 옛 응답 무시 · 「종료+안 읽은 답변」 내용은 앱 실행 동안 기억(다시 그려도 빈 화면 아님) | 없음 |
-| D2 | 담당 지정·담당자 알림 모두 support 권한 필수 (`assignee_not_support_admin`) | 없음 |
-| D3 | §3-2 「어드민 알림 행의 수명」 | 없음 |
-| D4 | 종료 문의 공개 글은 DB 함수가 잠금 안에서 거부 → `case_closed` | **DB 함수 적용 승인 필요** |
-| D5 | 「확인했어요」는 마지막 글 시각도 같을 때만 종료(그사이 답변 오면 다시 읽게) | 없음 |
-| D6 | 어드민 알림 발송을 응답 뒤로(`keepAliveAfterResponse`) | 없음 |
-| D7 | FAB 숫자: 실시간 재연결(RESYNC)·앱 복귀 따라잡기 때도 다시 읽음 | 없음 |
-| D8 | 어드민 대화에 「고객이 고른 세부」 표시 (`followupIssues`) | 없음 |
-| D9 | 첫 글 저장 실패 = 접수 실패(`first_message_failed`, 빈 문의 삭제) | 없음 |
-| D10 | 보낸 사람 본인 제외 (`excludeRecipientIds`) | 없음 |
-| D11 | 같은 사람 재지정 = 변화 없음·알림 없음 | 없음 |
-| D12 | 고객 재오픈 API 제거(400) | 없음 |
-| D13 | 메모는 「마지막 글」이 아님 | **DB 함수 적용 승인 필요**(D4 와 같은 파일) |
-| D14 | 쓰기 화면 「진행 중인 문의」에도 종료+안 읽은 답변 문의 포함(맨 위) | 없음 |
-| D15 | 고객 열람 때 어드민 알림 UPDATE 생략 · 어드민 상세 인증 1번 · 작업 직후 목록 중복 조회 생략 | 없음 |
-| D16 | 안 읽은 공개 답변 삭제 시 고객 미읽음 −1·그 알림 읽음 | 없음 |
+## 9. AI 자동 답변
+없음. Owner 2026-11-28 「지금은 아님」.
 
-시험: `support-audit-phase1-regression.test.ts` 「post-fix reaudit D1~D16」 8건.
+## 10. 받아들인 남은 위험 (낮음)
+- 동시 답변 정리가 역순으로 끝나면 WAITING_ADMIN 으로 남을 수 있음(남기는 쪽 — 다음 답변·종료 때 바로잡힘).
+- 「답변 → 바로 종료」 시 고객 알림 도착 순서 보장 없음.
+- 속도 제한은 센 뒤 저장이라 동시에 몰아 보내면 한도를 조금 넘을 수 있음.
+- 답변 삭제로 「답변 필요」에 돌아와도 `admin_unread_count` 는 올리지 않음(탭·알림으로 보임).
+- 어드민 공통 버튼(`AdminActionButton` sm 32px)·`adminCta(…, ko)` 는 어드민 전체 공통 — 고객센터 범위 밖.
+- `scripts/qa/admin-aro-ops-ux-002-b6-prod-light.mjs` 는 지운 control-plane 화면을 찾는 수동 QA 스크립트(빌드·배포 무관, 정리 필요).
 
-## 13. 2차 재감사 기록 (2026-11-27, `fix/support-inquiry-reaudit3`)
-
-근거 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/final-reaudit-2.md` · 시안 `ui-mockup.html`. Owner 「수정 진행」.
-
-| # | 수정 | DB |
-|---|---|---|
-| A | 「확인했어요」: 화면이 본 `last_message_at` 을 보내고 서버가 그 값과 비교(다르면 `case_updated` → 화면 다시 읽기) + 쓰기 CAS. §12 D5 는 효과 없던 수정이라 이것으로 대체 | 없음 |
-| B | 답변 삭제: 그 답변 알림이 **아직 안 읽힌 상태였을 때만**(UPDATE 결과로 확인) 고객 미읽음 −1. §12 D16 대체 | 없음 |
-| C | 담당자 없는 문의도 5분 재생 함수가 support 권한 전원으로 다시 만든다 | **DB 함수 `20271127240000` 적용 승인 필요** |
-| D | §12 D15 의 「작업 직후 1.5초 목록 신호 무시」 철회(남의 변경을 버렸다) — 작업 뒤 목록 1번 더 읽기는 감수 | 없음 |
-| E | 읽음 0 은 화면에 준 글 목록 기준 시각과 같을 때만(고객·어드민) · 응답 뒤 어드민 알림은 어드민 일이 남았을 때만 생성 | 없음 |
-| F | 붙이려던 문의가 그사이 종료 → 새 문의로 접수 · 접수 API 에 `case_closed` 409 · 종료 문의에 세션을 다시 열지 않음(글 먼저, 세션 나중) | 없음 |
-| G | 세션 생성 실패도 빈 문의 삭제(`discardFailedNewCase`, 실패 기록) | 없음 |
-| H | 어드민 화면 전용 오류 문구 `adminSupportErrorLabel` (ko/en 키) · 고객 `case_updated` 문구 | 없음 |
-| I | 지정 알림 support 권한 필수 · 콘솔 토스트·소리 본인 글 제외 · 재생 함수 본인 제외·권한(C 와 같은 파일) | C 와 같음 |
-| J | 재오픈 서비스는 항상 어드민 판정(고객 분기 제거) | 없음 |
-
-UI 불일치 U1~U9(시안 5절)는 이 PR 에서 바꾸지 않았고, 이후 Owner 「권장안대로」로 §14 에서 반영.
-3차 독립 재감사(같은 PR, 병합 전)에서 추가로 고친 것:
-- 재생 함수도 앱과 같은 조건(OPEN·WAITING_ADMIN 만, 담당자 유무 무관) — 이미 답한 문의에 미읽음 알림이 다시 생기던 경로 차단 · 첫 고객 글 제목 「새 고객 문의」. 적용 시 밀린 재생 = 0건(운영 조회).
-- 응답 뒤 발송 때 상태를 못 읽으면 버리지 않고 기록 후 발송.
-- 고객이 문의를 열 때 알림은 **보여 준 답변 것만** 읽음(`shownMessageIds`) — 목록 뒤에 온 답변의 알림·숫자가 남아 그 답변 삭제 시 숫자가 바르게 줄어든다. 삭제의 숫자 CAS 가 빗나가면 최신 값으로 1번 더.
-- 문구: `case_updated` 「문의 내용이 바뀌어 다시 불러왔어요」(새 답변만이 아니므로) · 어드민 `not_closed` 일반 문구 · `invalid_message`.
-
-시험: `support-audit-phase1-regression.test.ts` 「second reaudit A~J」 — **동작 재현**: A·B·B+E·E·I(지정 알림 권한·본인 제외) / **구조 확인(코드 위치)**: E2·F/G·H·J (가짜 DB 로 경합·삭제 실패를 끼워 넣을 수 없어 이름에 「구조 확인」 표시).
-
-4차 독립 재감사(병합 직전, `8c926e73b`) 판정: **코드에 중간 이상 결함 없음**(DB 미적용분 제외). 같은 PR 에서 고친 것: 읽음 처리 답변 id = 보여 준 어드민 공개 답변만(요청 주소 길이) · 부분 실패에도 배지 캐시 비움.
-남은 낮은 결함 5건 → §15 에서 모두 처리(2026-11-27).
-
-**운영 DB 적용 (2026-11-27 21:36 PHT, Owner 「적용 진행」)**: `20271127230000`(D4·D13) · `20271127240000`(C·I) 적용 완료 — 롤백 시험으로 종료 문의 공개 글 거부·메모가 마지막 글 시각을 바꾸지 않음·재생 0건 확인. 기록 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/db-apply-result.md`.
-
-## 14. 화면 규칙 (UI U1~U9 · Owner 「권장안대로」 2026-11-27, `fix/support-ui-u1-u9`)
-
-시안 `docs/audit/customer-support-inquiry-reaudit-2026-11-27/ui-mockup.html` 5절의 권장안을 규칙으로 고정한다. (그 시안은 수정 **전** 모습 — 현재 화면 = `docs/audit/customer-support-inquiry-final-2026-11-28/ui-mockup.html` · §16)
-
-| # | 규칙 | 단일 정의 |
-|---|---|---|
-| U1·U2 | 고객 상태 알약 색 = **상태**: 답변 완료·새 답변 = 초록(`bg-sam-primary-soft text-sam-primary`), 답변 대기 = 노랑(`bg-sam-warning-soft text-sam-fg`), 종료 = 회색(`bg-sam-surface-muted text-sam-muted`). 종료+안 읽은 답변 = 「새 답변」. 문의 상세 상태 줄·쓰기 화면 「진행 중인 문의」·내 문의 목록 모두 같음 | `supportRequesterStatusPill` (`lib/support/support-status-label.ts`) |
-| U3 | 목록의 시각 = **마지막 글 시각**(`last_message_at`) | 내 문의 행 · 진행 중 행 |
-| U4·U5 | 사장님 쪽 문의 버튼 = **갈색**(FAB·「문의 접수」와 같음) · 사장님 「내 문의」 = 회원과 같은 카드 · 빈 목록은 안내만(목록 위 「문의하기」 1개 — Owner 「아래 것 빼기」 2026-11-27) | `OWNER_SUPPORT_CTA_CLASS` (`lib/support/support-owner-cta.ts`) |
-| U6·U9 | 문의 창 모든 버튼 = **높이 44px · 모서리 4px**(문의 창은 전체 화면 → 「화면에 붙은 버튼 4px」 계약) | `SUPPORT_BTN` (`SupportTicketViews.tsx`) |
-| U7 | 어드민 WAITING_USER 이름 = 「고객 확인 대기」 하나(고객지원 관제 탭·알약 · 커뮤니티 관제 탭 · 필터) · 고객 화면 = 「답변 완료」 | `admin_waiting_customer` · `support_admin_status_waiting_user` · `admin_community_support_status_waiting_user` · `admin_support_filter_waiting_user` |
-| U8 | 사장님 고객센터 화면에 FAB 없음 — 현행 유지(회원 허브와 같은 규칙) | — |
-
-시험 `lib/support/__tests__/support-ui-u1-u9.test.ts` (동작 = U1·U2 알약 표·U7 / 구조 확인 = U3~U6·U9). 화면 실측: NOT_PROVEN(로그인 필요 화면).
-
-## 15. 남은 위험 0 정리 (2026-11-27, `fix/support-residual-risks` · Owner 「남은 위험 없이 끝까지」)
-
-| # | 남아 있던 위험 | 처리 | 시험 |
+## 11. 확인 상태 (2026-11-28)
+| 항목 | 코드 | 운영 | 실기기 |
 |---|---|---|---|
-| ① | 고객 미읽음 숫자가 「본 목록 뒤 새 글」이면 통째로 남아 알림 행과 1 차이 | 문의를 열면 숫자 = **보여 준 목록의 가장 늦은 글 뒤에 온 상대방 공개 글 수**(삭제 제외)로 맞춤(고객·어드민 둘 다). 쓰기는 숫자·마지막 글 시각 둘 다 그대로일 때만(CAS — 덜 세지 않음) | 동작: E·B+E·① 4차 |
-| ② | 답변 삭제 숫자 재시도가 몇 ms 경합에서 1 낮게 | 재시도 제거 — 빗나가면 내리지 않음(덜 세지 않음). 남는 「1 많음」은 고객이 열면 ① 로 맞춰짐 | 동작: B·B+E |
-| ③ | 상태 읽기 실패 시 끝난 문의에 알림 발송 | 1번 더 읽고, 그래도 실패면 보내지 않음 — 운영 적용된 재생 함수가 어드민 일이 남은 글만 5분 안에 다시 만든다 | 구조 확인 |
-| ④ | 앱이 건너뛴 옛 글이 같은 문의 새 고객 글 때 재생됨 | 끝난 일이면 알림은 만들지 않고 발송 대기열에 같은 글 키를 **처리됨(delivered)** 으로만 남김 → 작업자는 꺼내지 않고(pending 만) 재생 함수는 건너뜀 · 어드민 알림함에 아무것도 생기지 않음 | 동작: 남은 위험 ④ |
-| ⑤ | 고객지원 권한 없는 담당자에게 간 재생 알림이 0명 | 권한 쓰기 4곳(staff PATCH 는 등급·권한 변경 뒤 `finally` 로 — 중간 return·오류에도) 고객지원 권한이 빠지면 담당 해제 · 재생 발송 때 담당자가 못 받으면 진행 중 문의 담당을 풀고, 어드민 일이 남았을 때만 support 권한 전원 | 동작: 권한 동기화 2건·발송 대체 2건 / 구조 확인: 4곳 호출·finally |
+| 고객 허브·문의 창·내 문의 모양(로그인 회원) | PASS | 버튼 44px·4px 실측 PASS (이번 수정 전 판) | NOT_PROVEN |
+| 어드민 콘솔 탭 숫자·종료 상세 | PASS | 실측 PASS (이번 수정 전 판) | — |
+| RLS(고객 0행·support 어드민 전체) | — | 역할 시험 PASS | — |
+| 어드민 알림 생성·푸시 · 답변 정리 | PASS(시험) | NOT_PROVEN(배포 뒤 문의 0건) | NOT_PROVEN |
+| 사장님·비로그인 화면 · 기기 ◁ | PASS(시험) | NOT_PROVEN | NOT_PROVEN |
 
-추가: 어드민 커뮤니티 관제 탭·옛 필터 이름도 「고객 확인 대기」(§14 U7).
-
-5차 독립 재감사(같은 PR) 보완:
-| # | 남은 결함 | 처리 |
-|---|---|---|
-| 1 | 처리됨 키 넣기 실패 시 옛 글 재알림 | 한 번 더 넣음 + (2) 로 재생 발송도 보내기 직전 상태를 봐 이미 답한 문의는 만들지 않음 |
-| 2 | 재생·재시도 발송이 문의 상태를 안 봄 | 고객 글 알림은 보내기 직전 상태 확인 — 끝났으면 만들지 않고 닫음, 못 읽으면 다음 회차 재시도 |
-| 3 | 대체 경로가 끝난 문의 담당까지 풂 | 진행 중 문의만 풂(`releaseSupportAssignmentsOnRevoke` 와 같은 규칙) |
-| 4 | 상태 못 읽으면 전원 발송(앱과 반대) | 못 읽으면 보내지 않고 재시도(앱 경로와 같은 쪽 — 놓치지 않음) |
-| 5 | 어드민 상세가 목록 뒤 고객 글 알림까지 읽음 | 보여 준 고객 공개 글 알림 + 담당 지정 알림만 읽음(`shownCustomerMessageIds`) |
-| 6 | (이론) 동시 두 글의 시각·잠금 순서 역전 | DB 함수 `20271127250000` — 잠금 뒤 `clock_timestamp()` 로 시각, `last_message_at` GREATEST. **운영 적용 승인 필요** |
-| 7 | 등급·권한 함께 바꿀 때 옛 권한으로 판정 | 등급·권한 저장을 다 마친 뒤 1번 판정 |
-
-6차 독립 재감사(같은 PR) 보완:
-- 「어드민 일이 남았나」 판정 하나(`supportCustomerMessageNeedsAdmin`, `lib/support/support-admin-work-check.ts`) — 앱 즉시 발송·발송 대기열 작업자 둘 다: 문의 OPEN·WAITING_ADMIN **이고** 이 글 뒤 어드민 공개 답변이 없을 때만 보냄. 옛 글이 새 고객 글로 다시 WAITING_ADMIN 이 돼도 재알림 없음(처리됨 키를 못 남긴 경우·대기 중 행이 있는 경우 포함).
-- 만든 직후 다시 판정해 그사이 답했으면 **그 글 알림만** 받은 사람 전원 읽음(`settleSupportCustomerMessageNotification` — 더 새 글 알림은 건드리지 않음).
-- staff PATCH: 등급·권한 변경 뒤 `finally` 로 판정(중간 return·저장 오류에도 실행).
-- 어드민 읽음 둘 중 하나만 실패해도 기록 · 읽음 키 100개씩 나눠 처리(고객·어드민) · `kinds: []` = 아무것도.
-
-7차 독립 재감사(같은 PR, 병합 전) 판정: 이전 항목 모두 닫힘. **실제 운영에서 일어날 수 있는 결함 1건(N1: 대기열을 거친 담당 지정 알림이 바로 읽음)** → 같은 PR 에서 수정(고객 글 알림만 정리) + 동작 시험.
-남은 것은 **이론상(마이크로초 경합·DB 동시 장애)** 만:
-| # | 내용 | 막는 방법 |
-|---|---|---|
-| T1 | 동시에 쓴 고객 글·어드민 답변의 잠금 순서가 시각과 반대가 되면 고객 글이 「이미 답 받음」으로 판정돼 알림 누락 | DB 함수 `20271127250000`(잠금 뒤 시각) — **운영 적용 완료 2026-11-27 23:3x PHT · 롤백 시험 PASS → 닫힘** |
-| T2 | 고객 글과 어드민 답변이 같은 마이크로초 | 같은 시각이면 「답 받음」 — 실질 발생 불가 |
-| T3 | 읽기 복제본 도입 시 방금 쓴 글이 안 보여 「글 없음」 | 지금은 복제본 미사용 — 도입 때 재검토 |
-
-## 16. 최종 감사 수정 (2026-11-28, `fix/support-final-audit-2026-11-28` · Owner 「수정 진행」)
-
-감사 `docs/audit/customer-support-inquiry-final-2026-11-28/final-audit.md` · 현재 화면 시안 같은 폴더 `ui-mockup.html`.
-
-| 묶음 | 규칙 (= 지금 코드) |
-|---|---|
-| D1 | 위 §2 답변 · §3-2. 어드민 화면은 답변 PATCH 에 상세의 `last_message_at` 을 보낸다 |
-| D2·D6 | §5 RLS — 마이그레이션 `20271128200000_support_final_audit.sql` (운영 적용 = Owner 별도 승인) |
-| D3·D4 | 모든 `/api/admin/support*` = `requireAdminPermission("support")` |
-| D5 | §2 추가 문의 |
-| D6 | 어드민 콘솔은 목록에 보이는 값(상태·담당·마지막 글·우선순위)이 바뀐 변경만 다시 읽고, 내 작업 메아리는 건너뜀 · 어드민 공통 구독은 support 권한일 때만 |
-| L1·L2·L5·L6 | §2·§3-2 |
-| L3·L4 | 고객 응답 필드 고정 · DB 오류 원문 대신 고정 키 · 우선순위 NORMAL·HIGH·URGENT 만 |
-| L7·L8 | 고객 알림·푸시는 어드민 응답 뒤(`keepAliveAfterResponse`) · 어드민 전원 발송 권한 조회 10명씩 동시 |
-| L9 | 처리 끝난 support outbox 행 30일 뒤 정리(정기 작업, 1회 1000행) |
-| L10·L14 | FAB 숫자 전용 응답 · 같은 요청 공유 + 5초 · 사용자 바뀌면 0 · 자동 종료 판정은 정기 작업 시작 시각 |
-| L11 | 상세 중복 조회 제거 · 글 목록 상한 1000 |
-| L12 | 호출처 없던 `POST /api/admin/support/cases`(405)·`/api/admin/support/summary` 삭제 |
-| L13 | 옛 경로의 회원 알림함 어드민 종류 행 45건 정리 SQL (`data-cleanup-l13.sql`, 운영 실행 = Owner 승인) |
-| 화면 | 종료 문의 상세도 상태 줄 · 쓰기 ↔ 진행 중 상세 오갈 때 입력 유지 · 전환 버튼 44px · 회원·사장님 목록 한 컴포넌트(`SupportCasesHistoryList`)·한 행(`SupportCaseRow`) · 사장님 선택 탭 갈색 · 목록 안내 「답변을 확인하면 사라져요」 · 어드민 상태 색·탭 이름 하나(`components/admin/support/admin-support-status.ts`) · 링크·분야 이름 i18n 키 · 어드민 시드 글 표시·전송 중 표시 · 진행 중 목록 실패 시 다시 시도 |
-
-
-### 16-1 독립 재감사 반영 (2026-11-28)
-
-| # | 규칙 |
-|---|---|
-| D1 (3차 재감사로 확정) | **어드민 공개 답변마다 저장 직후 맨 먼저 「본 시각」 기록**(`admin_reply_seen` · `payload.reply_message_id`·`seen_at`, 본 시각 없는 호출 = 답변 시각). 고객 글 M 「답 받음」 ⇔ M 뒤 답변 중 본 시각 ≥ M 시각인 답변이 있음 (`supportReplySawMessage` — 작업 판정·답변 정리가 같은 함수). 기록이 아직 없는 답변 = **안 봤음**(규칙 시작 2026-11-28 전 옛 답변만 봤음) → 동시 답변 경합에서도 알림을 잃지 않는 쪽으로만 틀림. 정리마다 상태를 최신 어드민 답변 기준으로 맞춤(아무도 안 본 글 있음 = WAITING_ADMIN, 없음 = WAITING_USER · CAS 마지막 글 = 최신 어드민 답변 — 4차 재감사) · 본 시각 기록이 끝내 실패해도 이 답변을 「안 봤음」으로 계산해 계속 · 어드민 화면 안내 「답을 쓰는 사이 고객 글이 더 왔어요」. 사후 「안 읽음 되돌림」 없음 |
-| D6-a·b·c·d | 목록 밖 문의 변경 = 30초에 1번 다시 읽기(탭 숫자) · 어드민 미읽음 숫자도 목록 표시값 · 문의 행 메아리는 보내는 중에만 건너뜀 · 권한 조회 실패 시 1회 다시 |
-| L2-a | 권한 회수 재알림은 응답 뒤 |
-| L11-a | 글 목록 상한은 최신 1000건 |
-| U-4-a | 전환 버튼 너비도 44px |
-| 마이그레이션 | 정책 함수 `(SELECT …)` 로 감쌈(행마다 다시 계산 안 함) · 운영 `authenticated` 의 `internal` 사용 권한 있음(2026-11-28 조회) |
-| 남김(낮음 · 최종 재감사) | 동시 정리 역순이면 WAITING_ADMIN 으로 남을 수 있음(남기는 쪽 — 다음 답변·종료 때 바로잡힘) · 본 시각 규칙 시작 2026-11-28 00:00Z 와 배포 사이 옛 코드 답변은 「안 봤음」(그 사이 운영 진행 중 문의 0건 — 2026-11-28 조회) |
-| 남김(낮음) | L7-a 「답변 → 바로 종료」 시 고객 알림 도착 순서 보장 없음(서로 다른 요청의 응답 뒤 작업) · D5-a 속도 제한은 센 뒤 저장이라 동시에 몰아 보내면 한도를 조금 넘을 수 있음 |
+## 12. 기록
+감사·설계·적용 기록(이 문서의 근거): `docs/audit/customer-support-inquiry-reaudit-2026-11-27/` (report · evidence · final-reaudit · final-reaudit-2 · data-cleanup · db-apply-result) · `docs/audit/customer-support-inquiry-final-2026-11-28/` (final-audit · final-audit-2 · ui-mockup · rls-apply-result · data-cleanup-l13-result). PR #671 · #673 · #675~#678 · #683 · `fix/support-final-check-2026-11-28`.

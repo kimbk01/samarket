@@ -54,9 +54,9 @@ import {
 } from "@/lib/support/support-ticket-form";
 import { AdPricingGuideTable, type AdPricingGuideTab } from "@/components/ads/AdPricingGuideTable";
 import type { AdPricingGuide } from "@/lib/ads/ad-pricing-guide";
+import { OWNER_SUPPORT_TONE_CLASS, supportPrimaryCtaToneClass } from "@/lib/support/support-owner-cta";
+import { SUPPORT_BACK_PRIORITY, useSupportModalBackStep } from "@/components/support/support-modal-back-steps";
 
-
-const OWNER_TONE_BG = "bg-[var(--dibay-brown)]";
 /** 최종 감사 U-4: 회원/매장 전환 — 누르는 영역 44px · 보이는 칸은 작게 */
 /** 재감사 U-4-a: 높이·너비 모두 44px 이상(「회원」·「매장」 두 글자는 그대로면 약 42px) */
 const SWITCH_HIT = "touch-manipulation flex min-h-11 min-w-11 items-center justify-center";
@@ -94,7 +94,8 @@ export function SupportTicketHeader({
       )}
       <h2
         id={titleId}
-        className="truncate text-center text-[16px] font-semibold text-[var(--overlay-text-primary)]"
+        tabIndex={-1}
+        className="truncate text-center text-[16px] font-semibold text-[var(--overlay-text-primary)] focus:outline-none"
       >
         {title}
       </h2>
@@ -116,6 +117,40 @@ export function SupportTicketHeader({
  * 문의 창은 전체 화면이라 「화면에 붙은 버튼 = 4px」 계약을 따른다(떠 있는 시트 12px 아님). 모든 버튼이 이것만 쓴다.
  */
 const SUPPORT_BTN = "w-full !min-h-11 !rounded-ui-rect";
+
+/**
+ * 문의 창 「다시 시도」 단일 모양 (최종 점검 U14 · 2026-11-28): 44px · 4px · 테두리 보조 버튼.
+ * 진행 중 목록 오류 줄·요금표 실패·상세 실패가 모두 이것만 쓴다.
+ */
+const SUPPORT_RETRY_BTN =
+  "touch-manipulation inline-flex min-h-11 shrink-0 items-center justify-center rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-4 text-[13px] font-semibold text-[var(--overlay-text-primary)] active:bg-[var(--overlay-secondary)]";
+
+function SupportRetryButton({
+  onClick,
+  className = "",
+  ...data
+}: { onClick: () => void; className?: string } & Record<`data-${string}`, string>) {
+  const { t } = useI18n();
+  return (
+    <button type="button" className={`${SUPPORT_RETRY_BTN} ${className}`.trim()} onClick={onClick} {...data}>
+      {t("common_retry")}
+    </button>
+  );
+}
+
+/** 최종 점검 U14: 문의 창 안 「불러오는 중」 단일 모양 = DIBAY 스피너 */
+function SupportLoading({ dataAttr = "1" }: { dataAttr?: string }) {
+  return (
+    <div className="py-6" data-support-modal-loading={dataAttr}>
+      <DibayPendingSpinner layout="inline" />
+    </div>
+  );
+}
+
+/** 최종 점검 U9: 전송 중(스피너만 보임)에도 버튼 이름이 읽히게 */
+function busyName(loading: boolean, label: string): string | undefined {
+  return loading ? label : undefined;
+}
 
 /** 상단 줄 44px — 누가(회원/매장) 또는 상태 */
 function TopRow({
@@ -146,7 +181,7 @@ function TopRow({
         (tag ? (
           <span
             className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
-              tagClassName ?? (owner ? `${OWNER_TONE_BG} text-sam-on-primary` : "bg-sam-primary-soft text-sam-primary")
+              tagClassName ?? (owner ? OWNER_SUPPORT_TONE_CLASS : "bg-sam-primary-soft text-sam-primary")
             }`}
           >
             {tag}
@@ -287,14 +322,11 @@ function ActiveTicketList({
         <span className="truncate text-[12px] text-[var(--overlay-text-secondary)]">
           {t("support_ticket_active_load_failed")}
         </span>
-        <button
-          type="button"
+        <SupportRetryButton
           data-support-ticket-active-retry="1"
-          className="min-h-11 px-4 text-[13px] font-semibold text-sam-primary active:bg-[var(--overlay-secondary)]"
+          className="my-1 mr-4"
           onClick={() => setAttempt((n) => n + 1)}
-        >
-          {t("common_retry")}
-        </button>
+        />
       </div>
     );
   }
@@ -359,29 +391,29 @@ function SupportAdPricingView({
         {failed ? (
           <div className="py-6 text-center">
             <p className="text-[13px] text-[var(--overlay-text-secondary)]">{t("ad_guide_load_failed")}</p>
-            <button
-              type="button"
+            <SupportRetryButton
               data-support-ad-pricing-retry="1"
-              className="mt-3 min-h-11 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[13px] font-semibold text-sam-fg"
+              className="mt-3"
               onClick={() => {
                 setFailed(false);
                 setGuide(null);
                 setAttempt((n) => n + 1);
               }}
-            >
-              {t("common_retry")}
-            </button>
+            />
           </div>
         ) : !guide ? (
-          <div className="py-6">
-            <DibayPendingSpinner layout="inline" />
-          </div>
+          <SupportLoading dataAttr="ad_pricing" />
         ) : (
           <AdPricingGuideTable guide={guide} tab={tab} onTabChange={setTab} showApply={false} />
         )}
       </div>
       <Footer>
-        <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} data-support-ad-pricing-back="1" onClick={onBack}>
+        <DibayOverlayButton
+          roleTone="primary"
+          className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(owner)}`}
+          data-support-ad-pricing-back="1"
+          onClick={onBack}
+        >
           {t("ad_guide_back_to_inquiry")}
         </DibayOverlayButton>
       </Footer>
@@ -434,11 +466,26 @@ export function SupportTicketCompose({
 
   // 쓰는 대로 저장 — 이어 쓰기 카드가 떠 있는 동안(아직 고르지 않음)은 저장본을 덮지 않는다.
   //   고객이 「이어 쓰기」 또는 「지우기」를 고른 뒤부터 저장한다(새로 쓰기 시작해도 예전 저장본은 묻지 않고 지우지 않음).
+  // 최종 점검 U2: 300ms 안에 닫기·◁·상세 열기를 해도 잃지 않게 — 기다리는 저장은 그때 바로 쓴다(타이머만 지우지 않음).
+  const pendingSaveRef = useRef<{ key: string; state: SupportTicketFormState } | null>(null);
+  const flushPendingSave = useCallback(() => {
+    const pending = pendingSaveRef.current;
+    pendingSaveRef.current = null;
+    if (pending) writeSupportTicketDraft(pending.key, pending.state);
+  }, []);
   useEffect(() => {
-    if (!touchedRef.current || draft) return;
-    const id = window.setTimeout(() => writeSupportTicketDraft(draftKey, state), 300);
+    if (!touchedRef.current || draft) {
+      pendingSaveRef.current = null;
+      return;
+    }
+    pendingSaveRef.current = { key: draftKey, state };
+    const id = window.setTimeout(flushPendingSave, 300);
     return () => window.clearTimeout(id);
-  }, [draftKey, state, draft]);
+  }, [draftKey, state, draft, flushPendingSave]);
+  useEffect(() => () => flushPendingSave(), [flushPendingSave]);
+  useEffect(() => {
+    if (hidden) flushPendingSave();
+  }, [hidden, flushPendingSave]);
 
   const update = useCallback((fn: (s: SupportTicketFormState) => SupportTicketFormState) => {
     touchedRef.current = true;
@@ -467,6 +514,9 @@ export function SupportTicketCompose({
     : "";
 
   const title = isOwner ? t("support_ticket_owner_title") : t("support_ticket_title");
+
+  // 최종 점검 M1: 분야·세부 선택·요금표에서 ◁ = 화면 ‹ (쓰기 화면으로) — 숨긴 채 유지 중이면 등록하지 않는다
+  useSupportModalBackStep(!hidden && view !== "form", SUPPORT_BACK_PRIORITY.composeSubView, () => setView("form"));
   const storeOrderEntry = isSupportTicketStoreOrderEntry(state);
 
   const whoRow = (
@@ -515,7 +565,7 @@ export function SupportTicketCompose({
             >
               <span
                 className={`${SWITCH_SEG} -ml-px rounded-r-ui-rect ${
-                  isOwner ? `${OWNER_TONE_BG} text-sam-on-primary` : "text-[var(--overlay-text-secondary)]"
+                  isOwner ? OWNER_SUPPORT_TONE_CLASS : "text-[var(--overlay-text-secondary)]"
                 }`}
               >
                 {t("support_ticket_switch_owner")}
@@ -627,7 +677,7 @@ export function SupportTicketCompose({
             <div className="grid grid-cols-2 gap-2 p-3">
               <DibayOverlayButton
                 roleTone="primary"
-                className={SUPPORT_BTN}
+                className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner)}`}
                 data-support-ticket-draft-continue="1"
                 onClick={() => {
                   const d = draft;
@@ -676,7 +726,7 @@ export function SupportTicketCompose({
             {state.storeChatHref ? (
               <DibayOverlayButton
                 roleTone="primary"
-                className={SUPPORT_BTN}
+                className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner)}`}
                 data-support-ticket-store-chat="1"
                 onClick={() => onOpenStoreChat(state.storeChatHref!)}
               >
@@ -752,14 +802,17 @@ export function SupportTicketCompose({
             {supportErrorLabel(safeT, submitError)}
           </p>
         ) : null}
+        {/* 최종 점검 M3: 사장님 = 누를 수 있을 때·전송 중 모두 갈색, 정말 비활성일 때만 회색 */}
         <DibayOverlayButton
           roleTone="primary"
-          className={`${SUPPORT_BTN} ${isOwner && canSubmit ? "!bg-[var(--dibay-brown)]" : ""}`}
+          className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(isOwner, { disabled: !canSubmit, loading: submitting })}`}
           loading={submitting}
           disabled={!canSubmit}
+          aria-label={busyName(submitting, t("support_ticket_submit"))}
           data-support-ticket-submit="1"
           onClick={() => {
             if (!buildSupportTicketOpenPayload(state)) return;
+            flushPendingSave();
             onSubmit(state, draftKey);
           }}
         >
@@ -825,7 +878,7 @@ export function SupportTicketSubmitted({
           <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onViewMine} data-support-ticket-view-mine="1">
             {t("support_ticket_view_mine")}
           </DibayOverlayButton>
-          <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onClose}>
+          <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose} data-support-ticket-ok="submitted">
             {t("support_ticket_ok")}
           </DibayOverlayButton>
         </div>
@@ -877,19 +930,25 @@ function QaBlock({
   body,
   answer = false,
   deleted = false,
+  edited = false,
 }: {
   label: string;
   at: string;
   body: string;
   answer?: boolean;
   deleted?: boolean;
+  /** 최종 점검 U13: 어드민이 답변을 고쳤다(`edited_at`) — 시각 옆 「수정됨」 */
+  edited?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <div className="mb-3">
       <div className="flex items-center justify-between gap-2 px-4 pb-1.5">
         <span className="truncate text-[12px] font-semibold text-[var(--overlay-text-secondary)]">{label}</span>
-        <span className="shrink-0 text-[11px] text-[var(--overlay-text-secondary)]">{at}</span>
+        <span className="shrink-0 text-[11px] text-[var(--overlay-text-secondary)]">
+          {at}
+          {edited ? <span data-support-ticket-edited="1">{` · ${t("support_message_edited")}`}</span> : null}
+        </span>
       </div>
       <div
         className={`border-y border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-4 py-3 ${
@@ -915,11 +974,32 @@ function QaBlock({
  */
 const closedUnreadSeen = new Map<string, SupportMessageRow[]>();
 
+/** 최종 점검 M1: 추가 문의 입력 글 — 문의별 임시 저장(닫거나 ◁ 해도 잃지 않음 · 보내면 지움) */
+const FOLLOW_UP_DRAFT_PREFIX = "dibaySupportFollowUpDraft:";
+
+function readFollowUpDraft(caseId: string): string {
+  try {
+    return window.sessionStorage.getItem(FOLLOW_UP_DRAFT_PREFIX + caseId) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeFollowUpDraft(caseId: string, text: string): void {
+  try {
+    if (text) window.sessionStorage.setItem(FOLLOW_UP_DRAFT_PREFIX + caseId, text);
+    else window.sessionStorage.removeItem(FOLLOW_UP_DRAFT_PREFIX + caseId);
+  } catch {
+    /* 저장 실패 — 화면 안 입력은 그대로 */
+  }
+}
+
 export function SupportTicketDetail({
   caseId,
   titleId,
   onClose,
   onClosedByRequester,
+  onDone,
   onNewInquiry,
   onUnauthorized,
   onBack,
@@ -927,7 +1007,10 @@ export function SupportTicketDetail({
   caseId: string;
   titleId: string;
   onClose: () => void;
+  /** 「확인했어요」 성공 — 쓰기 화면에서 연 상세면 쓰기 화면으로, 아니면 닫기 (M2) */
   onClosedByRequester: () => void;
+  /** 종료+안 읽은 답변 「확인」 — 위와 같은 규칙 (M2). 없으면 닫기 */
+  onDone?: () => void;
   onNewInquiry: (fromCase: { audience: "MEMBER" | "OWNER"; ownerStoreId: string | null } | null) => void;
   onUnauthorized: () => void;
   /** 쓰기 화면의 「진행 중인 문의」에서 연 경우 — 머리글 뒤로 = 쓰기 화면 */
@@ -940,7 +1023,18 @@ export function SupportTicketDetail({
   const [closedView, setClosedView] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [followUp, setFollowUp] = useState<string | null>(null);
+  /** 최종 점검 M1: 입력 칸 열림과 글을 나눈다 — ◁ 로 칸을 닫아도 글은 남는다 */
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpText, setFollowUpTextState] = useState(() =>
+    typeof window === "undefined" ? "" : readFollowUpDraft(caseId)
+  );
+  const setFollowUpText = useCallback(
+    (text: string) => {
+      setFollowUpTextState(text);
+      writeFollowUpDraft(caseId, text);
+    },
+    [caseId]
+  );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -952,10 +1046,12 @@ export function SupportTicketDetail({
   /** 재감사 D1: 늦게 도착한 옛 응답이 최신 화면을 덮지 않게(마지막 요청만 반영) */
   const loadSeqRef = useRef(0);
 
+  /** 최종 점검 U8: 이미 그린 문의를 다시 읽을 때(추가 문의 보낸 뒤 등)는 대기 표시로 바꾸지 않는다(처음 읽을 때만) */
+  const loadedOnceRef = useRef(false);
   const load = useCallback(async () => {
     const seq = ++loadSeqRef.current;
     const stale = () => seq !== loadSeqRef.current;
-    setLoading(true);
+    if (!loadedOnceRef.current) setLoading(true);
     setError(null);
     try {
       const fetchCase = () => fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, { credentials: "include" });
@@ -993,6 +1089,7 @@ export function SupportTicketDetail({
         resyncBadgesAfterNotificationEventsRead("notification_opened");
       }
       setSupportCase(json.case);
+      loadedOnceRef.current = true;
       const closed = json.closed === true || isSupportTicketClosedStatus(json.case.status);
       let shown = (json.messages ?? []).filter((m) => m.sender_type !== "SYSTEM");
       if (closed) {
@@ -1017,8 +1114,12 @@ export function SupportTicketDetail({
     ? { audience: supportCase.audience, ownerStoreId: supportCase.owner_store_id }
     : null;
 
+  useSupportModalBackStep(followUpOpen && !closedView, SUPPORT_BACK_PRIORITY.followUpInput, () =>
+    setFollowUpOpen(false)
+  );
+
   const sendFollowUp = async () => {
-    const body = (followUp ?? "").trim();
+    const body = followUpText.trim();
     if (!body || busy) return;
     setBusy(true);
     setActionError(null);
@@ -1035,7 +1136,8 @@ export function SupportTicketDetail({
         if (supportErrorNeedsReload(json.error)) void load();
         return;
       }
-      setFollowUp(null);
+      setFollowUpText("");
+      setFollowUpOpen(false);
       await load();
     } catch {
       setActionError("network_error");
@@ -1079,6 +1181,7 @@ export function SupportTicketDetail({
   const statusText = supportCase ? t(supportRequesterStatusPill(supportCase.status, supportCase.requester_unread_count).key) : "";
   const answered = isSupportTicketAnsweredStatus(supportCase?.status);
   const lastAt = supportCase ? formatMypageDate(supportCase.last_message_at, { style: "datetime" }) : "";
+  const ownerTone = supportCase?.audience === "OWNER";
 
   let requesterSeen = 0;
 
@@ -1097,18 +1200,14 @@ export function SupportTicketDetail({
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3" data-support-message-list="1">
         {loading ? (
-          <div className="grid gap-3 px-4" data-support-modal-loading="1">
-            <div className="h-4 w-1/3 animate-pulse rounded-ui-rect bg-[var(--overlay-secondary)]" />
-            <div className="h-20 w-full animate-pulse rounded-ui-rect bg-[var(--overlay-secondary)]" />
-            <div className="h-20 w-full animate-pulse rounded-ui-rect bg-[var(--overlay-secondary)]" />
-          </div>
+          <SupportLoading />
         ) : error ? (
           <div className="mx-4 rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] p-4 text-[14px] text-[var(--overlay-danger)]">
             {error === "forbidden" ? t("support_case_unavailable") : supportErrorLabel(safeT, error)}
             {error !== "forbidden" ? (
-              <DibayOverlayButton roleTone="secondary" className={`mt-3 ${SUPPORT_BTN}`} onClick={() => void load()}>
-                {t("common_retry")}
-              </DibayOverlayButton>
+              <div className="mt-3">
+                <SupportRetryButton data-support-ticket-detail-retry="1" onClick={() => void load()} />
+              </div>
             ) : null}
           </div>
         ) : closedView && messages.length === 0 ? (
@@ -1142,6 +1241,7 @@ export function SupportTicketDetail({
                 body={resolveSupportMessageDisplayBody(safeT, m.body)}
                 answer={!fromRequester}
                 deleted={Boolean(m.deleted_at)}
+                edited={!fromRequester && Boolean(m.edited_at) && !m.deleted_at}
               />
             );
           })}
@@ -1160,19 +1260,30 @@ export function SupportTicketDetail({
               {supportErrorLabel(safeT, actionError)}
             </p>
           ) : null}
+          {/* 최종 점검 U3: 닫는 「확인」은 어디서나 보조(secondary) 모양 · 새 문의 = 허브와 같은 「문의하기」 */}
           {closedView && messages.length > 0 ? (
-            <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={onClose}>
+            <DibayOverlayButton
+              roleTone="secondary"
+              className={SUPPORT_BTN}
+              data-support-ticket-ok="closed_unread"
+              onClick={onDone ?? onClose}
+            >
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           ) : closedView ? (
-            <DibayOverlayButton roleTone="primary" className={SUPPORT_BTN} onClick={() => onNewInquiry(fromCase)}>
-              {t("support_ticket_new_cta")}
+            <DibayOverlayButton
+              roleTone="primary"
+              className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone)}`}
+              data-support-ticket-new="1"
+              onClick={() => onNewInquiry(fromCase)}
+            >
+              {t("support_enter_cta")}
             </DibayOverlayButton>
-          ) : followUp !== null ? (
+          ) : followUpOpen ? (
             <div className="grid gap-2">
               <textarea
-                value={followUp}
-                onChange={(e) => setFollowUp(e.target.value.slice(0, SUPPORT_TICKET_BODY_MAX))}
+                value={followUpText}
+                onChange={(e) => setFollowUpText(e.target.value.slice(0, SUPPORT_TICKET_BODY_MAX))}
                 rows={3}
                 maxLength={SUPPORT_TICKET_BODY_MAX}
                 data-form-keyboard-field="1"
@@ -1181,14 +1292,27 @@ export function SupportTicketDetail({
                 placeholder={t("support_ticket_body_placeholder")}
               />
               <div className="grid grid-cols-2 gap-2">
-                <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={() => setFollowUp(null)}>
+                <DibayOverlayButton
+                  roleTone="secondary"
+                  className={SUPPORT_BTN}
+                  data-support-ticket-followup-cancel="1"
+                  onClick={() => {
+                    setFollowUpText("");
+                    setFollowUpOpen(false);
+                  }}
+                >
                   {t("support_ticket_cancel")}
                 </DibayOverlayButton>
                 <DibayOverlayButton
                   roleTone="primary"
-                  className={SUPPORT_BTN}
+                  className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone, {
+                    disabled: !followUpText.trim(),
+                    loading: busy,
+                  })}`}
                   loading={busy}
-                  disabled={busy || !followUp.trim()}
+                  disabled={busy || !followUpText.trim()}
+                  aria-label={busyName(busy, t("support_ticket_followup_send"))}
+                  data-support-ticket-followup-send="1"
                   onClick={() => void sendFollowUp()}
                 >
                   {t("support_ticket_followup_send")}
@@ -1196,28 +1320,38 @@ export function SupportTicketDetail({
               </div>
             </div>
           ) : answered ? (
-            <div className="grid grid-cols-2 gap-2">
-              <DibayOverlayButton
-                roleTone="secondary"
-                className={SUPPORT_BTN}
-                data-support-ticket-followup-open="1"
-                onClick={() => setFollowUp("")}
+            <>
+              {/* 최종 점검 U5: 「확인했어요」 = 되돌릴 수 없는 종료 — 누르기 전에 한 줄 안내 */}
+              <p
+                className="mb-2 text-[12px] leading-relaxed text-[var(--overlay-text-secondary)]"
+                data-support-ticket-confirm-note="1"
               >
-                {t("support_ticket_followup_cta")}
-              </DibayOverlayButton>
-              <DibayOverlayButton
-                roleTone="primary"
-                className={SUPPORT_BTN}
-                loading={busy}
-                disabled={busy}
-                data-support-ticket-confirm="1"
-                onClick={() => void confirmClose()}
-              >
-                {t("support_ticket_confirm_cta")}
-              </DibayOverlayButton>
-            </div>
+                {t("support_ticket_confirm_note")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <DibayOverlayButton
+                  roleTone="secondary"
+                  className={SUPPORT_BTN}
+                  data-support-ticket-followup-open="1"
+                  onClick={() => setFollowUpOpen(true)}
+                >
+                  {t("support_ticket_followup_cta")}
+                </DibayOverlayButton>
+                <DibayOverlayButton
+                  roleTone="primary"
+                  className={`${SUPPORT_BTN} ${supportPrimaryCtaToneClass(ownerTone, { loading: busy })}`}
+                  loading={busy}
+                  disabled={busy}
+                  aria-label={busyName(busy, t("support_ticket_confirm_cta"))}
+                  data-support-ticket-confirm="1"
+                  onClick={() => void confirmClose()}
+                >
+                  {t("support_ticket_confirm_cta")}
+                </DibayOverlayButton>
+              </div>
+            </>
           ) : (
-            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose}>
+            <DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} data-support-ticket-ok="waiting" onClick={onClose}>
               {t("support_ticket_ok")}
             </DibayOverlayButton>
           )}

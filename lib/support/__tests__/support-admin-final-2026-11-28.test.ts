@@ -45,9 +45,10 @@ describe("D1 — 공개 답변에 어드민이 본 마지막 글 시각을 보�
   });
   it("콘솔은 마지막으로 불러온 상세의 last_message_at 을 쓰고, 답변 뒤 상세를 다시 읽는다 (구조 확인)", () => {
     const src = read(PAGE);
-    expect(src).toContain("buildAdminSupportPublicReplyPayload(text, activeCase?.last_message_at)");
+    // 점검 H1(2026-11-28): 보이는 문의(activeCase) 값·id 로만 보낸다 — 동작 시험은 support-admin-final-check-console.test.tsx
+    expect(src).toContain("buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at), activeCase.id");
     const patch = src.slice(src.indexOf("const patchCase"), src.indexOf("const categoryLabel"));
-    expect(patch).toContain("await loadDetail(activeId)");
+    expect(patch).toContain("await loadDetail(writeCaseId)");
   });
 });
 
@@ -240,8 +241,8 @@ describe("U-6 · U-13 — 어드민 문의 상태 정의 하나", () => {
   });
   it("U-13: 종료·보관 탭 영어 = 상태 알약 영어 (Resolved · Archived)", () => {
     for (const status of ["RESOLVED", "ARCHIVED", "WAITING_USER"] as const) {
-      expect(translate("en", ADMIN_SUPPORT_TAB_LABEL_KEY[status])).toBe(supportAdminStatusLabel(status, false));
-      expect(translate("ko", ADMIN_SUPPORT_TAB_LABEL_KEY[status])).toBe(supportAdminStatusLabel(status, true));
+      expect(translate("en", ADMIN_SUPPORT_TAB_LABEL_KEY[status])).toBe(supportAdminStatusLabel(status, (k) => translate("en", k)));
+      expect(translate("ko", ADMIN_SUPPORT_TAB_LABEL_KEY[status])).toBe(supportAdminStatusLabel(status, (k) => translate("ko", k)));
     }
     expect(translate("en", ADMIN_SUPPORT_TAB_LABEL_KEY.RESOLVED)).toBe("Resolved");
   });
@@ -255,7 +256,8 @@ describe("U-6 · U-13 — 어드민 문의 상태 정의 하나", () => {
     expect(page).not.toContain("function statusTone(");
     expect(page).not.toContain("admin_stores_inquiries_status_closed");
     expect(community).not.toContain("STATUS_TONE");
-    expect(community).not.toContain("supportAdminStatusLabel(c.status, true)");
+    expect(community).not.toContain('supportAdminStatusLabel(c.status, language !== "en")');
+    expect(community).toContain("supportAdminStatusLabel(c.status, t)");
     // 커뮤니티 화면 주소 값은 그대로
     expect(community).toContain('waiting: "ACTIONABLE"');
     expect(community).toContain('waiting_user: "WAITING_USER"');

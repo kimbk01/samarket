@@ -90,7 +90,7 @@ type CaseRow = {
 type ListResponse = { ok?: boolean; error?: string; cases?: CaseRow[]; total?: number; limit?: number; offset?: number };
 
 export function AdminCommunitySupportPage({ scope = "community" }: { scope?: SupportScope } = {}) {
-  const { safeT, t, language } = useI18n();
+  const { safeT, t } = useI18n();
   /** 문의/이의신청 탭(`type`)은 [초기화] 후에도 유지 — 조회 조건 밖 키 */
   const tabQ = useCommunityQueryState();
   const q = useCommunityListQuery({ statuses: STATUS_KEYS, defaults: { status: "waiting" }, extras: SUPPORT_EXTRAS });
@@ -232,7 +232,7 @@ export function AdminCommunitySupportPage({ scope = "community" }: { scope?: Sup
                 </td>
                 <td className={COMMUNITY_TD}>{c.assigned_admin_id ? t("admin_community_support_assigned") : <span className="text-sam-muted">{t("admin_community_support_unassigned")}</span>}</td>
                 <td className={COMMUNITY_TD}>
-                  <AdminToneBadge tone={adminSupportStatusTone(c.status)}>{supportAdminStatusLabel(c.status, language !== "en")}</AdminToneBadge>
+                  <AdminToneBadge tone={adminSupportStatusTone(c.status)}>{supportAdminStatusLabel(c.status, t)}</AdminToneBadge>
                 </td>
                 <td className={COMMUNITY_TD}>
                   <CommunityTimeCell iso={c.last_message_at || c.created_at} />

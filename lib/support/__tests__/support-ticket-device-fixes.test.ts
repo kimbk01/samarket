@@ -52,8 +52,9 @@ describe("실기 결함 수정", () => {
   });
 
   it("5 매장 화면 비활성 「문의 접수」는 갈색이 아니라 기본 비활성 색", () => {
+    // 최종 점검 M3(2026-11-28): 전송 중도 갈색 — 정말 비활성일 때만 회색. 동작 시험 = support-ui-final-check-2026-11-28.test.tsx
     expect(read("components/support/SupportTicketViews.tsx")).toContain(
-      'isOwner && canSubmit ? "!bg-[var(--dibay-brown)]" : ""'
+      "supportPrimaryCtaToneClass(isOwner, { disabled: !canSubmit, loading: submitting })"
     );
   });
 

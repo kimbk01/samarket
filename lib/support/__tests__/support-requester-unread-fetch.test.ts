@@ -62,4 +62,28 @@ describe("support requester unread fetch", () => {
     // 실패 뒤에도 다음 호출은 다시 읽는다(진행 중 표지가 남지 않음)
     expect(await fetchSupportRequesterUnread("c", "q", false)).toBe(2);
   });
+
+  it("L4: a forced read while a request is in flight runs one more request after it (not the stale in-flight number)", async () => {
+    let release: (() => void) | null = null;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(new Response(JSON.stringify({ ok: true, unread: 1 }), { status: 200 }));
+        })
+    );
+    fetchMock.mockImplementationOnce(async () => new Response(JSON.stringify({ ok: true, unread: 5 }), { status: 200 }));
+    const first = fetchSupportRequesterUnread("f", "q", false);
+    await Promise.resolve();
+    // 새 답변 알림이 와서 강제 다시 읽기 — 진행 중 요청은 알림 전에 시작했다
+    const forcedA = fetchSupportRequesterUnread("f", "q", true);
+    const forcedB = fetchSupportRequesterUnread("f", "q", true);
+    for (let i = 0; i < 5 && !release; i++) await Promise.resolve();
+    (release as unknown as () => void)();
+    expect(await first).toBe(1);
+    // 고치기 전: 강제 호출도 진행 중 요청(1)을 그대로 받았다
+    expect(await forcedA).toBe(5);
+    expect(await forcedB).toBe(5);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
+
