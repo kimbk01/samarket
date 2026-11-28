@@ -805,13 +805,20 @@ export async function blockUserSocial(
    * 이 파일은 통화 수신 화면 묶음에도 끌려 들어간다(기존 import 사슬) — 서버 전용 모듈(`neighbor-follow-list.server`)을
    * 여기서 import 하면 클라이언트 빌드가 깨진다. 같은 조건(`deleteNeighborFollowsBetween`)을 이 자리에 직접 쓴다.
    */
+  /** 관심이웃은 양방향(내→상대 · 상대→나) 삭제 — 아래 친구 즐겨찾기(F-3, 내 쪽만)와 규칙이 다르다 */
   try {
-    const { error: nfErr } = await (sb as any)
-      .from("user_relationships")
-      .delete()
-      .eq("type", "neighbor_follow")
-      .or(`and(user_id.eq.${owner},target_user_id.eq.${target}),and(user_id.eq.${target},target_user_id.eq.${owner})`);
-    if (nfErr) console.error("[blockUserSocial] neighbor_follow cleanup failed", nfErr.message);
+    for (const [from, to] of [
+      [owner, target],
+      [target, owner],
+    ] as const) {
+      const { error: nfErr } = await (sb as any)
+        .from("user_relationships")
+        .delete()
+        .eq("user_id", from)
+        .eq("target_user_id", to)
+        .eq("type", "neighbor_follow");
+      if (nfErr) console.error("[blockUserSocial] neighbor_follow cleanup failed", nfErr.message);
+    }
   } catch (e) {
     console.error("[blockUserSocial] neighbor_follow cleanup threw", e instanceof Error ? e.message : e);
   }
