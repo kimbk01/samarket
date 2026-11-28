@@ -502,6 +502,8 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
       attempt,
     });
     args.onAfterSubscribeFailure?.(status, attempt);
+    /** 실패가 연달아 와도(소켓 error 뒤 close 등) 기다리는 재시도는 하나 — 앞 타이머가 핸들을 잃고 남지 않게 */
+    clearTimer();
     timer = setTimeout(() => {
       if (gen !== activeGeneration) {
         cmRtRegistryDevLog("skip-stale-retry", {
@@ -583,6 +585,14 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
           bindRole: args.hs4Context?.channelBindRole ?? null,
         });
         if (status === "SUBSCRIBED") {
+          /**
+           * 소켓이 끊겼다 붙으면 realtime-js 가 오류 상태 채널을 스스로 다시 가입시킨다(`RealtimeChannel._rejoinUntilConnected`).
+           * 그 가입이 래퍼 재시도보다 먼저 성공하면 기다리던 래퍼 재시도를 지운다 — 지우지 않으면 수 초 뒤 채널을 지우고
+           * 또 가입해(SUBSCRIBED 2번) 재동기화·다시 받기가 2번 나가고 그 사이 변경을 놓친다.
+           * 실기 2026-11-27 Samsung 다시 열기 · 통화 영향 분석서
+           * docs/audit/supabase-request-surge-2026-11-18/retry-timer-after-rejoin-call-impact-2026-11-27.md (Owner 「구현 승인」)
+           */
+          clearTimer();
           cmRtRecordSubscribeSuccess(args.name);
           void syncSupabaseRealtimeAuthFromSession(args.sb);
           if (attempt > 0) {
@@ -697,6 +707,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
           if (intentionalTeardown) return;
           if (cmRtShouldDeferRetries()) {
             const deferredGen = activeGeneration;
+            clearTimer();
             timer = setTimeout(() => {
               if (deferredGen !== activeGeneration || stopped || args.isCancelled()) return;
               scheduleRetry(status);
