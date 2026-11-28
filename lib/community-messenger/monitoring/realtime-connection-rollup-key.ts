@@ -75,6 +75,11 @@ export function isAllowedRealtimeConnectionMetric(metric: unknown): boolean {
       return p.length === 2 && VIS.has(p[1]);
     case "socket_close":
       return p.length === 4 && CODES.has(p[1]) && VIS.has(p[2]) && TOK.has(p[3]);
+    /** 2026-11-28 숨김 중 재동기화 미룸 효과 측정 (hidden-reconnect-resync-design-2026-11-28) */
+    case "resync_deferred":
+      return p.length === 2 && p[1] === "hidden";
+    case "resync_flushed":
+      return p.length === 2 && p[1] === "visible";
     default:
       return false;
   }
