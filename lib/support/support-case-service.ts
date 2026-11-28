@@ -391,11 +391,24 @@ async function reconcileSupportAdminWork(
   const latestReplyAt = answers.latestReplyAt;
   // 요청 예산(5차 재감사 실측): 답 받은 고객 글·담당 지정 알림 읽음은 어드민 쪽 일 — 응답 뒤(같은 조건이라 다시 해도 같다).
   //   어드민 헤더 숫자는 그 읽음의 실시간 UPDATE 로 바로 맞는다.
-  const doneKeys = done.map((m) => `support_customer_replied:${m.id}`);
+  const doneIds = done.map((m) => m.id);
   runAfterResponse(async () => {
     try {
+      // 6차 재감사(순서 경합): 그사이 그 답변이 지워져 다시 「답 못 받음」이 된 글은 읽음 처리하지 않는다 — 지금 답 판정으로 다시 거른다
+      const now = await loadSupportCustomerMessageAnswers(sb, {
+        caseId: c.id,
+        onlyBeforeLatestReply: false,
+        fallbackLatestReplyAt: null,
+        limit: SUPPORT_MESSAGES_LIST_LIMIT,
+      });
+      const stillAnswered = now ? new Set(now.customers.filter((m) => m.answered).map((m) => m.id)) : null;
+      const keys = doneIds
+        .filter((id) => !stillAnswered || stillAnswered.has(id))
+        .map((id) => `support_customer_replied:${id}`);
       await Promise.all([
-        resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_customer_replied"], dedupeKeys: doneKeys }),
+        keys.length > 0
+          ? resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_customer_replied"], dedupeKeys: keys })
+          : Promise.resolve(),
         resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_case_assigned"] }),
       ]);
     } catch (err) {
@@ -442,10 +455,13 @@ function scheduleAdminAlertsForUnanswered(
         fallbackLatestReplyAt: null,
         limit: SUPPORT_MESSAGES_LIST_LIMIT,
       });
-      // 그사이 종료·보관됐으면 어드민 일이 없다
-      const { data: st } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
-      const status = String((st as { status?: unknown } | null)?.status ?? "");
-      if (status !== "OPEN" && status !== "WAITING_ADMIN" && status !== "WAITING_USER") return;
+      // 그사이 종료·보관됐으면 어드민 일이 없다. 상태를 못 읽으면(일시 오류) 그대로 진행 — 되살림은 메우는 다른 길이 없어
+      //   놓치는 쪽보다 남기는 쪽(답 판정 읽기 실패와 같은 규칙 · 6차 재감사)
+      const { data: st, error: stErr } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
+      if (!stErr) {
+        const status = String((st as { status?: unknown } | null)?.status ?? "");
+        if (status !== "OPEN" && status !== "WAITING_ADMIN" && status !== "WAITING_USER") return;
+      }
       const stillOpen = now ? new Set(now.customers.filter((m) => !m.answered).map((m) => m.id)) : null;
       const ids = stillOpen ? messageIds.filter((id) => stillOpen.has(id)) : messageIds;
       if (ids.length === 0) return;
@@ -1499,7 +1515,15 @@ type SupportTransitionAction =
   | "priority";
 
 type SupportTransitionResult =
-  | { ok: true; changed: boolean; case: SupportCaseRow; previousStatus: string | null; previousAssignee: string | null }
+  | {
+      ok: true;
+      changed: boolean;
+      case: SupportCaseRow;
+      previousStatus: string | null;
+      previousAssignee: string | null;
+      /** 이번 전이가 남긴 사건 id(재오픈 — 고객 알림 키) */
+      eventId: string | null;
+    }
   | { ok: false; error: string; case?: SupportCaseRow };
 
 /**
@@ -1538,6 +1562,7 @@ async function transitionSupportCase(
     case?: SupportCaseRow | null;
     previous_status?: string | null;
     previous_assignee?: string | null;
+    event_id?: string | null;
   };
   if (!r.ok) return { ok: false, error: String(r.error ?? "transition_failed"), ...(r.case ? { case: r.case } : {}) };
   if (!r.case) return { ok: false, error: "transition_failed" };
@@ -1547,6 +1572,7 @@ async function transitionSupportCase(
     case: r.case,
     previousStatus: r.previous_status ?? null,
     previousAssignee: r.previous_assignee ?? null,
+    eventId: r.event_id ?? null,
   };
 }
 
@@ -1635,41 +1661,46 @@ export async function adminAssignSupportCase(
 
   // Phase 3 A5 / Owner decision D2 — assignment is internal; no customer notification.
   // SSOT §8 F14: an admin assigned by someone else gets one admin notification.
+  // 요청 예산(6차 재감사 실측): 지정 알림(받는 사람 권한·저장·푸시)과 옛 담당자 알림 읽음·다시 알림은 어드민 쪽 일 — 응답 뒤.
+  //   담당 변경 자체(CAS·사건)는 위 DB 함수가 응답 전에 끝냈다.
   if (target && target !== input.adminUserId) {
-    const notified = await createAdminNotification(sb, {
-      recipientAdminIds: [target],
-      kind: "support_case_assigned",
-      // 2차 재감사 I: 지정 알림도 support 권한이 있어야 읽기·푸시
-      requiredPermission: "support",
-      title: translateBy("ko", "admin_support_notify_assigned_title", { no: c.public_case_no }),
-      body: translateBy("ko", "admin_support_notify_assigned_body"),
-      linkUrl: buildAdminSupportCaseRoute(c.id),
-      workRef: { table: "support_cases", id: c.id },
-      dedupeKey: `support_case_assigned:${c.id}:${target}:${new Date().toISOString()}`,
-      actorUserId: input.adminUserId,
-      push: true,
+    const assignedAt = new Date().toISOString();
+    runAfterResponse(async () => {
+      const notified = await createAdminNotification(sb, {
+        recipientAdminIds: [target],
+        kind: "support_case_assigned",
+        // 2차 재감사 I: 지정 알림도 support 권한이 있어야 읽기·푸시
+        requiredPermission: "support",
+        title: translateBy("ko", "admin_support_notify_assigned_title", { no: c.public_case_no }),
+        body: translateBy("ko", "admin_support_notify_assigned_body"),
+        linkUrl: buildAdminSupportCaseRoute(c.id),
+        workRef: { table: "support_cases", id: c.id },
+        dedupeKey: `support_case_assigned:${c.id}:${target}:${assignedAt}`,
+        actorUserId: input.adminUserId,
+        push: true,
+      }).catch((e: unknown) => ({ ok: false as const, error: (e as Error)?.message ?? String(e) }));
+      if (!notified.ok) {
+        console.error("[support] admin_notification_failed", {
+          caseId: c.id,
+          type: "support_case_assigned",
+          error: (notified as { error?: string }).error,
+        });
+      }
     });
-    if (!notified.ok) {
-      console.error("[support] admin_notification_failed", {
-        caseId: c.id,
-        type: "support_case_assigned",
-        error: notified.error,
-      });
-    }
   }
 
   // 결정 2 (A-8·S-11): 수동 해제·재배정 — 옛 담당자의 그 문의 미읽음 알림(고객 글·지정) 읽음 +
   //   답 못 받은 고객 글 다시 알림(재배정 = 새 담당자 · 해제 = support 어드민 전원). 응답 뒤(문의 글 수 비례).
   if (previous && previous !== target) {
-    await markFormerAssigneeCaseAlertsRead(sb, { adminUserId: previous, caseId: c.id });
-    runAfterResponse(() =>
-      (async () => {
+    runAfterResponse(async () => {
+      try {
+        await markFormerAssigneeCaseAlertsRead(sb, { adminUserId: previous, caseId: c.id });
         const { renotifyReleasedSupportCases } = await import("@/lib/support/support-released-case-renotify");
         await renotifyReleasedSupportCases(sb, [c.id], { assigneeAdminId: target });
-      })().catch((e: unknown) => {
+      } catch (e) {
         console.error("[support] reassign_renotify_failed", { caseId: c.id, error: (e as Error)?.message ?? String(e) });
-      })
-    );
+      }
+    });
   }
 
   return { ok: true, case: c };
@@ -1703,6 +1734,7 @@ export async function reopenSupportCase(
   // 이미 진행 중 = 변화 없음 · 알림도 다시 보내지 않는다
   if (!r.changed) return { ok: true, case: r.case };
   let c = r.case;
+  const reopenEventId = r.eventId;
 
   // A-7: 재오픈한 문의의 담당자가 권한을 잃은 것이 확인되면(정지·차단·탈퇴·권한 없음) 담당을 푼다.
   // 재감사 2차 1: 읽기 실패(판정 못 함)는 담당을 그대로 둔다 — 알림은 받는 사람 판정(결정 4)이 전원 대체로 처리한다.
@@ -1726,7 +1758,7 @@ export async function reopenSupportCase(
   // Phase 3 A5 — notify only when someone else (admin) reopened it; never self-notify.
   if (input.userId !== c.requester_user_id) {
     const reopened = c;
-    await notifyRequester(sb, c.requester_user_id, (lang) => buildReopenedNotification(reopened, input.userId, lang));
+    await notifyRequester(sb, c.requester_user_id, (lang) => buildReopenedNotification(reopened, input.userId, lang, reopenEventId));
   }
 
   return { ok: true, case: c };

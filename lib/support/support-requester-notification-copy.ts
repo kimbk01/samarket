@@ -2,7 +2,7 @@
  * 고객센터 고객 알림(답변·종료·재오픈)의 문구·키·사건 모양 — **단일 정의** (2026-11-29 전체 수정).
  * 앱 즉시 발송(원장)·응답 뒤 다시 만들기·5분 대기열 작업자가 모두 이것만 쓴다 — 같은 dedupe 키·같은 문구.
  * 종료·재오픈 키는 DB 함수(`support_transition_case`)가 같은 트랜잭션에서 넣는 대기열 행의 키와 같아야 한다:
- *   종료 = `support_case_resolved:<문의 id>:<resolved_at>` · 재오픈 = `support_case_reopened:<문의 id>:<last_message_at>`
+ *   종료 = `support_case_resolved:<문의 id>:<resolved_at>` · 재오픈 = `support_case_reopened:<문의 id>:<재오픈 사건 id>`
  *   (시각 = 문의 행을 jsonb 로 바꾼 문자열 — DB 함수 반환값 `to_jsonb(v_case)` 와 SQL `to_jsonb(v_case.x) #>> '{}'` 가 같다).
  */
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
@@ -34,8 +34,12 @@ export function resolvedDedupeKey(c: Pick<SupportCaseRow, "id" | "resolved_at" |
   return `support_case_resolved:${c.id}:${String(c.resolved_at ?? c.updated_at ?? "")}`;
 }
 
-export function reopenedDedupeKey(c: Pick<SupportCaseRow, "id" | "last_message_at" | "updated_at">): string {
-  return `support_case_reopened:${c.id}:${String(c.last_message_at ?? c.updated_at ?? "")}`;
+/** 재오픈 키 = 재오픈 사건 id(6차 재감사 — 재오픈 뒤 글이 와도 바뀌지 않음). 사건 id 가 없으면(옛 DB 함수) 재오픈 시각. */
+export function reopenedDedupeKey(
+  c: Pick<SupportCaseRow, "id" | "last_message_at" | "updated_at">,
+  eventId?: string | null
+): string {
+  return `support_case_reopened:${c.id}:${eventId ? eventId : String(c.last_message_at ?? c.updated_at ?? "")}`;
 }
 
 export function buildResolvedNotification(c: SupportCaseRow, actorUserId: string | undefined, lang: Lang): SupportRequesterNotificationInput {
@@ -55,7 +59,12 @@ export function buildResolvedNotification(c: SupportCaseRow, actorUserId: string
   };
 }
 
-export function buildReopenedNotification(c: SupportCaseRow, actorUserId: string | undefined, lang: Lang): SupportRequesterNotificationInput {
+export function buildReopenedNotification(
+  c: SupportCaseRow,
+  actorUserId: string | undefined,
+  lang: Lang,
+  eventId?: string | null
+): SupportRequesterNotificationInput {
   return {
     userId: c.requester_user_id,
     type: "support_case_reopened",
@@ -66,7 +75,7 @@ export function buildReopenedNotification(c: SupportCaseRow, actorUserId: string
     publicCaseNo: c.public_case_no,
     audience: c.audience,
     storeId: c.owner_store_id,
-    dedupeKey: reopenedDedupeKey(c),
+    dedupeKey: reopenedDedupeKey(c, eventId),
     actorUserId,
   };
 }

@@ -188,24 +188,27 @@ export async function markSupportCaseNotificationsRead(
   const workRef = { table: "support_cases", id: caseId };
   const adminRead = input.shownCustomerMessageIds
     ? await (async () => {
-        const [replies, assigned] = await Promise.all([
-          markAdminNotificationsRead(sb, {
-            adminUserId: uid,
-            workRef,
-            dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`),
-          }),
-          markAdminNotificationsRead(sb, { adminUserId: uid, workRef, kinds: ["support_case_assigned"] }),
-        ]);
-        const updated = (replies.ok ? replies.updated : 0) + (assigned.ok ? assigned.updated : 0);
-        if (!replies.ok && replies.error !== "nothing_to_mark") {
-          console.warn("[support] admin_notification_read_sync_failed", { caseId, part: "replies", error: replies.error });
+        // 요청 예산(6차 재감사): 보여 준 글 수와 상관없이 2번 — 이 어드민의 그 문의 안 읽은 고객센터 알림을 한 번 읽고,
+        //   보여 준 고객 글 알림 + 담당 지정 알림을 id 로 한 번에 읽음(전에는 키 100개마다 1번씩 늘었다).
+        const shownKeys = new Set(input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`));
+        const { data: rows, error: rowsErr } = await sb
+          .from("admin_notifications")
+          .select("id, kind, dedupe_key")
+          .eq("recipient_admin_id", uid)
+          .eq("work_ref_table", "support_cases")
+          .eq("work_ref_id", caseId)
+          .is("read_at", null)
+          .in("kind", ["support_customer_replied", "support_case_assigned"]);
+        if (rowsErr) return { ok: false as const, error: "admin_read_failed" };
+        const ids = ((rows ?? []) as { id: string; kind: string; dedupe_key: string | null }[])
+          .filter((r) => r.kind === "support_case_assigned" || shownKeys.has(String(r.dedupe_key ?? "")))
+          .map((r) => r.id);
+        if (ids.length === 0) return { ok: true as const, updated: 0 };
+        const res = await markAdminNotificationsRead(sb, { adminUserId: uid, workRef, ids });
+        if (!res.ok && res.error !== "nothing_to_mark") {
+          console.warn("[support] admin_notification_read_sync_failed", { caseId, error: res.error });
         }
-        if (!assigned.ok && assigned.error !== "nothing_to_mark") {
-          console.warn("[support] admin_notification_read_sync_failed", { caseId, part: "assigned", error: assigned.error });
-        }
-        return replies.ok || assigned.ok
-          ? ({ ok: true as const, updated })
-          : ({ ok: false as const, error: (!replies.ok && replies.error) || "admin_read_failed" });
+        return res.ok ? ({ ok: true as const, updated: res.updated }) : ({ ok: false as const, error: res.error });
       })()
     : await markAdminNotificationsRead(sb, { adminUserId: uid, workRef });
   if (!adminRead.ok && adminRead.error !== "nothing_to_mark") {

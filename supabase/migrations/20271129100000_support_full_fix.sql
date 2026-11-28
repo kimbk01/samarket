@@ -340,6 +340,7 @@ DECLARE
   v_active boolean;
   v_closed boolean;
   v_seen_changed boolean;
+  v_event_id uuid := NULL;
 BEGIN
   SELECT * INTO v_case FROM public.support_cases WHERE id = p_case_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -474,20 +475,23 @@ BEGIN
     VALUES (p_case_id, v_case.requester_user_id)
     ON CONFLICT (case_id) WHERE closed_at IS NULL DO NOTHING;
     INSERT INTO public.support_case_events (case_id, event_type, actor_user_id, payload)
-    VALUES (p_case_id, 'reopened', p_actor_user_id, '{}'::jsonb);
-    -- 재감사 4차: 고객 「재오픈」 알림 안전망(위 종료와 같음 · 본인이 연 재오픈은 알림 없음 = 앱과 같은 규칙)
+    VALUES (p_case_id, 'reopened', p_actor_user_id, '{}'::jsonb)
+    RETURNING id INTO v_event_id;
+    -- 재감사 4차·6차: 고객 「재오픈」 알림 안전망(위 종료와 같음 · 본인이 연 재오픈은 알림 없음 = 앱과 같은 규칙).
+    --   키 = 재오픈 **사건 id**(재오픈 뒤 글이 와도 바뀌지 않음 — 앱도 반환값 event_id 로 같은 키를 만든다).
     IF p_actor_user_id IS DISTINCT FROM v_case.requester_user_id THEN
       PERFORM public.admin_notification_outbox_enqueue(
-        'requester:support_case_reopened:' || p_case_id::text || ':' || (to_jsonb(v_case.last_message_at) #>> '{}'),
+        'requester:support_case_reopened:' || p_case_id::text || ':' || v_event_id::text,
         'support_requester_notification',
         jsonb_build_object(
           'kind', 'support_requester_notification',
           'deferred', true,
           'type', 'support_case_reopened',
           'caseId', p_case_id,
+          'eventId', v_event_id,
           'requesterUserId', v_case.requester_user_id,
           'actorUserId', p_actor_user_id,
-          'dedupeKey', 'support_case_reopened:' || p_case_id::text || ':' || (to_jsonb(v_case.last_message_at) #>> '{}')
+          'dedupeKey', 'support_case_reopened:' || p_case_id::text || ':' || v_event_id::text
         ),
         'inline_first'
       );
@@ -549,7 +553,8 @@ BEGIN
     'changed', true,
     'case', to_jsonb(v_case),
     'previous_status', v_prev_status,
-    'previous_assignee', v_prev_assignee
+    'previous_assignee', v_prev_assignee,
+    'event_id', v_event_id
   );
 END;
 $$;

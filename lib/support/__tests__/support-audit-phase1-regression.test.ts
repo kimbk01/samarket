@@ -810,13 +810,17 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
     const { sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");
     if (!a.ok) throw new Error(a.error);
+    await flush(); // 접수의 어드민 알림(응답 뒤)을 먼저 끝낸다
     adminNotifyCalls.length = 0;
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: ADMIN });
+    await flush(); // 지정 알림 = 응답 뒤(요청 예산)
     expect(adminNotifyCalls).toHaveLength(0);
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: OTHER_ADMIN });
-    expect(adminNotifyCalls).toHaveLength(1);
-    expect(adminNotifyCalls[0].kind).toBe("support_case_assigned");
-    expect(adminNotifyCalls[0].recipientAdminIds).toEqual([OTHER_ADMIN]);
+    await flush(); // 지정 알림 = 응답 뒤(요청 예산)
+    // 지정 알림 1건(받은 사람 = 새 담당자) · 결정 2: 재배정이라 답 못 받은 고객 글도 새 담당자에게 다시 알린다(별도 종류)
+    const assigned = adminNotifyCalls.filter((n) => n.kind === "support_case_assigned");
+    expect(assigned).toHaveLength(1);
+    expect(assigned[0].recipientAdminIds).toEqual([OTHER_ADMIN]);
   });
 
   it("F6: closing (admin or customer) leaves no admin unread count", async () => {
@@ -974,8 +978,10 @@ describe("support inquiry SSOT 2026-11-27 — post-fix reaudit D1~D16", () => {
     if (!a.ok) throw new Error(a.error);
     adminNotifyCalls.length = 0;
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: OTHER_ADMIN });
+    await flush(); // 지정 알림 = 응답 뒤(요청 예산)
     const events = db.support_case_events.length;
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: OTHER_ADMIN });
+    await flush(); // 지정 알림 = 응답 뒤(요청 예산)
     expect(adminNotifyCalls.filter((n) => n.kind === "support_case_assigned")).toHaveLength(1);
     expect(db.support_case_events.length).toBe(events);
   });
@@ -1184,7 +1190,8 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(route).toContain("shownMessageIds: shown,");
     const ledger = src("lib/support/support-notification-ledger.ts");
     expect(ledger).toContain("shownCustomerMessageIds: input.shownMessageIds,");
-    expect(ledger).toContain("dedupeKeys: input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`)");
+    // 6차 재감사: 보여 준 고객 글 키로 안 읽은 알림을 골라 id 로 한 번에(동작 시험 = support-full-fix-server A-1 어드민)
+    expect(ledger).toContain("const shownKeys = new Set(input.shownCustomerMessageIds!.map((id) => `support_customer_replied:${id}`));");
   });
 
   it("6차 2: an already-answered old message is not 'needed' even after a newer customer message reopens admin work (동작)", async () => {
@@ -1218,6 +1225,7 @@ describe("support inquiry SSOT 2026-11-27 — second reaudit A~J (behaviour)", (
     expect(adminNotifyCalls[0]?.excludeRecipientIds).toEqual([U]);
     adminNotifyCalls.length = 0;
     await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: OTHER_ADMIN });
+    await flush(); // 지정 알림 = 응답 뒤(요청 예산)
     const assigned = adminNotifyCalls.find((n) => n.kind === "support_case_assigned");
     expect(assigned?.requiredPermission).toBe("support");
     expect(src("components/admin/store-points/AdminStorePointPendingProvider.tsx")).toContain("!fromSelf &&");

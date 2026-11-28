@@ -161,7 +161,13 @@ function makeDb(seed: Record<string, Row[]> = {}) {
   };
   let tick = 0;
   const now = () => new Date(Date.UTC(2026, 11, 1) + ++tick).toISOString();
-  const hooks: { beforeUpdate?: (table: string, patch: Row) => void; failSessionInsert?: number; failSessionUpdate?: number } = {};
+  const hooks: {
+    beforeUpdate?: (table: string, patch: Row) => void;
+    failSessionInsert?: number;
+    failSessionUpdate?: number;
+    /** 다음 N번의 그 표 읽기(select)를 실패시킨다 */
+    failSelect?: { table: string; n: number };
+  } = {};
   const updates: { table: string; patch: Row }[] = [];
   function builder(table: string) {
     const st: {
@@ -210,6 +216,10 @@ function makeDb(seed: Record<string, Row[]> = {}) {
         const rows = apply();
         db[table] = (db[table] ?? []).filter((r) => !rows.includes(r));
         return { data: rows, error: null };
+      }
+      if (hooks.failSelect && hooks.failSelect.table === table && hooks.failSelect.n > 0) {
+        hooks.failSelect.n -= 1;
+        return { data: null, error: { message: "temporary read failure" } };
       }
       const all = apply();
       const paged = st.range ? all.slice(st.range[0], st.range[1] + 1) : all;
@@ -694,6 +704,74 @@ describe("5차 재감사 — 안전망 지난 회차 · 접수 재전송 처음 
   });
 });
 
+describe("6차 재감사 — 재오픈 안전망 키 · 되살림 읽기 실패 · 읽음 순서", () => {
+  it("재오픈 안전망: 앱이 알림 전에 끊긴 뒤 작업자 전에 답변이 와도(마지막 글 시각이 바뀌어도) 재오픈 알림을 만든다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    // 재오픈 — DB 함수만(앱 알림 전에 끊김)
+    await (sb as { rpc: (n: string, x: Record<string, unknown>) => Promise<unknown> }).rpc("support_transition_case", {
+      p_case_id: a.case.id,
+      p_action: "reopen",
+      p_actor_user_id: ADMIN,
+    });
+    // 작업자 전에 어드민 답변(마지막 글 시각이 바뀜)
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "재오픈 뒤 답" });
+    await flush();
+    const ob = db.admin_notification_outbox.find((o) => (o.payload as { type?: string }).type === "support_case_reopened")!;
+    const { replaySupportRequesterNotification } = await import("@/lib/support/support-requester-outbox");
+    expect(await replaySupportRequesterNotification(sb, ob.payload as never)).toEqual({ ok: true });
+    expect(db.notification_events.filter((n) => n.type === "support_case_reopened")).toHaveLength(1);
+  });
+
+  it("재오픈: 앱 즉시 발송 키 = 안전망 키(재오픈 사건 id) — 작업자는 「이미 있음」으로 닫는다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    await flush();
+    const ev = db.support_case_events.filter((e) => e.event_type === "reopened").at(-1)!;
+    const sent = db.notification_events.filter((n) => n.type === "support_case_reopened");
+    expect(sent.map((n) => n.dedupe_key)).toEqual([`support_case_reopened:${a.case.id}:${ev.id}`]);
+    const ob = db.admin_notification_outbox.find((o) => (o.payload as { type?: string }).type === "support_case_reopened")!;
+    expect((ob.payload as { dedupeKey: string }).dedupeKey).toBe(`support_case_reopened:${a.case.id}:${ev.id}`);
+  });
+
+  it("되살림: 응답 뒤 문의 상태 읽기가 한 번 실패해도 되살림을 버리지 않는다(놓치지 않는 쪽)", async () => {
+    const { db, sb, hooks } = makeDb();
+    const a = await open(sb, "첫 글");
+    const customerMsg = db.support_messages.find((m) => m.sender_type === "MEMBER")!;
+    db.admin_notifications.push({
+      id: "an-r", recipient_admin_id: ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases",
+      work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${customerMsg.id}`, read_at: "2026-12-01T00:00:00.000Z",
+    });
+    const r1 = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답1" });
+    await flush();
+    if (!r1.ok) throw new Error(r1.error);
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r1.message.id });
+    // 응답 뒤 되살림의 문의 상태 읽기만 실패
+    hooks.failSelect = { table: "support_cases", n: 1 };
+    await flush();
+    expect(db.admin_notifications.find((n) => n.id === "an-r")!.read_at).toBeNull();
+  });
+
+  it("읽음 순서: 답변 뒤 응답 뒤 읽음 처리 전에 그 답변이 지워졌으면 그 글 알림을 읽음으로 만들지 않는다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    await flush();
+    const r1 = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답1" });
+    if (!r1.ok) throw new Error(r1.error);
+    // 응답 뒤 읽음 처리가 돌기 전에 그 답변 삭제
+    db.support_messages.find((m) => m.id === r1.message.id)!.deleted_at = "2026-12-01T00:00:09.000Z";
+    const { resolveAdminNotificationsForWork } = await import("@/lib/admin/notifications/admin-notification-service");
+    vi.mocked(resolveAdminNotificationsForWork).mockClear();
+    await flush();
+    const calls = vi.mocked(resolveAdminNotificationsForWork).mock.calls.map((c) => c[1] as unknown as { kinds?: string[]; dedupeKeys?: string[] });
+    expect(calls.some((c) => c.kinds?.includes("support_customer_replied"))).toBe(false);
+  });
+});
+
 describe("§3 읽음 = 화면에 보인 것 (A-1)", () => {
   it("A-1 고객: 상세 GET 은 읽기만 — 미읽음·알림 그대로, seen 을 보내야 보여 준 답변까지 읽음", async () => {
     const { db, sb } = makeDb();
@@ -753,6 +831,14 @@ describe("§3 읽음 = 화면에 보인 것 (A-1)", () => {
     // 보여 준 뒤 새 고객 글이 왔다 — seen 은 보여 준 글까지만
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또" });
     await flush();
+    // 이 어드민이 받은 알림: 보여 준 첫 글(읽음 대상) · 보여 준 뒤 온 글(남아야 함) · 담당 지정(읽음 대상)
+    const shownMsg = db.support_messages.find((m) => m.sender_type === "MEMBER" && json.messages.some((x: { id: string }) => x.id === m.id))!;
+    const laterMsg = db.support_messages.find((m) => m.sender_type === "MEMBER" && m.id !== shownMsg.id)!;
+    db.admin_notifications.push(
+      { id: "an-shown", recipient_admin_id: ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${shownMsg.id}`, read_at: null },
+      { id: "an-later", recipient_admin_id: ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${laterMsg.id}`, read_at: null },
+      { id: "an-assigned", recipient_admin_id: ADMIN, kind: "support_case_assigned", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: "support_case_assigned:x", read_at: null }
+    );
     const seen = await route.PATCH(
       jsonReq(`http://x/api/admin/support/cases/${a.case.id}`, "PATCH", {
         action: "seen",
@@ -763,7 +849,9 @@ describe("§3 읽음 = 화면에 보인 것 (A-1)", () => {
     );
     expect(seen.status).toBe(200);
     expect(db.support_cases[0].admin_unread_count).toBe(1);
-    expect(adminReadCalls.some((c) => c.adminUserId === ADMIN)).toBe(true);
+    // 6차 재감사: 한 번 읽고 id 로 한 번에 — 보여 준 글 알림·담당 지정만, 뒤에 온 글 알림은 남는다
+    const call = adminReadCalls.find((c) => c.adminUserId === ADMIN) as { ids?: string[] } | undefined;
+    expect([...(call?.ids ?? [])].sort()).toEqual(["an-assigned", "an-shown"]);
   });
 });
 
@@ -1233,7 +1321,8 @@ describe("요청 예산 — 고객센터 라우트 요청 1회의 DB 호출 수 
     const mockedCount = () =>
       vi.mocked(svc.resolveAdminNotificationsForWork).mock.calls.length +
       vi.mocked(svc.settleSupportCustomerMessageNotification).mock.calls.length +
-      vi.mocked(svc.createAdminNotification).mock.calls.length * 3 +
+      // 6차 재감사: 푸시까지 켠 알림 1건의 실제 비용(권한 3 + 저장 1 + 발송 기록 1 + 보내기 직전 권한 3 + 기기·배지 3 + 끝 1) ≈ 12 — 응답 전이면 크게 센다
+      vi.mocked(svc.createAdminNotification).mock.calls.length * 12 +
       vi.mocked(svc.resolveAdminRecipientAuthority).mock.calls.length * 3;
     const mocked0 = mockedCount();
     callLog.length = 0;
@@ -1281,7 +1370,18 @@ describe("요청 예산 — 고객센터 라우트 요청 1회의 DB 호출 수 
       () => patch({ action: "seen", shownMessageIds: dj.messages.map((m: { id: string }) => m.id), seenLastMessageAt: dj.case.last_message_at }),
       { auth: 2 }
     );
+    got.assignOther = await calls(() => patch({ action: "assign", assigneeAdminId: ADMIN_B }), { auth: 2, audit: 1 });
+    got.reassignBack = await calls(() => patch({ action: "assign", assigneeAdminId: ADMIN }), { auth: 2, audit: 1 });
+    got.unassign = await calls(() => patch({ action: "assign", assigneeAdminId: null }), { auth: 2, audit: 1 });
+    got.priority = await calls(() => patch({ action: "priority", priority: "HIGH" }), { auth: 2, audit: 1 });
+    const editable = [...db.support_messages].reverse().find((m) => m.sender_type === "ADMIN" && !m.deleted_at);
+    if (editable) {
+      got.editReply = await calls(() => patch({ action: "edit_message", messageId: editable.id, body: "고친 답" }), { auth: 2, audit: 1 });
+    }
     got.close = await calls(() => patch({ action: "status", status: "RESOLVED" }), { auth: 2, audit: 1 });
+    got.archive = await calls(() => patch({ action: "archive" }), { auth: 2, audit: 1 });
+    got.unarchive = await calls(() => patch({ action: "unarchive" }), { auth: 2, audit: 1 });
+    got.reopen = await calls(() => patch({ action: "reopen" }), { auth: 2, audit: 1 });
     for (const [k, v] of Object.entries(got)) expect({ path: k, calls: v <= budget ? "ok" : v }).toEqual({ path: k, calls: "ok" });
   });
 

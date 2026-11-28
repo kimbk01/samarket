@@ -83,8 +83,11 @@ export function createSupportRpcEmulator(db: Record<string, Row[]>, now: () => s
     }
     return s.id;
   };
-  const event = (caseId: unknown, type: string, actor: unknown, payload: Row) =>
-    t("support_case_events").push({ id: randomUUID(), case_id: caseId, event_type: type, actor_user_id: actor ?? null, payload, created_at: now() });
+  const event = (caseId: unknown, type: string, actor: unknown, payload: Row): string => {
+    const id = randomUUID();
+    t("support_case_events").push({ id, case_id: caseId, event_type: type, actor_user_id: actor ?? null, payload, created_at: now() });
+    return id;
+  };
 
   function open(a: Record<string, unknown>): Res {
     const uid = a.p_requester_user_id;
@@ -196,7 +199,8 @@ export function createSupportRpcEmulator(db: Record<string, Row[]>, now: () => s
       for (const s of t("support_sessions")) if (s.case_id === c.id && (s.closed_at ?? null) === null) Object.assign(s, { closed_at: at, last_seen_at: at });
     };
     /** SQL 과 같음 — 종료·재오픈 고객 알림 안전망 행(같은 트랜잭션 · source_key 유일 · 첫 시도는 backoff 뒤) */
-    const requesterSafetyNet = (type: string, dedupeKey: string) => {
+    let reopenEventId: string | null = null;
+    const requesterSafetyNet = (type: string, dedupeKey: string, eventId: string | null = null) => {
       const sourceKey = `requester:${dedupeKey}`;
       if (t("admin_notification_outbox").some((o) => o.source_key === sourceKey)) return;
       t("admin_notification_outbox").push({
@@ -211,6 +215,7 @@ export function createSupportRpcEmulator(db: Record<string, Row[]>, now: () => s
           deferred: true,
           type,
           caseId: c.id,
+          ...(eventId ? { eventId } : {}),
           requesterUserId: c.requester_user_id,
           actorUserId: a.p_actor_user_id ?? null,
           dedupeKey,
@@ -262,9 +267,9 @@ export function createSupportRpcEmulator(db: Record<string, Row[]>, now: () => s
         }
         Object.assign(c, { status: "OPEN", resolved_at: null, archived_at: null, updated_at: at, last_message_at: at });
         openSession(c.id, c.requester_user_id);
-        event(c.id, "reopened", a.p_actor_user_id, {});
+        reopenEventId = event(c.id, "reopened", a.p_actor_user_id, {});
         if (a.p_actor_user_id !== c.requester_user_id) {
-          requesterSafetyNet("support_case_reopened", `support_case_reopened:${c.id}:${String(c.last_message_at)}`);
+          requesterSafetyNet("support_case_reopened", `support_case_reopened:${c.id}:${reopenEventId}`, reopenEventId);
         }
         break;
       }
@@ -297,7 +302,7 @@ export function createSupportRpcEmulator(db: Record<string, Row[]>, now: () => s
         }
       }
     }
-    return out({ ok: true, changed: true, case: { ...c }, previous_status: prevStatus, previous_assignee: prevAssignee });
+    return out({ ok: true, changed: true, case: { ...c }, previous_status: prevStatus, previous_assignee: prevAssignee, event_id: reopenEventId });
   }
 
   return function rpc(name: string, args: Record<string, unknown> = {}): Res | null {
