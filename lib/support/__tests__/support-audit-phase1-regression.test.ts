@@ -1785,6 +1785,34 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     expect(calls[0].title).toContain("새 고객 문의");
   });
 
+  it("남은 위험 2: 재오픈(OPEN)된 문의에서 유일한 답을 지우면 그 답이 본 글 알림을 되살린다(상태 OPEN 그대로)", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const seed = db.support_messages.find((m) => m.sender_type === "MEMBER")!;
+    const reply = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    if (!reply.ok) throw new Error(reply.error);
+    await flush();
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    const reopened = await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    if (!reopened.ok) throw new Error(reopened.error);
+    await flush();
+    const row = db.support_cases[0];
+    expect(row.status).toBe("OPEN");
+    db.admin_notifications = [
+      { id: "an-seed", recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${seed.id}`, read_at: "2026-12-01T00:00:00.000Z", archived_at: null },
+    ];
+    adminNotifyCalls.length = 0;
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: reply.message.id });
+    await flush();
+    expect(row.status).toBe("OPEN");
+    expect(db.admin_notifications.find((n) => n.id === "an-seed")?.read_at).toBeNull();
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.dedupeKey)).toEqual([
+      `support_customer_replied:${seed.id}`,
+    ]);
+  });
+
   it("M5: deleting one of two answers that both saw the message keeps 「고객 확인 대기」 (no re-notify)", async () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "x");

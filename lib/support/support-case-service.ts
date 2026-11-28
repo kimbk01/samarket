@@ -383,8 +383,8 @@ async function reconcileSupportAdminWork(
   }
 ): Promise<number> {
   const c = input.caseRow;
-  // 병합 전 2차 4: 이미 WAITING_ADMIN 이어도 지운 답변이 유일한 답이던 글의 알림은 되살린다(상태는 그대로)
-  if (input.mode === "delete" && c.status !== "WAITING_USER" && c.status !== "WAITING_ADMIN") return 0;
+  // 병합 전 2차 4 · 남은 위험 2: 이미 「답변 필요」(WAITING_ADMIN · 재오픈 OPEN)여도 지운 답변이 유일한 답이던 글의 알림은 되살린다(상태는 그대로)
+  if (input.mode === "delete" && c.status !== "WAITING_USER" && c.status !== "WAITING_ADMIN" && c.status !== "OPEN") return 0;
   const answers = await loadSupportCustomerMessageAnswers(sb, {
     caseId: c.id,
     onlyBeforeLatestReply: input.mode === "reply",
@@ -400,7 +400,7 @@ async function reconcileSupportAdminWork(
   const workRef = { table: "support_cases", id: c.id };
   if (input.mode === "delete") {
     if (unanswered.length === 0) return 0;
-    if (c.status === "WAITING_ADMIN") {
+    if (c.status === "WAITING_ADMIN" || c.status === "OPEN") {
       // 지운 답변이 본 글(답변 시각·본 시각 이하)만 — 원래부터 답을 기다리던 글의 알림(어드민이 읽었을 수 있음)은 건드리지 않는다
       const del = input.deletedReply;
       if (!del) return 0;

@@ -594,6 +594,43 @@ describe("병합 전 3차 — 접수 중 창을 닫으면 늦은 응답이 다�
   });
 });
 
+describe("남은 위험 1 — 접수 중 닫고 응답 전에 다시 열어도 같은 글이 카드로 되살아나지 않고, 새 글은 지워지지 않는다 (동작)", () => {
+  it("접수 → ✕ → 응답 전 다시 열기 = 카드 없음 · 새 글 Y 저장 → 늦은 성공 → Y 남음", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    route = (url) => {
+      if (url.startsWith("/api/support/cases?")) return { ok: true, cases: [] };
+      if (url.startsWith("/api/support/cases/open")) return new Promise((r) => (release = r));
+      return { ok: false };
+    };
+    const ctx = memberCtx();
+    await act(async () => root.render(<SupportModalHost />));
+    openCompose(ctx);
+    await flush();
+    click(q('[data-testid="support-ticket-field-category"]'));
+    click(q('[data-testid^="support-ticket-cat-"]'));
+    click(q('[data-testid^="support-ticket-issue-"]'));
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "보낸 글 X");
+    click(q('[data-support-ticket-submit="1"]'));
+    await flush(2);
+    click(q('[data-support-modal-close="1"]'));
+    await flush();
+    // 응답 전에 다시 연다 — 보내는 중인 X 는 「작성 중인 문의」 카드로 뜨지 않는다
+    openCompose(ctx);
+    await flush();
+    expect(q('[data-support-ticket-draft="1"]')).toBeNull();
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "새 글 Y");
+    click(q('[data-support-modal-close="1"]'));
+    await flush();
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("새 글 Y");
+    await act(async () => {
+      release({ ok: true, case: { ...caseRow(), id: "c-x" }, created: true });
+    });
+    await flush(3);
+    // 늦은 성공은 보낸 X 의 초안만 지운다 — 새 글 Y 는 남는다
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("새 글 Y");
+  });
+});
+
 /* ───────────── U3 닫는 「확인」 한 모양 · 새 문의 라벨 하나 ───────────── */
 
 describe("U3 닫는 「확인」 = 보조 모양 · 새 문의 = 「문의하기」 (동작)", () => {

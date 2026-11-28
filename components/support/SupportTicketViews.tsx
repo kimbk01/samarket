@@ -42,6 +42,7 @@ import {
   sortActiveSupportTickets,
   isSupportTicketClosedStatus,
   listSupportTicketCategories,
+  isSupportTicketDraftBeingSubmitted,
   readSupportTicketDraft,
   selectSupportTicketCategory,
   selectSupportTicketIssue,
@@ -454,7 +455,11 @@ export function SupportTicketCompose({
   const [state, setState] = useState<SupportTicketFormState>(() => initSupportTicketForm(context));
   const [view, setView] = useState<ComposeView>("form");
   const draftKey = useMemo(() => supportTicketDraftKey(context), [context]);
-  const [draft, setDraft] = useState<SupportTicketDraft | null>(() => readSupportTicketDraft(draftKey));
+  // 남은 위험 1: 접수 응답을 기다리는 그 글이면 카드로 띄우지 않는다(같은 글 두 번 접수 방지)
+  const [draft, setDraft] = useState<SupportTicketDraft | null>(() => {
+    const d = readSupportTicketDraft(draftKey);
+    return isSupportTicketDraftBeingSubmitted(draftKey, d) ? null : d;
+  });
   const touchedRef = useRef(false);
   /** 최종 감사 U-3: 상세에서 돌아오면 「진행 중인 문의」 상태가 바뀌었을 수 있다 — 그 목록만 다시 읽는다 */
   const [activeRefreshKey, setActiveRefreshKey] = useState(0);

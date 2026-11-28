@@ -48,7 +48,9 @@ import { useSupportCategoryLabels } from "@/lib/support/use-support-category-set
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import {
   buildSupportTicketOpenPayload,
-  clearSupportTicketDraft,
+  clearSupportTicketDraftIfSent,
+  clearSupportTicketSubmitting,
+  markSupportTicketSubmitting,
   type SupportTicketFormState,
 } from "@/lib/support/support-ticket-form";
 import {
@@ -265,6 +267,9 @@ export function SupportModalHost() {
       // (다음에 창을 열면 지난 「접수 완료」가 나오던 것). 성공이면 초안만 지운다(이미 접수된 글이 되살아나지 않게).
       const session = openSessionRef.current;
       const sameSession = () => openSessionRef.current === session;
+      // 남은 위험 1: 응답을 기다리는 동안 이 글은 「작성 중인 문의」 카드로 다시 띄우지 않는다(닫았다 다시 열어도)
+      const sentBody = state.body;
+      markSupportTicketSubmitting(draftKey, sentBody);
       try {
         const res = await fetch("/api/support/cases/open", {
           method: "POST",
@@ -293,7 +298,8 @@ export function SupportModalHost() {
           return;
         }
         clearPendingSupportContext();
-        clearSupportTicketDraft(draftKey);
+        // 남은 위험 1: 보낸 그 글의 초안만 지운다(기다리는 사이 다시 열어 새 글을 저장했으면 그 새 글은 남김)
+        clearSupportTicketDraftIfSent(draftKey, sentBody);
         if (!sameSession()) return;
         // 새로고침해도 방금 접수한 문의로 돌아오게 복원값 저장
         stashSupportModalRestoreCaseId(json.case.id);
@@ -313,6 +319,7 @@ export function SupportModalHost() {
       } catch {
         if (sameSession()) setSubmitError("network_error");
       } finally {
+        clearSupportTicketSubmitting(draftKey);
         if (sameSession()) setSubmitting(false);
       }
     },

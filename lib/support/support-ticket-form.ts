@@ -253,6 +253,35 @@ export function writeSupportTicketDraft(key: string, state: SupportTicketFormSta
   }
 }
 
+/**
+ * 남은 위험(낮음) 1 — 접수 응답을 기다리는 글. 접수 중 창을 닫고 응답 전에 다시 열어도 그 글을 「작성 중인 문의」 카드로
+ * 다시 띄우지 않는다(같은 글을 두 번 접수하던 것). 같은 앱 실행 안에서만(메모리) — 응답이 오면 지운다.
+ */
+const submittingDrafts = new Map<string, string>();
+
+export function markSupportTicketSubmitting(key: string, body: string): void {
+  submittingDrafts.set(key, body);
+}
+
+export function clearSupportTicketSubmitting(key: string): void {
+  submittingDrafts.delete(key);
+}
+
+/** 저장된 초안이 지금 접수 응답을 기다리는 그 글인가 — 그렇다면 카드로 띄우지 않는다 */
+export function isSupportTicketDraftBeingSubmitted(key: string, draft: SupportTicketDraft | null): boolean {
+  if (!draft) return false;
+  const sending = submittingDrafts.get(key);
+  return sending != null && sending === draft.body;
+}
+
+/**
+ * 접수가 성공한 글의 초안만 지운다 — 응답을 기다리는 사이 사용자가 같은 칸에 새 글을 저장했으면(본문이 다르면) 그 새 글은 남긴다.
+ */
+export function clearSupportTicketDraftIfSent(key: string, sentBody: string): void {
+  const stored = readSupportTicketDraft(key);
+  if (!stored || stored.body === sentBody) clearSupportTicketDraft(key);
+}
+
 export function clearSupportTicketDraft(key: string): void {
   if (typeof window === "undefined") return;
   try {

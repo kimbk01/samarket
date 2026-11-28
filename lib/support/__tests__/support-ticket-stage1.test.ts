@@ -163,7 +163,7 @@ describe("작성 중 저장 — 이어 쓰기 / 지우기", () => {
     expect(v).toContain("dibayConfirm({");
     expect(v).toContain('t("support_ticket_draft_delete_title")');
     const host = read("components/support/SupportModalHost.tsx");
-    expect(host).toContain("clearSupportTicketDraft(draftKey)");
+    expect(host).toContain("clearSupportTicketDraftIfSent(draftKey, sentBody)"); // 남은 위험 1: 보낸 그 글의 초안만 지움(동작 시험 = support-ui-final-check 「남은 위험 1」)
   });
 });
 
