@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { findNearestScrollableAncestor } from "@/lib/ui/scroll-element-into-center";
 
 /**
  * 라운지 글 상세 — 키보드가 열린 동안 글 끝 댓글 입력칸 아래 빈 띠 제거.
@@ -29,6 +28,21 @@ export function isKeyboardCloseGrow(prevHeightPx: number, nextHeightPx: number):
 }
 
 type Targets = { root: HTMLElement; article: HTMLElement | null };
+
+/**
+ * 셸 스크롤 영역 — 가장 가까운 세로 스크롤 조상(overflow auto/scroll). 지금 넘치는지는 보지 않는다:
+ * 열 때 짧던 글이 열린 동안 길어져도(댓글·비슷한 글 로딩) 되돌릴 때 같은 영역을 찾는다 (재감사 D3).
+ */
+export function findCommunityDetailScrollRoot(el: Element): Element | null {
+  if (typeof window === "undefined") return null;
+  let cur = el.parentElement;
+  while (cur && cur !== document.body && cur !== document.documentElement) {
+    const oy = window.getComputedStyle(cur).overflowY;
+    if (oy === "auto" || oy === "scroll" || oy === "overlay") return cur;
+    cur = cur.parentElement;
+  }
+  return null;
+}
 
 /** 접기 — 셸 여백 상쇄 + 상세·글 영역 아래 여백 0. 키보드가 덮는 기기(iOS)는 가림 높이만큼 아래 칸 (Android 0) */
 export function collapseCommunityDetailBottom(t: Targets, occlusionPx: number): void {
@@ -58,14 +72,15 @@ export function CommunityDetailKeyboardGap({
 }) {
   const { keyboardOpen, keyboardOcclusionInset } = useFormKeyboardViewport();
   const collapsedRef = useRef(false);
-  const scrollRootRef = useRef<Element | null>(null);
+  /** 접을 때의 화면 높이 — 닫힘 판정은 이 값과 비교한다(크기 변경이 여러 번에 나뉘어 와도 놓치지 않게 · 재감사 D2) */
+  const collapsedAtHeightRef = useRef(0);
 
   /** 대상·상태는 모두 ref — 렌더마다 같은 함수 */
   const restore = useCallback(() => {
     if (!collapsedRef.current) return;
     collapsedRef.current = false;
     const root = rootRef.current;
-    if (root) restoreCommunityDetailBottom({ root, article: articleRef.current }, scrollRootRef.current);
+    if (root) restoreCommunityDetailBottom({ root, article: articleRef.current }, findCommunityDetailScrollRoot(root));
   }, [rootRef, articleRef]);
 
   // 공용 측정값 — 열림이면 접기(가림 높이 변화도 반영), 닫힘이면 되돌리기(iOS·크기 변경이 없던 경우)
@@ -74,7 +89,7 @@ export function CommunityDetailKeyboardGap({
     if (!root) return;
     const t: Targets = { root, article: articleRef.current };
     if (keyboardOpen) {
-      if (!collapsedRef.current) scrollRootRef.current = findNearestScrollableAncestor(t.root);
+      if (!collapsedRef.current) collapsedAtHeightRef.current = window.innerHeight;
       collapseCommunityDetailBottom(t, keyboardOcclusionInset);
       collapsedRef.current = true;
     } else {
@@ -85,12 +100,8 @@ export function CommunityDetailKeyboardGap({
   // 화면이 커지는 크기 변경 이벤트 안에서 즉시 되돌림 — 잘린 스크롤 위치가 그려지기 전에 바로잡는다 (Android 키보드 닫힘)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    let lastHeight = window.innerHeight;
     const onResize = () => {
-      const next = window.innerHeight;
-      const grew = isKeyboardCloseGrow(lastHeight, next);
-      lastHeight = next;
-      if (grew) restore();
+      if (collapsedRef.current && isKeyboardCloseGrow(collapsedAtHeightRef.current, window.innerHeight)) restore();
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);

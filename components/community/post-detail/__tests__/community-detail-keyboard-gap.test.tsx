@@ -132,6 +132,43 @@ describe("라운지 상세 키보드 여백 보정", () => {
     await m.unmount();
   });
 
+  it("닫힘 크기 변경이 두 번에 나뉘어 와도(각 100px 이하) 접을 때 높이와 비교해 즉시 되돌린다 (재감사 D2)", async () => {
+    const s = buildShell();
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 1006 });
+    s.main.scrollTop = 1e6;
+    const m = await mount(s);
+    s.resize(686, 605);
+    window.dispatchEvent(new Event("resize"));
+    Object.assign(snap, { keyboardOpen: true });
+    await m.render();
+    s.main.scrollTop = 1e6;
+    s.resize(766, 685);
+    window.dispatchEvent(new Event("resize")); // +80 — 아직 닫힘 아님
+    expect(s.root.style.marginBottom).toBe(COMMUNITY_DETAIL_KB_COLLAPSE_MARGIN);
+    s.resize(1006, 925);
+    window.dispatchEvent(new Event("resize")); // 접을 때보다 +320 → 닫힘
+    expect(s.root.style.marginBottom).toBe("");
+    expect(s.main.scrollTop).toBe(959);
+    await m.unmount();
+  });
+
+  it("열 때 짧던 글이어도(스크롤 없음) 되돌릴 때 셸 스크롤 영역을 찾아 끝을 유지한다 (재감사 D3)", async () => {
+    const s = buildShell();
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 1006 });
+    const m = await mount(s);
+    s.resize(686, 605);
+    window.dispatchEvent(new Event("resize"));
+    s.state.clientHeight = 5000; // 열 때는 내용이 화면보다 짧음
+    Object.assign(snap, { keyboardOpen: true });
+    await m.render();
+    s.state.clientHeight = 605; // 열린 동안 댓글이 로딩돼 길어짐
+    s.main.scrollTop = 1e6;
+    s.resize(1006, 925);
+    window.dispatchEvent(new Event("resize"));
+    expect(s.main.scrollTop).toBe(959);
+    await m.unmount();
+  });
+
   it("화면 크기가 안 변하는 기기(iOS) — 가림 높이만큼 아래 칸, 공용 측정값 닫힘으로 되돌리고 끝 유지", async () => {
     const s = buildShell();
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 1006 });
