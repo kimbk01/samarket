@@ -48,3 +48,11 @@
 
 ## 코드로 확인한 것
 - 동시 요청 경합(두 연결이 같은 키로 동시에 접수·재오픈)은 도구가 한 연결만 쓰므로 실행으로 재현하지 않았다 — 잠금 순서(재오픈: 문의 행 → 키 잠금 · 접수: 키 잠금 → 진행 중 행만)는 독립 감사 3회로 교착 없음을 확인했다.
+
+## 운영 적용 (Owner 「DB 적용 후 병합」 · 2026-11-28 18:06 PHT)
+- 적용 전(18:04, 읽기 전용): 옛 7개 인자 함수 1개 · 새 함수 0 · 새 열 0 · 실시간 등록 없음 · `admin_notifications` 55행(인덱스 잠금 순간).
+- 적용: `supabase/migrations/20271129100000_support_full_fix.sql`(sha256 `bbf6fff8…`) 본문 — 바깥 BEGIN/COMMIT 은 적용 도구 트랜잭션이 대신. 결과 success.
+- 적용 뒤(읽기 전용): 새 열 1 · 새 인덱스 2 · `admin_notifications` 실시간 등록 1 ·
+  함수 4개(`support_append_message` 8인자 1개만 · `support_open_case` · `support_transition_case` · 재생 함수) 본문(주석·공백 제외 md5)이 저장소 파일과 모두 같음 ·
+  4개 모두 SECURITY DEFINER · authenticated 실행 권한 없음 · service_role 실행 권한 있음.
+- 웹: main 병합(충돌 2 해결) 뒤 PR #690 자동 병합 등록 18:14 PHT (head `492266603`).
