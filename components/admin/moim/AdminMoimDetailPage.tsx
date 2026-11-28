@@ -483,7 +483,14 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
           onSubmit={(reason) =>
             moimAdminSend(
               `/api/admin/moim/moims/${encodeURIComponent(moimId)}/members/${encodeURIComponent(sheet.row.user_id)}`,
-              { action: sheet.action, role: sheet.action === "role" ? role : undefined, reason },
+              {
+                action: sheet.action,
+                role: sheet.action === "role" ? role : undefined,
+                reason,
+                /** R1 A-17: 화면이 본 값 — 다른 관리자가 먼저 바꿨으면 409 */
+                expectedRole: sheet.action === "role" ? sheet.row.role ?? undefined : undefined,
+                expectedHost: sheet.action === "assign_host" ? hostUserId ?? undefined : undefined,
+              },
               t
             )
           }
@@ -623,6 +630,11 @@ export function MoimSanctionApplySheet({
   const [level, setLevel] = useState<MoimAdminSanctionLevel>("unlist");
   const [reasonCode, setReasonCode] = useState<string>("");
   const [endDate, setEndDate] = useState("");
+  /** R1 A-16: 같은 모임의 처리 전 신고를 골라 연결(선택) */
+  const reports = useMoimSection<{ id: string; target_type: string; reason_code: string; status: string; created_at: string }>(moimId, "reports");
+  /** 처리 전 신고 = received·reviewing (moim_reports.status CHECK) — 재감사 M-1 */
+  const openReports = reports.rows.filter((r) => r.status === "received" || r.status === "reviewing");
+  const [reportId, setReportId] = useState("");
   /** 끝나는 날(PHT) 23:59:59 까지 */
   const endsAt = endDate ? `${endDate}T23:59:59+08:00` : null;
   return (
@@ -638,7 +650,7 @@ export function MoimSanctionApplySheet({
       destructive
       confirmLabel={t("admin_moim_sanction_apply")}
       onSubmit={(reason) =>
-        moimAdminSend(`/api/admin/moim/moims/${encodeURIComponent(moimId)}/sanctions`, { level, reasonCode, reason, endsAt }, t)
+        moimAdminSend(`/api/admin/moim/moims/${encodeURIComponent(moimId)}/sanctions`, { level, reasonCode, reason, endsAt, reportId: reportId || null }, t)
       }
       onClose={onClose}
       onSettled={onSettled}
@@ -661,6 +673,17 @@ export function MoimSanctionApplySheet({
             {MOIM_REPORT_REASON_CODES.map((c) => (
               <option key={c} value={c}>
                 {moimReasonCodeLabel(t, c)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sam-muted">{t("admin_moim_field_report_link")}</span>
+          <select className={MOIM_ADMIN_FIELD} value={reportId} onChange={(e) => setReportId(e.target.value)}>
+            <option value="">{t("admin_moim_field_report_link_none")}</option>
+            {openReports.map((r) => (
+              <option key={r.id} value={r.id}>
+                {`${t(`admin_moim_target_${r.target_type}` as MessageKey)} · ${moimReasonCodeLabel(t, r.reason_code)}`}
               </option>
             ))}
           </select>

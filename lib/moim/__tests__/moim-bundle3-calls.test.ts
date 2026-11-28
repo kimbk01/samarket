@@ -18,7 +18,7 @@ function countingSb(tables: Record<string, unknown[]>) {
       calls.push(table);
       const rows = tables[table] ?? [];
       const chain: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "in", "is", "or", "not", "order", "limit", "lt", "gte", "neq"]) chain[m] = () => chain;
+      for (const m of ["select", "eq", "in", "is", "or", "not", "order", "limit", "lt", "gt", "gte", "neq"]) chain[m] = () => chain;
       chain.maybeSingle = async () => ({ data: rows[0] ?? null, error: null });
       chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: rows, error: null });
       return chain;

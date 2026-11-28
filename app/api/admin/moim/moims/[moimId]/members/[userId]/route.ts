@@ -5,6 +5,7 @@
  *       모임장 지정 → `moim_host_changed`(전체 멤버)
  */
 import type { NextRequest } from "next/server";
+import { isMoimRole } from "@/lib/moim/moim-permission-contract";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { MOIM_ADMIN_MEMBER_ACTIONS, type MoimAdminMemberAction } from "@/lib/admin/moim/moim-admin-contract";
 import { loadAdminMoimName } from "@/lib/admin/moim/moim-admin-queries.server";
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const moimId = moimAdminUuid(p.moimId);
   const userId = moimAdminUuid(p.userId);
   if (!moimId || !userId) return moimAdminBad("moim_not_found", 404);
-  const body = await moimAdminJson<{ action?: unknown; role?: unknown; reason?: unknown }>(req);
+  const body = await moimAdminJson<{ action?: unknown; role?: unknown; reason?: unknown; expectedRole?: unknown; expectedHost?: unknown }>(req);
   const action = (MOIM_ADMIN_MEMBER_ACTIONS as readonly unknown[]).includes(body?.action) ? (body?.action as MoimAdminMemberAction) : null;
   if (!action) return moimAdminBad();
   const reason = moimAdminReason(body?.reason);
@@ -39,7 +40,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (action === "role") {
     const role = body?.role === "co_host" || body?.role === "staff" || body?.role === "member" ? body.role : null;
     if (!role) return moimAdminBad("moim_role_invalid");
-    const r = await moimAdminMemberRole(adminId, moimId, userId, role, reason, sb);
+    /** R1 A-17: 화면이 본 역할과 다르면 409 (다른 관리자가 먼저 바꿈) */
+    const expectedRole = isMoimRole(body?.expectedRole) ? body.expectedRole : null;
+    const r = await moimAdminMemberRole(adminId, moimId, userId, role, reason, sb, expectedRole);
     if (r.ok && r.changed) {
       await notifyMoimMany(sb, [userId], {
         kind: "moim_role_changed",
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (action === "unban") {
     return moimAdminRpcResponse(await moimAdminMemberUnban(adminId, moimId, userId, reason, sb));
   }
-  const r = await moimAdminAssignHost(adminId, moimId, userId, reason, sb);
+  const r = await moimAdminAssignHost(adminId, moimId, userId, reason, sb, moimAdminUuid(body?.expectedHost));
   if (r.ok) {
     const name = await loadAdminMoimName(sb, moimId);
     const { data: m } = await sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", userId).maybeSingle();

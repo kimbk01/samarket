@@ -10,6 +10,7 @@ import {
   MOIM_PERMISSION_DEFAULTS,
   MOIM_ROLES,
   isAllowedMoimPermissionOverride,
+  moimRoleRank,
   type MoimAction,
   type MoimRole,
 } from "@/lib/moim/moim-permission-contract";
@@ -23,7 +24,10 @@ const ROLES_LOW_TO_HIGH: MoimRole[] = [...MOIM_ROLES].reverse();
 
 function effectiveRole(detail: MoimDetailDto, action: MoimAction): MoimRole {
   const rule = MOIM_PERMISSION_DEFAULTS[action];
-  return (rule.adjustable ? detail.permissionOverrides[action] : undefined) ?? rule.defaultMinRole;
+  const saved = rule.adjustable ? detail.permissionOverrides[action] : undefined;
+  /** 상한을 넘는 예전 저장값은 상한으로 보여 준다 (R1 A-02 · DB 와 같음) */
+  if (saved && moimRoleRank(saved) > moimRoleRank(rule.ceilingRole)) return rule.ceilingRole;
+  return saved ?? rule.defaultMinRole;
 }
 
 function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => void }) {

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
+import { guardMoimAcceptGate, guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimHostTransferRespond } from "@/lib/moim/server/moim-rpc.server";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
 import { listActiveMoimMemberIds, loadMoimName } from "@/lib/moim/server/moim-queries.server";
@@ -21,6 +21,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (body.accept === true) {
     const registrationGate = await requireRegistrationForAction(g.userId);
     if (registrationGate) return registrationGate;
+    /** R1 A-09: 모임장이 되는 수락은 가입 버튼과 같은 이용 제한·휴대폰 확인 */
+    const acceptGate = await guardMoimAcceptGate(g.userId);
+    if (acceptGate) return acceptGate;
   }
   const result = await moimHostTransferRespond(g.userId, transferId, body.accept, g.sb);
   if (result.ok && result.accepted && result.moim_id) {

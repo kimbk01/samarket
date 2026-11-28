@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 import { NextResponse } from "next/server";
 import {
   guardMoimRead,
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!moimId) return moimNotFound();
   const g = await guardMoimWrite(req, { rateKey: "report", limit: 10, writeKind: "report", consentExempt: true });
   if (!g.ok) return g.response;
+  /** R1 A-14: 공통 신고 상한(사용자당 시간당 40 — 피드·모임·통합 신고와 같은 프리셋) */
+  const quota = await enforceUserReportQuota(g.userId, "moim");
+  if (!quota.ok) return quota.response;
   const body = await readMoimJson<{ targetType?: unknown; targetId?: unknown; reasonCode?: unknown; detail?: unknown }>(req);
   const targetType = (MOIM_REPORT_TARGET_TYPES as readonly unknown[]).includes(body?.targetType) ? (body!.targetType as MoimReportTargetType) : null;
   const targetId = requireUuid(typeof body?.targetId === "string" ? body.targetId : null);

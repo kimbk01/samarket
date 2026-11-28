@@ -11,7 +11,7 @@ const after: Promise<unknown>[] = [];
 
 vi.mock("@/lib/moim/server/moim-route-guard.server", async () => {
   const actual = await vi.importActual<typeof import("@/lib/moim/server/moim-route-guard.server")>("@/lib/moim/server/moim-route-guard.server");
-  return { ...actual, guardMoimWrite: async () => g };
+  return { ...actual, guardMoimWrite: async () => g, guardMoimAcceptGate: async () => null };
 });
 vi.mock("@/lib/auth/require-registration-for-action.server", () => ({ requireRegistrationForAction: async () => null }));
 vi.mock("@/lib/moim/server/moim-rpc.server", () => ({

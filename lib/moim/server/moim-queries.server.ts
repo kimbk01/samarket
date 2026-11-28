@@ -1,4 +1,5 @@
 import "server-only";
+import { applyMoimTimeCursor, moimTimeCursorExpr, moimTimeCursorOf, parseMoimTimeCursor } from "@/lib/moim/server/moim-time-cursor.server";
 
 import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { lguPublicName } from "@/lib/neighborhood/lgu-location.server";
@@ -237,20 +238,27 @@ export async function listLocalMoims(
     .eq("status", "active")
     .eq("platform_state", "normal")
     .order("last_activity_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit + 1);
   if (opts.categoryId) query = query.eq("category_id", opts.categoryId);
   // 운영 정책 inactive_unlist_days: 마지막 활동이 N일 지난 모임은 동네 목록·검색에서 뺀다 (상태 변경 없음 — 활동이 생기면 바로 다시 보임)
   const inactiveDays = await loadMoimInactiveUnlistDays(sb);
   if (inactiveDays) query = query.gte("last_activity_at", new Date(Date.now() - inactiveDays * 86_400_000).toISOString());
   const q = (opts.q ?? "").trim().replace(/[%_,()]/g, " ").slice(0, 40);
-  if (q) query = query.or(`name.ilike.%${q}%,intro.ilike.%${q}%,topic_label.ilike.%${q}%`);
-  if (opts.before) query = query.lt("last_activity_at", opts.before);
+  const cursor = parseMoimTimeCursor(opts.before);
+  if (cursor === "invalid") return { items: [], nextBefore: null };
+  const searchExpr = q ? `name.ilike.%${q}%,intro.ilike.%${q}%,topic_label.ilike.%${q}%` : null;
+  /** 검색어와 쪽 넘김 커서를 한 식으로 묶는다 — `.or()` 두 번이 AND 로 묶이는지에 기대지 않는다(R1 재감사) */
+  if (searchExpr && cursor) query = query.or(`and(or(${searchExpr}),or(${moimTimeCursorExpr("last_activity_at", cursor)}))`);
+  else if (searchExpr) query = query.or(searchExpr);
+  else if (cursor) query = applyMoimTimeCursor(query, "last_activity_at", cursor);
   const { data } = await query;
   const rows = (data ?? []) as MoimRow[];
   const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
   return {
     items: await toCards(sb, page, viewerId),
-    nextBefore: rows.length > limit ? page[page.length - 1]?.last_activity_at ?? null : null,
+    nextBefore: rows.length > limit && last ? moimTimeCursorOf(last as MoimRow & Record<string, unknown>, "last_activity_at") : null,
   };
 }
 
@@ -604,13 +612,15 @@ export async function listMoimPosts(
   if (!access.role) q = q.eq("visibility", "public");
   if (noticeBoardId) q = q.eq("board_id", noticeBoardId).eq("is_pinned", true);
   else if (opts.boardId) q = q.eq("board_id", opts.boardId);
-  if (opts.before) q = q.lt("created_at", opts.before);
-  const { data } = await q.order("created_at", { ascending: false }).limit(limit + 1);
+  const cursor = parseMoimTimeCursor(opts.before);
+  if (cursor === "invalid") return { items: [], nextBefore: null, ...(opts.pinnedNotice ? { noticeBoardId } : {}) };
+  if (cursor) q = applyMoimTimeCursor(q, "created_at", cursor);
+  const { data } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1);
   const rows = (data ?? []) as PostRow[];
   const page = rows.slice(0, limit);
   return {
     items: await toPosts(sb, access.moim.id, page, viewerId),
-    nextBefore: rows.length > limit ? page[page.length - 1]?.created_at ?? null : null,
+    nextBefore: rows.length > limit && page.length ? moimTimeCursorOf(page[page.length - 1] as PostRow & Record<string, unknown>, "created_at") : null,
     ...(opts.pinnedNotice ? { noticeBoardId } : {}),
   };
 }

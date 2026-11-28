@@ -247,7 +247,8 @@ export function moimInviteLinkRevoke(actorId: string, inviteId: string, sb?: Sup
 }
 
 export function moimInviteLinkResolve(token: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ moim_id: string; inviter_id: string }>("moim_invite_link_resolve", { p_token: token }, sb);
+  /** inviter_id: 링크를 만든 계정이 영구 삭제되면 null (R1 A-20 FK set null) */
+  return callMoimRpc<{ moim_id: string; inviter_id: string | null }>("moim_invite_link_resolve", { p_token: token }, sb);
 }
 
 export function moimInviteSend(actorId: string, moimId: string, inviteeUserId: string, sb?: SupabaseServer) {
@@ -549,10 +550,19 @@ export function moimAdminUpdateInfo(
   );
 }
 
-export function moimAdminMemberRole(adminId: string, moimId: string, userId: string, role: Exclude<MoimRole, "host">, reason: string, sb?: SupabaseServer) {
+/** R1 A-17: expectedRole = 화면이 본 역할 — 다르면 moim_conflict(409, 다른 관리자가 먼저 바꿈) */
+export function moimAdminMemberRole(
+  adminId: string,
+  moimId: string,
+  userId: string,
+  role: Exclude<MoimRole, "host">,
+  reason: string,
+  sb?: SupabaseServer,
+  expectedRole?: MoimRole | null
+) {
   return callMoimRpc<{ changed: boolean }>(
     "moim_admin_member_role",
-    { p_admin: adminId, p_moim: moimId, p_user: userId, p_role: role, p_reason: reason },
+    { p_admin: adminId, p_moim: moimId, p_user: userId, p_role: role, p_reason: reason, p_expected_role: expectedRole ?? null },
     sb
   );
 }
@@ -569,10 +579,11 @@ export function moimAdminMemberUnban(adminId: string, moimId: string, userId: st
   return callMoimRpc("moim_admin_member_unban", { p_admin: adminId, p_moim: moimId, p_user: userId, p_reason: reason }, sb);
 }
 
-export function moimAdminAssignHost(adminId: string, moimId: string, toUserId: string, reason: string, sb?: SupabaseServer) {
+/** R1 A-17: expectedHost = 화면이 본 모임장 — 다르면 moim_conflict */
+export function moimAdminAssignHost(adminId: string, moimId: string, toUserId: string, reason: string, sb?: SupabaseServer, expectedHost?: string | null) {
   return callMoimRpc<{ moim_id: string; from_user_id: string; notify_user_ids: string[] }>(
     "moim_admin_assign_host",
-    { p_admin: adminId, p_moim: moimId, p_to: toUserId, p_reason: reason },
+    { p_admin: adminId, p_moim: moimId, p_to: toUserId, p_reason: reason, p_expected_host: expectedHost ?? null },
     sb
   );
 }
@@ -612,7 +623,8 @@ export type MoimSanctionLevel = "unlist" | "warn" | "block";
 export function moimAdminSanctionApply(
   adminId: string,
   moimId: string,
-  input: { level: MoimSanctionLevel; reasonCode: string; reason: string; endsAt: string | null },
+  /** R1 A-16·A-17: reportId = 연결할 신고(선택, 같은 모임) · 같은 단계 활성 제재가 있으면 moim_conflict */
+  input: { level: MoimSanctionLevel; reasonCode: string; reason: string; endsAt: string | null; reportId?: string | null },
   sb?: SupabaseServer
 ) {
   return callMoimRpc<{ sanction_id: string; platform_state: string; host_user_id: string; notify_user_ids: string[]; name: string }>(
@@ -624,6 +636,7 @@ export function moimAdminSanctionApply(
       p_reason_code: input.reasonCode,
       p_reason: input.reason,
       p_ends_at: input.endsAt,
+      p_report: input.reportId ?? null,
     },
     sb
   );

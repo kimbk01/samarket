@@ -63,6 +63,18 @@ export async function guardMoimWrite(
   return { ok: true, userId: auth.userId, sb };
 }
 
+/**
+ * 수락 분기 전용 추가 검사 (R1 A-09) — 초대 수락·위임 수락은 가입 버튼과 같은 이용 제한·휴대폰 확인을 거친다.
+ * 거절은 검사하지 않는다(라우트는 body 를 읽은 뒤 수락일 때만 부른다).
+ */
+export async function guardMoimAcceptGate(userId: string): Promise<NextResponse | null> {
+  const restricted = await assertCommunityWriteAllowed(userId, "post", { failClosed: true });
+  if (restricted) return restricted;
+  const phone = await requirePhoneVerified(userId);
+  if (!phone.ok) return phone.response;
+  return null;
+}
+
 /** 읽기 — 로그인 선택 (공개 페이지는 비로그인도 본다) */
 export async function guardMoimRead(
   req: NextRequest,
