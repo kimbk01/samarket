@@ -1,17 +1,14 @@
 "use client";
 
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { runFixedDestinationBack } from "@/lib/navigation/fixed-destination-back";
 import { resolveCommunityDetailBackHref } from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
-import {
-  getCurrentUser,
-  getHydrationSafeCurrentUser,
-} from "@/lib/auth/get-current-user";
+import { useClientProfile } from "@/lib/auth/use-client-profile";
 import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
 import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
 import { useNeighborFollowToggle } from "@/components/community/ui/NeighborFollowButton";
@@ -41,8 +38,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport, t
   useRegisterOpenOverlay(open);
   // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
   useOverlayHardwareBack(open, () => setOpen(false));
-  const [mounted, setMounted] = useState(false);
-  const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
+  /** 로그인 정보 — 캐시가 늦게 차도 다시 그린다(본인 글 판정이 빈 값으로 남지 않게) */
+  const me = useClientProfile();
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [undoHide, setUndoHide] = useState<(() => void) | null>(null);
@@ -56,10 +53,6 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport, t
   });
   const following = follow.following;
   const blocked = follow.blocked;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const showToast = useCallback((message: string, undo?: () => void) => {
     setToast(message);

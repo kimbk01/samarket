@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
-import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientProfile } from "@/lib/auth/use-client-profile";
 import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
 import {
   ensureNeighborStoreViewer,
@@ -33,12 +34,19 @@ export function useNeighborFollowToggle(opts: {
 }) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const [mounted, setMounted] = useState(false);
-  const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
+  /** 로그인 정보 — 캐시가 늦게 차도 다시 그린다(주소로 바로 연 상세에서 비로그인으로 남던 결함) */
+  const me = useClientProfile();
   const target = String(opts.targetUserId ?? "").trim();
   const isPeer = Boolean(target) && me?.id !== target;
   const meId = me?.id ?? null;
-  /** 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행) */
+  /**
+   * 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행).
+   * `mounted` 뒤에만: 하이드레이션 첫 그림은 서버 값(null)이라, 늦게 붙는 인스턴스가 null 로 저장소를 비우지 않게 한다(재감사 minor-1).
+   */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     if (mounted) ensureNeighborStoreViewer(meId);
   }, [mounted, meId]);
@@ -47,10 +55,6 @@ export function useNeighborFollowToggle(opts: {
     seed: opts.seed,
   });
   const [toast, setToast] = useState<ToastState>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!toast) return;
