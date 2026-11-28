@@ -46,6 +46,11 @@ describe("F2 관리 화면 = 자기 경로 내정보 항목", () => {
     expect(hrefs).not.toContain(NEIGHBOR_FOLLOW_MANAGE_HREF);
   });
 
+  it("[완료] = 경로 기준 뒤로(Navigation API 없으면 기록 뒤로) — 기록 중복 방지 (구조 확인)", () => {
+    const src = readFileSync(path.join(process.cwd(), "components/mypage/community/NeighborFollowHeaderAction.tsx"), "utf8");
+    expect(src).toContain("runPathSettleBack(router, NEIGHBOR_FOLLOW_MYPAGE_HREF)");
+  });
+
   it("주소 값 관리 모드 잔재 없음 (구조 확인)", () => {
     for (const f of [
       "components/mypage/community/NeighborFollowScreen.tsx",
@@ -61,7 +66,7 @@ describe("F2 관리 화면 = 자기 경로 내정보 항목", () => {
 describe("F1 글 목록 = 피드 표준 목록 틀 (구조 확인)", () => {
   it("COMMUNITY_FEED_GRID_WRAP_CLASS · data-feed-grid-item · 같은 카드", () => {
     const s = readFileSync(path.join(process.cwd(), "components/mypage/community/NeighborFollowScreen.tsx"), "utf8");
-    expect(s).toContain("className={COMMUNITY_FEED_GRID_WRAP_CLASS}");
+    expect(s).toContain("className={`${COMMUNITY_FEED_GRID_WRAP_CLASS} md:px-5`}");
     expect(s).toContain('data-feed-grid-item=""');
     expect(s).toContain("<CommunityCard post={p}");
   });

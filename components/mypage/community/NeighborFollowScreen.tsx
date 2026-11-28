@@ -252,7 +252,8 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
          * 카드 색·모서리 토큰(`--cm-*`)은 `[data-community-ui]` 범위에만 있다.
          */
         <div data-community-ui="">
-          <ul className={COMMUNITY_FEED_GRID_WRAP_CLASS} data-testid="neighbor-follow-post-list">
+          {/* 피드 틀 그대로 + 내정보 본문 거터(태블릿 md:px-5)에 맞춤 — 위 사진 줄·개수 줄과 좌우 정렬 */}
+          <ul className={`${COMMUNITY_FEED_GRID_WRAP_CLASS} md:px-5`} data-testid="neighbor-follow-post-list">
             {posts.map((p, i) => (
               <li key={String(p.id)} className="list-none flow-root" data-feed-grid-item="">
                 <div data-community-feed-cv-row="">
