@@ -65,10 +65,10 @@
 | # | 파일 | 바꾸는 것 |
 |---|---|---|
 | 1 | 새 `lib/community-messenger/realtime/messenger-app-visibility.ts` | 지금 `resume-resync-gate.ts` 안에 있는 숨김·보임 시계를 이 모듈로 옮긴다(동작 같음). 여기에 **「보이게 됨」 알림**(`onAppBecameVisible`)과 지금 숨김 여부(`appHiddenNow`)를 더한다. 설치는 재동기화 묶음이 스스로 한다(누가 먼저 떠도 설치됨). `resume-resync-gate.ts` 는 이 모듈을 쓴다. 지금 두 파일이 서로를 import 하는 순환을 피하려고 따로 둔다 |
-| 2 | `messenger-realtime-resync.ts` | 실행 순간 `appHiddenNow()` 이면 실행하지 않고 「밀림」으로 둔다. 묶음 대기 중(`isPending`)은 계속 참이다. 숨김 중 재연결이 여러 번 와도 하나로 합친다. **보이게 됨 알림을 받으면 다시 숨김 여부를 묻지 않고, 다음 차례(0ms 뒤)에 1번 실행한다.** 다음 차례로 미루는 이유: 같은 보임 순간의 다시 열기 판정(R5)이 먼저 「밀린 묶음이 있음」을 보고 기다리게 하기 위해서다. 밖에서 부르는 `flushDeferredMessengerResync()` 도 둔다(아래 4) |
+| 2 | `messenger-realtime-resync.ts` | 실행 순간 `appHiddenNow()` 이면 실행하지 않고 「밀림」으로 둔다. 묶음 대기 중(`isPending`)은 계속 참이다. 숨김 중 재연결이 여러 번 와도 하나로 합친다. **보이게 됨 알림을 받으면 다음 차례(0ms 뒤)에 1번 실행한다. 실행 순간 다시 숨겨져 있으면 다음 보임까지 둔다**(독립 재감사 — 보임 직후 곧바로 숨김). 다음 차례로 미루는 이유: 같은 보임 순간의 다시 열기 판정(R5)이 먼저 「밀린 묶음이 있음」을 보고 기다리게 하기 위해서다. 밖에서 부르는 `flushDeferredMessengerResync()` 도 둔다(아래 4) |
 | 3 | `resume-resync-gate.ts` `resumeRefetchPlan` | 입력에 「밀린 묶음 있음」을 더한다. 있으면 연결·감독 상태와 무관하게 **`wait_resync`**. 묶음이 실행되면 그 결과로 끝나고 조회는 0번이다. 감독을 껐을 때도 같은 규칙이 적용된다(첫 안은 감독을 끄면 매번 2번 조회였다). `shouldRefetchOnAppResume`(배지·친구 요청의 사전 판정)도 밀린 묶음이 있으면 「예약으로 넘김」이 되게 한다 |
 | 4 | 다시 열기 예약 `scheduleResumeRefetch`(배지·친구 요청이 함께 씀) | 기다리기 시작한 뒤 `flushDeferredMessengerResync()` 를 부른다(구현: 받는 곳마다가 아니라 예약 한 곳에서). 보임 알림을 놓쳐도(네이티브 WebView 등) 다시 열기 신호(visibilitychange·focus·appStateChange) 어느 것이든 밀린 묶음을 실행시킨다. **안전망.** 9초 기다림이 끝났는데 아직 밀려 있으면 그때도 실행시킨다 |
-| 5 | 숨김 판정 | 숨김 = `visibilityState === "hidden"` 또는 「네이티브 비활성 뒤 아직 활성 신호 없음」. 보임 = visibilitychange visible 또는 appStateChange active 중 **먼저 오는 것**. 이때 다시 판정하지 않는다(WebView 가 visibilitychange 를 늦게 보내도 막히지 않게) |
+| 5 | 숨김 판정 | 숨김 = `visibilityState === "hidden"` 또는 「네이티브 비활성 뒤 아직 활성 신호 없음」. 보임 = visibilitychange visible 또는 appStateChange active 중 **먼저 오는 것**. 문서가 보이면 네이티브 비활성 표시도 지운다(네이티브 활성 신호를 놓쳐도 풀림 — 독립 재감사) |
 | 6 | 기록 | 밀린 횟수·보임 때 실행 횟수를 앱 기록(`realtime.connection`)에 `resync_deferred.hidden`·`resync_flushed.visible` 로 남긴다. 효과 측정용 |
 | 7 | 계약 문서 `docs/messenger-realtime-policy.md` | R2 줄에 「숨김 중 묶음은 보일 때 1번」을, R5 줄에 「밀린 묶음이 있으면 기다림」을 같은 PR 에서 적는다(지금 R5 줄의 「감독 꺼짐·25초 이상 숨김이면 바로 조회」 문구와 충돌하므로 고친다) |
 

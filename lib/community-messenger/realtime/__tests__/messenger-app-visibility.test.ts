@@ -56,6 +56,15 @@ describe("앱 숨김·보임 시계", () => {
     expect(visible).toBe(1);
   });
 
+  it("네이티브 활성 신호를 놓쳐도 문서가 visible 이면 숨김이 풀린다", () => {
+    ensureResumeVisibilityClock();
+    __simulateAppVisibilityForTests("native_inactive");
+    expect(appHiddenNow()).toBe(true);
+    setDocHidden(false);
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(appHiddenNow()).toBe(false);
+  });
+
   it("예전 이름으로도 쓴다(resume-resync-gate 다시 내보내기)", () => {
     expect(gate.hiddenSpanFrom).toBe(hiddenSpanFrom);
     expect(typeof gate.ensureResumeVisibilityClock).toBe("function");

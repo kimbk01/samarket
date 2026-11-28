@@ -131,12 +131,16 @@ describe("재동기화 묶음 — 숨김 중 미룸", () => {
     });
   }
 
-  it("보임 알림 때 다시 숨김 여부를 묻지 않는다(WebView 가 visibilitychange 를 늦게 보냄)", () => {
+  it("보임 알림이 왔지만 실행 순간 아직 숨김(네이티브 활성·문서 hidden)이면 다음 보임에 1번", () => {
     const t = setup({ supervisor: true });
     t.setHidden(true);
     t.c.noteResubscribed();
     t.clock.advance(10_000);
-    // 네이티브 활성 신호만 왔고 문서는 아직 hidden 이라고 가정
+    t.emitVisible();
+    t.clock.advance(0);
+    expect(t.fetches()).toBe(0);
+    expect(t.c.isDeferred()).toBe(true);
+    t.setHidden(false);
     t.emitVisible();
     t.clock.advance(0);
     expect(t.fetches()).toBe(1);
@@ -153,6 +157,26 @@ describe("재동기화 묶음 — 숨김 중 미룸", () => {
     t.clock.advance(0);
     expect(t.fetches()).toBe(1);
     t.c.flushDeferred();
+    t.clock.advance(0);
+    expect(t.fetches()).toBe(1);
+  });
+});
+
+describe("다시 숨김", () => {
+  it("보임 실행 예약 뒤 같은 차례에 다시 숨겨지고 재연결이 오면 예약을 거두고 다음 보임에 1번", () => {
+    const t = setup({ supervisor: true });
+    t.setHidden(true);
+    t.c.noteResubscribed();
+    t.clock.advance(10_000);
+    t.setHidden(false);
+    t.emitVisible(); // 다음 차례 예약
+    t.setHidden(true);
+    t.c.noteResubscribed(); // 감독 모두 연결 → 다음 차례 fire
+    t.clock.advance(0);
+    expect(t.fetches()).toBe(0);
+    expect(t.c.isDeferred()).toBe(true);
+    t.setHidden(false);
+    t.emitVisible();
     t.clock.advance(0);
     expect(t.fetches()).toBe(1);
   });

@@ -23,7 +23,7 @@
  * 그때마다 받는 쪽 5곳이 서버를 다시 읽었다(아이폰 웹 하루 친구 요청 184·배지 198). 실행 순간 앱이 숨겨져 있으면
  * 실행하지 않고 「밀린 묶음」으로 남기고(재연결이 더 와도 하나), **보이게 되면 다음 차례(0ms)에 1번** 실행한다 —
  * 다음 차례로 미루는 것은 같은 보임 순간의 다시 열기 판정(R5)이 먼저 「밀림」을 보고 기다리게 하려고다.
- * 보일 때는 다시 숨김 여부를 묻지 않는다(WebView 가 visibilitychange 를 늦게 보내도 막히지 않게). 감독 꺼짐에도 같다.
+ * 실행 순간 다시 숨겨져 있으면 다음 보임까지 둔다(독립 재감사 2026-11-28 — 보임 직후 곧바로 숨김). 감독 꺼짐에도 같다.
  */
 
 import {
@@ -101,6 +101,11 @@ export function createMessengerResyncCoordinator(deps: MessengerResyncCoordinato
   const flushNow = () => {
     flushTimer = null;
     if (!deferred) return;
+    /**
+     * 실행 순간 다시 숨겨졌으면(보임 직후 곧바로 숨김 · 네이티브 활성인데 문서는 아직 hidden) 다음 보임까지 둔다.
+     * 문서 보임은 네이티브 비활성 표시도 지우므로(`messenger-app-visibility.ts`), 네이티브 활성 신호를 놓쳐도 문서 보임에서 실행된다.
+     */
+    if (deps.visibility?.isHidden()) return;
     deferred = false;
     offVisible?.();
     offVisible = null;
@@ -124,6 +129,11 @@ export function createMessengerResyncCoordinator(deps: MessengerResyncCoordinato
     firstAt = null;
     const vis = deps.visibility;
     if (vis && vis.isHidden()) {
+      /** 보임 실행 예약이 걸린 채 다시 숨겨졌으면 예약을 거두고 다음 보임을 기다린다(독립 재감사 2026-11-28) */
+      if (flushTimer != null) {
+        deps.clearTimer(flushTimer);
+        flushTimer = null;
+      }
       /** 숨김 — 보일 때 1번. 이미 밀려 있으면 합친다 */
       if (!deferred) {
         deferred = true;

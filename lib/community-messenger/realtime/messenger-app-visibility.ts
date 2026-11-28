@@ -53,6 +53,8 @@ export function ensureResumeVisibilityClock(): void {
     if (document.visibilityState === "hidden") markHidden();
     else {
       visibleAt = Date.now();
+      /** 문서가 보이면 네이티브 활성 신호를 놓쳤어도 숨김이 아니다(분할 화면 등 짝이 안 맞는 신호 — 독립 재감사 2026-11-28) */
+      nativeInactive = false;
       emitVisible();
     }
   });
@@ -134,7 +136,7 @@ export function __simulateAppVisibilityForTests(ev: "native_inactive" | "native_
     markHidden();
     return;
   }
-  if (ev === "native_active") nativeInactive = false;
+  if (ev === "native_active" || ev === "doc_visible") nativeInactive = false;
   visibleAt = Date.now();
   emitVisible();
 }

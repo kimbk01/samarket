@@ -26,7 +26,7 @@ import {
   messengerRealtimeResyncPending,
   onMessengerRealtimeResynced,
 } from "@/lib/community-messenger/realtime/messenger-realtime-resync";
-import { lastHiddenSpanMs } from "@/lib/community-messenger/realtime/messenger-app-visibility";
+import { appHiddenNow, lastHiddenSpanMs } from "@/lib/community-messenger/realtime/messenger-app-visibility";
 
 /** realtime-js 2.99.2 `CONNECTION_TIMEOUTS.HEARTBEAT_INTERVAL` 과 같은 값 */
 export const RESUME_RESYNC_SKIP_MAX_HIDDEN_MS = 25_000;
@@ -94,6 +94,8 @@ export type ResumeRefetchSchedulerDeps = {
   resyncPending: () => boolean;
   /** 숨김 중 밀린 묶음을 (다음 차례에) 실행시킨다 — 기다리기 시작한 뒤·기다림 끝에 부른다 */
   flushDeferred?: () => void;
+  /** 지금 앱이 숨겨져 있는가 — 기다림 끝 실행을 숨김 중에 하지 않게 */
+  isHidden?: () => boolean;
   setTimer: (fn: () => void, ms: number) => unknown;
   clearTimer: (t: unknown) => void;
 };
@@ -130,7 +132,8 @@ export function createResumeRefetchScheduler(deps: ResumeRefetchSchedulerDeps) {
       if (done) return;
       if (deps.resyncPending()) {
         /** 묶음이 실행되면 onResynced 가 finish 한다 — 숨김으로 밀린 채면 지금 실행시킨다(보임 알림을 놓친 경우 안전망) */
-        deps.flushDeferred?.();
+        /** 그 사이 다시 숨겨졌으면 보일 때까지 둔다 */
+        if (!(deps.isHidden?.() ?? false)) deps.flushDeferred?.();
         return;
       }
       finish();
@@ -156,6 +159,7 @@ const scheduleResumeRefetchDefault = createResumeRefetchScheduler({
   onResynced: onMessengerRealtimeResynced,
   resyncPending: messengerRealtimeResyncPending,
   flushDeferred: flushDeferredMessengerResync,
+  isHidden: appHiddenNow,
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
 });
