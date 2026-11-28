@@ -12,13 +12,21 @@
  *   whenever soft/animated back settled after the timer (confirmed device divergence).
  * - Fallback push is reserved for uncertain history (no idx, external/empty referrer).
  */
+
+import { markNextRouteTransitionBack } from "@/lib/navigation/route-transition-back-intent";
+/** 뒤로 대신 목적지로 가는 이동도 화면 전환은 「뒤로」(Owner 결정 3 · `route-transition-back-intent.ts`) */
+function pushAsBack(router: { push: (href: string) => void }, href: string): void {
+  markNextRouteTransitionBack(href);
+  router.push(href);
+}
+
 export function runHistoryBackWithFallback(
   router: { back: () => void; push: (href: string) => void },
   fallbackHref?: string,
   delayMs = 280
 ): void {
   if (typeof window === "undefined") {
-    if (fallbackHref) router.push(fallbackHref);
+    if (fallbackHref) pushAsBack(router, fallbackHref);
     else router.back();
     return;
   }
@@ -30,7 +38,7 @@ export function runHistoryBackWithFallback(
   }
 
   if (isReferrerExternalOrigin()) {
-    if (fallbackHref) router.push(fallbackHref);
+    if (fallbackHref) pushAsBack(router, fallbackHref);
     else router.back();
     return;
   }
@@ -70,7 +78,7 @@ export function runHistoryBackWithFallback(
     timer = window.setTimeout(() => {
       const stuck = !cancelled && currentHref() === before;
       cleanup();
-      if (stuck) router.push(fallbackHref);
+      if (stuck) pushAsBack(router, fallbackHref);
     }, delayMs);
   };
 
@@ -80,7 +88,7 @@ export function runHistoryBackWithFallback(
     return;
   }
 
-  if (fallbackHref) router.push(fallbackHref);
+  if (fallbackHref) pushAsBack(router, fallbackHref);
   else router.back();
 }
 

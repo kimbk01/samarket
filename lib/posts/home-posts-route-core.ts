@@ -11,7 +11,7 @@ import { NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
-import { fetchBlockedAuthorIdsForViewerSb } from "@/lib/social/user-block-ssot";
+import { fetchBlockedAuthorIdsForViewerSb, isSocialExclusionLookupError } from "@/lib/social/user-block-ssot";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   resolvePostsReadClients,
@@ -352,7 +352,13 @@ export async function resolveDefaultTradeHomePostsSeedForServerComponent(options
   const favoriteMap: Record<string, boolean> = {};
   const preViewer = options?.precomputedViewerUserId;
   const userId = preViewer !== undefined ? preViewer : await getOptionalAuthenticatedUserId();
-  posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
+  try {
+    posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
+  } catch (e) {
+    /** 차단 목록을 못 읽음 → 차단한 사람 글이 섞이지 않게 목록 실패(503 · 화면 재시도 · Owner 결정 1) */
+    if (isSocialExclusionLookupError(e)) return { posts: [], hasMore: false, favoriteMap: {}, queryFailed: true };
+    throw e;
+  }
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
@@ -932,7 +938,13 @@ export async function resolveHomePostsGetData(
   }
   const favoriteMap: Record<string, boolean> = {};
   const userId = viewerUserIdForList;
-  posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
+  try {
+    posts = await excludeBlockedAuthorsForViewer((serviceSb ?? readSb) as SupabaseClient<any>, userId, posts);
+  } catch (e) {
+    /** 차단 목록을 못 읽음 → 차단한 사람 글이 섞이지 않게 목록 실패(503 · 화면 재시도 · Owner 결정 1) */
+    if (isSocialExclusionLookupError(e)) return { posts: [], hasMore: false, favoriteMap: {}, queryFailed: true };
+    throw e;
+  }
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);

@@ -168,7 +168,7 @@ export async function GET(
   }
 
   if (type === "neighbor") {
-    /** 관심이웃 = 저장 행(탈퇴·차단 상대 행은 DB 트리거가 지움 — 전체 수정 설계 v2 §5-3). 프로필은 아래 신원 조회 1회만 */
+    /** 관심이웃 = 저장 행(탈퇴·차단 상대 행은 DB 트리거가 지움 — 전체 수정 설계 v2 §5-3) 중 로그인 막힌 회원 숨김(Owner 결정 2 — 숨김 판정 프로필 1회 + 아래 신원 조회 1회) */
     const visible = await listNeighborFollowRows(sb, auth.userId);
     if (!visible.ok) {
       if (isMissingTableError(visible.error, "user_relationships")) {

@@ -193,7 +193,7 @@ export async function loadMypageSummaryFieldsServer(
     }, timeoutMs),
     // 관심이웃 = 관심이웃 화면 사람 목록과 같은 함수 (관심이웃 설계 B)
     settleField(async () => {
-      /** 개수만 — head count 1회(예전: 관계·프로필·차단 최대 3조회, 전체 수정 설계 v2 §5-3) */
+      /** 목록과 같은 정의 — 관계 1회 + 숨김 판정 프로필 1회(Owner 결정 2: 로그인 막힌 회원 숨김). 예전: 관계·프로필·차단 최대 3조회 */
       const n = await deps.countNeighborFollows(sb, uid);
       if (n === null) unavailable("neighbor_count_failed");
       return n as number;

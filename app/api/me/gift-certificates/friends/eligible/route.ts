@@ -18,6 +18,12 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const friends = await listGiftTransferEligibleFriends(auth.userId);
-  return NextResponse.json({ ok: true, friends });
+  try {
+    const friends = await listGiftTransferEligibleFriends(auth.userId);
+    return NextResponse.json({ ok: true, friends });
+  } catch (e) {
+    /** 차단 목록 등을 못 읽음 → 「보낼 친구 없음」이 아니라 오류(Owner 결정 1 — 차단한 사람이 섞이지 않게) */
+    console.error("[gift-certificates/friends/eligible]", e);
+    return NextResponse.json({ ok: false, error: "friends_unavailable" }, { status: 503 });
+  }
 }

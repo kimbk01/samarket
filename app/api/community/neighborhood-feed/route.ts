@@ -10,6 +10,7 @@ import {
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { COMMUNITY_FEED_MAX_OFFSET, listNeighborhoodFeed } from "@/lib/neighborhood/queries";
+import { isSocialExclusionLookupError } from "@/lib/social/user-block-ssot";
 import {
   neighborhoodFeedDedupeUrlKey,
   recordNeighborhoodFeedCompletion,
@@ -289,7 +290,14 @@ export async function GET(req: NextRequest) {
         headers,
       };
     },
+  }).catch((e: unknown) => {
+    /** 차단·관심이웃 목록을 못 읽음 → 「글 없음」·차단한 사람 글 섞임 대신 오류(Owner 결정 1 · 단기 캐시는 오류를 저장하지 않는다) */
+    if (isSocialExclusionLookupError(e)) return null;
+    throw e;
   });
+  if (!outcome) {
+    return NextResponse.json({ ok: false, error: "feed_viewer_filter_failed" }, { status: 503 });
+  }
 
   if (samarketFeedTraceLogEnabled()) {
     const m = peekNeighborhoodFeedShortTtlMetrics();

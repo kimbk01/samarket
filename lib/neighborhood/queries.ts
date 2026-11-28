@@ -241,7 +241,9 @@ export async function listNeighborhoodFeed(options: {
   const exclusionsP =
     v && !options.authorUserId ? loadFeedViewerExclusions(sb, v) : Promise.resolve(null);
 
-  const blockedP: Promise<Set<string>> = v
+  /** 내 글 목록(작성자 = 나)은 차단 제외가 필요 없다 — 조회하지 않아 그 조회 실패로 내 글 목록이 막히지 않게(Owner 결정 1) */
+  const authorIsViewer = Boolean(v && options.authorUserId && options.authorUserId === v);
+  const blockedP: Promise<Set<string>> = v && !authorIsViewer
     ? (async () => {
         const t0 = performance.now();
         try {

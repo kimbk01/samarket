@@ -41,9 +41,12 @@ export function WalletGiftFriendPicker({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  /** 친구 목록 조회 실패 — 「보낼 친구 없음」과 구분해 오류 + 다시 시도 (Owner 결정 1) */
+  const [friendsFailed, setFriendsFailed] = useState(false);
 
   const load = useCallback(async () => {
     setReady(false);
+    setFriendsFailed(false);
     try {
       const [friendsRes, instanceRes] = await Promise.all([
         fetch("/api/me/gift-certificates/friends/eligible", {
@@ -60,13 +63,19 @@ export function WalletGiftFriendPicker({
         friends?: FriendRow[];
         data?: { friends?: FriendRow[] };
       };
-      const list = friendsJson.friends ?? friendsJson.data?.friends ?? [];
-      setFriends(Array.isArray(list) ? list : []);
+      if (!friendsRes.ok || friendsJson.ok === false) {
+        setFriends([]);
+        setFriendsFailed(true);
+      } else {
+        const list = friendsJson.friends ?? friendsJson.data?.friends ?? [];
+        setFriends(Array.isArray(list) ? list : []);
+      }
 
       const instanceJson = (await instanceRes.json()) as { ok?: boolean; instance?: GiftInstanceDetail };
       setInstance(instanceJson.ok ? instanceJson.instance ?? null : null);
     } catch {
       setFriends([]);
+      setFriendsFailed(true);
       setInstance(null);
     } finally {
       setReady(true);
@@ -155,6 +164,17 @@ export function WalletGiftFriendPicker({
         {errorMsg ? <p className={`mb-2 ${TEXT_BODY2} text-[color:var(--overlay-danger)]`}>{errorMsg}</p> : null}
         {!ready ? (
           <p className={`${TEXT_BODY2} ${TEXT_MUTED}`}>…</p>
+        ) : friendsFailed ? (
+          <div className="mb-4" data-wallet-gift-friend-failed="1">
+            <p className={`${TEXT_BODY2} ${TEXT_MUTED}`}>{safeT("common_fetch_list_failed")}</p>
+            <button
+              type="button"
+              className="mt-2 font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
+              onClick={() => void load()}
+            >
+              {safeT("common_retry")}
+            </button>
+          </div>
         ) : friends.length === 0 ? (
           <p className={`${TEXT_BODY2} ${TEXT_MUTED}`} data-wallet-gift-friend-empty="1">
             {safeT("gift_u3_friend_pick_empty")}

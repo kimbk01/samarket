@@ -15,6 +15,7 @@
  * record for this exact detail); otherwise replace is used.
  */
 
+import { markNextRouteTransitionBack } from "@/lib/navigation/route-transition-back-intent";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 export type FixedDestinationBackRouter = {
@@ -113,6 +114,8 @@ export function runFixedDestinationBack(
       return "back";
     }
   }
+  /** 뒤로 목적의 바꿔치기 → 화면 전환도 「뒤로」(Owner 결정 3 · `route-transition-back-intent.ts`) */
+  markNextRouteTransitionBack(targetHref);
   router.replace(targetHref, { scroll: false });
   return "replace";
 }

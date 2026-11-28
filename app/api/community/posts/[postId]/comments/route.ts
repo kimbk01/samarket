@@ -109,7 +109,14 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
    * 차단 방향을 이 요청에서 한 번 새로 읽어 글 작성자 차단 확인과 댓글 자리 표시가 같이 쓴다 (후속 C3).
    * 캐시하지 않는다 — 차단 직후 다시 읽을 때 바로 자리 표시가 바뀌어야 한다(재감사 2026-11-28).
    */
-  const blockDirs = viewer.length > 0 ? await fetchBlockDirectionsForViewerSb(sb, viewer) : null;
+  let blockDirs: Awaited<ReturnType<typeof fetchBlockDirectionsForViewerSb>> | null = null;
+  try {
+    blockDirs = viewer.length > 0 ? await fetchBlockDirectionsForViewerSb(sb, viewer) : null;
+  } catch (error) {
+    /** 차단 방향을 못 읽음 → 차단한 사람 댓글이 섞이지 않게 오류(화면 재시도 버튼 · Owner 결정 1) */
+    console.error("[community-comments GET] block lookup failed", safeErrorMessage(error, "unexpected"));
+    return commentError("comments_load_failed", 503);
+  }
   if (blockDirs && (blockDirs.blockedByMe.has(ownerId) || blockDirs.blockedMe.has(ownerId))) {
     return jsonError("not_found", 404);
   }
