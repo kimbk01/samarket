@@ -772,6 +772,33 @@ describe("6차 재감사 — 재오픈 안전망 키 · 되살림 읽기 실패 
   });
 });
 
+describe("7차 재감사 — 어드민 seen 알림 읽음 상한 없음", () => {
+  it("이 어드민의 그 문의 안 읽은 알림이 250건이어도 보여 준 글 것은 전부 읽음(100개씩)", async () => {
+    const { db, sb } = makeDb();
+    current.sb = sb;
+    current.userId = ADMIN;
+    const a = await open(sb, "첫 글");
+    await flush();
+    const shown: string[] = [];
+    for (let i = 0; i < 250; i += 1) {
+      const id = randomUUID();
+      shown.push(id);
+      db.support_messages.push({ id, case_id: a.case.id, sender_type: "MEMBER", sender_user_id: U, message_type: "PUBLIC", body: `m${i}`, created_at: `2026-12-01T00:00:00.${String(100 + i).padStart(3, "0")}Z` });
+      db.admin_notifications.push({ id: `an-${i}`, recipient_admin_id: ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${id}`, read_at: null });
+    }
+    adminReadCalls.length = 0;
+    const route = await import("@/app/api/admin/support/cases/[caseId]/route");
+    const res = await route.PATCH(
+      jsonReq(`http://x/api/admin/support/cases/${a.case.id}`, "PATCH", { action: "seen", shownMessageIds: shown, seenLastMessageAt: null }),
+      params(a.case.id)
+    );
+    expect(res.status).toBe(200);
+    const ids = adminReadCalls.flatMap((c) => ((c as { ids?: string[] }).ids ?? []));
+    expect(new Set(ids).size).toBe(250);
+    expect(adminReadCalls.every((c) => ((c as { ids?: string[] }).ids ?? []).length <= 100)).toBe(true);
+  });
+});
+
 describe("§3 읽음 = 화면에 보인 것 (A-1)", () => {
   it("A-1 고객: 상세 GET 은 읽기만 — 미읽음·알림 그대로, seen 을 보내야 보여 준 답변까지 읽음", async () => {
     const { db, sb } = makeDb();

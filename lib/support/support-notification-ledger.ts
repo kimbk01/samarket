@@ -204,11 +204,18 @@ export async function markSupportCaseNotificationsRead(
           .filter((r) => r.kind === "support_case_assigned" || shownKeys.has(String(r.dedupe_key ?? "")))
           .map((r) => r.id);
         if (ids.length === 0) return { ok: true as const, updated: 0 };
-        const res = await markAdminNotificationsRead(sb, { adminUserId: uid, workRef, ids });
-        if (!res.ok && res.error !== "nothing_to_mark") {
-          console.warn("[support] admin_notification_read_sync_failed", { caseId, error: res.error });
+        // 7차 재감사: 읽음 함수는 id 를 200개까지만 받는다 — 100개씩 나눠 전부(보통 1번 · 쌓였을 때만 여러 번)
+        let updated = 0;
+        let firstError: string | null = null;
+        for (let i = 0; i < ids.length; i += 100) {
+          const res = await markAdminNotificationsRead(sb, { adminUserId: uid, workRef, ids: ids.slice(i, i + 100) });
+          if (res.ok) updated += res.updated;
+          else if (res.error !== "nothing_to_mark") {
+            firstError ??= res.error;
+            console.warn("[support] admin_notification_read_sync_failed", { caseId, error: res.error });
+          }
         }
-        return res.ok ? ({ ok: true as const, updated: res.updated }) : ({ ok: false as const, error: res.error });
+        return firstError && updated === 0 ? ({ ok: false as const, error: firstError }) : ({ ok: true as const, updated });
       })()
     : await markAdminNotificationsRead(sb, { adminUserId: uid, workRef });
   if (!adminRead.ok && adminRead.error !== "nothing_to_mark") {
