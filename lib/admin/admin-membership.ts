@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import { adminTierToUiRole, isSuperAdminRole } from "@/lib/admin/admin-user-server";
+import { releaseSupportAssigneeOnActiveCases } from "@/lib/support/support-admin-work-check";
 
 export type AdminMembershipRole = "admin" | "super_admin";
 export type AdminMembershipStatus = "active" | "suspended" | "revoked";
@@ -341,33 +342,19 @@ export async function releaseSupportAssignmentsOnRevoke(
   sb: SupabaseClient,
   input: { userId: string; revokedBy: string | null }
 ): Promise<{ released: number; error?: string }> {
-  const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from("support_cases")
-    .update({ assigned_admin_id: null, updated_at: now })
-    .eq("assigned_admin_id", input.userId)
-    .not("status", "in", "(RESOLVED,ARCHIVED)")
-    .select("id");
+  // 고객 문의 최종 점검 L2: 담당 해제 규칙 1곳(앱 즉시 발송·발송 대기열 작업자와 같은 함수 — 진행 중 문의만 · 사건 1건씩)
+  const { caseIds: ids, error } = await releaseSupportAssigneeOnActiveCases(sb, {
+    assigneeId: input.userId,
+    actorUserId: input.revokedBy,
+  });
   if (error) {
-    if (/support_cases/i.test(error.message) && /does not exist|schema cache/i.test(error.message)) {
+    if (/support_cases/i.test(error) && /does not exist|schema cache/i.test(error)) {
       return { released: 0 };
     }
-    console.error("[admin-membership] support_release_failed", { userId: input.userId, error: error.message });
-    return { released: 0, error: error.message };
+    console.error("[admin-membership] support_release_failed", { userId: input.userId, error });
+    return { released: 0, error };
   }
-  const ids = (data ?? []).map((r) => String((r as { id?: unknown }).id ?? "")).filter(Boolean);
   if (ids.length > 0) {
-    const { error: evErr } = await sb.from("support_case_events").insert(
-      ids.map((caseId) => ({
-        case_id: caseId,
-        event_type: "assignee_released_admin_revoked",
-        actor_user_id: input.revokedBy,
-        payload: { previous_assignee: input.userId },
-      }))
-    );
-    if (evErr) {
-      console.error("[admin-membership] support_release_event_failed", { error: evErr.message });
-    }
     // 고객 문의 최종 감사 L2: 풀린 진행 중 문의의 남은 고객 글을 support 어드민 전원에게 다시 알린다(볼 사람 0명 방지).
     // 동적 import — 고객센터 서비스 → 어드민 알림 서비스 → 이 파일 순환을 만들지 않는다. 실패는 기록만.
     // 재감사 L2-a: 문의 수·어드민 수에 비례하는 작업이라 권한 저장 응답을 기다리게 하지 않는다 — 응답 뒤 끝까지(`after`).

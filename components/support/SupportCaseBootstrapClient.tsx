@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import {
   ensureSessionHealthy,
   getSessionPhase,
@@ -14,7 +14,6 @@ import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
  * Auth restore → deliverSupportOpen → leave full-page route.
  */
 export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
-  const { safeT } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
@@ -51,9 +50,8 @@ export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
 
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center bg-sam-app px-4 py-8">
-      <p className="text-sm text-sam-muted">
-        {safeT("common_loading")}
-      </p>
+      {/* 최종 점검 U6: 글자 대신 DIBAY 스피너 */}
+      <DibayPendingSpinner layout="inline" />
     </div>
   );
 }

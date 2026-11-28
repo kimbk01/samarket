@@ -1,3 +1,4 @@
+import "@/lib/i18n/admin-catalog"; // 어드민 문구 등록 (L9 제목 키)
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -15,6 +16,7 @@ import {
   type AdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
 import { releaseSupportAssignmentsOnRevoke } from "@/lib/admin/admin-membership";
+import { translateBy } from "@/lib/i18n/translate-by";
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
@@ -330,7 +332,7 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(mig).not.toMatch(/^\s*drop\s/im); // re-run safe without destructive DDL
   });
 
-  it("support_customer_replied uses the admin store, never the member pipeline", () => {
+  it("support_customer_replied uses the admin store, never the member pipeline (구조 확인)", () => {
     const svc = read("lib/support/support-case-service.ts");
     // 고객 문의 SSOT §3-2 (F1): 담당자 있으면 담당자, 없으면 support 권한 어드민 전원 — 같은 kind·글 id dedupe
     expect(svc).toContain('kind: "support_customer_replied"');
@@ -341,7 +343,8 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(svc).not.toMatch(/notifySupportEvent\(sb, \{[^}]*type: "support_customer_replied"/);
     expect(svc).toContain('"assignee_not_active_admin"');
     // self-heal when the assignee lost authority and the revoke-time release did not happen
-    expect(svc).toMatch(/if \(notified\.skippedRecipients === 0\) \{[\s\S]{0,400}return;\s*\}[\s\S]{0,500}assigned_admin_id: null[\s\S]{0,200}\.eq\("assigned_admin_id", assignee\)/);
+    // 최종 점검 L2: 담당 해제는 공용 규칙 하나(진행 중 문의만)
+    expect(svc).toMatch(/if \(notified\.skippedRecipients === 0\) \{[\s\S]{0,400}return;\s*\}[\s\S]{0,600}releaseSupportAssigneeOnActiveCases\(sb, \{ assigneeId: assignee, caseId: c\.id/);
   });
 
   it("Bell (Action Queue) and inbox (notifications) never read each other's source", () => {
@@ -731,6 +734,132 @@ describe("R13-D migration / route contracts", () => {
       const r = await purgeDeliveredSupportOutbox(sb as never, { now });
       expect(r).toEqual({ ok: true, deleted: 2 });
       expect(sb.tables.admin_notification_outbox.map((o) => o.id).sort()).toEqual(["o2", "o3", "o4"]);
+    });
+  });
+
+  describe("고객 문의 운영 반영 뒤 최종 점검 2026-11-28 (동작)", () => {
+    const msg = (id: string, caseId: string, at: string) => ({
+      id, case_id: caseId, created_at: at, sender_type: "MEMBER", message_type: "PUBLIC", deleted_at: null,
+    });
+
+    it("L1: a re-notify that fails while a 「handled」 (delivered) marker holds the same key revives that outbox row → the worker sends it", async () => {
+      const key = "support_customer_replied:msg-l1";
+      const sb = memoryDb(
+        {
+          admin_notification_outbox: [
+            { id: "ob-mark", source_key: key, kind: "support_customer_replied", status: "delivered", attempts: 0, max_attempts: 8, delivered_at: "2026-11-28T00:00:00.000Z", payload: { handled: true, reason: "admin_work_done" } },
+          ],
+          admin_memberships: [{ user_id: "support-b", status: "active" }],
+        },
+        { failInsertInto: new Set(["admin_notifications"]) }
+      );
+      const input = {
+        broadcastPermission: "support" as const,
+        requiredPermission: "support" as const,
+        kind: "support_customer_replied",
+        title: "t",
+        workRef: { table: "support_cases", id: "case-l1" },
+        dedupeKey: key,
+        push: false,
+      };
+      const r = await createAdminNotification(sb as never, input, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+      expect(r).toMatchObject({ ok: false, queued: true });
+      // 고치기 전: 표지가 delivered 그대로 → 작업자가 꺼내지 않고 재생 함수도 건너뛰어 영구 미발송
+      expect(sb.tables.admin_notification_outbox).toHaveLength(1);
+      expect(sb.tables.admin_notification_outbox[0]).toMatchObject({ status: "pending", attempts: 0, delivered_at: null });
+      expect((sb.tables.admin_notification_outbox[0].payload as { kind?: string }).kind).toBe("support_customer_replied");
+      const healed = memoryDb({
+        admin_notification_outbox: sb.tables.admin_notification_outbox,
+        admin_memberships: [{ user_id: "support-b", status: "active" }],
+        support_cases: [{ id: "case-l1", status: "WAITING_ADMIN", public_case_no: "SC-L1", assigned_admin_id: null }],
+        support_messages: [msg("msg-l1", "case-l1", "2026-11-27T00:00:00.000Z")],
+      });
+      const run = await runAdminNotificationDeliveryWorker(healed as never, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+      expect(run).toMatchObject({ outboxClaimed: 1, outboxDelivered: 1 });
+      expect(healed.tables.admin_notifications.map((n) => n.recipient_admin_id)).toEqual(["support-b"]);
+    });
+
+    it("L1: a pending (not delivered) row with the same key is left as is", async () => {
+      const key = "support_customer_replied:msg-l1b";
+      const sb = memoryDb(
+        { admin_notification_outbox: [{ id: "ob-p", source_key: key, kind: "support_customer_replied", status: "processing", attempts: 3, max_attempts: 8, payload: { kind: "x" } }] },
+        { failInsertInto: new Set(["admin_notifications"]) }
+      );
+      sb.tables.admin_memberships = [{ user_id: "support-b", status: "active" }];
+      await createAdminNotification(
+        sb as never,
+        { broadcastPermission: "support", kind: "support_customer_replied", title: "t", dedupeKey: key },
+        { resolveAuthority: async () => SUPER, sendPush: vi.fn() }
+      );
+      expect(sb.tables.admin_notification_outbox[0]).toMatchObject({ status: "processing", attempts: 3 });
+    });
+
+    it("L5: pushes to many recipients go 10 at a time; every recipient keeps its own delivery row", async () => {
+      const sb = memoryDb({
+        admin_memberships: Array.from({ length: 12 }, (_, i) => ({ user_id: `p-${i}`, status: "active" })),
+      });
+      let inFlight = 0;
+      let peak = 0;
+      const sendPush = vi.fn(async () => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 5));
+        inFlight -= 1;
+        return "sent" as const;
+      });
+      const r = await createAdminNotification(
+        sb as never,
+        { broadcastPermission: "support", kind: "support_customer_replied", title: "t", dedupeKey: "k-l5", push: true },
+        { resolveAuthority: async () => SUPER, sendPush }
+      );
+      expect(r).toMatchObject({ ok: true, created: 12, pushed: 12 });
+      // 고치기 전: 차례로(최대 1)
+      expect(peak).toBe(10);
+      expect(sendPush).toHaveBeenCalledTimes(12);
+      const deliveries = sb.tables.admin_notification_push_deliveries;
+      expect(deliveries).toHaveLength(12);
+      expect(new Set(deliveries.map((d) => d.recipient_admin_id)).size).toBe(12);
+      expect(deliveries.every((d) => d.status === "sent")).toBe(true);
+    });
+
+    it("L9: a replayed customer-message alert gets its title from the catalog keys (first message = new, later = follow-up), not the stored SQL text", async () => {
+      const row = (id: string, messageId: string) => ({
+        id, source_key: `support_customer_replied:${messageId}`, kind: "support_customer_replied", status: "pending", attempts: 0, max_attempts: 8,
+        payload: {
+          kind: "support_customer_replied",
+          title: "stored-sql-title",
+          dedupeKey: `support_customer_replied:${messageId}`,
+          workRef: { table: "support_cases", id: "case-l9" },
+          broadcastPermission: "support",
+          requiredPermission: "support",
+          push: false,
+        },
+      });
+      const sb = memoryDb({
+        admin_notification_outbox: [row("ob-1", "m-first"), row("ob-2", "m-second")],
+        admin_memberships: [{ user_id: "support-b", status: "active" }],
+        support_cases: [{ id: "case-l9", status: "WAITING_ADMIN", public_case_no: "SC-L9", assigned_admin_id: null }],
+        support_messages: [msg("m-first", "case-l9", "2026-11-27T00:00:00.000Z"), msg("m-second", "case-l9", "2026-11-27T01:00:00.000Z")],
+      });
+      await runAdminNotificationDeliveryWorker(sb as never, { resolveAuthority: async () => SUPER, sendPush: vi.fn() });
+      const titles = Object.fromEntries(sb.tables.admin_notifications.map((n) => [n.dedupe_key, n.title]));
+      const newTitle = translateBy("ko", "admin_support_notify_new_title", { no: "SC-L9" });
+      const followTitle = translateBy("ko", "admin_support_notify_followup_title", { no: "SC-L9" });
+      expect(newTitle).toContain("SC-L9");
+      expect(newTitle).not.toBe(followTitle);
+      // 고치기 전: 저장된 SQL 문장(stored-sql-title) 그대로
+      expect(titles["support_customer_replied:m-first"]).toBe(newTitle);
+      expect(titles["support_customer_replied:m-second"]).toBe(followTitle);
+    });
+
+    it("L2 (구조 확인): the three assignee-release paths call the one shared rule", () => {
+      const rule = "releaseSupportAssigneeOnActiveCases(";
+      expect(read("lib/support/support-case-service.ts")).toContain(rule);
+      expect(read("lib/admin/notifications/admin-notification-service.ts")).toContain(rule);
+      expect(read("lib/admin/admin-membership.ts")).toContain(rule);
+      for (const f of ["lib/support/support-case-service.ts", "lib/admin/notifications/admin-notification-service.ts", "lib/admin/admin-membership.ts"]) {
+        expect(read(f)).not.toMatch(/update\(\{ assigned_admin_id: null/);
+      }
     });
   });
 });

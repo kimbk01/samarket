@@ -2,6 +2,7 @@
 
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { SupportFab } from "@/components/support/SupportFab";
+import { markSupportRequesterUnreadStale } from "@/lib/support/support-requester-unread-fetch";
 import { useSupportFabVisible } from "@/lib/support/use-support-context";
 import { useSupportFabRegistry } from "@/lib/support/support-fab-registry";
 import {
@@ -30,7 +31,7 @@ import { OWNER_OVERLAY_Z_CLASS } from "@/lib/business/owner-overlay-layers";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useFixedBottomBarOccupiedPx } from "@/lib/layout/use-fixed-bottom-bar-occupied-px";
 import { resolveSupportFabBottomPlacement } from "@/lib/support/support-fab-bottom-placement";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, useEffect } from "react";
 
 /**
  * Support FAB only — modal host is mounted eagerly by ConditionalAppShell.
@@ -61,6 +62,12 @@ export function SupportFabHost() {
     () => getSupportModalState().phase === "open",
     () => false
   );
+
+  // 병합 전 2차 2: 창이 열리면 FAB 가 빠지므로 「창 닫힘」 신호를 못 받는다 → 열리는 순간 숫자 캐시를 낡음으로 표시,
+  // 닫힌 뒤 다시 붙는 FAB 가 서버에서 새로 읽는다(창 안에서 답변을 읽었으면 숫자가 줄어든다).
+  useEffect(() => {
+    if (modalOpen) markSupportRequesterUnreadStale();
+  }, [modalOpen]);
 
   const useOwnerFabLayout = ownerShellActive;
   const showFab = visible && !modalOpen && !ownerDrawerOpen;

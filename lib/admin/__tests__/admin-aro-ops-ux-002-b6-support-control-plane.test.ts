@@ -11,20 +11,9 @@ function read(rel: string) {
 }
 
 describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
-  it("read-model + API + UI exist without new support/notification SSOT", () => {
-    expect(existsSync(resolve(process.cwd(), "lib/admin/support-control-plane/load-support-control-plane.ts"))).toBe(
-      true
-    );
-    expect(existsSync(resolve(process.cwd(), "app/api/admin/support-control-plane/route.ts"))).toBe(true);
-
-    const loader = read("lib/admin/support-control-plane/load-support-control-plane.ts");
-    expect(loader).toContain("support_cases");
-    expect(loader).toContain("OPEN");
-    expect(loader).toContain("WAITING_ADMIN");
-    expect(loader).toContain("ageLabelKo");
-    expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
-    expect(loader).not.toMatch(/CREATE TABLE|support_v2|unified_ticket/i);
-
+  it("control plane (구조 확인): 호출처 0 인 read-model·API 는 삭제됨(고객 문의 최종 점검 L11) · 문구 키는 그대로", () => {
+    expect(existsSync(resolve(process.cwd(), "lib/admin/support-control-plane/load-support-control-plane.ts"))).toBe(false);
+    expect(existsSync(resolve(process.cwd(), "app/api/admin/support-control-plane/route.ts"))).toBe(false);
     expect(copyAdminB4Ops1Messages.en.admin_support_member_2).toBe("Member");
     expect(copyAdminB4Ops1Messages.en.admin_support_owner).toBe("Owner");
   });

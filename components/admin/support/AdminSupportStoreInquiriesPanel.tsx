@@ -8,9 +8,8 @@ import { AdminPagination } from "@/components/admin/ui/AdminPagination";
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { adminListOffsetForPage } from "@/lib/admin/pagination/parse-admin-list-page";
-import { catalogPair } from "@/lib/i18n/catalog-pair";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { translateBy } from "@/lib/i18n/translate-by";
 
 /**
  * G-08 (감사 2026-10-30) — 중앙 고객지원 안의 「매장 문의」 조회 전용 보기.
@@ -33,11 +32,11 @@ type StoreInquiryRow = {
 
 const PAGE_SIZE = 20 as const;
 
-const STATUS_LABELS: Record<string, { ko: string; en: string; tone: AdminTone }> = {
-  open: { ...catalogPair("admin_unanswered"), tone: "waiting" },
-  answered: { ...catalogPair("admin_platform_inquiry_status_answered"), tone: "success" },
-  closed: { ...catalogPair("admin_stores_inquiries_status_closed"), tone: "neutral" },
-  escalated: { ...catalogPair("admin_escalated"), tone: "warning" },
+const STATUS_LABELS: Record<string, { key: MessageKey; tone: AdminTone }> = {
+  open: { key: "admin_unanswered", tone: "waiting" },
+  answered: { key: "admin_platform_inquiry_status_answered", tone: "success" },
+  closed: { key: "admin_stores_inquiries_status_closed", tone: "neutral" },
+  escalated: { key: "admin_escalated", tone: "warning" },
 };
 
 const TYPE_LABELS: Record<string, MessageKey> = {
@@ -53,6 +52,8 @@ export function storeInquiryAdminHref(storeId: string | null | undefined): strin
 }
 
 export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
+  // 점검 U12: 문구는 현재 언어 `t(key)` 로만 — `ko` 는 공통 Admin 부품(상태 보기·쪽 넘김)이 받는 값만 넘긴다
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<StoreInquiryRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -93,18 +94,18 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
     <section
       className="flex min-h-0 flex-1 flex-col gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
       data-admin-support-store-inquiries="read-only"
-      aria-label={translateBy(ko ? "ko" : "en", "admin_support_store_inquiries_view_only")}
+      aria-label={t("admin_support_store_inquiries_view_only")}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-sam-muted">
-          {translateBy(ko ? "ko" : "en", "admin_support_inquiries_customers_sent_to_stores_store")}
+          {t("admin_support_inquiries_customers_sent_to_stores_store")}
         </p>
         <Link href="/admin/store-inquiries" className="text-xs font-semibold text-sam-fg underline">
-          {translateBy(ko ? "ko" : "en", "admin_support_open_store_inquiries")}
+          {t("admin_support_open_store_inquiries")}
         </Link>
       </div>
       <div className="text-xs font-semibold text-sam-muted">
-        {translateBy(ko ? "ko" : "en", "admin_support_store_inquiries")} · {translateBy(ko ? "ko" : "en", "admin_count_items", { n: formatAdminNumber(total) })}
+        {t("admin_support_store_inquiries")} · {t("admin_count_items", { n: formatAdminNumber(total) })}
       </div>
 
       {loadError ? (
@@ -113,7 +114,7 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
       {loading && rows.length === 0 ? (
         <AdminLoadingState ko={ko} />
       ) : rows.length === 0 ? (
-        loadError ? null : <AdminEmptyState ko={ko} message={translateBy(ko ? "ko" : "en", "admin_support_no_store_inquiries")} />
+        loadError ? null : <AdminEmptyState ko={ko} message={t("admin_support_no_store_inquiries")} />
       ) : (
         <ul className="min-h-0 flex-1 divide-y divide-sam-border overflow-y-auto">
           {rows.map((r) => {
@@ -128,13 +129,13 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <AdminToneBadge tone={st?.tone ?? "neutral"}>
-                      {st ? (ko ? st.ko : st.en) : translateBy(ko ? "ko" : "en", "admin_support_unknown_status")}
+                      {st ? t(st.key) : t("admin_support_unknown_status")}
                     </AdminToneBadge>
                     <span className="text-xs font-bold text-sam-fg">
-                      {r.store_name || (translateBy(ko ? "ko" : "en", "admin_support_unnamed_store"))}
+                      {r.store_name || (t("admin_support_unnamed_store"))}
                     </span>
                     <span className="text-[12px] text-sam-muted">
-                      {type ? translateBy(ko ? "ko" : "en", type) : translateBy(ko ? "ko" : "en", "admin_support_other")}
+                      {type ? t(type) : t("admin_support_other")}
                     </span>
                     <span className="ml-auto whitespace-nowrap text-[12px] text-sam-muted">
                       {formatAdminManilaDateTime(r.created_at)}
@@ -142,7 +143,7 @@ export function AdminSupportStoreInquiriesPanel({ ko }: { ko: boolean }) {
                   </div>
                   <p className="mt-0.5 truncate text-[13px] text-sam-fg">{r.subject}</p>
                   <p className="text-[12px] text-sam-muted">
-                    {r.from_user_label || (translateBy(ko ? "ko" : "en", "admin_support_name_unavailable"))}
+                    {r.from_user_label || (t("admin_support_name_unavailable"))}
                   </p>
                 </Link>
               </li>

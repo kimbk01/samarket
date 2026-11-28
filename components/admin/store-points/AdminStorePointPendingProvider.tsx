@@ -87,7 +87,12 @@ import {
 } from "@/lib/notifications/notification-sound-decision";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
-import { adminMeCanReceiveSupportRealtime } from "@/components/admin/support/admin-support-realtime";
+import {
+  adminMeCanReceiveSupportRealtime,
+  createSupportCaseCountCache,
+  dispatchAdminSupportMessageInsert,
+  shouldRefreshSupportCountsForCaseUpdate,
+} from "@/components/admin/support/admin-support-realtime";
 import type { AdminActionQueueCategoryResult } from "@/lib/admin/admin-action-queue-registry";
 import { ADMIN_QUEUE_CHANGED_EVENT } from "@/lib/admin/admin-queue-events";
 import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
@@ -209,7 +214,7 @@ export function useAdminStorePointPendingCount(): Ctx {
 export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
 
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
-  const { safeT, language } = useI18n();
+  const { safeT } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
   const [cashChargePendingCount, setCashChargePendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
@@ -532,7 +537,6 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       const messageId = String(message.id ?? "").trim();
       const caseId = String(message.caseId ?? "").trim();
       if (!messageId || !caseId) return;
-      const ko = language !== "en";
       const preview = String(message.body ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
       void (async () => {
         let caseNo = "";
@@ -551,7 +555,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         }
         const label = [
           safeT("admin_support_case_toast_title"),
-          audience ? supportAudienceLabel(audience, ko) : null,
+          audience ? supportAudienceLabel(audience, safeT) : null,
           caseNo || null,
           preview || null,
         ]
@@ -569,7 +573,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         rowId: messageId,
       });
     },
-    [language, safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
+    [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
   );
 
   const seedPendingChargeRowsSilent = useCallback(async () => {
@@ -1097,6 +1101,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }
       const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(me);
       if (cancelled) return;
+      const supportCountCache = createSupportCaseCountCache();
 
       const opsChannel = sb
         .channel("admin-ops-realtime-bridge", messengerPrivateBroadcastChannelOptions())
@@ -1351,6 +1356,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               const row = rowAsRecord(payload.new);
               const id = String(row?.id ?? "").trim();
               const caseId = String(row?.case_id ?? "").trim();
+              // 점검 L13: 콘솔(/admin/support)은 자기 구독 대신 이 이벤트로 받는다 — 같은 INSERT 2번 받기 없음
+              if (caseId) {
+                dispatchAdminSupportMessageInsert({
+                  caseId,
+                  senderAdminId: row?.sender_admin_id == null ? null : String(row.sender_admin_id),
+                });
+              }
               // 고객 문의 2차 재감사 I: 어드민 계정이 고객으로 쓴 글은 그 어드민에게 토스트·소리를 내지 않는다(본인 행동 0)
               const selfId = getCurrentUser()?.id?.trim() ?? "";
               const fromSelf = Boolean(selfId) && String(row?.sender_user_id ?? "").trim() === selfId;
@@ -1384,7 +1396,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               "postgres_changes",
               { event: "UPDATE", schema: "public", table: "support_cases" },
               // Count refresh only — UPDATE old row is PK-only, never a toast/sound source.
-              () => scheduleRefresh()
+              // 점검 M7: 상태·담당·어드민 미읽음 수가 바뀔 수 있을 때만(문의별 직전 값 표와 비교, 처음 보는 문의는 읽음).
+              (payload) => {
+                if (shouldRefreshSupportCountsForCaseUpdate(supportCountCache, rowAsRecord(payload.new))) {
+                  scheduleRefresh();
+                }
+              }
             )
         : opsChannel;
       channel = withSupport

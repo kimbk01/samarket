@@ -271,7 +271,7 @@ describe("E-7 — 고객지원 = support (GET 과 같은 키)", () => {
   it.each([
     ["support/cases/route.ts", "GET"],
     // 최종 감사 L12 (2026-11-28): POST 405 껍데기·summary(호출처 0) 삭제 — 남은 support 어드민 경로
-    ["support-control-plane/route.ts", "GET"],
+    // 최종 점검 L11 (2026-11-28): support-control-plane(호출처 0) 삭제
     ["support/guidance/route.ts", "GET"],
     ["support/guidance/route.ts", "POST"],
   ])("%s %s", (route, method) => {

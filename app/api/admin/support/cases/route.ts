@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   countSupportCasesByTab,
@@ -54,12 +53,8 @@ export async function GET(req: NextRequest) {
   // Server-side pagination — `total` is the exact count for the active filter set.
   const page = parseAdminListPage(sp);
 
-  let adminUserId: string | null = null;
-  if (assignee === "ME") {
-    const auth = await requireAuthenticatedUserId();
-    if (!auth.ok) return auth.response;
-    adminUserId = auth.userId;
-  }
+  // 최종 점검 L6: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번)
+  const adminUserId: string | null = assignee === "ME" ? gate.actor.userId : null;
 
   const [res, counts] = await Promise.all([
     listSupportCasesForAdmin(sb, {

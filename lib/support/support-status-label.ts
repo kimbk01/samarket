@@ -10,7 +10,10 @@
  *   — 상태를 모르면 「답변 완료」로 보이지 않게 「답변 대기」로 둔다.
  */
 import type { SupportCaseStatus } from "@/lib/support/support-case-types";
-import { translateBy } from "@/lib/i18n/translate-by";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/** 화면의 `t` (현재 언어) — 언어를 참/거짓으로 넘기지 않는다 (i18n SSOT · 최종 점검 U12) */
+export type SupportLabelTranslate = (key: MessageKey) => string;
 
 export type SupportCaseStatusLabelKey =
   | "support_status_active"
@@ -69,38 +72,37 @@ export function supportRequesterStatusPill(
  * control-plane cards and the admin awareness toast all read these — no screen keeps its own map.
  * Customer wording above stays separate on purpose (customers see 3 states, admins see 5).
  */
-export function supportAdminStatusLabel(status: string | null | undefined, ko: boolean): string {
+export function supportAdminStatusLabel(status: string | null | undefined, t: SupportLabelTranslate): string {
   switch (String(status ?? "").trim()) {
     case "OPEN":
-      return translateBy(ko ? "ko" : "en", "support_admin_status_open");
+      return t("support_admin_status_open");
     case "WAITING_ADMIN":
-      return translateBy(ko ? "ko" : "en", "support_admin_status_waiting_admin");
+      return t("support_admin_status_waiting_admin");
     case "WAITING_USER":
-      return translateBy(ko ? "ko" : "en", "support_admin_status_waiting_user");
+      return t("support_admin_status_waiting_user");
     case "RESOLVED":
-      return translateBy(ko ? "ko" : "en", "support_admin_status_resolved");
+      return t("support_admin_status_resolved");
     case "ARCHIVED":
-      return translateBy(ko ? "ko" : "en", "support_admin_status_archived");
+      return t("support_admin_status_archived");
     default:
-      return translateBy(ko ? "ko" : "en", "support_status_unknown");
+      return t("support_status_unknown");
   }
 }
 
-export function supportAudienceLabel(audience: string | null | undefined, ko: boolean): string {
-  return translateBy(
-    ko ? "ko" : "en",
+export function supportAudienceLabel(audience: string | null | undefined, t: SupportLabelTranslate): string {
+  return t(
     String(audience ?? "").trim().toUpperCase() === "OWNER" ? "support_audience_owner" : "support_audience_member"
   );
 }
 
-export function supportPriorityLabel(priority: string | null | undefined, ko: boolean): string {
+export function supportPriorityLabel(priority: string | null | undefined, t: SupportLabelTranslate): string {
   switch (String(priority ?? "").trim()) {
     case "HIGH":
-      return translateBy(ko ? "ko" : "en", "support_priority_high");
+      return t("support_priority_high");
     case "URGENT":
-      return translateBy(ko ? "ko" : "en", "support_priority_urgent");
+      return t("support_priority_urgent");
     default:
-      return translateBy(ko ? "ko" : "en", "support_priority_normal");
+      return t("support_priority_normal");
   }
 }
 

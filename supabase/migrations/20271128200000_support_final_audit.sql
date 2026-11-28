@@ -37,16 +37,16 @@
 --   -- 2) 어드민 정책 복원:
 --   DROP POLICY IF EXISTS support_cases_admin_select ON public.support_cases;
 --   CREATE POLICY support_cases_admin_select ON public.support_cases FOR SELECT TO authenticated
---     USING (public.is_platform_admin(auth.uid()));
+--     USING (internal.is_platform_admin(auth.uid()));
 --   DROP POLICY IF EXISTS support_messages_admin_select ON public.support_messages;
 --   CREATE POLICY support_messages_admin_select ON public.support_messages FOR SELECT TO authenticated
---     USING (public.is_platform_admin(auth.uid()));
+--     USING (internal.is_platform_admin(auth.uid()));
 --   DROP POLICY IF EXISTS support_sessions_admin_select ON public.support_sessions;
 --   CREATE POLICY support_sessions_admin_select ON public.support_sessions FOR SELECT TO authenticated
---     USING (public.is_platform_admin(auth.uid()));
+--     USING (internal.is_platform_admin(auth.uid()));
 --   DROP POLICY IF EXISTS support_case_events_admin_select ON public.support_case_events;
 --   CREATE POLICY support_case_events_admin_select ON public.support_case_events FOR SELECT TO authenticated
---     USING (public.is_platform_admin(auth.uid()));
+--     USING (internal.is_platform_admin(auth.uid()));
 --   DROP FUNCTION IF EXISTS internal.support_admin_has_support_permission(uuid);
 --   -- 3)·4) 인덱스는 남겨도 동작 영향 없음. 지우려면:
 --   DROP INDEX IF EXISTS public.idx_support_messages_customer_public_created;

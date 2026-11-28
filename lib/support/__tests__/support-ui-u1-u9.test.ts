@@ -2,6 +2,7 @@
  * 고객 문의 UI 불일치 U1~U9 수정 (시안 docs/audit/customer-support-inquiry-reaudit-2026-11-27/ui-mockup.html 5절 ·
  * Owner 「권장안대로」 2026-11-27) 회귀 잠금.
  */
+import { translate } from "@/lib/i18n/messages";
 import "@/lib/i18n/admin-catalog";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -65,7 +66,7 @@ describe("UI U3~U9", () => {
   });
 
   it("U7 어드민 WAITING_USER 이름 하나 (동작)", () => {
-    expect(supportAdminStatusLabel("WAITING_USER", true)).toBe("고객 확인 대기");
+    expect(supportAdminStatusLabel("WAITING_USER", (k) => translate("ko", k))).toBe("고객 확인 대기");
     expect((MESSAGES.ko as Record<string, string>).admin_waiting_customer).toBe("고객 확인 대기");
   });
 });

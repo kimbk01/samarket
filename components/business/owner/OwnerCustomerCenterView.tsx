@@ -79,18 +79,23 @@ export function OwnerCustomerCenterView({
     },
   ];
 
+  /**
+   * 최종 감사 U-12 · 계약 §6: 매장 없는 사장님 = 「문의하기」 비활성으로 보이고, 안내는 화면에 1번만.
+   * 최종 점검 U7: 「내 문의」 탭이면 안내가 그 탭 내용 자리에 나온다(빈칸 금지) · 다른 탭이면 버튼 위.
+   */
+  const storeRequiredNote = (
+    <p
+      className="mb-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg"
+      data-owner-support-store-required="1"
+    >
+      {safeT("support_owner_store_required")}
+    </p>
+  );
+
   const body = (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-center="1" data-support-entry-ssot="1">
 
-      {/* 최종 감사 U-12 · 계약 §6: 매장 없는 사장님 = 「문의하기」 비활성으로 보이고, 안내는 이 1번만 */}
-      {!storeId ? (
-        <p
-          className="mb-2 rounded-ui-rect border border-sam-warning/30 bg-sam-warning-soft px-3 py-2 text-sm text-sam-fg"
-          data-owner-support-store-required="1"
-        >
-          {safeT("support_owner_store_required")}
-        </p>
-      ) : null}
+      {!storeId && tab !== "history" ? storeRequiredNote : null}
       <SupportGenericHubInquireGate
         audience="OWNER"
         sourceSurface="owner_customer_center"
@@ -130,7 +135,9 @@ export function OwnerCustomerCenterView({
       {tab === "history" ? (
         storeId ? (
           <SupportCasesHistoryList audience="OWNER" storeId={storeId} />
-        ) : null
+        ) : (
+          <div data-owner-support-history-store-required="1">{storeRequiredNote}</div>
+        )
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-sam-muted">

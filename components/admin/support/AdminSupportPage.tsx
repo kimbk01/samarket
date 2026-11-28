@@ -51,8 +51,14 @@ import { formatAdminNumber } from "@/lib/admin/ui-standard/admin-format";
 import { adminCta } from "@/lib/admin/ui-standard/admin-cta";
 import { confirmAdminAction } from "@/lib/admin/operator-ux/admin-confirm-action";
 import { adminActionLevel, type AdminActionKind } from "@/lib/admin/operator-ux/admin-action-levels";
-import { resolveAdminSupportDetailPane } from "@/lib/support/admin-support-detail-pane";
-import { translateBy } from "@/lib/i18n/translate-by";
+import {
+  isAdminSupportDetailResponseCurrent,
+  pickAdminSupportShownDetail,
+  resolveAdminSupportDetailPane,
+  resolveAdminSupportWriteTarget,
+  type AdminSupportLoadedDetail as AdminSupportLoadedDetailOf,
+} from "@/lib/support/admin-support-detail-pane";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveSupportMessageDisplayBody } from "@/lib/support/support-seed-message-text";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { ADMIN_SUPPORT_TAB_LABEL_KEY, adminSupportStatusTone } from "@/components/admin/support/admin-support-status";
@@ -62,9 +68,13 @@ import {
   isOffListSupportCaseUpdate,
   isAdminSupportOwnWriteEcho,
   shouldRefetchSupportListForCaseChange,
+  subscribeAdminSupportMessageInsert,
   type AdminSupportOwnWrite,
 } from "@/components/admin/support/admin-support-realtime";
-import { buildAdminSupportPublicReplyPayload } from "@/components/admin/support/admin-support-reply";
+import {
+  buildAdminSupportPublicReplyPayload,
+  buildAdminSupportResolvePayload,
+} from "@/components/admin/support/admin-support-reply";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
 const SUPPORT_LIST_EXTRAS = [
@@ -98,18 +108,24 @@ type SupportListExtra = (typeof SUPPORT_LIST_EXTRAS)[number];
 
 const PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH", "URGENT"];
 
+type AdminSupportLoadedDetail = AdminSupportLoadedDetailOf<SupportCaseAdminDisplayRow, SupportMessageRow>;
+const NO_MESSAGES: SupportMessageRow[] = [];
+/** 점검 U10: 좁은 화면(lg 미만)에서 주 동작(답변·상담 종료·재오픈)은 누르는 높이 44px — 공통 버튼 크기는 그대로 */
+const ADMIN_SUPPORT_NARROW_PRIMARY_TAP_CLASS = "min-h-11 lg:min-h-0";
+const NO_FOLLOWUPS: Record<string, string> = {};
+
 type Audience = "ALL" | "MEMBER" | "OWNER";
 type Assignee = "ALL" | "ME" | "UNASSIGNED";
 
-function waitingAgeLabel(iso: string, ko: boolean): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return "—";
-  const minutes = Math.max(0, Math.round((Date.now() - t) / 60000));
-  if (minutes < 60) return translateBy(ko ? "ko" : "en", "admin_support_mins_ago", { minutes: Math.max(1, minutes) });
+function waitingAgeLabel(iso: string, t: (key: MessageKey, vars?: Record<string, string | number>) => string): string {
+  const at = new Date(iso).getTime();
+  if (!Number.isFinite(at)) return "—";
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (minutes < 60) return t("admin_support_mins_ago", { minutes: Math.max(1, minutes) });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return translateBy(ko ? "ko" : "en", "admin_support_hours_ago", { hours });
+  if (hours < 24) return t("admin_support_hours_ago", { hours });
   const days = Math.floor(hours / 24);
-  return translateBy(ko ? "ko" : "en", "admin_support_days_ago", { days });
+  return t("admin_support_days_ago", { days });
 }
 
 function Seg<T extends string>({
@@ -139,11 +155,14 @@ function SupportQueueRow({
   selected,
   onSelect,
   rowId,
+  disabled = false,
   children,
 }: {
   selected: boolean;
   onSelect: () => void;
   rowId: string;
+  /** 병합 전 2차 1: 저장 중에는 다른 문의로 바꿀 수 없다(저장 결과·실패 안내가 그 문의 화면에 뜨도록) */
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -151,16 +170,19 @@ function SupportQueueRow({
       role="button"
       tabIndex={0}
       aria-current={selected ? "true" : undefined}
-      onClick={onSelect}
+      aria-disabled={disabled ? "true" : undefined}
+      data-admin-support-row-disabled={disabled ? "1" : undefined}
+      onClick={disabled ? undefined : onSelect}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();
         }
       }}
-      className={`w-full cursor-pointer px-3 py-2.5 text-left hover:bg-sam-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sam-primary ${
-        selected ? "bg-sam-primary/10" : ""
-      }`}
+      className={`w-full px-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sam-primary ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-sam-surface-muted"
+      } ${selected ? "bg-sam-primary/10" : ""}`}
       data-admin-support-row={rowId}
     >
       {children}
@@ -277,15 +299,30 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const listSize = lq.query.size;
 
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
-  const [activeCase, setActiveCase] = useState<SupportCaseAdminDisplayRow | null>(null);
-  const [messages, setMessages] = useState<SupportMessageRow[]>([]);
-  /** 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부) */
-  const [followupIssues, setFollowupIssues] = useState<Record<string, string>>({});
+  /**
+   * 점검 H1: 상세(문의·글·세부)는 「어느 문의의 것인지」와 한 덩어리로 둔다.
+   * 화면·저장은 `detail.caseId === activeId` 일 때만 그 상세를 쓴다 — 다른 문의를 누르면 즉시 「불러오는 중」.
+   */
+  const [detail, setDetail] = useState<AdminSupportLoadedDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const shownDetail = pickAdminSupportShownDetail(detail, activeId);
+  const activeCase = shownDetail?.case ?? null;
+  const messages = shownDetail?.messages ?? NO_MESSAGES;
+  /** 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부) */
+  const followupIssues = shownDetail?.followupIssues ?? NO_FOLLOWUPS;
+  /** 상세 요청 순번 — 늦게 온 옛 응답(다른 문의·같은 문의의 이전 요청)은 버린다 */
+  const detailSeqRef = useRef(0);
+  const listSeqRef = useRef(0);
+  const activeIdRef = useRef<string | null>(activeId);
+  /** 화면에 보이는 문의 id — 확인 창을 기다리는 사이 다른 문의로 바뀌었는지 저장 직전에 본다 */
+  const shownCaseIdRef = useRef<string | null>(activeCase?.id ?? null);
   const [showInfo, setShowInfo] = useState(false);
 
   const [composerMode, setComposerMode] = useState<"public" | "internal">("public");
   const [draft, setDraft] = useState("");
+  /** 재감사 8: 실시간 다시 읽기 때 직전 상세·쓰는 중인 답과 비교 */
+  const detailRef = useRef<AdminSupportLoadedDetail | null>(null);
+  const draftRef = useRef("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -294,6 +331,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
   const loadList = useCallback(async () => {
+    // 재감사(PR #687) 1: 가장 최근 목록 요청의 응답만 그린다(탭·조건을 바꾼 뒤 늦게 온 옛 응답이 덮지 않게)
+    const seq = ++listSeqRef.current;
+    const isLatest = () => seq === listSeqRef.current;
     setListLoading(true);
     try {
       const qs = new URLSearchParams({ tab });
@@ -316,6 +356,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         total?: number;
         error?: string;
       };
+      if (!isLatest()) return;
       // DEF-07: a failed list call is an error, not an empty queue (keep the last list).
       if (!res.ok || !json.ok) {
         setListError({ code: json.error ?? "load_failed", httpStatus: res.status });
@@ -327,14 +368,22 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       setListTotal(typeof json.total === "number" ? json.total : (json.cases ?? []).length);
       if (json.counts) setCounts(json.counts);
     } catch {
-      setListError({ code: "network_error" });
+      if (isLatest()) setListError({ code: "network_error" });
     } finally {
-      setListLoading(false);
+      if (isLatest()) setListLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 조건은 주소(apiQueryString/refreshKey) 하나로 바뀐다
   }, [lq.refreshKey]);
 
   const loadDetail = useCallback(async (caseId: string) => {
+    const seq = ++detailSeqRef.current;
+    const stillCurrent = () =>
+      isAdminSupportDetailResponseCurrent({
+        requestSeq: seq,
+        latestSeq: detailSeqRef.current,
+        requestCaseId: caseId,
+        activeId: activeIdRef.current,
+      });
     setDetailLoading(true);
     setError(null);
     try {
@@ -348,19 +397,30 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         followupIssues?: { messageId: string; issueType: string }[];
         error?: string;
       };
-      if (!res.ok || !json.ok || !json.case) {
+      if (!stillCurrent()) return;
+      if (!res.ok || !json.ok || !json.case || json.case.id !== caseId) {
         setError(json.error ?? "load_failed");
         return;
       }
-      setActiveCase(json.case);
-      setMessages(json.messages ?? []);
-      setFollowupIssues(
-        Object.fromEntries((json.followupIssues ?? []).map((f) => [f.messageId, f.issueType]))
-      );
+      // 재감사 8: 답을 쓰는 동안 같은 문의에 새 고객 글이 화면에 나타나면 알린다(보낼 때 화면에 보이던 글 = 본 글)
+      const prev = detailRef.current;
+      if (prev && prev.caseId === caseId && draftRef.current.trim()) {
+        const known = new Set(prev.messages.map((m) => m.id));
+        const arrived = (json.messages ?? []).some(
+          (m) => !known.has(m.id) && m.message_type === "PUBLIC" && m.sender_type !== "ADMIN"
+        );
+        if (arrived) setError("reply_unseen_customer_messages");
+      }
+      setDetail({
+        caseId,
+        case: json.case,
+        messages: json.messages ?? [],
+        followupIssues: Object.fromEntries((json.followupIssues ?? []).map((f) => [f.messageId, f.issueType])),
+      });
     } catch {
-      setError("network_error");
+      if (stillCurrent()) setError("network_error");
     } finally {
-      setDetailLoading(false);
+      if (seq === detailSeqRef.current) setDetailLoading(false);
     }
   }, []);
 
@@ -384,11 +444,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   }, [initialCaseId]);
 
   useEffect(() => {
+    // 점검 H1: 다른 문의를 누르면 이전 상세·오류·진행 중 요청을 즉시 버린다
+    activeIdRef.current = activeId;
     setEditingId(null);
     setDraft("");
+    setError(null);
+    setDetail((prev) => (prev && prev.caseId === activeId ? prev : null));
     if (!activeId) {
-      setActiveCase(null);
-      setMessages([]);
+      detailSeqRef.current += 1;
+      setDetailLoading(false);
       return;
     }
     void loadDetail(activeId);
@@ -406,13 +470,15 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
    * (300ms coalesced). The conversation reloads only for the open case.
    * 내가 방금 보낸 변경의 실시간 메아리는 건너뛴다 — patchCase 가 상세·목록을 이미 다시 읽는다.
    */
-  const activeIdRef = useRef<string | null>(activeId);
   const loadListRef = useRef(loadList);
   const casesRef = useRef(cases);
   const tabRef = useRef(tab);
   const ownWriteRef = useRef<AdminSupportOwnWrite>(null);
   useEffect(() => {
     activeIdRef.current = activeId;
+    shownCaseIdRef.current = activeCase?.id ?? null;
+    detailRef.current = detail;
+    draftRef.current = draft;
     loadListRef.current = loadList;
     casesRef.current = cases;
     tabRef.current = tab;
@@ -445,28 +511,24 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         void loadListRef.current();
       }, wait);
     };
+    // 점검 L13: support_messages INSERT 는 공통 구독(AdminStorePointPendingProvider)만 받고 이 창 이벤트로 넘겨준다.
+    const unsubscribeMessages = subscribeAdminSupportMessageInsert(({ caseId, senderAdminId }) => {
+      const echo = isAdminSupportOwnWriteEcho({
+        ownWrite: ownWriteRef.current,
+        caseId,
+        now: Date.now(),
+        kind: "message",
+        senderAdminId,
+        selfAdminId: getCurrentUser()?.id ?? null,
+      });
+      if (echo) return;
+      // 점검 H1: 열린 문의만 다시 읽고, 응답은 loadDetail 의 순번·문의 대조를 거친다
+      const open = activeIdRef.current;
+      if (open && caseId === open) void loadDetail(open);
+      // 재감사 6: 목록 값(상태·마지막 글·미읽음)은 같은 트랜잭션의 support_cases UPDATE 로 오고 아래에서 거른다 — 여기서 목록을 다시 읽지 않는다
+    });
     const channel = sb
       .channel("admin-support-queue", privateRealtimeChannelOptions())
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "support_messages" },
-        (payload) => {
-          const row = payload.new as { case_id?: unknown; sender_admin_id?: unknown } | null;
-          const caseId = String(row?.case_id ?? "");
-          const echo = isAdminSupportOwnWriteEcho({
-            ownWrite: ownWriteRef.current,
-            caseId,
-            now: Date.now(),
-            kind: "message",
-            senderAdminId: row?.sender_admin_id == null ? null : String(row.sender_admin_id),
-            selfAdminId: getCurrentUser()?.id ?? null,
-          });
-          if (echo) return;
-          const open = activeIdRef.current;
-          if (open && caseId === open) void loadDetail(open);
-          scheduleList();
-        }
-      )
       .on("postgres_changes", { event: "*", schema: "public", table: "support_cases" }, (payload) => {
         const newRow = (payload.new ?? null) as Record<string, unknown> | null;
         const oldRow = (payload.old ?? null) as Record<string, unknown> | null;
@@ -475,6 +537,17 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           isAdminSupportOwnWriteEcho({ ownWrite: ownWriteRef.current, caseId, now: Date.now(), kind: "case" })
         ) {
           return;
+        }
+        // 병합 전 L2: 다른 어드민이 **열린 문의**의 상태·담당을 바꿨으면 상세도 다시 읽는다(종료된 문의에 답 칸이 남지 않게)
+        const shownCase = detailRef.current?.caseId === caseId ? detailRef.current.case : null;
+        if (
+          shownCase &&
+          caseId === activeIdRef.current &&
+          newRow &&
+          (String(newRow.status ?? "") !== String(shownCase.status ?? "") ||
+            String(newRow.assigned_admin_id ?? "") !== String(shownCase.assigned_admin_id ?? ""))
+        ) {
+          void loadDetail(caseId);
         }
         if (
           shouldRefetchSupportListForCaseChange({
@@ -492,39 +565,54 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       })
       .subscribe();
     return () => {
+      unsubscribeMessages();
       if (listTimer != null) window.clearTimeout(listTimer);
       if (slowTimer != null) window.clearTimeout(slowTimer);
       void sb.removeChannel(channel);
     };
   }, [loadDetail]);
 
-  const patchCase = async (payload: Record<string, unknown>) => {
-    if (!activeId || busy) return false;
+  /**
+   * 점검 H1: 저장은 「누를 때 화면에 보이던 문의」(`expectedCaseId`)로만 보낸다.
+   * 그 사이 다른 문의를 눌렀거나 상세가 아직 그 문의 것이 아니면 보내지 않는다.
+   */
+  const patchCase = async (payload: Record<string, unknown>, expectedCaseId: string | null | undefined) => {
+    const writeCaseId = resolveAdminSupportWriteTarget({
+      expectedCaseId,
+      activeId: activeIdRef.current,
+      shownCaseId: shownCaseIdRef.current,
+    });
+    if (!writeCaseId || busy) return false;
     setBusy(true);
     setError(null);
-    const writeCaseId = activeId;
     // 진행 중에는 끝없이, 끝난 뒤 잠깐 — 그 사이 같은 문의의 내 변경 실시간 메아리는 다시 읽지 않는다 (D6).
     ownWriteRef.current = { caseId: writeCaseId, until: Number.POSITIVE_INFINITY };
     try {
-      const res = await fetch(`/api/admin/support/cases/${encodeURIComponent(activeId)}`, {
+      const res = await fetch(`/api/admin/support/cases/${encodeURIComponent(writeCaseId)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; unseenCustomerMessages?: number };
+      // 재감사 1·2: 그사이 다른 문의를 눌렀으면 저장한 문의의 상세를 다시 읽지 않고(열린 문의 응답이 버려져 멈춤) 결과 문구도 띄우지 않는다
+      const stillOpen = activeIdRef.current === writeCaseId;
       if (!res.ok || !json.ok) {
-        setError(json.error ?? "action_failed");
+        const code = json.error ?? "action_failed";
+        // 점검 M6 · 병합 전 L2: 문의가 그사이 바뀌었다(고객 새 글·다른 어드민의 종료·상태 변경) — 상세를 다시 읽고 안내를 남긴다
+        if (stillOpen && ADMIN_SUPPORT_RELOAD_ON_ERROR.has(code)) await loadDetail(writeCaseId);
+        if (stillOpen) setError(code);
         return false;
       }
-      await loadDetail(activeId);
-      await loadList();
+      if (stillOpen) await loadDetail(writeCaseId);
+      // 재감사(PR #687) 1: 누를 때의 옛 조건이 아니라 지금 탭·조건으로 다시 읽는다
+      await loadListRef.current();
       // 재감사 D1-b: 답을 쓰는 사이 고객 글이 더 왔다 — 문의는 「답변 필요」에 남았다는 것을 알린다
-      if (Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
+      if (stillOpen && Number(json.unseenCustomerMessages ?? 0) > 0) setError("reply_unseen_customer_messages");
       return true;
     } catch {
       // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
-      setError("network_error");
+      if (activeIdRef.current === writeCaseId) setError("network_error");
       return false;
     } finally {
       ownWriteRef.current = { caseId: writeCaseId, until: Date.now() + ADMIN_SUPPORT_OWN_WRITE_GRACE_MS };
@@ -546,7 +634,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   };
 
   const whoLine = (c: SupportCaseRow) => {
-    const role = supportAudienceLabel(c.audience, ko);
+    const role = supportAudienceLabel(c.audience, t);
     const d = displayFor(c);
     if (c.audience === "OWNER" && c.owner_store_id) {
       const store = d?.owner_store_name || `${t("common_store")} ${formatAdminShortId(c.owner_store_id)}`;
@@ -561,12 +649,14 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 
   const sendComposer = async () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || !activeCase) return;
+    const sentCaseId = activeCase.id;
     const ok =
       composerMode === "public"
-        ? await patchCase(buildAdminSupportPublicReplyPayload(text, activeCase?.last_message_at))
-        : await patchCase({ action: "reply", body: text, internalNote: true });
-    if (ok) setDraft("");
+        ? await patchCase(buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at), activeCase.id)
+        : await patchCase({ action: "reply", body: text, internalNote: true }, activeCase.id);
+    // 재감사 3: 그사이 다른 문의로 바꿨으면 그 문의에 쓰는 답을 지우지 않는다
+    if (ok && activeIdRef.current === sentCaseId) setDraft("");
   };
 
   const filtersActive =
@@ -602,9 +692,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     copy: { title: string; description: string; confirmLabel: string; destructive?: boolean; retypeValue?: string },
     kind: AdminActionKind = "save"
   ) => {
+    const expectedCaseId = activeCase?.id ?? null;
+    if (!expectedCaseId) return false;
     const confirmed = await confirmAdminAction({ level: adminActionLevel(kind), ko, ...copy });
     if (!confirmed.ok) return false;
-    return patchCase(confirmed.reason ? { ...payload, reason: confirmed.reason } : payload);
+    return patchCase(confirmed.reason ? { ...payload, reason: confirmed.reason } : payload, expectedCaseId);
   };
 
   const groupOptions = [
@@ -622,7 +714,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       return m.sender_admin_id && m.sender_admin_id === selfAdminId
         ? t("admin_support_me_admin")
         : t("admin_support_admin");
-    return activeCase ? whoName(activeCase) : supportAudienceLabel(m.sender_type, ko);
+    return activeCase ? whoName(activeCase) : supportAudienceLabel(m.sender_type, t);
   };
 
   const detailPane = resolveAdminSupportDetailPane({
@@ -686,7 +778,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           syncUrl={false}
           onChange={(id) => {
             setTab(id as AdminSupportTab);
-            setActiveId(null);
+            // 병합 전 2차 1: 저장 중이면 열린 문의를 닫지 않는다(결과·실패 안내가 사라지지 않게)
+            if (!busy) setActiveId(null);
           }}
         />
       </div>
@@ -714,8 +807,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
             onChange={setAudience}
             options={[
               { id: "ALL", label: t("common_all") },
-              { id: "MEMBER", label: supportAudienceLabel("MEMBER", ko) },
-              { id: "OWNER", label: supportAudienceLabel("OWNER", ko) },
+              { id: "MEMBER", label: supportAudienceLabel("MEMBER", t) },
+              { id: "OWNER", label: supportAudienceLabel("OWNER", t) },
             ]}
           />
           <select
@@ -810,11 +903,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   const unread = Number(c.admin_unread_count) || 0;
                   return (
                     <li key={c.id}>
-                      <SupportQueueRow selected={activeId === c.id} onSelect={() => setActiveId(c.id)} rowId={c.id}>
+                      <SupportQueueRow
+                        selected={activeId === c.id}
+                        onSelect={() => setActiveId(c.id)}
+                        rowId={c.id}
+                        disabled={busy && activeId !== c.id}
+                      >
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold text-sam-fg">{c.public_case_no}</span>
                           <span className="rounded border border-sam-border px-1 text-[12px] text-sam-muted">
-                            {supportAudienceLabel(c.audience, ko)}
+                            {supportAudienceLabel(c.audience, t)}
                           </span>
                           {unread > 0 ? (
                             <span className="rounded-full bg-sam-danger px-1.5 text-[12px] font-bold text-sam-on-primary tabular-nums">
@@ -822,7 +920,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                             </span>
                           ) : null}
                           <span className="ml-auto text-[12px] text-sam-muted">
-                            {waitingAgeLabel(c.last_message_at, ko)}
+                            {waitingAgeLabel(c.last_message_at, t)}
                           </span>
                         </div>
                         <p className="mt-0.5 truncate text-[12px] font-medium text-sam-fg">{whoLine(c)}</p>
@@ -835,11 +933,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         ) : null}
                         <div className="mt-1 flex flex-wrap items-center gap-1">
                           <AdminToneBadge tone={adminSupportStatusTone(c.status)}>
-                            {supportAdminStatusLabel(c.status, ko)}
+                            {supportAdminStatusLabel(c.status, t)}
                           </AdminToneBadge>
                           {c.priority !== "NORMAL" ? (
                             <span className="rounded border border-sam-danger px-1 text-[12px] text-sam-danger">
-                              {supportPriorityLabel(c.priority, ko)}
+                              {supportPriorityLabel(c.priority, t)}
                             </span>
                           ) : null}
                           {!c.assigned_admin_id && c.status !== "RESOLVED" && c.status !== "ARCHIVED" ? (
@@ -896,17 +994,18 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     size="sm"
                     className="lg:hidden"
                     data-admin-support-back="1"
+                    disabled={busy}
                     onClick={() => setActiveId(null)}
                   >
                     ← {t("admin_support_list")}
                   </AdminActionButton>
                   <h2 className="text-base font-bold text-sam-fg">{activeCase.public_case_no}</h2>
                   <AdminToneBadge tone={adminSupportStatusTone(activeCase.status)}>
-                    {supportAdminStatusLabel(activeCase.status, ko)}
+                    {supportAdminStatusLabel(activeCase.status, t)}
                   </AdminToneBadge>
                   {activeCase.priority !== "NORMAL" ? (
                     <span className="rounded border border-sam-danger px-1.5 text-[12px] text-sam-danger">
-                      {supportPriorityLabel(activeCase.priority, ko)}
+                      {supportPriorityLabel(activeCase.priority, t)}
                     </span>
                   ) : null}
                   <span className="text-xs text-sam-muted">
@@ -930,7 +1029,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           variant="secondary"
                           size="sm"
                           disabled={busy}
-                          onClick={() => void patchCase({ action: "assign", assigneeAdminId: null })}
+                          onClick={() => void patchCase({ action: "assign", assigneeAdminId: null }, activeCase.id)}
                         >
                           {safeT("admin_support_unassign")}
                         </AdminActionButton>
@@ -940,7 +1039,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           size="sm"
                           disabled={busy || !selfAdminId}
                           data-admin-support-assign-self="1"
-                          onClick={() => void patchCase({ action: "assign", assigneeAdminId: selfAdminId })}
+                          onClick={() => void patchCase({ action: "assign", assigneeAdminId: selfAdminId }, activeCase.id)}
                         >
                           {safeT("admin_support_assign_self")}
                         </AdminActionButton>
@@ -951,11 +1050,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         data-admin-support-priority="1"
                         aria-label={safeT("admin_support_priority_label")}
                         className="h-8 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-xs"
-                        onChange={(e) => void patchCase({ action: "priority", priority: e.target.value })}
+                        onChange={(e) => void patchCase({ action: "priority", priority: e.target.value }, activeCase.id)}
                       >
                         {PRIORITIES.map((p) => (
                           <option key={p} value={p}>
-                            {(`${t("admin_support_priority_label")} `) + supportPriorityLabel(p, ko)}
+                            {(`${t("admin_support_priority_label")} `) + supportPriorityLabel(p, t)}
                           </option>
                         ))}
                       </select>
@@ -975,9 +1074,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         variant="secondary"
                         size="sm"
                         disabled={busy}
+                        className={ADMIN_SUPPORT_NARROW_PRIMARY_TAP_CLASS}
+                        data-admin-support-resolve="1"
                         onClick={() =>
                           void confirmThenPatch(
-                            { action: "status", status: "RESOLVED" },
+                            // 점검 M6: 화면에 보이는 마지막 글 시각 — 그 뒤 고객 글이 왔으면 서버가 case_updated 로 막는다
+                            buildAdminSupportResolvePayload(activeCase.last_message_at),
                             {
                               title: safeT("admin_support_resolve"),
                               description: t("admin_support_closes_customer_sees_it_as_closed", { public_case_no: String(activeCase.public_case_no) }),
@@ -1014,6 +1116,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                           size="sm"
                           disabled={busy}
                           data-admin-support-reopen="1"
+                          className={ADMIN_SUPPORT_NARROW_PRIMARY_TAP_CLASS}
                           onClick={() =>
                             void confirmThenPatch(
                               { action: "reopen" },
@@ -1037,6 +1140,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         size="sm"
                         disabled={busy}
                         data-admin-support-reopen="1"
+                        className={ADMIN_SUPPORT_NARROW_PRIMARY_TAP_CLASS}
                         onClick={() =>
                           void confirmThenPatch(
                             { action: "reopen" },
@@ -1129,11 +1233,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                                 size="sm"
                                 disabled={busy || !editDraft.trim()}
                                 onClick={async () => {
-                                  const ok = await patchCase({
-                                    action: "edit_message",
-                                    messageId: m.id,
-                                    body: editDraft,
-                                  });
+                                  const ok = await patchCase(
+                                    { action: "edit_message", messageId: m.id, body: editDraft },
+                                    activeCase.id
+                                  );
                                   if (ok) setEditingId(null);
                                 }}
                               >
@@ -1228,7 +1331,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       disabled={busy || !draft.trim()}
                       aria-busy={busy || undefined}
                       data-admin-support-send-busy={busy ? "1" : undefined}
-                      className="shrink-0"
+                      data-admin-support-send="1"
+                      className={`shrink-0 ${ADMIN_SUPPORT_NARROW_PRIMARY_TAP_CLASS}`}
                       onClick={() => void sendComposer()}
                     >
                       {busy
@@ -1332,6 +1436,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     </div>
   );
 }
+
+/** 병합 전 L2: 이 오류면 상세가 낡은 것 — 다시 읽는다 */
+const ADMIN_SUPPORT_RELOAD_ON_ERROR = new Set(["case_updated", "case_closed", "status_conflict", "invalid_transition"]);
 
 export function AdminSupportPage({ initialCaseId }: { initialCaseId?: string }) {
   return (

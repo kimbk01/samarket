@@ -49,7 +49,8 @@ export async function GET(
     return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
   }
   // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다
-  await markSupportCaseReadForAdmin(sb, caseId, supportShownListSeenAt(messages.messages, gate.case.last_message_at));
+  // 최종 점검 L6: 위에서 읽은 문의 행을 그대로(문의 행 2번 읽지 않음) · M8: 바뀔 값이 없으면 쓰지 않음
+  await markSupportCaseReadForAdmin(sb, caseId, supportShownListSeenAt(messages.messages, gate.case.last_message_at), gate.case);
   // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
   // 재감사 D15: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번).
   await markSupportCaseNotificationsRead(sb, {
@@ -115,16 +116,19 @@ export async function PATCH(
       after,
     });
 
+  // 최종 감사 D1 · 최종 점검 M6: 본 마지막 글 시각 — 없으면(옛 화면) 예전 동작. 있는데 시각이 아니면 400(잘못 보내면 알림을 덜 남기거나 잘못 닫을 수 있어 거부).
+  const parseSeen = (): { ok: true; value: string | null } | { ok: false } => {
+    if (body.seenLastMessageAt == null || body.seenLastMessageAt === "") return { ok: true, value: null };
+    const raw = typeof body.seenLastMessageAt === "string" ? body.seenLastMessageAt.trim() : "";
+    if (!raw || !Number.isFinite(Date.parse(raw))) return { ok: false };
+    return { ok: true, value: raw };
+  };
+  const invalidSeen = () => NextResponse.json({ ok: false, error: "invalid_seen_last_message_at" }, { status: 400 });
+
   if (body.action === "reply") {
-    // 최종 감사 D1: 본 마지막 글 시각 — 없으면(옛 화면) 예전 동작. 있는데 시각이 아니면 400(잘못 보내면 알림을 덜 남길 수 있어 거부).
-    let seenLastMessageAt: string | null = null;
-    if (body.seenLastMessageAt != null && body.seenLastMessageAt !== "") {
-      const raw = typeof body.seenLastMessageAt === "string" ? body.seenLastMessageAt.trim() : "";
-      if (!raw || !Number.isFinite(Date.parse(raw))) {
-        return NextResponse.json({ ok: false, error: "invalid_seen_last_message_at" }, { status: 400 });
-      }
-      seenLastMessageAt = raw;
-    }
+    const seenParsed = parseSeen();
+    if (!seenParsed.ok) return invalidSeen();
+    const seenLastMessageAt = seenParsed.value;
     const res = await adminReplySupportCase(sb, {
       adminUserId: auth.userId,
       caseId,
@@ -154,13 +158,17 @@ export async function PATCH(
   }
 
   if (body.action === "status" && body.status) {
+    // 최종 점검 M6: 「상담 종료」 때 화면이 본 문의 last_message_at — 그 뒤 새 글이 왔으면 닫지 않는다(case_updated → 409)
+    const seenParsed = parseSeen();
+    if (!seenParsed.ok) return invalidSeen();
     const res = await adminUpdateSupportCaseStatus(sb, {
       adminUserId: auth.userId,
       caseId,
       status: body.status as SupportCaseStatus,
+      seenLastMessageAt: seenParsed.value,
     });
     if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+      return NextResponse.json({ ok: false, error: res.error }, { status: res.error === "case_updated" ? 409 : 400 });
     }
     await audit("status", { status: body.status });
     return NextResponse.json({ ok: true, case: res.case });

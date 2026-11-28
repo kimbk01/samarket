@@ -1186,7 +1186,7 @@ export default function MemberFeedAdRequestPage() {
               </Link>
               <button
                 type="button"
-                className="inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border px-4 py-2 sam-text-helper text-sam-fg"
+                className="inline-flex min-h-11 w-full touch-manipulation items-center justify-center rounded-ui-rect border border-sam-border px-4 py-2 sam-text-helper text-sam-fg"
                 data-testid="feed-ad-inquiry-cta"
                 onClick={() => {
                   navigateToSupportCenter(
