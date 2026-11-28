@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deleteAllNeighborFollowsForUser } from "@/lib/community/neighbor-follow-list.server";
 import { writeMemberMarketingConsent } from "@/lib/legal/marketing-consent.server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
@@ -231,6 +232,9 @@ export async function POST(
       );
     }
   }
+
+  /** 관심이웃 맺은·받은 관계 모두 삭제 — 탈퇴·영구 삭제 공통 (레거시: 탈퇴하면 모아보기 목록에서 제외 · 관심이웃 설계 C) */
+  await deleteAllNeighborFollowsForUser(sb, userId);
 
   await sb
     .from("account_deletion_requests")

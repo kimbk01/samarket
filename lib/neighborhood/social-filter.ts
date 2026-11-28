@@ -47,10 +47,11 @@ export function rememberBlockedAuthorIdsForViewer(viewerId: string, ids: Set<str
   blockedIdsCacheByViewer.set(v, { at: Date.now(), ids: new Set(ids) });
 }
 
-/** 관심이웃 대상 user_id (필터 시 이 작성자만 노출 + 본인 글) */
+/** 관심이웃 대상 user_id (필터 시 이 작성자만 노출 + 본인 글 — `includeSelf:false` 면 본인 글 제외) */
 export async function fetchNeighborFollowTargetIds(
   sb: SupabaseClient<any>,
-  viewerId: string
+  viewerId: string,
+  opts?: { includeSelf?: boolean }
 ): Promise<Set<string>> {
   const v = viewerId.trim();
   if (!v) return new Set();
@@ -65,6 +66,6 @@ export async function fetchNeighborFollowTargetIds(
       if (r.target_user_id) s.add(r.target_user_id);
     }
   }
-  s.add(v);
+  if (opts?.includeSelf !== false) s.add(v);
   return s;
 }

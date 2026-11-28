@@ -340,7 +340,10 @@ export function AdminMemberControlCenter({
 
       {lazy.has("community") ? (
         <div hidden={tab !== "community"}>
-          <AdminMemberCommunityPanel userId={user.id} />
+          <AdminMemberCommunityPanel
+            userId={user.id}
+            memberName={String(user.display_name || user.nickname || user.id)}
+          />
         </div>
       ) : null}
 

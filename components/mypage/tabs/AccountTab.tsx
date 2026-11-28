@@ -19,7 +19,6 @@ type Props = Pick<
   MyPageConsoleProps,
   | "profile"
   | "mannerScore"
-  | "favoriteBadge"
   | "notificationBadge"
   | "overviewCounts"
   | "storeAttentionSummary"
@@ -29,7 +28,6 @@ export function AccountTab({
   section,
   profile,
   mannerScore,
-  favoriteBadge,
   notificationBadge,
   overviewCounts,
   storeAttentionSummary,
@@ -119,7 +117,7 @@ export function AccountTab({
     );
   }
 
-  if (section === "favorite-users" || section === "blocked-users" || section === "hidden-users") {
+  if (section === "blocked-users" || section === "hidden-users") {
     return <AccountUserListSection kind={section} />;
   }
 
@@ -158,7 +156,6 @@ export function AccountTab({
           label={t("mypage_comp_account_recent_order_status")}
           value={storeAttentionSummary ?? t("mypage_comp_account_check")}
         />
-        <SummaryBox label={t("mypage_comp_account_favorite_users")} value={favoriteBadge ?? "0"} />
       </div>
     </div>
   );
@@ -173,17 +170,12 @@ function SummaryBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-type AccountUserListKind = "favorite-users" | "blocked-users" | "hidden-users";
+type AccountUserListKind = "blocked-users" | "hidden-users";
 
 const USER_LIST_META: Record<
   AccountUserListKind,
-  { type: "favorite" | "blocked" | "hidden"; descKey: MessageKey; emptyKey: MessageKey }
+  { type: "blocked" | "hidden"; descKey: MessageKey; emptyKey: MessageKey }
 > = {
-  "favorite-users": {
-    type: "favorite",
-    descKey: "mypage_comp_nav_sec_account_favorite_users_desc",
-    emptyKey: "mypage_comp_settings_users_empty_favorite",
-  },
   "blocked-users": {
     type: "blocked",
     descKey: "mypage_comp_nav_sec_account_blocked_users_desc",

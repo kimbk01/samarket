@@ -11,12 +11,10 @@ import { formatMypageDate } from "@/lib/mypage/format-mypage-date";
 import { showMypageToast } from "@/lib/mypage/mypage-toast";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import {
-  buildUserRelationDeleteUrl,
-  userRelationReleaseNeedsConfirm,
-} from "@/lib/mypage/user-relation-release";
+import { buildUserRelationDeleteUrl } from "@/lib/mypage/user-relation-release";
 
-type ListType = "favorite" | "hidden" | "blocked" | "neighbor";
+/** 차단·숨김 목록만 — 관심이웃은 `NeighborFollowScreen`(관심이웃 설계 B), 옛 「모아보는 사용자」는 삭제 */
+type ListType = "hidden" | "blocked";
 
 interface UserListContentProps {
   type: ListType;
@@ -35,17 +33,11 @@ type UserRelationItem = {
 
 /** 목록 종류별 해제 버튼 문구 (S14 — "삭제" 대신 해제 문구) */
 export const USER_LIST_RELEASE_LABEL_KEYS: Record<ListType, MessageKey> = {
-  favorite: "mypage_s14_release_favorite",
   blocked: "mypage_s14_release_blocked",
   hidden: "mypage_s14_release_hidden",
-  neighbor: "community_neighbor_follow_remove",
 };
 
 const CONFIRM_KEYS: Record<ListType, { title: MessageKey; body?: MessageKey; cta: MessageKey }> = {
-  favorite: {
-    title: "popup_q_unfavorite_named",
-    cta: "popup_btn_unfavorite",
-  },
   blocked: {
     title: "popup_q_unblock_named",
     cta: "popup_cta_unblock",
@@ -54,17 +46,10 @@ const CONFIRM_KEYS: Record<ListType, { title: MessageKey; body?: MessageKey; cta
     title: "popup_q_unhide_named",
     cta: "popup_cta_unhide",
   },
-  neighbor: {
-    title: "mypage_s14_confirm_neighbor_title",
-    body: "mypage_s14_confirm_neighbor_body",
-    cta: "community_neighbor_follow_remove",
-  },
 };
 
 /**
- * 관심·차단·숨김(·이웃) 사용자 목록 (최종 설계 S14).
- * - 관심·차단·숨김 해제는 확인 시트 후 실행(관심 추가 POST API 가 없어 [되돌리기] 대신 확인 — 설계 대체 규칙).
- *   이웃(`neighbor`, 커뮤니티 공유 사용처)은 기존 즉시 해제 동작 유지.
+ * 차단·숨김 사용자 목록 (최종 설계 S14). 해제는 확인 시트 후 실행.
  * - 해제 실패 = 토스트, 목록 유지. 첫 로딩 = 스켈레톤 행 5, 오류 = 재시도.
  */
 export function UserListContent({ type, emptyMessage }: UserListContentProps) {
@@ -213,11 +198,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
                 disabled={busyId === item.id}
                 aria-busy={busyId === item.id}
                 className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} ${Sam.focusRing} shrink-0 disabled:opacity-45`}
-                onClick={() => {
-                  /** 이웃(커뮤니티) 해제는 기존 동작 유지 — 즉시 실행 */
-                  if (userRelationReleaseNeedsConfirm(type)) setConfirmTarget(item);
-                  else void release(item);
-                }}
+                onClick={() => setConfirmTarget(item)}
               >
                 {busyId === item.id ? t("settings_user_list_deleting") : t(USER_LIST_RELEASE_LABEL_KEYS[type])}
               </button>

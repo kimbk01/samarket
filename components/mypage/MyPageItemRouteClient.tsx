@@ -9,6 +9,7 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen, MyPageItemStaticContent } from "@/components/mypage/MyPageItemScreen";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { NeighborFollowHeaderAction } from "@/components/mypage/community/NeighborFollowHeaderAction";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isMypageGuestPublicItem, resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
 import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
@@ -50,7 +51,10 @@ export function MyPageItemRouteClient({
   const noHubWait = isMypageItemWithoutHubWait(section, item);
   const hubEnabled = sessionMember && !noHubWait;
   const template = mypageItemScreenTemplate(section, item);
-  const itemLabel = t(itemLabelKey);
+  /** 관심이웃 — 머리줄 [관리]↔[완료], 관리 모드 제목 「관심이웃 관리」(시안 ③) */
+  const isNeighborFollow = section === "community" && item === "community-friends";
+  const neighborManage = isNeighborFollow && searchParams.get("manage") === "1";
+  const itemLabel = neighborManage ? t("mypage_neighbor_manage_title") : t(itemLabelKey);
   /** 뒤로(직접 진입) = 분류(IA) 부모 — 예: 판매 글 동네 일괄 변경 → 거래, 결제정보·기기 권한 → 계정·보안 */
   const defaultBack =
     resolveMypageIaParentHref(`/mypage/section/${section}/${item}`) ?? buildMypageSectionHref(section);
@@ -71,7 +75,6 @@ export function MyPageItemRouteClient({
     load,
   } = useMypageHubModel(initialMyPageData ?? undefined, { enabled: hubEnabled });
   /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
-  const favoriteBadge = null;
   const notificationBadge = null;
 
   const shell = (body: ReactNode) => (
@@ -80,6 +83,7 @@ export function MyPageItemRouteClient({
       backHref={backHref}
       fixedBackHistory={settleToCustomerCenter ? "settle" : undefined}
       template={template}
+      headerRight={isNeighborFollow && sessionMember ? <NeighborFollowHeaderAction /> : undefined}
     >
       {body}
     </MyScreen>
@@ -151,7 +155,6 @@ export function MyPageItemRouteClient({
       addressDefaults={addressDefaults}
       neighborhoodFromLife={neighborhoodFromLife}
       overviewCounts={overviewCounts}
-      favoriteBadge={favoriteBadge}
       notificationBadge={notificationBadge}
       storeAttentionSummary={storeAttentionSummary}
     />,

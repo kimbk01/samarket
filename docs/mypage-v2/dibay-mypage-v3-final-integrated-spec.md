@@ -808,6 +808,7 @@ type MypageSummaryResponse = {
 - 영향 파일: `components/my/settings/CountrySettingsContent.tsx`(모양만).
 
 ### S14 관심·차단·숨김 사용자 (v2 S22·S23) — 판정: 수정  (현재 감사 판정: PARTIAL)
+- **2026-11-28 변경 (Owner 「시안대로 결정」 · 설계 `docs/audit/interest-neighbor-build-design-2026-11-28.md`)**: 「관심(모아보는) 사용자」(`favorite` → 운영에 없는 `user_favorites`)는 삭제하고 라운지 › 모아 보기 › **관심이웃** 한 화면(`/mypage/section/community/community-friends`)으로 합쳤다. 옛 주소(`account/favorite-users`·`/my/settings/favorite-users`·`settings/following`·`messenger:friends`)는 관심이웃으로 이동. 이 절의 목록은 **차단·숨김**만 남는다.
 - 경로 / 진입 메뉴: `/mypage/section/account/favorite-users` · `blocked-users` · `hidden-users`. 진입 = 홈 서비스 그룹 3행(`mypage-home-menu-config.ts:196,201,206`), 레거시 `messenger:friends` → 관심(`mypage-section-legacy-redirect.ts:39`).
 - 구조·콘텐츠 순서: 설명 한 줄 → 사용자 행(사진·닉네임·@ID) → 행 오른쪽 버튼.
 - 표시: 이름 = nickname SSOT, @ID.

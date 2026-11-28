@@ -13,6 +13,7 @@ import {
   MYPAGE_HOME_TRADE_FAVORITES_HREF,
   MYPAGE_HOME_TRADE_SALES_HREF,
 } from "@/lib/mypage/mypage-home-hub-links";
+import { NEIGHBOR_FOLLOW_MYPAGE_HREF } from "@/lib/community/neighbor-follow-contract";
 
 export const LEGACY_HUB_REDIRECTS: Readonly<Record<string, string>> = {
   "trade:sales": MYPAGE_HOME_TRADE_SALES_HREF,
@@ -36,7 +37,9 @@ export const LEGACY_HUB_REDIRECTS: Readonly<Record<string, string>> = {
   /** CUT1: 저장한 글 is a dedicated management surface (unsave) — do not absorb into activity hub */
   "messenger:dm": MYPAGE_HOME_MESSENGER_HREF,
   "messenger:groups": "/community-messenger?section=groups",
-  "messenger:friends": "/mypage/section/account/favorite-users",
+  /** 옛 「모아보는 사용자」·친구 목록 → 관심이웃 하나 (관심이웃 설계 B · Owner 「시안대로 결정」 2026-11-28) */
+  "messenger:friends": NEIGHBOR_FOLLOW_MYPAGE_HREF,
+  "account:favorite-users": NEIGHBOR_FOLLOW_MYPAGE_HREF,
   "messenger:chat-alerts": "/mypage/section/settings/notifications",
   /** App CS — stub support → full-page hub */
   "settings:support": "/mypage/customer-center",

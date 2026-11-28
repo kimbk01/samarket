@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>관심이웃 · 내정보 시안 (2026-11-28)</title>
+<style>
+  :root{
+    --g:#0B421A; --g-soft:#eef2ea; --bg:#f5f6f4; --card:#fff; --fg:#1d2420; --muted:#6b736e; --meta:#8a918d;
+    --line:#e4e7e3; --danger:#d45252; --r:4px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:#e9ece8;color:var(--fg)}
+  header.doc{max-width:1280px;margin:0 auto;padding:28px 20px 8px}
+  header.doc h1{font-size:22px;margin:0 0 6px}
+  header.doc p{margin:2px 0;color:var(--muted);font-size:14px;line-height:1.55}
+  .grid{max-width:1280px;margin:0 auto;padding:16px 20px 40px;display:flex;flex-wrap:wrap;gap:28px}
+  .col{width:390px}
+  .cap{font-size:13px;font-weight:700;margin:0 0 4px}
+  .cap small{display:block;font-weight:400;color:var(--muted);margin-top:2px;line-height:1.5}
+  .phone{width:390px;height:780px;background:var(--bg);border:1px solid #cfd5cf;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+  .status{height:28px}
+  .top{height:52px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--line)}
+  .top .back{font-size:22px;width:28px;color:var(--fg)}
+  .top h2{flex:1;font-size:17px;margin:0;font-weight:700}
+  .top .act{font-size:14px;font-weight:600;color:var(--g)}
+  .body{height:calc(100% - 80px);overflow:auto;padding-bottom:20px}
+  .grp{margin:12px 0 0;background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .grp h3{margin:0;padding:12px 16px 4px;font-size:13px;color:var(--muted);font-weight:600}
+  .row{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-top:1px solid var(--line);font-size:15px}
+  .grp h3+.row{border-top:0}
+  .row .ic{width:22px;text-align:center;color:var(--muted)}
+  .row .t{flex:1}
+  .row .v{color:var(--meta);font-size:14px}
+  .row .chev{color:var(--meta)}
+  .row.off{opacity:.45;text-decoration:line-through}
+  .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:var(--r);background:#fff4d6;color:#7a5a00;margin-left:6px;vertical-align:middle}
+  .tag.new{background:var(--g-soft);color:var(--g)}
+  .tag.del{background:#fdf0f0;color:var(--danger)}
+  .strip{display:flex;gap:14px;overflow-x:auto;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+  .av{width:52px;flex:0 0 auto;text-align:center;font-size:12px;color:var(--fg)}
+  .av i{display:block;width:52px;height:52px;border-radius:50%;background:#d9dfd8;margin-bottom:6px;border:2px solid transparent}
+  .av.sel i{border-color:var(--g)}
+  .av.all i{background:var(--g-soft);display:flex;align-items:center;justify-content:center;color:var(--g);font-weight:700;font-style:normal}
+  .count{padding:10px 16px;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;background:var(--bg)}
+  .post{background:var(--card);padding:14px 16px;border-bottom:1px solid var(--line)}
+  .post .who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .post .who i{width:22px;height:22px;border-radius:50%;background:#d9dfd8;display:inline-block}
+  .post .ti{font-size:15px;font-weight:600;margin:6px 0 4px}
+  .post .meta{font-size:12px;color:var(--meta)}
+  .chip{display:inline-block;font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:var(--r);margin-right:6px;color:var(--muted)}
+  .urow{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+  .urow i{width:44px;height:44px;border-radius:50%;background:#d9dfd8;flex:0 0 auto}
+  .urow .n{flex:1;min-width:0}
+  .urow .n b{display:block;font-size:15px}
+  .urow .n span{display:block;font-size:12px;color:var(--meta);margin-top:2px}
+  .btn{height:34px;padding:0 12px;border-radius:var(--r);font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--fg);white-space:nowrap}
+  .btn.on{border-color:var(--g);color:var(--g)}
+  .btn.pri{background:var(--g);border-color:var(--g);color:#fff}
+  .empty{padding:60px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
+  .empty b{display:block;color:var(--fg);font-size:16px;margin-bottom:6px}
+  .toast{position:absolute;left:16px;right:16px;bottom:24px;background:#1f2622;color:#fff;border-radius:12px;padding:12px 14px;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+  .toast a{color:#b9e3c2;font-weight:700}
+  .note{font-size:12px;color:var(--muted);background:#fffbe9;border:1px dashed #e3d28a;border-radius:var(--r);margin:12px 16px;padding:8px 10px;line-height:1.5}
+  .detail{background:var(--card);padding:16px}
+  .detail .ar{display:flex;align-items:center;gap:10px}
+  .detail .ar i{width:40px;height:40px;border-radius:50%;background:#d9dfd8}
+  .detail .ar .n{flex:1;font-size:14px}
+  .detail .ar .n span{display:block;font-size:12px;color:var(--meta)}
+  .menu{position:absolute;right:16px;top:150px;width:200px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14);overflow:hidden}
+  .menu div{padding:12px 14px;font-size:14px;border-top:1px solid var(--line)}
+  .menu div:first-child{border-top:0}
+  .menu .d{color:var(--danger)}
+  .prompt{margin:14px 16px;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);display:flex;align-items:center;gap:10px}
+  .prompt p{flex:1;margin:0;font-size:14px}
+  .pf{background:var(--card);padding:20px 16px;text-align:center;border-bottom:1px solid var(--line)}
+  .pf i{width:72px;height:72px;border-radius:50%;background:#d9dfd8;display:block;margin:0 auto 10px}
+  .pf b{font-size:17px}
+  .pf span{display:block;color:var(--meta);font-size:13px;margin:4px 0 12px}
+  table.spec{max-width:1280px;margin:0 auto 48px;border-collapse:collapse;font-size:13px;background:#fff}
+  table.spec th,table.spec td{border:1px solid #d6dbd5;padding:8px 10px;text-align:left;vertical-align:top;line-height:1.5}
+  table.spec th{background:#f1f3f0}
+  .wrap{padding:0 20px}
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>관심이웃 — 내정보·상세·프로필 시안</h1>
+  <p>기준: 당근 공식 고객센터 FAQ 「모아보기」(daangn.com/wv/faqs/102) 구조 — 프로필 버튼 [모아보기]↔[모아보는중], 나의 당근 › 모아보기 = 사람 + 그 사람들 글, 오른쪽 위 [관리]에서 해제, 최대 100명, 알림 없음, 상대에게 알리지 않음, 탈퇴·요청 시 목록에서 빠짐.</p>
+  <p>DIBAY 용어 = 「관심이웃」(i18n SSOT, 영어 Following). 버튼·상태·목록이 한 관계(<code>user_relationships.neighbor_follow</code>)·한 상태를 쓴다. 노란 표시 = Owner 결정 필요.</p>
+</header>
+
+<div class="grid">
+
+  <!-- 1 내정보 라운지 카테고리 -->
+  <div class="col">
+    <p class="cap">① 내정보 › 라운지 <small>「모아 보기」 묶음의 관심이웃 행에 인원 표시. 계정 › 「모아보는 사용자」(운영에 없는 표를 읽어 항상 빈 목록)는 관심이웃으로 합친다.</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+      <div class="body">
+        <div class="grp"><h3>내 활동</h3>
+          <div class="row"><span class="ic">▤</span><span class="t">내가 쓴 글</span><span class="v">12</span><span class="chev">›</span></div>
+          <div class="row"><span class="ic">💬</span><span class="t">댓글·반응</span><span class="chev">›</span></div>
+        </div>
+        <div class="grp"><h3>모아 보기</h3>
+          <div class="row"><span class="ic">♡</span><span class="t">공감한 글</span><span class="chev">›</span></div>
+          <div class="row"><span class="ic">☆</span><span class="t">저장한 글</span><span class="chev">›</span></div>
+          <div class="row"><span class="ic">👥</span><span class="t">관심이웃 <span class="tag new">인원 표시</span></span><span class="v">4명</span><span class="chev">›</span></div>
+        </div>
+        <div class="grp"><h3>계정 › 보안 · 사용자 (다른 카테고리)</h3>
+          <div class="row off"><span class="ic">👥</span><span class="t">모아보는 사용자</span><span class="chev">›</span></div>
+          <div class="row"><span class="ic">⊘</span><span class="t">차단한 사용자</span><span class="chev">›</span></div>
+          <div class="row"><span class="ic">◌</span><span class="t">숨긴 사용자</span><span class="chev">›</span></div>
+        </div>
+        <div class="note">「모아보는 사용자」 행 처리 — <b>Owner 결정</b>: (가) 삭제하고 라운지 › 관심이웃 하나만 / (나) 행은 두되 같은 관심이웃 화면으로 연결. 둘 다 화면은 하나, 이름은 「관심이웃」 하나.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 관심이웃 글 모아보기 -->
+  <div class="col">
+    <p class="cap">② 관심이웃 화면 — 사람 + 그 사람들 글 <small>레거시 「모아보기」와 같은 구조. 위: 관심이웃 사진 줄(누르면 그 사람 글만). 아래: 관심이웃들의 라운지 글 최신순. 오른쪽 위 [관리].</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>관심이웃</h2><span class="act">관리</span></div>
+      <div class="body">
+        <div class="strip">
+          <div class="av all sel"><i>전체</i>전체</div>
+          <div class="av"><i></i>민지</div>
+          <div class="av"><i></i>세부댁</div>
+          <div class="av"><i></i>Jun</div>
+          <div class="av"><i></i>마닐라형</div>
+        </div>
+        <div class="count"><span>관심이웃 4 / 100명</span><span>최신순</span></div>
+        <div class="post"><div class="who"><i></i>세부댁 · 막탄</div><div class="ti">아얄라 근처 한식 반찬가게 추천해요</div><div class="meta"><span class="chip">맛집</span>2시간 전 · 댓글 5</div></div>
+        <div class="post"><div class="who"><i></i>민지 · 마카티</div><div class="ti">비자 연장 이번 주 다녀왔어요 (준비물 정리)</div><div class="meta"><span class="chip">생활정보</span>어제 · 댓글 12</div></div>
+        <div class="post"><div class="who"><i></i>Jun · BGC</div><div class="ti">주말 러닝 같이 하실 분</div><div class="meta"><span class="chip">질문있어요</span>3일 전 · 댓글 2</div></div>
+        <div class="post"><div class="who"><i></i>마닐라형 · 파사이</div><div class="ti">우기 끝나고 에어컨 청소 업체 후기</div><div class="meta"><span class="chip">생활정보</span>5일 전 · 댓글 7</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 관리 -->
+  <div class="col">
+    <p class="cap">③ [관리] — 해제·다시 추가 <small>버튼 = 상태. [관심이웃 ✓] 누르면 바로 해제(레거시와 같이 확인 없음) → 버튼 [관심이웃 추가]로 바뀌고 토스트 [되돌리기]. 화면을 나가면 목록에서 빠짐. 행 누르면 프로필.</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>관심이웃 관리</h2><span class="act">완료</span></div>
+      <div class="body">
+        <div class="count"><span>관심이웃 4 / 100명</span><span>추가한 순</span></div>
+        <div class="urow"><i></i><div class="n"><b>세부댁</b><span>@cebu_mom · 막탄 · 11월 8일</span></div><button class="btn on">관심이웃 ✓</button></div>
+        <div class="urow"><i></i><div class="n"><b>민지</b><span>@minji · 마카티 · 11월 1일</span></div><button class="btn pri">관심이웃 추가</button></div>
+        <div class="urow"><i></i><div class="n"><b>Jun</b><span>@jun_bgc · BGC · 7월 14일</span></div><button class="btn on">관심이웃 ✓</button></div>
+        <div class="urow"><i></i><div class="n"><b>마닐라형</b><span>@mnl_bro · 파사이 · 6월 20일</span></div><button class="btn on">관심이웃 ✓</button></div>
+        <div class="note">탈퇴·정지·영구 삭제된 회원, 내가 차단했거나 나를 차단한 회원은 목록에 나오지 않는다(레거시: 탈퇴 시 제외).</div>
+      </div>
+      <div class="toast"><span>민지님 관심이웃을 해제했어요</span><a>되돌리기</a></div>
+    </div>
+  </div>
+
+  <!-- 4 빈 화면 -->
+  <div class="col">
+    <p class="cap">④ 빈 화면 · 100명 도달 <small>빈 화면 주 CTA = 라운지 둘러보기. 100명이면 추가 시 안내 토스트(서버도 같은 상한).</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>관심이웃</h2></div>
+      <div class="body">
+        <div class="empty"><b>아직 관심이웃이 없어요</b>라운지 글이나 프로필에서 [관심이웃 추가]를 누르면<br>그 이웃의 글을 여기서 모아 볼 수 있어요.<br><br><button class="btn pri">라운지 둘러보기</button></div>
+        <div class="note">상한 100명 = 레거시 값. <b>Owner 결정</b>: 100 그대로 / 다른 값.</div>
+      </div>
+      <div class="toast"><span>관심이웃은 최대 100명까지 추가할 수 있어요</span></div>
+    </div>
+  </div>
+
+  <!-- 5 글 상세 -->
+  <div class="col">
+    <p class="cap">⑤ 라운지 글 상세 — 한 상태 <small>본문 아래 안내와 ⋯ 메뉴가 같은 상태를 쓴다. 한쪽에서 바꾸면 다른 쪽도 즉시 바뀜. 실패 시 토스트.</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>생활정보</h2></div>
+      <div class="body">
+        <div class="detail">
+          <div class="ar"><i></i><div class="n"><b>세부댁</b><span>막탄 · 2시간 전</span></div><span style="font-size:20px;color:var(--muted)">⋯</span></div>
+          <p style="font-size:16px;font-weight:700;margin:14px 0 6px">아얄라 근처 한식 반찬가게 추천해요</p>
+          <p style="font-size:14px;color:var(--muted);line-height:1.6;margin:0">지난주에 다녀온 곳인데 김치랑 나물이…</p>
+        </div>
+        <div class="prompt"><p>세부댁님과 관심이웃을 맺어보세요</p><button class="btn on">관심이웃 ✓</button></div>
+      </div>
+      <div class="menu">
+        <div>관심이웃 해제</div>
+        <div>이 글 숨기기</div>
+        <div>신고하기</div>
+        <div class="d">차단하기</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6 공개 프로필 -->
+  <div class="col">
+    <p class="cap">⑥ 공개 프로필 — 레거시 진입점 <small>프로필에 같은 버튼(⑤와 같은 부품). 지금은 신고 버튼만 있음.</small></p>
+    <div class="phone">
+      <div class="status"></div>
+      <div class="top"><span class="back">‹</span><h2>프로필</h2><span class="act" style="color:var(--muted)">⋯</span></div>
+      <div class="body">
+        <div class="pf"><i></i><b>세부댁</b><span>@cebu_mom · 막탄</span><button class="btn pri" style="width:100%">관심이웃 추가</button></div>
+        <div class="grp"><h3>라운지 글</h3>
+          <div class="row"><span class="t">아얄라 근처 한식 반찬가게 추천해요</span><span class="chev">›</span></div>
+          <div class="row"><span class="t">세부 우기 빨래 팁</span><span class="chev">›</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="wrap">
+<table class="spec">
+  <tr><th>항목</th><th>레거시(당근 공식 FAQ)</th><th>DIBAY 현재 (main a69668328)</th><th>시안</th></tr>
+  <tr><td>추가 위치</td><td>사용자 프로필 [모아보기]</td><td>라운지 글 상세 안내 + ⋯ 메뉴 (프로필 없음)</td><td>상세 2곳 + 프로필, 같은 부품·같은 상태</td></tr>
+  <tr><td>버튼 문구</td><td>모아보기 ↔ 모아보는중</td><td>관심이웃 추가 ↔ 관심이웃(안내) / 관심이웃 해제(메뉴)</td><td>관심이웃 추가 ↔ 관심이웃 ✓ (메뉴는 관심이웃 추가/해제)</td></tr>
+  <tr><td>목록</td><td>나의 당근 › 모아보기 = 사람 + 그 사람들 글</td><td>라운지 › 관심이웃 = 사람만 · 계정 › 모아보는 사용자 = 항상 빈 목록</td><td>관심이웃 1곳 = 사람 줄 + 글 목록</td></tr>
+  <tr><td>해제</td><td>[관리] › [모아보는중] 탭, 확인 없음</td><td>목록 [관심이웃 해제] 즉시, 되돌리기 없음</td><td>[관리] 즉시 해제 + 되돌리기</td></tr>
+  <tr><td>상한</td><td>최대 100명</td><td>없음</td><td>100명 (Owner 결정)</td></tr>
+  <tr><td>알림 · 상대 공개</td><td>새 글 알림 없음 · 상대 모름</td><td>알림 없음 · 상대 모름</td><td>유지</td></tr>
+  <tr><td>탈퇴 · 요청 삭제</td><td>탈퇴하거나 상대 요청 시 목록에서 제외</td><td>탈퇴해도 목록에 남음, 운영자 삭제 기능 없음</td><td>목록에서 제외 + 어드민에서 노출 삭제</td></tr>
+  <tr><td>차단</td><td>차단 시 서로 글·댓글 안 보임(FAQ 510)</td><td>라운지 차단만 내 관심이웃 삭제, 메신저·거래 차단·상대 차단은 남음</td><td>모든 차단 경로에서 양쪽 관심이웃 삭제, 목록 차단 제외</td></tr>
+</table>
+</div>
+</body>
+</html>

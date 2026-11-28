@@ -19,6 +19,8 @@ type Props = {
   onOwnDelete?: () => void;
   onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
+  /** 글 상세 첫 데이터(`post.viewer`)의 관심이웃·차단 — ⋯ 메뉴 시작 값 */
+  relationSeed?: { following?: boolean | null; blocked?: boolean | null };
 };
 
 export function CommunityPostDetailAuthorRow({
@@ -36,6 +38,7 @@ export function CommunityPostDetailAuthorRow({
   onOwnDelete,
   onOwnEdit,
   ownDeleteBusy,
+  relationSeed,
 }: Props) {
   const { t, language } = useI18n();
   const time =
@@ -57,6 +60,7 @@ export function CommunityPostDetailAuthorRow({
       onOwnDelete={onOwnDelete}
       onOwnEdit={onOwnEdit}
       ownDeleteBusy={ownDeleteBusy}
+      relationSeed={relationSeed}
     />
   );
 }

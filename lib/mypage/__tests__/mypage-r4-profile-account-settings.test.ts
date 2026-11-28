@@ -24,7 +24,7 @@ import {
 } from "@/lib/mypage/fetch-me-auth-providers";
 import { loadPhoneVerificationState } from "@/lib/mypage/load-phone-verification-state";
 import { saveDualNotificationToggle } from "@/lib/mypage/notification-toggle-dual-save";
-import { buildUserRelationDeleteUrl, userRelationReleaseNeedsConfirm } from "@/lib/mypage/user-relation-release";
+import { buildUserRelationDeleteUrl } from "@/lib/mypage/user-relation-release";
 import { clearAppClientCaches, isClearableLocalCacheKey } from "@/lib/mypage/clear-app-client-caches";
 import { isMypageItemWithoutHubWait } from "@/lib/mypage/mypage-item-hub-wait";
 import { resolveVersionScreenCta } from "@/lib/platform/android-play-version-screen-cta";
@@ -253,12 +253,6 @@ describe("S14 관심·차단·숨김 — 해제 API·확인", () => {
     expect(buildUserRelationDeleteUrl("hidden", { id: "r2", targetId: "u9" })).toBe("/api/me/relations/hidden?id=r2");
   });
 
-  it("관심·차단·숨김은 확인 시트, 이웃은 기존 즉시 해제", () => {
-    expect(userRelationReleaseNeedsConfirm("favorite")).toBe(true);
-    expect(userRelationReleaseNeedsConfirm("blocked")).toBe(true);
-    expect(userRelationReleaseNeedsConfirm("hidden")).toBe(true);
-    expect(userRelationReleaseNeedsConfirm("neighbor")).toBe(false);
-  });
 });
 
 describe("S17 캐시 삭제 — 레지스트리 키만", () => {
@@ -369,9 +363,12 @@ describe("섹션 화면 — 정적 화면 hub 대기 0 · core 로더", () => {
     ]) {
       expect(isMypageItemWithoutHubWait("settings", item), item).toBe(true);
     }
-    for (const item of ["favorite-users", "blocked-users", "hidden-users"]) {
+    for (const item of ["blocked-users", "hidden-users"]) {
       expect(isMypageItemWithoutHubWait("account", item)).toBe(true);
     }
+    /** 옛 「모아보는 사용자」는 관심이웃으로 합침(리다이렉트) · 관심이웃은 스스로 조회 */
+    expect(isMypageItemWithoutHubWait("account", "favorite-users")).toBe(false);
+    expect(isMypageItemWithoutHubWait("community", "community-friends")).toBe(true);
     expect(isMypageItemWithoutHubWait("store", "payment")).toBe(false);
   });
 

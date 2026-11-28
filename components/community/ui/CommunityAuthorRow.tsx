@@ -23,6 +23,8 @@ type Props = {
   onOwnDelete?: () => void;
   onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
+  /** 글 상세 첫 데이터(`post.viewer`)의 관심이웃·차단 — ⋯ 메뉴 시작 값 */
+  relationSeed?: { following?: boolean | null; blocked?: boolean | null };
 };
 
 function AuthorAvatar({
@@ -64,6 +66,7 @@ export function CommunityAuthorRow({
   onOwnDelete,
   onOwnEdit,
   ownDeleteBusy = false,
+  relationSeed,
 }: Props) {
   const displayName = communityAuthorDisplayName(authorName, authorName.trim());
   const loc = locationLabel.trim();
@@ -101,6 +104,8 @@ export function CommunityAuthorRow({
           targetUserId={targetUserId}
           canReport={canReport}
           onReport={onReport}
+          targetName={displayName}
+          relationSeed={relationSeed}
         />
       ) : null}
     </div>

@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * 차단 토글 — `user_social_relations` + legacy `user_relationships`
- * 차단 시 같은 대상의 neighbor_follow 가 있으면 제거합니다.
+ * 차단 시 양방향 관심이웃(neighbor_follow) 삭제는 공통 `blockUserSocial` 이 한다(관심이웃 설계 C).
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
@@ -93,9 +93,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, blocked: true, fallback: "dev_samples" });
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
   try {
-    sb = getSupabaseServer();
+    getSupabaseServer();
   } catch {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
@@ -110,17 +109,6 @@ export async function POST(req: NextRequest) {
     }
     await restoreDirectRoomsOnUnblockForViewer(auth.userId, target);
     return NextResponse.json({ ok: true, blocked: false });
-  }
-
-  const { data: fol } = await sb
-    .from("user_relationships")
-    .select("id")
-    .eq("user_id", auth.userId)
-    .eq("target_user_id", target)
-    .or("relation_type.eq.neighbor_follow,type.eq.neighbor_follow")
-    .maybeSingle();
-  if (fol?.id) {
-    await sb.from("user_relationships").delete().eq("id", (fol as { id: string }).id);
   }
 
   const result = await blockUserSocial(auth.userId, target);

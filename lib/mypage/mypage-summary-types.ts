@@ -21,6 +21,8 @@ export type MypageSummaryFields = {
   favoritesCount: MypageSummaryField<number>;
   offersReceivedPending: MypageSummaryField<number>;
   communityPostsCount: MypageSummaryField<number>;
+  /** 라운지 › 관심이웃 「n명」 = 관심이웃 화면 사람 목록과 같은 함수(탈퇴·차단 제외) */
+  neighborFollowCount: MypageSummaryField<number>;
   storeOrdersActiveCount: MypageSummaryField<number>;
   /** 음수 허용 */
   pointsBalance: MypageSummaryField<number>;

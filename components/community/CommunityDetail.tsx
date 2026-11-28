@@ -16,6 +16,7 @@ import { resolveApiErrorText } from "@/lib/i18n/api-error-text";
 import { COMMUNITY_POST_DELETE_ERROR_KEYS } from "@/lib/community/community-api-error-text";
 import { communityAuthorNameText, communityRegionLabelText } from "@/lib/community/community-display-fallbacks";
 import { invalidateCommunityUserRelationSnapshot } from "@/lib/community/user-relation-client";
+import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
 import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
 import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
@@ -392,6 +393,7 @@ export function CommunityDetail({
       const res = await requestUserBlock(authorUserId);
       invalidateCommunityUserRelationSnapshot(authorUserId);
       if (res.ok) {
+        applyBlockToNeighborRelation(authorUserId, true);
         setActionToast(t("community_block_success_toast"));
         void retryComments();
       } else {
@@ -471,6 +473,14 @@ export function CommunityDetail({
 
   // Peer CTA authority = actual member target capability, not origin_kind product branch.
   const memberPeerUserId = post.member_peer_user_id?.trim() || null;
+  /** 관심이웃·차단 시작 값 = 상세 첫 데이터(서버 계산) — 안내·⋯ 메뉴 별도 조회 없음 (설계 A · 감사 E11) */
+  const neighborRelationSeed = useMemo(
+    () =>
+      post.viewer
+        ? { following: post.viewer.following_author, blocked: post.viewer.blocked_author }
+        : undefined,
+    [post.viewer],
+  );
 
   const openReport = useCallback(() => {
     if (me?.id && me.id === post.author_id) return;
@@ -506,6 +516,7 @@ export function CommunityDetail({
             showMoreMenu
             postId={post.id}
             targetUserId={memberPeerUserId}
+            relationSeed={neighborRelationSeed}
             canReport={!me?.id || me.id !== post.author_id}
             onReport={openReport}
             isOwnPost={!!me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind)}
@@ -544,7 +555,11 @@ export function CommunityDetail({
             onSave={() => void onSave()}
           />
           {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
-            <CommunityNeighborPrompt authorName={communityAuthorNameText(post.author_name, t)} targetUserId={memberPeerUserId} />
+            <CommunityNeighborPrompt
+              authorName={communityAuthorNameText(post.author_name, t)}
+              targetUserId={memberPeerUserId}
+              seed={neighborRelationSeed}
+            />
           ) : null}
           {likeActionErr || commentLikeErr ? (
             <p className="mt-2 text-sm text-[var(--cm-danger)]" role="alert">

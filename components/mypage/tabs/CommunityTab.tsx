@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { UserListContent } from "@/components/my/settings/UserListContent";
+import { NeighborFollowScreen } from "@/components/mypage/community/NeighborFollowScreen";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -91,16 +91,8 @@ export function CommunityTab({ section }: { section: string }) {
   }
 
   if (section === "users") {
-    return (
-      <SectionShell
-        title={safeT("mypage_comp_nav_sec_community_users_label")}
-        description={t("mypage_comp_nav_sec_community_users_desc")}
-      >
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <UserListContent type="neighbor" emptyMessage={t("mypage_comp_community_users_empty")} />
-        </div>
-      </SectionShell>
-    );
+    /** 관심이웃 — 내정보 › 라운지 › 관심이웃 과 같은 화면 (관심이웃 설계 B · 이중 테두리 제거 E7) */
+    return <NeighborFollowScreen />;
   }
 
   if (section === "reports") {

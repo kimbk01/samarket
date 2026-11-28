@@ -57,7 +57,7 @@ export type MypageHomeMenuIconId =
  * 값 출처가 없는 행은 chevron 만.
  */
 export type MypageHomeRowValueSource =
-  | { kind: "summary-count"; field: MypageSummaryCountKey; format: "selling" | "pending" | "active" | "count" | "sheets" }
+  | { kind: "summary-count"; field: MypageSummaryCountKey; format: "selling" | "pending" | "active" | "count" | "sheets" | "people" }
   | { kind: "summary-points" }
   | { kind: "trade-chat-unread" }
   | { kind: "installed-version" };
