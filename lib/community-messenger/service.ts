@@ -16097,7 +16097,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           return typeof ca === "string" && ca.trim() ? ca.trim() : null;
         })();
 
-  const roomProfileMapPromise = deferSecondary || isCriticalTier
+  /**
+   * 모임 방(owner_domain='moim')은 첫 응답에서도 방 프로필을 읽는다 — 모임 방은 DIBAY 사진으로 대신 채우지 않으므로
+   * (모임 R5 A19) 첫 응답에 방 프로필이 없으면 멤버 사진이 이니셜로 남는다(R5 실기 FAIL 2026-11-28 19:57).
+   */
+  const roomIsMoimOwnedForProfiles = Boolean(room && "owner_domain" in room && trimText(room.owner_domain) === "moim");
+  const roomProfileMapPromise = (deferSecondary || isCriticalTier) && !roomIsMoimOwnedForProfiles
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
     : (async () => {
         const t0 = performance.now();
