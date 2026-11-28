@@ -19,6 +19,12 @@ export type AdminMeSnapshot = {
 };
 
 let cached: AdminMeSnapshot | null = null;
+
+/**
+ * 최종 감사 D3: 스냅샷이 없다가 새로 생기면(권한 조회 실패 뒤 성공) 알린다 —
+ * 공통 실시간 구독이 권한을 몰라 고객센터 구독을 빼고 붙었을 때 다시 붙일 수 있게.
+ */
+export const ADMIN_ME_SNAPSHOT_READY_EVENT = "dibay:admin-me-snapshot-ready";
 let inflight: Promise<AdminMeSnapshot | null> | null = null;
 let fetchGeneration = 0;
 
@@ -105,6 +111,7 @@ export async function fetchAdminMeSnapshot(options?: {
         return null;
       }
       if (generation !== fetchGeneration) return cached;
+      const hadSnapshot = cached != null;
       cached = {
         userId: data.userId,
         role: data.role ?? "admin",
@@ -115,6 +122,9 @@ export async function fetchAdminMeSnapshot(options?: {
         displayName: data.displayName ?? "",
         accountSuspended: data.accountSuspended === true,
       };
+      if (!hadSnapshot && typeof window !== "undefined") {
+        window.dispatchEvent(new Event(ADMIN_ME_SNAPSHOT_READY_EVENT));
+      }
       return cached;
     } catch {
       return null;

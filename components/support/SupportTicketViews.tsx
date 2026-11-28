@@ -73,7 +73,6 @@ import {
   runSupportModalWrite,
   supportOpErrorCode,
 } from "@/lib/support/support-modal-ops";
-import { dispatchSupportNotificationArrived } from "@/lib/support/support-notification-events";
 
 /** 최종 감사 U-4: 회원/매장 전환 — 누르는 영역 44px · 보이는 칸은 작게 */
 /** 재감사 U-4-a: 높이·너비 모두 44px 이상(「회원」·「매장」 두 글자는 그대로면 약 42px) */
@@ -301,6 +300,9 @@ function useViewerOwnerStores() {
 
 /* ───────────── 진행 중인 문의 (실기 결함 3 · 2026-11-10) ───────────── */
 
+/** 진행 중 목록 — 같은 쓰기 화면(viewId)·같은 대상·같은 다시 읽기 회차면 다시 받지 않는다(실패는 기억하지 않음) */
+let activeListCache: { key: string; rows: SupportCaseRow[] } | null = null;
+
 /**
  * 고객센터 FAB 숫자를 보고 눌렀을 때 답변 온 문의로 바로 갈 수 있게 — 쓰기 화면 맨 위.
  * 같은 대상(회원 / 그 매장)의 진행 중 문의만, 답변 완료 먼저(최근 순). 없으면 아무것도 그리지 않는다.
@@ -323,12 +325,15 @@ function ActiveTicketList({
   onOpenCase: (caseId: string) => void;
 }) {
   const { t } = useI18n();
-  const [rows, setRows] = useState<SupportCaseRow[]>([]);
+  /** C-18: 대상(회원 ↔ 매장)이 바뀌면 이전 대상 행을 바로 비운다 — 다른 대상의 문의가 남아 보이지 않게 */
+  const target = `${audience}|${audience === "OWNER" ? storeId ?? "" : ""}`;
+  /** 최종 감사: 분야 선택·요금표에서 돌아오면(이 목록이 다시 붙음) 받은 행을 그대로 — 다시 받지 않아 화면이 밀리지 않는다 */
+  const cacheKey = `${viewId}|${target}|${refreshKey}`;
+  const cached = activeListCache?.key === cacheKey ? activeListCache.rows : null;
+  const [rows, setRows] = useState<SupportCaseRow[]>(() => cached ?? []);
   /** 최종 감사 U-14: 불러오기 실패를 숨기지 않는다 — 작은 오류 줄 + 다시 시도 */
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  /** C-18: 대상(회원 ↔ 매장)이 바뀌면 이전 대상 행을 바로 비운다 — 다른 대상의 문의가 남아 보이지 않게 */
-  const target = `${audience}|${audience === "OWNER" ? storeId ?? "" : ""}`;
   const [rowsTarget, setRowsTarget] = useState(target);
   if (rowsTarget !== target) {
     setRowsTarget(target);
@@ -338,6 +343,10 @@ function ActiveTicketList({
 
   useEffect(() => {
     if (audience === "OWNER" && !storeId) return;
+    if (attempt === 0 && activeListCache?.key === cacheKey) {
+      setRows(activeListCache.rows);
+      return;
+    }
     let cancelled = false;
     setFailed(false);
     // B-1: 쓰는 행은 5개 — 서버에서도 5개만 읽는다
@@ -352,12 +361,14 @@ function ActiveTicketList({
         setFailed(true);
         return;
       }
-      setRows(sortActiveSupportTickets(res.json.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX));
+      const next = sortActiveSupportTickets(res.json.cases).slice(0, SUPPORT_TICKET_ACTIVE_LIST_MAX);
+      activeListCache = { key: cacheKey, rows: next };
+      setRows(next);
     });
     return () => {
       cancelled = true;
     };
-  }, [viewId, audience, storeId, attempt, refreshKey]);
+  }, [viewId, audience, storeId, attempt, refreshKey, cacheKey]);
 
   if (failed && rows.length === 0) {
     return (
@@ -1244,7 +1255,7 @@ export function SupportTicketDetail({
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
         resyncBadgesAfterNotificationEventsRead("notification_opened");
       }
-      dispatchSupportNotificationArrived();
+      // 고객지원 숫자(FAB·내 문의 목록)는 창이 닫힐 때 한 번 다시 읽는다 — 창 뒤 숨은 목록을 지금 다시 받지 않는다(최종 감사)
     });
   }, [shown, isTop, documentVisible, viewId, caseId]);
 
@@ -1298,6 +1309,8 @@ export function SupportTicketDetail({
         body: { action: "close", seenLastMessageAt: supportCase?.last_message_at ?? null },
       },
       (res, token) => {
+        // 최종 감사: 종료되면 추가 문의를 쓸 수 없다 — 남긴 추가 문의 임시 글도 화면과 상관없이 지운다
+        if (res.ok) clearSupportFollowUpDraft(caseId);
         if (!res.current) return;
         if (res.ok) {
           // C-13: 성공 = 이 문의의 상세만 뺀다(그사이 다른 화면이 위에 있어도 그 화면은 그대로)

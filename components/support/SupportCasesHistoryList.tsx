@@ -95,9 +95,9 @@ export function SupportCasesHistoryList({
 
   const { reload } = list;
   const reloadOnClose = useCallback(() => {
-    // 확인했어요(종료)·추가 문의로 상태가 바뀌었을 수 있다 — 첫 페이지부터 다시
+    // 확인했어요(종료)·추가 문의로 상태가 바뀌었을 수 있다 — 첫 페이지부터 다시(2페이지 이후 낡은 행은 버린다)
     forgetMypageListCache(SUPPORT_HISTORY_CACHE_PREFIX);
-    void reload();
+    void reload({ replace: true });
   }, [reload]);
   useOnSupportModalClosed(reloadOnClose);
   // 계약 §4 (A-11): 고객지원 알림 행 INSERT·UPDATE(새 답변·종료·답변 삭제) → 상태 알약을 다시 읽는다(500ms 묶음)
@@ -105,6 +105,8 @@ export function SupportCasesHistoryList({
     if (typeof window === "undefined") return;
     let timer: number | null = null;
     const onArrived = () => {
+      // 창이 열려 있으면 목록은 창 뒤에 숨어 있다 — 닫힐 때 한 번 다시 읽으므로 지금은 받지 않는다
+      if (getSupportModalState().phase === "open") return;
       if (timer != null) window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         timer = null;
@@ -135,7 +137,10 @@ export function SupportCasesHistoryList({
     );
   } else if (list.items.length === 0) {
     body = owner ? (
-      <p className="px-4 py-6 text-center text-sm text-sam-muted" data-support-cases-history-empty="1">
+      <p
+        className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[14px] text-sam-muted"
+        data-support-cases-history-empty="1"
+      >
         {safeT("support_history_empty")}
       </p>
     ) : (

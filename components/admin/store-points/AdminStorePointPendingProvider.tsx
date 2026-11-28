@@ -86,7 +86,7 @@ import {
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { ADMIN_ME_SNAPSHOT_READY_EVENT, fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import {
   adminMeCanReceiveSupportRealtime,
   createAdminInboxRefreshScheduler,
@@ -222,6 +222,8 @@ export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
   const { safeT } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
+  /** 최종 감사 D3: 권한 조회 실패로 고객센터 구독을 빼고 붙었을 때, 권한을 읽으면 +1 → 공통 구독을 다시 붙인다 */
+  const [realtimeMeRetryTick, setRealtimeMeRetryTick] = useState(0);
   const [cashChargePendingCount, setCashChargePendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
@@ -1015,6 +1017,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
     let cancelled = false;
     let channel: ReturnType<typeof sb.channel> | null = null;
+    let removeMeReadyListener: (() => void) | null = null;
 
     const scheduleRefresh = () => {
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
@@ -1109,6 +1112,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }
       const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(me);
       if (cancelled) return;
+      // 최종 감사 D3: 두 번 다 못 읽었으면(권한을 모름) 나중에 어느 화면이든 권한을 읽는 순간 구독을 1번 다시 붙인다
+      //   (콘솔은 자기 구독 없이 이 구독만 받는다 — 새로고침 전까지 실시간이 꺼져 있지 않게)
+      if (!me) {
+        const onMeReady = () => {
+          window.removeEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+          if (!cancelled) setRealtimeMeRetryTick((n) => n + 1);
+        };
+        window.addEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+        removeMeReadyListener = () => window.removeEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+      }
       const supportCountCache = createSupportCaseCountCache();
       // 전체 수정 계약 §4 A-2: 내 알림 행(admin_notifications) 생성·읽음 → 헤더 받은 알림 숫자를 바로(1번으로 묶어) 다시 읽는다
       supportInboxRefreshRef.current ??= createAdminInboxRefreshScheduler();
@@ -1464,6 +1477,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
     return () => {
       cancelled = true;
+      removeMeReadyListener?.();
       if (awarenessToastTimeoutRef.current) window.clearTimeout(awarenessToastTimeoutRef.current);
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
       // 받은 알림 다시 읽기 예약은 취소하지 않는다 — 구독을 다시 붙이는 사이 온 고객 글 알림 신호를 잃지 않게(창 이벤트 1번뿐)
@@ -1483,6 +1497,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     markSupportMessageAlert,
     maybeIngestAdminOpsSound,
     ingestAdminOpsSoundIfPrefAllowed,
+    realtimeMeRetryTick,
   ]);
 
   const value = useMemo(

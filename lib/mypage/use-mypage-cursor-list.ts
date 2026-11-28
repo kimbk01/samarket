@@ -114,8 +114,11 @@ export type MypageCursorListState<T> = {
   pages: number;
   loadingMore: boolean;
   loadMoreError: boolean;
-  /** 첫 페이지 다시(스켈레톤 없이 기존 목록 유지 — 오류 상태였다면 loading 으로) */
-  reload: () => Promise<void>;
+  /**
+   * 첫 페이지 다시(스켈레톤 없이 기존 목록 유지 — 오류 상태였다면 loading 으로).
+   * `replace: true` = 받은 첫 페이지로 목록을 바꾼다(2페이지 이후 낡은 행을 붙이지 않음).
+   */
+  reload: (opts?: { replace?: boolean }) => Promise<void>;
   loadMore: () => Promise<void>;
   /** 낙관 갱신 — 캐시에도 반영 */
   setItems: (updater: (prev: T[]) => T[]) => void;
@@ -158,13 +161,13 @@ export function useMypageCursorList<T>({
   }, []);
 
   const loadFirst = useCallback(
-    async (key: string, quiet: boolean) => {
+    async (key: string, quiet: boolean, replace = false) => {
       if (!quiet) setStatus("loading");
       try {
         const page = await runSingleFlight(`${key}:first`, () => fetchRef.current(null));
         if (keyRef.current !== key) return;
         const prev = stateRef.current;
-        const merged = quiet ? mergeMypageFirstPage(prev, page, getIdRef.current) : {
+        const merged = quiet && !replace ? mergeMypageFirstPage(prev, page, getIdRef.current) : {
           items: page.items,
           nextCursor: page.next_cursor,
           pages: 1,
@@ -204,11 +207,11 @@ export function useMypageCursorList<T>({
     setLoadMoreError(false);
   }, [cacheKey, loadFirst]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (opts?: { replace?: boolean }) => {
     const key = keyRef.current;
     if (!key) return;
     const wasError = status === "error" || stateRef.current.pages === 0;
-    await loadFirst(key, !wasError);
+    await loadFirst(key, !wasError, opts?.replace === true);
   }, [loadFirst, status]);
 
   const loadMore = useCallback(async () => {

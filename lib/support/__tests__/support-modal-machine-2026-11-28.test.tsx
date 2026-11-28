@@ -73,6 +73,7 @@ import { getSupportCategoryDefinition } from "@/lib/support/support-category-reg
 import { buildGenericSupportTriageContext, type SupportContext } from "@/lib/support/support-context";
 import {
   initSupportTicketForm,
+  readSupportFollowUpDraft,
   readSupportTicketDraft,
   setSupportTicketBody,
   supportTicketDraftKey,
@@ -975,7 +976,8 @@ describe("계획 대비 미완 (초안 · 종료+안 읽음 · FAB 갈색)", () 
     await new Promise((r) => setTimeout(r, 350));
     click(q('[data-support-modal-close="1"]'));
     await flush();
-    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))).not.toBeNull();
+    // 최종 감사: 남았는지만이 아니라 옛 본문 그대로인지 본다
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("옛 초안");
   });
 
   it("종료+안 읽은 답변: ✕ 로 닫아도 기억을 지운다 → 옛 푸시로 다시 열면 「종료된 문의예요」", async () => {
@@ -1051,6 +1053,79 @@ describe("고객 숫자 신호 — 알림 행 INSERT·UPDATE 둘 다 (A-3·A-11)
     await new Promise((r) => setTimeout(r, 600));
     await flush();
     expect(lists()).toBeGreaterThan(before);
+  });
+});
+
+/* ───────────── 최종 감사 (HEAD b6658fa11) — 고객 화면 ───────────── */
+
+describe("최종 감사 — 진행 중 목록·숨은 목록·추가 문의 임시 글", () => {
+  it("분야 선택에서 쓰기로 돌아와도 진행 중 목록을 다시 받지 않고 행이 바로 있다(화면 밀림 없음)", async () => {
+    route = (url) => (url.startsWith("/api/support/cases?") ? { ok: true, cases: [caseRow({ id: "a1" })] } : { ok: false });
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => {
+      openSupportModal({ context: memberCtx() });
+    });
+    await flush();
+    const lists = () => calls.filter((c) => c.url.startsWith("/api/support/cases?")).length;
+    expect(lists()).toBe(1);
+    expect(q('[data-support-ticket-active-list="1"]')).not.toBeNull();
+    click(q('[data-testid="support-ticket-field-category"]'));
+    await flush();
+    expect(q('[data-support-ticket-view="pick_category"]')).not.toBeNull();
+    deviceBack();
+    // 돌아온 첫 그림부터 목록이 있다(응답을 기다리지 않음)
+    expect(q('[data-support-ticket-active-list="1"]')).not.toBeNull();
+    await flush();
+    expect(lists()).toBe(1);
+  });
+
+  it("추가 문의 칸에 글을 남긴 채 「확인했어요」로 종료되면 그 추가 문의 임시 글을 지운다", async () => {
+    route = (url, init) => {
+      if (url.startsWith("/api/support/cases/cF")) {
+        if (init?.method === "POST") return { ok: true };
+        return { ok: true, case: caseRow({ id: "cF" }), messages: [answerMsg()] };
+      }
+      return { ok: false };
+    };
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => {
+      openSupportModal({ caseId: "cF" });
+    });
+    await flush();
+    click(q('[data-support-ticket-followup-open="1"]'));
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-followup="1"]')!, "남긴 글");
+    await new Promise((r) => setTimeout(r, 350));
+    expect(readSupportFollowUpDraft("cF").body).toBe("남긴 글");
+    deviceBack();
+    await flush();
+    click(q('[data-support-ticket-confirm="1"]'));
+    await flush(4);
+    expect(readSupportFollowUpDraft("cF").body).toBe("");
+  });
+
+  it("창이 열린 동안 고객지원 신호가 와도 창 뒤 「내 문의」 목록은 받지 않고, 닫힐 때 1번만 받는다", async () => {
+    route = (url) =>
+      url.startsWith("/api/support/cases?") ? { ok: true, cases: [caseRow()], nextCursor: null } : { ok: false };
+    await act(async () => root.render(<><SupportCasesHistoryList audience="MEMBER" /><SupportModalHost /></>));
+    await flush();
+    const lists = () => calls.filter((c) => c.url.startsWith("/api/support/cases?limit") || c.url.startsWith("/api/support/cases?audience=MEMBER&cursor") || (c.url.startsWith("/api/support/cases?") && !c.url.includes("limit=5"))).length;
+    act(() => {
+      openSupportModal({ caseId: "c1" });
+    });
+    await flush();
+    const before = lists();
+    act(() => {
+      window.dispatchEvent(new Event(SUPPORT_NOTIFICATION_ARRIVED_EVENT));
+    });
+    await new Promise((r) => setTimeout(r, 600));
+    await flush();
+    expect(lists()).toBe(before);
+    act(() => {
+      closeSupportModal();
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    await flush();
+    expect(lists()).toBe(before + 1);
   });
 });
 

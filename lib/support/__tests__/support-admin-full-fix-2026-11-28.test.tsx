@@ -31,9 +31,11 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
 vi.mock("@/lib/auth/get-current-user", () => ({
   getCurrentUser: () => ({ id: "admin-1" }),
 }));
+const meState = vi.hoisted(() => ({ fail: false }));
 vi.mock("@/lib/admin-auth/admin-me-context", () => ({
+  ADMIN_ME_SNAPSHOT_READY_EVENT: "dibay:admin-me-snapshot-ready",
   peekAdminMeSnapshot: () => null,
-  fetchAdminMeSnapshot: async () => ({
+  fetchAdminMeSnapshot: async () => meState.fail ? null : ({
     userId: "admin-1",
     role: "super_admin",
     uiRole: "super_admin",
@@ -173,6 +175,7 @@ const onInbox = () => {
 };
 
 beforeEach(() => {
+  meState.fail = false;
   calls = [];
   bindings.length = 0;
   inboxEvents = 0;
@@ -383,6 +386,25 @@ describe("A-2 — 고객센터 알림 생성·읽음 뒤 헤더 받은 알림 �
     expect(inboxEvents - before).toBe(1);
     const binding = bindings.find((b) => b.table === "admin_notifications");
     expect(binding?.filter).toMatch(/^recipient_admin_id=eq\./);
+  });
+});
+
+describe("최종 감사 D3 — 권한 조회가 두 번 실패해도 나중에 권한을 읽으면 고객센터 구독을 다시 붙인다", () => {
+  it("처음엔 support 구독 없음 → 권한 읽힘 신호 → support_cases 구독 1채널", async () => {
+    meState.fail = true;
+    await mount(true);
+    await act(async () => {
+      vi.advanceTimersByTime(3100);
+    });
+    await flush();
+    expect(bindings.filter((b) => b.table === "support_cases")).toHaveLength(0);
+    meState.fail = false;
+    await act(async () => {
+      window.dispatchEvent(new Event("dibay:admin-me-snapshot-ready"));
+    });
+    await flush();
+    const channels = new Set(bindings.filter((b) => b.table === "support_cases").map((b) => b.channel));
+    expect([...channels]).toHaveLength(1);
   });
 });
 

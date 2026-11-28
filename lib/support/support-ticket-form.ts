@@ -413,9 +413,6 @@ export function applySupportTicketDraft(
 
 /* ───────────── 요청자 화면 상태 ───────────── */
 
-/** 고객·사장님 화면에 보이는 문의 = 진행 중만. 종료(RESOLVED·ARCHIVED)는 목록에서 사라진다. */
-export const SUPPORT_TICKET_REQUESTER_VISIBLE_STATUSES = ["OPEN", "WAITING_ADMIN", "WAITING_USER"] as const;
-
 export function isSupportTicketClosedStatus(status: string | null | undefined): boolean {
   return status === "RESOLVED" || status === "ARCHIVED";
 }

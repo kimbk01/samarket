@@ -169,6 +169,10 @@ const SUPPORT_ERROR_HTTP_STATUS: Record<string, number> = {
   invalid_cta_kind: 400,
   cta_target_must_be_empty: 400,
   missing_cta_target: 400,
+  // 최종 감사 D1: 안내문 이동 대상 검증(support-guidance-authority) — 입력 오류
+  cta_url_forbidden: 400,
+  invalid_internal_route: 400,
+  invalid_domain_entity_target: 400,
   disabled_context: 400,
   missing_store_id: 400,
   member_case_must_not_have_store: 400,
