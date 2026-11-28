@@ -68,6 +68,8 @@ type Props = {
   onToast: (message: string) => void;
   /** 댓글 수정 중인가 — 상세 화면이 하단 입력 바를 숨긴다(수정칸 「저장」을 가리지 않게 · 실기 결함 3) */
   onEditingChange?: (editing: boolean) => void;
+  /** 댓글 입력칸 — 댓글 목록 끝(게시물 끝)에 붙는다 */
+  composer?: React.ReactNode;
   commentBusy: boolean;
 };
 
@@ -98,6 +100,7 @@ export function CommunityCommentSection({
   onCommentReply,
   onToast,
   onEditingChange,
+  composer = null,
   commentBusy,
 }: Props) {
   const { t } = useI18n();
@@ -334,6 +337,8 @@ export function CommunityCommentSection({
           ))}
         </ul>
       )}
+
+      {composer}
 
       <DibayActionSheet
         open={menuTarget != null}
