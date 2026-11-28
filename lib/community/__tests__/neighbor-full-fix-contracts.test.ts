@@ -1,6 +1,7 @@
 /**
  * 관심이웃 전체 수정 설계 v2 — 계약 시험 (docs/audit/interest-neighbor-full-fix-design-2026-11-28.md §8)
- * V-C1 커뮤니티·공개 프로필·내정보 관심이웃 화면의 「그릴 때 회원 읽기」 0 · V-D8 토스트가 고정 하단 바를 덮지 않음 · V-R5 옛 주소
+ * V-C1 커뮤니티·공개 프로필·내정보 관심이웃 화면의 「그릴 때 회원 읽기」 0 · V-R5 옛 주소
+ * (D8 토스트가 입력줄을 덮던 결함은 라운지 댓글 입력칸이 목록 끝 칸으로 바뀌어(eef4568b2) 없어짐 — 이 PR 에서 바꾸지 않음)
  */
 // @vitest-environment jsdom
 import fs from "node:fs";
@@ -37,33 +38,6 @@ describe("V-C1 — 화면이 그릴 때 회원을 한 번만 읽지 않는다 (�
 
   it("#696 의 중복 회원 훅은 없다 — 회원 출처는 하나", () => {
     expect(fs.existsSync(path.join(ROOT, "lib/auth/use-client-profile.ts"))).toBe(false);
-  });
-});
-
-describe("V-D8 — 고정 하단 바 높이 계약", () => {
-  it("바가 높이를 알리면 토스트 위치 변수에 들어가고, 자기 값일 때만 지운다", async () => {
-    const { setFixedBottomBarOffset, clearFixedBottomBarOffset, FIXED_BOTTOM_BAR_CSS_VAR } = await import(
-      "@/lib/ui/fixed-bottom-bar-offset"
-    );
-    const a = Symbol("a");
-    const b = Symbol("b");
-    const read = () => document.documentElement.style.getPropertyValue(FIXED_BOTTOM_BAR_CSS_VAR);
-    setFixedBottomBarOffset(a, 72.4);
-    expect(read()).toBe("72px");
-    setFixedBottomBarOffset(b, 60);
-    clearFixedBottomBarOffset(a);
-    expect(read()).toBe("60px");
-    clearFixedBottomBarOffset(b);
-    expect(read()).toBe("");
-  });
-
-  it("토스트 위치 식이 바 높이를 더한다 · 공용 하단 줄이 높이를 알린다 (구조 확인)", () => {
-    const css = fs.readFileSync(path.join(ROOT, "app/dibay-overlay.css"), "utf8");
-    const block = css.slice(css.indexOf(".dibay-toast-stack {"));
-    expect(block).toMatch(/var\(--dibay-fixed-bottom-bar, 0px\)/);
-    const footer = fs.readFileSync(path.join(ROOT, "components/moim/MoimStickyFooter.tsx"), "utf8");
-    expect(footer).toContain("setFixedBottomBarOffset");
-    expect(footer).toContain("clearFixedBottomBarOffset");
   });
 });
 

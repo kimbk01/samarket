@@ -1016,16 +1016,13 @@ html[data-shell-overlay-open] [data-admin-posts-mgmt-bottom-hscroll] {
 /**
  * 짧은 안내 토스트 위치 (P-08) — 하단 탭이 실제로 마운트되면 탭(+safe·궤도 돌출) 위 12px,
  * 탭이 없으면 safe-bottom 위 16px. 고정 `max(5rem, safe)` 는 safe>20px 기기에서 탭과 겹쳤다.
- * 화면 고정 하단 바(글 상세 댓글 입력줄 등)가 있으면 그 높이만큼 더 올린다 — `--dibay-fixed-bottom-bar`
- * (`lib/ui/fixed-bottom-bar-offset.ts` · 관심이웃 최종 감사 D8: 토스트가 입력줄을 덮던 결함).
  */
 .dibay-toast-stack {
   bottom: calc(
-    var(--app-bottom-nav-height, 60px) + var(--safe-bottom) + var(--main-scroll-nav-overhang, 0px) +
-      var(--dibay-fixed-bottom-bar, 0px) + 0.75rem
+    var(--app-bottom-nav-height, 60px) + var(--safe-bottom) + var(--main-scroll-nav-overhang, 0px) + 0.75rem
   );
 }
 
 html:not([data-shell-bottom-nav]) .dibay-toast-stack {
-  bottom: calc(var(--safe-bottom) + var(--dibay-fixed-bottom-bar, 0px) + 1rem);
+  bottom: calc(var(--safe-bottom) + 1rem);
 }

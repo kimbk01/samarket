@@ -78,12 +78,14 @@ begin
     return jsonb_build_object('ok', true, 'following', true, 'count', v_count);
   end if;
 
-  if not exists (
-    select 1 from public.profiles p
-     where p.id = p_target
-       and coalesce(p.status, '') <> 'deleted'
-       and p.deleted_at is null
-  ) then
+  -- 대상 프로필 행을 공유 잠금 — 이 트랜잭션이 끝날 때까지 탈퇴 UPDATE·삭제가 기다린다.
+  -- 그래야 탈퇴 트리거가 이 추가 행을 보고 지운다(재감사 M3: 「탈퇴 아님」을 읽은 직후 탈퇴가 커밋되면 행이 남던 경합).
+  perform 1 from public.profiles p
+   where p.id = p_target
+     and coalesce(p.status, '') <> 'deleted'
+     and p.deleted_at is null
+   for share;
+  if not found then
     return jsonb_build_object('ok', false, 'error', 'target_unavailable');
   end if;
 
@@ -106,7 +108,7 @@ begin
 
   insert into public.user_relationships (user_id, target_user_id, type, relation_type)
   values (p_user, p_target, 'neighbor_follow', 'neighbor_follow')
-  on conflict (user_id, target_user_id, type) do nothing;
+  on conflict do nothing;  -- 유일 인덱스(운영: user_id·target_user_id·type)가 무엇이든 같은 순간 중복 추가는 그대로 성공
 
   return jsonb_build_object('ok', true, 'following', true, 'count', v_count + 1);
 end;
@@ -130,7 +132,9 @@ end;
 $$;
 
 drop trigger if exists trg_usr_blocked_clears_neighbor_follow on public.user_social_relations;
--- 다시 차단(is_active false→true)하는 UPDATE 도 잡고, updated_at·last_action_at 만 바뀐 UPDATE 는 제외(검토 L3)
+-- 다시 차단(is_active false→true)하는 UPDATE 도 잡고, updated_at·last_action_at 만 바뀐 UPDATE 는 제외(검토 L3).
+-- 행마다 쌍 잠금을 잡는다 — 운영 차단 경로는 한 쌍 단건 upsert(`blockUserSocial`)라 문장 사이 잠금 순서 교착이 없다.
+-- 여러 쌍을 한 문장으로 바꾸는 일괄 UPDATE 를 새로 만들 때는 쌍 순서를 정렬해 쓴다(재감사 M4).
 create trigger trg_usr_blocked_clears_neighbor_follow
   after insert or update of relation_type, is_active on public.user_social_relations
   for each row

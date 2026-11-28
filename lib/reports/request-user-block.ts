@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
 import {
   reportClientFailure,
   reportClientFailureFromResponse,
@@ -25,7 +26,11 @@ export async function requestUserBlock(
 
   const result = await blockUserRequest(targetUserId, options);
   /** 차단한 판매자 글이 목록 캐시에 남지 않게 — 서버 목록은 차단 작성자를 제외해 내려준다. */
-  if (result.ok) invalidateHomePostsCache();
+  if (result.ok) {
+    invalidateHomePostsCache();
+    /** 관심이웃 버튼·관계 캐시·내정보 관심이웃 목록 캐시도 정리(DB 는 트리거가 관심이웃 행을 지움 — 재감사 M5) */
+    applyBlockToNeighborRelation(targetUserId, true);
+  }
   return result;
 }
 

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
+import {
+  requireAuthenticatedUserId,
+  requireAuthenticatedUserIdStrict,
+} from "@/lib/auth/api-session";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
@@ -19,6 +22,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SAMPLE_AUTHOR_ID = "00000000-0000-4000-8000-000000000001";
+
+/**
+ * 차단 여부 조회 — **이번 배포 동안만** 남긴다(옛 화면 호환). 새 화면은 `GET /api/community/user-relation`.
+ * 배포 전에 열어 둔 탭의 옛 `request-user-block` 은 「이 GET 으로 이미 차단인지 확인 → 아니면 토글 POST」 순서라,
+ * GET 을 먼저 지우면 이미 차단한 상대를 다시 「차단」할 때 토글로 **해제**됐다(재감사 M1). 다음 배포에서 옛 토글과 함께 닫는다.
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+
+  const target = req.nextUrl.searchParams.get("targetUserId")?.trim() ?? "";
+  if (!target || target === auth.userId || !isUuidLikeString(target)) {
+    return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
+  }
+  const blocked = await isBlockedByMe(auth.userId, target);
+  return NextResponse.json({ ok: true, blocked });
+}
 
 /**
  * 차단·차단 해제 — **상태 지정** `{ targetUserId, blocked }` (같은 상태면 그대로 200). `user_social_relations` + legacy `user_relationships`.

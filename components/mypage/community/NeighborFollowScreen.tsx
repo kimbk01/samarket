@@ -42,6 +42,17 @@ const POSTS_PAGE = 20;
  * (감사 B1 · 전체 수정 설계 v2 §5-4). 추가·해제·차단 때 저장소가 캐시를 지운다 → 관리에서 해제한 사람은 보기 화면에서 빠진다.
  * [다시 시도](reloadKey>0)는 캐시를 건너뛴다.
  */
+/**
+ * 캐시 재사용 시간 — 보기↔관리 왕복용. 이 PR 이 무효화하지 못하는 경로(메신저 화면 차단 등)로 목록이 바뀌어도
+ * 이 시간 안에만 낡은 목록이 보인다(재감사 M5).
+ */
+const PEOPLE_CACHE_REUSE_MS = 30_000;
+
+function freshPeopleCache(key: string): NeighborItem[] | null {
+  const hit = readMypageListCache<NeighborItem>(key);
+  return hit && Date.now() - hit.at < PEOPLE_CACHE_REUSE_MS ? hit.items : null;
+}
+
 function useNeighborPeople(reloadKey: number) {
   const membership = useClientMembershipState("neighbor-follow-screen");
   const viewerId = membership.status === "member" ? membership.profile.id : "";
@@ -49,17 +60,17 @@ function useNeighborPeople(reloadKey: number) {
   const [state, setState] = useState<
     { kind: "loading" } | { kind: "error" } | { kind: "ok"; items: NeighborItem[] }
   >(() => {
-    const hit = viewerId ? readMypageListCache<NeighborItem>(cacheKey) : null;
-    return hit ? { kind: "ok", items: hit.items } : { kind: "loading" };
+    const items = viewerId ? freshPeopleCache(cacheKey) : null;
+    return items ? { kind: "ok", items } : { kind: "loading" };
   });
 
   useEffect(() => {
     /** 회원 확인 전에는 읽지 않는다(내정보 경로가 회원만 들여보냄) */
     if (!viewerId) return;
     if (reloadKey === 0) {
-      const hit = readMypageListCache<NeighborItem>(cacheKey);
-      if (hit) {
-        setState((prev) => (prev.kind === "ok" && prev.items === hit.items ? prev : { kind: "ok", items: hit.items }));
+      const items = freshPeopleCache(cacheKey);
+      if (items) {
+        setState((prev) => (prev.kind === "ok" && prev.items === items ? prev : { kind: "ok", items }));
         return;
       }
     }

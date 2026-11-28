@@ -284,13 +284,12 @@ function bindGlobalAuthListener(): void {
    */
   const unsubscribeProfileCache = subscribeSupabaseProfileCache(() => {
     const cached = getCurrentUser();
+    /** 비워짐(로그아웃)은 다루지 않는다 — 캐시를 비우는 곳(`auth-session-immediate`·`client-session-wipe`)이 모두
+     * `TEST_AUTH_CHANGED_EVENT` 를 보내 위 처리기가 맡는다(두 번 확인하지 않게 — 재감사 M7). */
+    if (!cached?.id) return;
     const cur = storeSnapshot.state;
-    if (cached?.id) {
-      if (cur.status === "member" && cur.profile === cached) return;
-      publish({ status: "member", profile: cached });
-      return;
-    }
-    if (cur.status === "member") resetMembershipStoreForAuthChange("profile_cache_cleared");
+    if (cur.status === "member" && cur.profile === cached) return;
+    publish({ status: "member", profile: cached });
   });
 
   const unsubscribeAuthEvents = subscribeDibayAuthStateChange((event, session) => {
