@@ -33,6 +33,23 @@ export type CommentRowForBlockFilter = {
   parent_id: unknown;
 };
 
+/**
+ * 차단 목록을 읽지 못함 — 빈 목록(「차단 없음」)으로 바꾸지 않는다. 그러면 그 순간 차단한 사람 글·댓글이 섞여 보인다.
+ * 부르는 곳은 「불러오지 못했어요 · 다시 시도」로 막는다(Owner 결정 1 「권장안대로 구현」 2026-11-28).
+ * 통화가 쓰는 1:1 확인(`fetchBlockedPairFromSb`)은 통화 규정상 이 변경에서 제외.
+ */
+export class SocialExclusionLookupError extends Error {
+  readonly code = "social_exclusion_lookup_failed";
+  constructor(what: string, cause?: unknown) {
+    super(`${what}: ${cause && typeof cause === "object" && "message" in cause ? String((cause as { message: unknown }).message) : "lookup_failed"}`);
+    this.name = "SocialExclusionLookupError";
+  }
+}
+
+export function isSocialExclusionLookupError(e: unknown): e is SocialExclusionLookupError {
+  return e instanceof SocialExclusionLookupError || (e as { name?: string } | null)?.name === "SocialExclusionLookupError";
+}
+
 function trimId(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -52,12 +69,13 @@ export async function fetchBlockedAuthorIdsForViewerSb(
 
   // SSOT 양방향 1회 (legacy 표는 판단에 쓰지 않음 — 파일 머리 주석)
   if (metrics) metrics.supabaseSelectCalls += 1;
-  const { data: rows } = await sb
+  const { data: rows, error } = await sb
     .from("user_social_relations")
     .select("owner_user_id, target_user_id")
     .eq("relation_type", "blocked")
     .or(`owner_user_id.eq.${v},target_user_id.eq.${v}`)
     .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY);
+  if (error) throw new SocialExclusionLookupError("blocked_author_ids", error);
   if (Array.isArray(rows)) {
     for (const row of rows as Array<{ owner_user_id?: string; target_user_id?: string }>) {
       const owner = trimId(row.owner_user_id);
@@ -82,12 +100,13 @@ export async function fetchBlockDirectionsForViewerSb(
   const blockedMe = new Set<string>();
   const v = trimId(viewerId);
   if (!v) return { blockedByMe, blockedMe };
-  const { data: rows } = await sb
+  const { data: rows, error } = await sb
     .from("user_social_relations")
     .select("owner_user_id, target_user_id")
     .eq("relation_type", "blocked")
     .or(`owner_user_id.eq.${v},target_user_id.eq.${v}`)
     .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY);
+  if (error) throw new SocialExclusionLookupError("block_directions", error);
   if (Array.isArray(rows)) {
     for (const row of rows as Array<{ owner_user_id?: string; target_user_id?: string }>) {
       const owner = trimId(row.owner_user_id);

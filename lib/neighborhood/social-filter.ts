@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 import {
   fetchBlockedAuthorIdsForViewerSb,
+  SocialExclusionLookupError,
   filterCommentRowsExcludingBlockedRelations,
 } from "@/lib/social/user-block-ssot";
 
@@ -55,11 +56,13 @@ export async function fetchNeighborFollowTargetIds(
 ): Promise<Set<string>> {
   const v = viewerId.trim();
   if (!v) return new Set();
-  const { data } = await sb
+  const { data, error } = await sb
     .from("user_relationships")
     .select("target_user_id")
     .eq("user_id", v)
     .eq("type", "neighbor_follow");
+  /** 못 읽으면 「관심이웃 0명·글 없음」이 아니라 오류(Owner 결정 1) */
+  if (error) throw new SocialExclusionLookupError("neighbor_follow_targets", error);
   const s = new Set<string>();
   if (Array.isArray(data)) {
     for (const r of data as { target_user_id?: string }[]) {

@@ -188,3 +188,18 @@ v1(15:40) → 독립 검토(높음 4·중간 7·낮음 6) → 작업자가 코�
 - 같은 모임 폴더의 `MoimReportSheet` 도 마운트 때 회원 여부를 한 번 판정해 늦게 찬 회원이면 신고 사유를 영영 안 읽었다 → 회원 id 를 의존값으로(설계 표 밖이지만 §7 과 같은 결함·같은 폴더). 실패 재현 시험 `components/moim/__tests__/moim-viewer-ssot-pr-c.test.tsx`.
 - `MoimCreateWizard`·`MoimJoinSheet` 은 설계 §6 제외(열 때 읽기) 그대로, 검사 허용 목록에 근거와 함께.
 - 독립 재감사: 막을 결함 없음 · 시험 빈틈 = 세 화면 「나」 판정은 구조 확인만(실행 시험 없음).
+
+## 15. Owner 결정 3건 구현 (Owner 「권장안대로 구현」 2026-11-28 PHT)
+보고서: `docs/audit/interest-neighbor-final-report-2026-11-28.md` §6.
+
+| 결정 | 구현 | 확인 |
+|---|---|---|
+| 1. 차단·관심이웃 목록을 못 읽으면 막기 | `fetchBlockedAuthorIdsForViewerSb`·`fetchBlockDirectionsForViewerSb`·`fetchNeighborFollowTargetIds` 가 오류 때 `SocialExclusionLookupError`. 라운지 피드 503 `feed_viewer_filter_failed` + 오류 상자 [다시 시도] · 홈 거래 목록·검색 거래 503(기존 `posts_query_failed`·`trade_search_unavailable`) · 댓글 GET 503 · 매장 후기 GET 503 · 선물 친구 503 + 고르기 화면 오류·다시 시도 · 공유→메신저 503 · 글 상세 서버 렌더는 공용 오류 화면. 내 글 목록(작성자=나)은 차단 조회 생략. 통화가 쓰는 `fetchBlockedPairFromSb` 는 통화 규정상 변경 없음 | 실패 재현 시험 5개(예전 코드 실패) |
+| 2. 로그인 막힌 회원 숨김 | `neighbor-follow-list.server.ts` — 목록·개수가 `isPublicProfileHidden` 으로 숨김, 행은 남김, 프로필 조회 오류면 목록 오류 | 실패 재현 시험 3개 |
+| 3. [완료] 전환 방향 | 수정 전 Xiaomi 녹화(18:11 PHT): 주소로 바로 연 관리 화면 [완료] → 관심이웃 화면이 오른쪽에서 들어옴(앞으로). 원인: 내정보 같은 깊이끼리 바꿔치기는 앞으로. 공용 규칙 수정 — `runFixedDestinationBack` 바꿔치기·`runHistoryBackWithFallback` 대체 이동이 다음 전환을 「뒤로」로 표시(`route-transition-back-intent.ts`, 3초·목적지 경로 일치 1회), `useRouteTransitionKindRef` 가 소비 | 실패 재현 시험 · 배포 뒤 녹화 재확인 예정 |
+
+남은 것(이번에 고치지 않음):
+- 상한과 보이는 수 차이: 저장 100명 중 이용 제한 2명이면 화면 「98 / 100」인데 추가는 「최대 100명」. 숨긴 사람은 목록에 없어 지울 수 없음. 고치려면 DB 함수 `neighbor_follow_set_for` 상한 계산을 보이는 회원만 세게 바꿔야 함 → 운영 DB 변경이라 Owner 승인 필요. 운영 현재 이용 제한 회원 0명.
+- 머리줄 ‹ 의 링크 이동(`AppBackButton` `preferHistoryBack=false` 비정착 경로)은 여전히 앞으로 움직임일 수 있음.
+- 같은 종류의 오류 삼킴(범위 밖 기존): 숨긴 글 조회 실패 → 빈 목록, 선물 친구의 친구 목록·프로필 상태 조회 실패 → 빈 목록, 광고 카드는 조용히 빠짐(차단한 사람 글은 안 섞임), 매장 후기 요약은 500 으로 분포만 생략.
+- 관심이웃 목록·내정보 요약 요청이 프로필 조회 1회씩 늘어남(요청 예산 표 대상 아님).

@@ -90,7 +90,14 @@ export async function GET(
 
   const viewer = String(viewerId ?? "").trim();
   /** 거래·커뮤니티와 같은 차단 SSOT — 양방향 차단 회원의 리뷰는 보는 사람에게서 뺀다 */
-  const blockedAuthors = viewer ? await fetchBlockedAuthorIdsForViewerSb(sb, viewer) : new Set<string>();
+  let blockedAuthors: Set<string>;
+  try {
+    blockedAuthors = viewer ? await fetchBlockedAuthorIdsForViewerSb(sb, viewer) : new Set<string>();
+  } catch (e) {
+    /** 차단 목록을 못 읽음 → 차단한 사람 후기가 섞이지 않게 오류(화면 다시 시도 · Owner 결정 1) */
+    console.error("[stores/reviews GET] block lookup failed", e);
+    return NextResponse.json({ ok: false, error: "reviews_unavailable" }, { status: 503 });
+  }
   const list = (reviews ?? []).filter(
     (r) => r.visible_to_public !== false && !blockedAuthors.has(String(r.buyer_user_id ?? "").trim())
   );

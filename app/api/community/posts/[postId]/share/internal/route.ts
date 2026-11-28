@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { buildCommunityPostShareCardData, buildCommunityPostShareMessageMetadata } from "@/lib/community/share/community-share-payload";
 import { resolveCommunityPostDetailAccess } from "@/lib/community/share/community-post-access";
+import { isSocialExclusionLookupError } from "@/lib/social/user-block-ssot";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
   sendCommunityPostShareMessage,
@@ -40,7 +41,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
   if (!roomIdInput && !targetUserId) return jsonError("target_required", 400);
   if (roomIdInput && targetUserId) return jsonError("target_ambiguous", 400);
 
-  const access = await resolveCommunityPostDetailAccess(postId, auth.userId);
+  let access: Awaited<ReturnType<typeof resolveCommunityPostDetailAccess>>;
+  try {
+    access = await resolveCommunityPostDetailAccess(postId, auth.userId);
+  } catch (e) {
+    /** 차단 목록을 못 읽음 → 보내지 않고 오류(Owner 결정 1) */
+    if (isSocialExclusionLookupError(e)) return jsonError("share_unavailable", 503);
+    throw e;
+  }
   if (access.reason !== "ok" || !access.post) {
     const status =
       access.reason === "not_found" || access.reason === "deleted" ? 404

@@ -2083,7 +2083,19 @@ export function CommunityFeed({
                     {safeT("community_local_filter_change")}
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                /** 불러오기 실패(차단·관심이웃 목록을 못 읽은 경우 포함 — Owner 결정 1) → 다시 시도 */
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    data-testid="community-feed-error-retry"
+                    onClick={() => void onPhilifePullRefresh()}
+                    className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
+                  >
+                    {t("common_retry")}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ) : null}

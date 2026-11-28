@@ -7,6 +7,7 @@ import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-in
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { subscribePopstateBeforeRouter } from "@/lib/navigation/popstate-before-router";
 import { isLaunchEntryMotionSuppressed } from "@/components/route-transition/launch-entry-motion";
+import { consumeRouteTransitionBackIntent } from "@/lib/navigation/route-transition-back-intent";
 
 /**
  * pathname 변경 직후(useLayoutEffect) canonical 방향을 계산해 ref 에 넣는다.
@@ -60,8 +61,10 @@ export function useRouteTransitionKindRef(pathname: string | null): MutableRefOb
 
     prevPathRef.current = pathKey;
 
-    const popBack = popstateBackRef.current;
-    if (popBack) {
+    /** 기록 뒤로(popstate) 또는 「뒤로」 목적 바꿔치기(`runFixedDestinationBack`) — 둘 다 뒤로 움직임 */
+    const backIntent = consumeRouteTransitionBackIntent(pathKey);
+    const popBack = popstateBackRef.current || backIntent;
+    if (popstateBackRef.current) {
       popstateBackRef.current = false;
     }
 
