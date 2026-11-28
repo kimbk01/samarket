@@ -8,6 +8,9 @@ import { fetchBlockedAuthorIdsForViewer } from "@/lib/neighborhood/social-filter
  * 보이는 관심이웃 = 내가 맺은 neighbor_follow 중 — 프로필이 있고, 탈퇴(`status='deleted'`·`deleted_at`)가 아니고,
  * 양방향 차단 관계가 아닌 대상. (레거시 FAQ 102: 상대가 탈퇴하면 목록에서 제외)
  */
+/** 조건식에 넣는 id 는 uuid 만 — PostgREST 필터 글자 주입 방지(재감사 4) */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type NeighborFollowRow = { id: string; targetId: string; createdAt: string };
 
 export type NeighborFollowRowsResult =
@@ -79,7 +82,7 @@ export async function deleteNeighborFollowsBetween(
 ): Promise<void> {
   const a = userA.trim();
   const b = userB.trim();
-  if (!a || !b || a === b) return;
+  if (!a || !b || a === b || !UUID_RE.test(a) || !UUID_RE.test(b)) return;
   try {
     const { error } = await sb
       .from("user_relationships")
@@ -95,7 +98,7 @@ export async function deleteNeighborFollowsBetween(
 /** 한 회원이 맺은·받은 관심이웃 행 전부 삭제 — 탈퇴·영구 삭제 (설계 C). 실패해도 탈퇴는 막지 않는다(로그만). */
 export async function deleteAllNeighborFollowsForUser(sb: SupabaseClient<any>, userId: string): Promise<void> {
   const uid = userId.trim();
-  if (!uid) return;
+  if (!uid || !UUID_RE.test(uid)) return;
   try {
     const { error } = await sb
       .from("user_relationships")

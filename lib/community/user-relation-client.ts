@@ -10,13 +10,17 @@ const MIN_FETCH_GAP_MS = 5_000;
 const RELATION_CACHE_MAX_AGE_MS = 10 * 60_000;
 const RELATION_CACHE_MAX_KEYS = 200;
 const relationCache = new Map<string, { at: number; value: CommunityUserRelationSnapshot }>();
+/** 무효화 세대 — 무효화 뒤에 끝난 이전 읽기는 캐시에 쓰지 않는다(관심이웃 재감사 2) */
+const relationGeneration = new Map<string, number>();
 
 function relationKey(targetUserId: string) {
   return `community-user-relation:${targetUserId.trim()}`;
 }
 
 export function invalidateCommunityUserRelationSnapshot(targetUserId: string): void {
-  relationCache.delete(relationKey(targetUserId));
+  const key = relationKey(targetUserId);
+  relationCache.delete(key);
+  relationGeneration.set(key, (relationGeneration.get(key) ?? 0) + 1);
 }
 
 export async function fetchCommunityUserRelationSnapshot(
@@ -30,7 +34,8 @@ export async function fetchCommunityUserRelationSnapshot(
     return cached.value;
   }
 
-  return runSingleFlight(key, async () => {
+  const gen = relationGeneration.get(key) ?? 0;
+  return runSingleFlight(`${key}:${gen}`, async () => {
     try {
       const [resFollow, resBlock] = await Promise.all([
         fetch(`/api/community/neighbor-relations?targetUserId=${encodeURIComponent(targetUserId)}`, {
@@ -56,7 +61,7 @@ export async function fetchCommunityUserRelationSnapshot(
         blocked:
           resBlock.ok && jb.ok && typeof jb.blocked === "boolean" ? jb.blocked : null,
       };
-      relationCache.set(key, { at: Date.now(), value: next });
+      if ((relationGeneration.get(key) ?? 0) === gen) relationCache.set(key, { at: Date.now(), value: next });
       return next;
     } catch {
       return { following: null, blocked: null };

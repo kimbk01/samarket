@@ -1,13 +1,17 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
-import { setNeighborFollow, useNeighborRelation } from "@/lib/community/neighbor-follow-store";
+import {
+  ensureNeighborStoreViewer,
+  setNeighborFollow,
+  useNeighborRelation,
+} from "@/lib/community/neighbor-follow-store";
 import { DIBAY_TOAST_ACTION_MS, DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -33,6 +37,11 @@ export function useNeighborFollowToggle(opts: {
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const target = String(opts.targetUserId ?? "").trim();
   const isPeer = Boolean(target) && me?.id !== target;
+  const meId = me?.id ?? null;
+  /** 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행) */
+  useEffect(() => {
+    if (mounted) ensureNeighborStoreViewer(meId);
+  }, [mounted, meId]);
   const rel = useNeighborRelation(target, {
     enabled: opts.enabled !== false && isPeer && Boolean(me?.id),
     seed: opts.seed,
@@ -59,6 +68,8 @@ export function useNeighborFollowToggle(opts: {
   );
 
   const name = opts.name;
+  /** [되돌리기]가 같은 동작을 다시 부르기 위한 참조 (useCallback 안 자기 참조 대신) */
+  const runRef = useRef<(want: boolean, offerUndo: boolean) => Promise<void>>(async () => undefined);
   const run = useCallback(
     async (want: boolean, offerUndo: boolean): Promise<void> => {
       if (!target) return;
@@ -71,7 +82,7 @@ export function useNeighborFollowToggle(opts: {
         notify(
           t(want ? "community_neighbor_added_toast" : "community_neighbor_removed_toast", { name }),
           "success",
-          !want && offerUndo ? () => void run(true, false) : undefined,
+          !want && offerUndo ? () => void runRef.current(true, false) : undefined,
         );
         return;
       }
@@ -89,6 +100,9 @@ export function useNeighborFollowToggle(opts: {
     },
     [name, notify, requireAction, t, target],
   );
+  useEffect(() => {
+    runRef.current = run;
+  }, [run]);
 
   const toggle = useCallback(() => run(rel.following !== true, true), [rel.following, run]);
 

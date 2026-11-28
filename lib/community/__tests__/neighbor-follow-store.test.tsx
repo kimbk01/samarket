@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetNeighborFollowStoreForTests,
   applyBlockToNeighborRelation,
+  ensureNeighborStoreViewer,
   readNeighborRelation,
   seedNeighborRelation,
   setNeighborFollow,
@@ -95,6 +96,39 @@ describe("neighbor-follow-store", () => {
     seedNeighborRelation(PEER, { following: true, blocked: false });
     applyBlockToNeighborRelation(PEER, true);
     expect(readNeighborRelation(PEER)).toMatchObject({ following: false, blocked: true });
+  });
+
+  it("재감사 2 — 처음 읽기가 늦게 끝나도 그 사이 사용자가 추가한 값을 덮지 않는다", async () => {
+    let releaseGet: (v: Response) => void = () => {};
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ ok: true, following: true }), { status: 200 }));
+      }
+      if (url.includes("neighbor-relations")) return new Promise<Response>((r) => (releaseGet = r));
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, blocked: false }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    function Loader() {
+      useNeighborRelation(PEER);
+      return null;
+    }
+    act(() => root!.render(<Loader />));
+    await act(async () => {
+      await setNeighborFollow(PEER, true);
+    });
+    expect(readNeighborRelation(PEER).following).toBe(true);
+    await act(async () => {
+      releaseGet(new Response(JSON.stringify({ ok: true, following: false }), { status: 200 }));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(readNeighborRelation(PEER).following).toBe(true);
+  });
+
+  it("재감사 8 — 로그인 회원이 바뀌면 이전 회원 값을 비운다", () => {
+    ensureNeighborStoreViewer("viewer-a");
+    seedNeighborRelation(PEER, { following: true, blocked: false });
+    ensureNeighborStoreViewer("viewer-b");
+    expect(readNeighborRelation(PEER).following).toBeNull();
   });
 
   it("요청 중 재탭은 보내지 않는다", async () => {

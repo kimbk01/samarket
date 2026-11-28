@@ -174,7 +174,6 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
         if (!res.ok || !json.ok) {
           setFailed(true);
           if (!append) setPosts([]);
-          setHasMore(false);
           return;
         }
         const next = Array.isArray(json.posts) ? json.posts : [];
@@ -188,10 +187,7 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
         setHasMore(Boolean(json.hasMore && token && token !== fromCursor));
         setCursor(token);
       } catch {
-        if (seq === reqSeq.current) {
-          setFailed(true);
-          setHasMore(false);
-        }
+        if (seq === reqSeq.current) setFailed(true);
       } finally {
         if (seq === reqSeq.current) setLoading(false);
       }
@@ -200,14 +196,17 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
   );
 
   useEffect(() => {
+    /** 사람을 바꾸면 이전 사람의 커서·다음 페이지 표시를 먼저 지운다 — 이전 커서로 새 사람의 다음 페이지를 부르지 않게(재감사 3) */
     setPosts([]);
     setCursor(null);
+    setHasMore(false);
     void loadPage(false, null);
   }, [loadPage]);
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || !hasMore || loading) return;
+    /** 실패 뒤에는 자동으로 다시 부르지 않는다(반복 요청 방지) — [다시 시도] 버튼으로만 */
+    if (!el || !hasMore || loading || failed || !cursor) return;
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -219,7 +218,7 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [cursor, hasMore, loadPage, loading]);
+  }, [cursor, failed, hasMore, loadPage, loading]);
 
   return (
     <div className="-mx-4 md:-mx-5" data-testid="neighbor-follow-posts-view">
@@ -259,6 +258,17 @@ function NeighborPostsView({ items }: { items: NeighborItem[] }) {
         </ul>
       )}
       {hasMore ? <div ref={sentinelRef} className="h-px" aria-hidden /> : null}
+      {failed && posts.length > 0 ? (
+        <div className="px-4 pb-4 text-center md:px-5">
+          <button
+            type="button"
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm}`}
+            onClick={() => void loadPage(true, cursor)}
+          >
+            {t("common_retry")}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

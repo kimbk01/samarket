@@ -24,6 +24,27 @@ const EMPTY: NeighborRelationState = { following: null, blocked: null, busy: fal
 const states = new Map<string, NeighborRelationState>();
 const listeners = new Map<string, Set<() => void>>();
 const loading = new Set<string>();
+/** 대상별 변경 세대 — 추가·해제·차단 뒤에 끝난 이전 서버 읽기는 버린다(재감사 2) */
+const versions = new Map<string, number>();
+/** 이 저장소 값이 속한 로그인 회원 — 바뀌면 비운다(재감사 8: 계정 전환) */
+let storeViewer: string | null = null;
+
+function bump(k: string): void {
+  versions.set(k, (versions.get(k) ?? 0) + 1);
+}
+
+/** 로그인 회원이 바뀌면 다른 회원의 관심이웃·차단 값을 보여 주지 않게 비운다 */
+export function ensureNeighborStoreViewer(viewerId: string | null | undefined): void {
+  const v = String(viewerId ?? "").trim() || null;
+  if (v === storeViewer) return;
+  const hadOwner = storeViewer !== null;
+  storeViewer = v;
+  if (!hadOwner) return;
+  states.clear();
+  loading.clear();
+  versions.clear();
+  for (const set of listeners.values()) for (const fn of set) fn();
+}
 
 function key(targetUserId: string): string {
   return targetUserId.trim();
@@ -68,15 +89,18 @@ export function applyBlockToNeighborRelation(targetUserId: string, blocked: bool
   const k = key(targetUserId);
   if (!k) return;
   invalidateCommunityUserRelationSnapshot(k);
+  bump(k);
   patch(k, blocked ? { blocked: true, following: false } : { blocked: false });
 }
 
 async function loadFromServer(k: string): Promise<void> {
   if (loading.has(k)) return;
   loading.add(k);
+  const startedAt = versions.get(k) ?? 0;
   try {
     const rel = await fetchCommunityUserRelationSnapshot(k);
-    if (states.get(k)?.busy) return;
+    /** 읽는 동안 사용자가 바꿨으면(세대 변경) 낡은 값이라 버린다 */
+    if (states.get(k)?.busy || (versions.get(k) ?? 0) !== startedAt) return;
     patch(k, {
       ...(typeof rel.following === "boolean" ? { following: rel.following } : {}),
       ...(typeof rel.blocked === "boolean" ? { blocked: rel.blocked } : {}),
@@ -141,6 +165,7 @@ export async function setNeighborFollow(targetUserId: string, following: boolean
   if (!k) return { ok: false, error: "bad_target", status: 400 };
   const prev = states.get(k) ?? EMPTY;
   if (prev.busy) return { ok: false, error: "busy", status: 409 };
+  bump(k);
   patch(k, { busy: true, following });
   try {
     const res = await fetch("/api/community/neighbor-relations", {
@@ -174,4 +199,6 @@ export function __resetNeighborFollowStoreForTests(): void {
   states.clear();
   listeners.clear();
   loading.clear();
+  versions.clear();
+  storeViewer = null;
 }

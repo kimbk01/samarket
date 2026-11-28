@@ -16,6 +16,7 @@ import type { MemberCommunitySection, MemberCommunityTabPayload } from "@/lib/ad
 import { ADMIN_USERS_LITE_CARD } from "@/lib/ui/admin-users-lite-styles";
 import { formatAdminManilaDateTime } from "@/lib/admin/metrics/manila-period";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminMemberNeighborFollowSection } from "@/components/admin/users/AdminMemberNeighborFollowSection";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
@@ -66,13 +67,29 @@ export function AdminMemberCommunityPanel({ userId, memberName }: { userId: stri
     };
   }, [userId, section, page]);
 
+  /** 관심이웃은 자체 API — 커뮤니티 집계가 실패·로딩 중이어도 열 수 있다 (관심이웃 재감사 7) */
+  if (section === "neighbors" && state.kind !== "ok") {
+    return (
+      <div className="space-y-3">
+        <AdminActionButton variant="secondary" size="sm" onClick={() => setSection("posts")}>
+          {t("admin_users_cc_overview_posts")}
+        </AdminActionButton>
+        <div className={`${ADMIN_USERS_LITE_CARD} overflow-x-auto`}>
+          <AdminMemberNeighborFollowSection userId={userId} memberName={memberName?.trim() || userId} />
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "loading") {
     return <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm text-sam-muted`}>{t("admin_users_detail_loading")}</div>;
   }
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_LITE_CARD} py-8 text-center text-sm font-semibold text-sam-danger`}>
-        {safeT("admin_users_cc_load_failed")}
+      <div className={`${ADMIN_USERS_LITE_CARD} space-y-3 py-8 text-center text-sm font-semibold text-sam-danger`}>
+        <p>{safeT("admin_users_cc_load_failed")}</p>
+        <AdminActionButton variant="secondary" size="sm" onClick={() => setSection("neighbors")}>
+          {t("admin_users_cc_neighbors")}
+        </AdminActionButton>
       </div>
     );
   }

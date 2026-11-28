@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 내정보 관계 목록 — 차단·숨김(조회·해제) · 관심이웃(조회만; 추가·해제는 `POST /api/community/neighbor-relations` 상태 지정).
- * 옛 「모아보는 사용자」(`favorite` → `user_favorites`, 운영에 없는 표)는 삭제 (관심이웃 설계 B · Owner 「시안대로 결정」 2026-11-28).
+ * 옛 「모아보는 사용자」(`favorite`, 운영에 없는 표를 읽던 목록)는 삭제 (관심이웃 설계 B · Owner 「시안대로 결정」 2026-11-28).
  */
 type RelationType = "hidden" | "blocked" | "neighbor";
 
