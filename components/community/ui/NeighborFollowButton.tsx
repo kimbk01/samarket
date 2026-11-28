@@ -39,10 +39,17 @@ export function useNeighborFollowToggle(opts: {
   const target = String(opts.targetUserId ?? "").trim();
   const isPeer = Boolean(target) && me?.id !== target;
   const meId = me?.id ?? null;
-  /** 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행) */
+  /**
+   * 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행).
+   * `mounted` 뒤에만: 하이드레이션 첫 그림은 서버 값(null)이라, 늦게 붙는 인스턴스가 null 로 저장소를 비우지 않게 한다(재감사 minor-1).
+   */
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    ensureNeighborStoreViewer(meId);
-  }, [meId]);
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    if (mounted) ensureNeighborStoreViewer(meId);
+  }, [mounted, meId]);
   const rel = useNeighborRelation(target, {
     enabled: opts.enabled !== false && isPeer && Boolean(me?.id),
     seed: opts.seed,
