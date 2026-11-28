@@ -5,6 +5,26 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
 let cached: Profile | null = null;
 
+/**
+ * 캐시가 바뀌면 알릴 곳 — `useClientProfile()` 이 구독한다.
+ * 예전에는 알림이 없어, 캐시보다 먼저 그려진 화면(주소로 바로 연 글 상세 등)이 로그인 정보를 빈 값으로 들고 있었다
+ * (설계 `docs/audit/community-detail-viewer-refresh-design-2026-11-28.md`).
+ */
+const listeners = new Set<() => void>();
+
+function notifyProfileCacheChanged(): void {
+  for (const fn of [...listeners]) fn();
+}
+
+/** 브라우저 전용 — 서버에서는 아무것도 하지 않는다 */
+export function subscribeSupabaseProfileCache(fn: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
+
 /** `client-session-wipe` POST_LOGOUT_BFCACHE_GUARD_KEY 와 동일 — 순환 import 방지 */
 const POST_LOGOUT_PROFILE_GUARD_KEY = "samarket:post_logout_guard";
 
@@ -24,7 +44,9 @@ export function isPostLogoutProfileRehydrateBlocked(): boolean {
 export function setSupabaseProfileCache(profile: Profile | null): void {
   if (typeof window === "undefined") return;
   if (profile !== null && isPostLogoutProfileRehydrateBlocked()) return;
+  if (cached === profile) return;
   cached = profile;
+  notifyProfileCacheChanged();
 }
 
 export function getSupabaseProfileCache(): Profile | null {
@@ -37,6 +59,7 @@ export function patchSupabaseProfileCache(updates: Partial<Profile>): void {
   if (typeof window === "undefined") return;
   if (!cached) return;
   cached = { ...cached, ...updates };
+  notifyProfileCacheChanged();
 }
 
 /** getUser() 등 세션 없이 User 만 있을 때 — getSession() 경고 회피·동일 메타 규칙 */

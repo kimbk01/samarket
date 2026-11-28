@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
-import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientProfile } from "@/lib/auth/use-client-profile";
 import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
 import {
   ensureNeighborStoreViewer,
@@ -33,24 +34,20 @@ export function useNeighborFollowToggle(opts: {
 }) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const [mounted, setMounted] = useState(false);
-  const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
+  /** 로그인 정보 — 캐시가 늦게 차도 다시 그린다(주소로 바로 연 상세에서 비로그인으로 남던 결함) */
+  const me = useClientProfile();
   const target = String(opts.targetUserId ?? "").trim();
   const isPeer = Boolean(target) && me?.id !== target;
   const meId = me?.id ?? null;
   /** 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행) */
   useEffect(() => {
-    if (mounted) ensureNeighborStoreViewer(meId);
-  }, [mounted, meId]);
+    ensureNeighborStoreViewer(meId);
+  }, [meId]);
   const rel = useNeighborRelation(target, {
     enabled: opts.enabled !== false && isPeer && Boolean(me?.id),
     seed: opts.seed,
   });
   const [toast, setToast] = useState<ToastState>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!toast) return;
