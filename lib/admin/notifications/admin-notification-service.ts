@@ -53,8 +53,21 @@ export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
 export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
 
 export type AdminRecipientAuthority =
-  | { active: false }
+  /** `unknown: true` = 읽기 실패로 판정 못 함(받는 사람으로는 보지 않지만 담당 해제 근거는 아니다 · 재감사 2차 1) */
+  | { active: false; unknown?: true }
   | { active: true; isSuperAdmin: boolean; permissions: AdminPermissionKey[] };
+
+/**
+ * 「권한을 잃었다」가 **확인된** 경우만 true (정지·차단·탈퇴·권한 없음·멤버십 없음). 읽기 실패(unknown) = false.
+ * 담당 해제는 이 판정으로만 한다 — 결정 4(못 읽음 = 정지)는 받는 사람 판정에만 쓴다(재감사 2차 1).
+ */
+export function authorityConfirmedLoss(
+  authority: AdminRecipientAuthority,
+  requiredPermission: AdminPermissionKey | null
+): boolean {
+  if (authority.active === false && authority.unknown) return false;
+  return !authorityAllows(authority, requiredPermission);
+}
 
 /** Same authority formula as requireAdminApiActor (membership → role → permissions). */
 export async function resolveAdminRecipientAuthority(
@@ -75,7 +88,7 @@ export async function resolveAdminRecipientAuthority(
     const { data: profile, error: profileErr } = await sb.from("profiles").select("status").eq("id", userId).maybeSingle();
     if (profileErr) {
       console.error("[admin-notification] recipient_profile_read_failed", { userId, error: profileErr.message });
-      return { active: false };
+      return { active: false, unknown: true };
     }
     // 전체 수정 S-7: 차단·탈퇴(로그인 불가)도 정지와 같게 — 받을 수 없는 담당자·받는 사람
     const p = profile as { status?: string | null } | null;
@@ -220,7 +233,15 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
 }
 
 export type CreateAdminNotificationResult =
-  | { ok: true; created: number; skippedRecipients: number; pushed: number }
+  | {
+      ok: true;
+      created: number;
+      /** 받지 못한 후보 전부(권한 확인된 없음 + 판정 못 함) */
+      skippedRecipients: number;
+      /** 그중 권한을 잃은 것이 **확인된** 후보 수 — 담당 해제는 이 값만 본다(재감사 2차 1). 없으면 0 으로 본다 */
+      revokedRecipients?: number;
+      pushed: number;
+    }
   | {
       ok: false;
       error: string;
@@ -402,6 +423,7 @@ export async function createAdminNotification(
   const gatePermission = input.broadcastPermission ?? requiredPermission;
   const recipients: string[] = [];
   let authorityErrors = 0;
+  let revokedRecipients = 0;
   // 고객 문의 최종 감사 L8: 후보 권한 조회(후보당 3건)를 차례로 하지 않고 10명씩 동시에 — 순서는 후보 순서 그대로.
   for (let i = 0; i < candidates.length; i += AUTHORITY_LOOKUP_CHUNK) {
     const chunk = candidates.slice(i, i + AUTHORITY_LOOKUP_CHUNK);
@@ -420,11 +442,12 @@ export async function createAdminNotification(
         continue;
       }
       if (authorityAllows(r.authority, gatePermission)) recipients.push(r.uid);
+      else if (authorityConfirmedLoss(r.authority, gatePermission)) revokedRecipients += 1;
     }
   }
   if (authorityErrors > 0) return fail("authority_lookup_failed");
   const skippedRecipients = candidates.length - recipients.length;
-  if (recipients.length === 0) return { ok: true, created: 0, skippedRecipients, pushed: 0 };
+  if (recipients.length === 0) return { ok: true, created: 0, skippedRecipients, revokedRecipients, pushed: 0 };
 
   const rows = recipients.map((uid) => ({
     recipient_admin_id: uid,
@@ -463,7 +486,7 @@ export async function createAdminNotification(
     }
   }
 
-  return { ok: true, created: inserted.length, skippedRecipients, pushed };
+  return { ok: true, created: inserted.length, skippedRecipients, revokedRecipients, pushed };
 }
 
 /**
@@ -673,8 +696,8 @@ export async function runAdminNotificationDeliveryWorker(
       input.kind === "support_customer_replied" &&
       (input.recipientAdminIds?.length ?? 0) > 0
     ) {
-      // 담당자가 권한을 잃은 경우에만 담당을 푼다(글쓴이 본인 담당은 그대로 — 받을 사람만 넓힌다).
-      if (res.skippedRecipients > 0) await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
+      // 담당자가 권한을 잃은 것이 **확인된** 경우에만 담당을 푼다(글쓴이 본인 담당·프로필 읽기 실패는 그대로 — 받을 사람만 넓힌다 · 재감사 2차 1).
+      if ((res.revokedRecipients ?? 0) > 0) await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
       res = await createAdminNotification(
         sb,
         { ...input, recipientAdminIds: undefined, broadcastPermission: "support", requiredPermission: "support" },

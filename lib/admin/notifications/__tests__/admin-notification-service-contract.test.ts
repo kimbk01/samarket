@@ -344,7 +344,8 @@ describe("R13 store / RLS / separation contracts", () => {
     expect(svc).toContain('"assignee_not_active_admin"');
     // self-heal when the assignee lost authority and the revoke-time release did not happen
     // 최종 점검 L2: 담당 해제는 공용 규칙 하나(진행 중 문의만)
-    expect(svc).toMatch(/if \(notified\.skippedRecipients === 0\) \{[\s\S]{0,400}return;\s*\}[\s\S]{0,600}releaseSupportAssigneeOnActiveCases\(sb, \{ assigneeId: assignee, caseId: c\.id/);
+    // 재감사 2차 1: 해제는 권한 잃음이 확인된 때만(revokedRecipients) — 동작 시험 support-full-fix-server 「재감사 2차 1」
+    expect(svc).toMatch(/if \(notified\.skippedRecipients === 0\) \{[\s\S]{0,400}return;\s*\}[\s\S]{0,800}if \(\(notified\.revokedRecipients \?\? 0\) > 0\) \{\s*const released = await releaseSupportAssigneeOnActiveCases\(sb, \{ assigneeId: assignee, caseId: c\.id/);
   });
 
   it("Bell (Action Queue) and inbox (notifications) never read each other's source", () => {

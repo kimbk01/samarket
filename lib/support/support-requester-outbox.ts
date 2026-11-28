@@ -75,22 +75,46 @@ export async function recreateSupportRequesterNotification(
   if (existing.error) return { ok: false, error: "notification_read_failed" };
   if (existing.data) return { ok: true, created: false };
   let body = typeof ev.body === "string" ? ev.body : "";
+  const evCaseId = String((ev.displayPayload as { supportCaseId?: unknown } | undefined)?.supportCaseId ?? "");
   if (payload.replyMessageId) {
     const { data: m, error } = await sb
       .from("support_messages")
-      .select("deleted_at, body, case_id")
+      .select("deleted_at, body, case_id, created_at")
       .eq("id", payload.replyMessageId)
       .maybeSingle();
     if (error) return { ok: false, error: "reply_read_failed" };
-    const msg = m as { deleted_at?: unknown; body?: unknown; case_id?: unknown } | null;
+    const msg = m as { deleted_at?: unknown; body?: unknown; case_id?: unknown; created_at?: unknown } | null;
     if (!msg || msg.deleted_at) return { ok: true, created: false };
     body = String(msg.body ?? "").slice(0, 500);
-    const caseId = String(msg.case_id ?? (ev.displayPayload as { supportCaseId?: unknown } | undefined)?.supportCaseId ?? "");
+    const caseId = String(msg.case_id ?? evCaseId);
     if (caseId) {
-      const { data: c, error: cErr } = await sb.from("support_cases").select("requester_unread_count").eq("id", caseId).maybeSingle();
-      if (cErr) return { ok: false, error: "case_read_failed" };
-      if (!c || !(Number((c as { requester_unread_count?: unknown }).requester_unread_count ?? 0) > 0)) return { ok: true, created: false };
+      // 재감사 2차 3: 「이 답변을 봤나」는 답변마다 — seen 과 같은 세기 규칙(고객 미읽음 = 본 기준 시각 뒤 어드민 공개 답변 수).
+      //   이 답변과 그 뒤(같은 시각 포함) 남은 어드민 공개 답변 수 ≤ 고객 미읽음 이면 아직 안 봄, 크면 이미 본 답변.
+      const [c, after] = await Promise.all([
+        sb.from("support_cases").select("requester_unread_count").eq("id", caseId).maybeSingle(),
+        sb
+          .from("support_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("case_id", caseId)
+          .eq("sender_type", "ADMIN")
+          .eq("message_type", "PUBLIC")
+          .is("deleted_at", null)
+          .gte("created_at", String(msg.created_at ?? "")),
+      ]);
+      if (c.error || after.error) return { ok: false, error: "case_read_failed" };
+      if (!c.data) return { ok: true, created: false };
+      const unread = Math.max(0, Number((c.data as { requester_unread_count?: unknown }).requester_unread_count ?? 0));
+      const fromThis = Math.max(1, Number(after.count ?? 0));
+      if (fromThis > unread) return { ok: true, created: false };
     }
+  } else if ((ev.type === "support_case_resolved" || ev.type === "support_case_reopened") && evCaseId) {
+    // 재감사 2차 3: 종료·재오픈 알림은 지금 상태가 그대로일 때만(그사이 재오픈·종료됐으면 옛 알림을 만들지 않음)
+    const { data: c, error: cErr } = await sb.from("support_cases").select("status").eq("id", evCaseId).maybeSingle();
+    if (cErr) return { ok: false, error: "case_read_failed" };
+    const status = String((c as { status?: unknown } | null)?.status ?? "");
+    const closed = status === "RESOLVED" || status === "ARCHIVED";
+    const active = status === "OPEN" || status === "WAITING_ADMIN" || status === "WAITING_USER";
+    if (ev.type === "support_case_resolved" ? !closed : !active) return { ok: true, created: false };
   }
   const r = await createAndDispatchNotificationEvent(sb, { ...ev, body } as never).catch((e: unknown) => ({
     ok: false as const,

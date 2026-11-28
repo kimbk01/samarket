@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { authorityAllows, resolveAdminRecipientAuthority } from "@/lib/admin/notifications/admin-notification-service";
+import { authorityConfirmedLoss, resolveAdminRecipientAuthority } from "@/lib/admin/notifications/admin-notification-service";
 import { releaseSupportAssignmentsOnRevoke } from "@/lib/admin/admin-membership";
 
 /**
@@ -15,7 +15,8 @@ export async function releaseSupportAssignmentsIfNoSupportPermission(
 ): Promise<void> {
   try {
     const authority = await resolveAdminRecipientAuthority(sb, input.userId);
-    if (authorityAllows(authority, "support")) return;
+    // 재감사 2차 1: 권한 잃음이 확인된 때만 푼다 — 프로필 읽기 실패(판정 못 함)로는 담당을 바꾸지 않는다
+    if (!authorityConfirmedLoss(authority, "support")) return;
     await releaseSupportAssignmentsOnRevoke(sb, { userId: input.userId, revokedBy: input.changedBy });
   } catch (e) {
     console.error("[support] assignee_permission_sync_failed", { userId: input.userId, error: (e as Error).message });

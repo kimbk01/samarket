@@ -9,6 +9,7 @@ import {
 } from "@/lib/support/support-community-filter";
 import {
   authorityAllows,
+  authorityConfirmedLoss,
   settleSupportCustomerMessageNotification,
   createAdminNotification,
   resolveAdminRecipientAuthority,
@@ -53,6 +54,7 @@ import {
   applyReplyDeletedForRequester,
   applyRequesterClosed,
   applyRequesterSeen,
+  ensureRequesterSupportNotification,
   loadCustomerMessageIdsWithAdminAlert,
   markFormerAssigneeCaseAlertsRead,
   markSupportCaseNotificationsRead as ledgerMarkSupportCaseNotificationsRead,
@@ -251,8 +253,11 @@ export async function notifyAdminsOfCustomerMessage(
     // (or failed). Return the case to the unassigned queue so it is not stranded,
     // then fall through to the unassigned fan-out so this message is not lost.
     // 최종 점검 L2: 담당 해제 규칙 1곳 — 진행 중 문의만(그사이 종료된 문의의 담당 기록은 그대로)
-    const released = await releaseSupportAssigneeOnActiveCases(sb, { assigneeId: assignee, caseId: c.id, trigger: "customer_reply" });
-    if (released.error) console.error("[support] assignee_release_failed", { caseId: c.id, error: released.error });
+    // 재감사 2차 1: 권한 잃음이 **확인된** 때만 담당을 푼다 — 프로필 읽기 실패(판정 못 함)는 이번 글만 전원에게 보내고 담당은 그대로
+    if ((notified.revokedRecipients ?? 0) > 0) {
+      const released = await releaseSupportAssigneeOnActiveCases(sb, { assigneeId: assignee, caseId: c.id, trigger: "customer_reply" });
+      if (released.error) console.error("[support] assignee_release_failed", { caseId: c.id, error: released.error });
+    }
   }
 
   const broadcast = await createAdminNotification(sb, {
@@ -469,6 +474,32 @@ const SUPPORT_MESSAGES_LIST_LIMIT = 1000;
  * 고객 알림 — 원장(`recordRequesterSupportNotification`): 알림함 행은 응답 전 저장(실패 1회 재시도), 푸시는 응답 뒤.
  * 실패는 기록만(상태·글은 이미 저장됨).
  */
+/**
+ * 재감사 3차 (2026-11-29): 「상담 종료」·「재오픈」을 다시 눌러 changed=false 가 된 경우 — 첫 요청이 상태를 바꾼 뒤 고객 알림 전에 끊겼을 수 있다.
+ * 마지막 상태 사건이 **이 어드민의 같은 행동**일 때만 true (고객 「확인했어요」·자동 종료·보관 해제는 알림 대상이 아니므로 제외).
+ */
+async function lastCaseTransitionBy(
+  sb: SupabaseClient,
+  caseId: string,
+  actorUserId: string,
+  kind: "admin_resolve" | "reopen"
+): Promise<boolean> {
+  const { data, error } = await sb
+    .from("support_case_events")
+    .select("event_type, actor_user_id, payload")
+    .eq("case_id", caseId)
+    .in("event_type", ["status_changed", "reopened"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return false;
+  const ev = data as { event_type?: string; actor_user_id?: string | null; payload?: Record<string, unknown> | null };
+  if (String(ev.actor_user_id ?? "") !== actorUserId) return false;
+  if (kind === "reopen") return ev.event_type === "reopened";
+  const payload = ev.payload ?? {};
+  return ev.event_type === "status_changed" && payload.status === "RESOLVED" && payload.by == null;
+}
+
 async function notifyRequester(
   sb: SupabaseClient,
   requesterUserId: string,
@@ -1384,8 +1415,32 @@ export async function adminReplySupportCase(
   });
   // DEF-02: 종료 문의엔 공개 답변 불가 — DB 함수가 잠금 안에서 거부(case_closed · replay 는 먼저 처음 결과)
   if (!res.ok) return res;
-  // 같은 요청 id 재전송 = 처음 결과만(정리·고객 알림·미읽음 증가 없음)
-  if (res.replayed) return { ok: true, message: res.message, unseenCustomerMessages: 0, replayed: true };
+  // 같은 요청 id 재전송 = 처음 결과만(정리·미읽음 증가 없음).
+  // 재감사 2차 2: 단, 첫 요청이 저장 뒤 고객 알림 전에 끊겼을 수 있다 → 공개 답변이면 고객 알림을 같은 키로 보장(있으면 조회 1번으로 끝)
+  if (res.replayed) {
+    const m = res.message;
+    if (m.message_type === "PUBLIC" && m.sender_type === "ADMIN" && !m.deleted_at) {
+      const c = gate.case;
+      await ensureRequesterSupportNotification(
+        sb,
+        (replyLang) => ({
+          userId: c.requester_user_id,
+          type: "support_admin_replied",
+          title: notifySafeT(replyLang, "notify_support_admin_replied_title"),
+          body: m.body,
+          copy: { titleKey: "notify_support_admin_replied_title" },
+          caseId: c.id,
+          publicCaseNo: c.public_case_no,
+          audience: c.audience,
+          storeId: c.owner_store_id,
+          dedupeKey: `support_admin_replied:${m.id}`,
+          actorUserId: input.adminUserId,
+        }),
+        { requesterUserId: c.requester_user_id, dedupeKey: `support_admin_replied:${m.id}`, replyMessageId: m.id }
+      ).catch((err: unknown) => console.error("[support] replay_notification_ensure_failed", { caseId: c.id, err }));
+    }
+    return { ok: true, message: m, unseenCustomerMessages: 0, replayed: true };
+  }
 
   let unseenCustomerMessages = 0;
   if (!input.internalNote) {
@@ -1524,11 +1579,10 @@ export async function adminUpdateSupportCaseStatus(
     seenLastMessageAt: mode === "close" ? parseSeenOrNull(input.seenLastMessageAt) : null,
   });
   if (!r.ok) return { ok: false, error: r.error };
-  if (mode === "close" && r.changed) {
+  if (mode === "close") {
     const c = r.case;
     const at = String(c.resolved_at ?? c.updated_at ?? new Date().toISOString());
-    // 고객 「종료」 알림 — 알림함 행은 응답 전 저장(원장) · 푸시는 응답 뒤
-    await notifyRequester(sb, c.requester_user_id, (resolvedLang) => ({
+    const build = (resolvedLang: Parameters<typeof notifySafeT>[0]): SupportRequesterNotificationInput => ({
       userId: c.requester_user_id,
       type: "support_case_resolved",
       title: notifySafeT(resolvedLang, "notify_support_case_resolved_title"),
@@ -1541,7 +1595,17 @@ export async function adminUpdateSupportCaseStatus(
       storeId: c.owner_store_id,
       dedupeKey: `support_case_resolved:${c.id}:${at}`,
       actorUserId: input.adminUserId,
-    }));
+    });
+    if (r.changed) {
+      // 고객 「종료」 알림 — 알림함 행은 응답 전 저장(원장) · 푸시는 응답 뒤
+      await notifyRequester(sb, c.requester_user_id, build);
+    } else if (c.status === "RESOLVED" && (await lastCaseTransitionBy(sb, c.id, input.adminUserId, "admin_resolve"))) {
+      // 재감사 3차: 같은 어드민의 종료 재요청 — 첫 요청이 알림 전에 끊겼으면 같은 키로 1건만 보장(있으면 조회 1번)
+      await ensureRequesterSupportNotification(sb, build, {
+        requesterUserId: c.requester_user_id,
+        dedupeKey: `support_case_resolved:${c.id}:${at}`,
+      }).catch((err: unknown) => console.error("[support] resolved_notification_ensure_failed", { caseId: c.id, err }));
+    }
   }
   return { ok: true, case: r.case };
 }
@@ -1638,23 +1702,64 @@ export async function adminSetSupportCasePriority(
   return { ok: true, case: r.case };
 }
 
+/**
+ * 재오픈 알림 키 — 재오픈 시각(DB 함수가 재오픈 때 `last_message_at` 을 그 시각으로 둔다).
+ * `updated_at` 은 재오픈 뒤 담당 해제 등으로 바뀌어, 다시 누른 요청이 같은 키를 못 만들었다(재감사 3차).
+ */
+function reopenedDedupeKey(c: SupportCaseRow): string {
+  return `support_case_reopened:${c.id}:${String(c.last_message_at ?? c.updated_at ?? "")}`;
+}
+
+function reopenedNotification(
+  c: SupportCaseRow,
+  actorUserId: string,
+  lang: Parameters<typeof notifySafeT>[0]
+): SupportRequesterNotificationInput {
+  return {
+    userId: c.requester_user_id,
+    type: "support_case_reopened",
+    title: notifySafeT(lang, "notify_support_case_reopened_title"),
+    body: notifySafeT(lang, "notify_support_case_reopened_body"),
+    copy: { titleKey: "notify_support_case_reopened_title", messageKey: "notify_support_case_reopened_body" },
+    caseId: c.id,
+    publicCaseNo: c.public_case_no,
+    audience: c.audience,
+    storeId: c.owner_store_id,
+    dedupeKey: reopenedDedupeKey(c),
+    actorUserId,
+  };
+}
+
+/** 고객 문의 SSOT §2 (2차 재감사 J): 재오픈은 어드민만. `isAdmin` 은 옛 호출 호환용 — 값과 무관하게 어드민 판정. */
 export async function reopenSupportCase(
   sb: SupabaseClient,
-  /** 고객 문의 SSOT §2 (2차 재감사 J): 재오픈은 어드민만. `isAdmin` 은 옛 호출 호환용 — 값과 무관하게 어드민 판정. */
   input: { userId: string; caseId: string; isAdmin?: boolean }
 ): Promise<{ ok: true; case: SupportCaseRow } | { ok: false; error: string }> {
   if (!isUuid(input.caseId)) return { ok: false, error: "invalid_case_id" };
   // S-17: 이미 진행 중 = ok(changed=false) · 상태·세션·사건 = 한 트랜잭션
   const r = await transitionSupportCase(sb, { caseId: input.caseId, action: "reopen", actorUserId: input.userId });
   if (!r.ok) return { ok: false, error: r.error === "transition_failed" ? "reopen_failed" : r.error };
-  if (!r.changed) return { ok: true, case: r.case };
+  if (!r.changed) {
+    // 재감사 3차: 같은 어드민의 재오픈 재요청 — 첫 요청이 알림 전에 끊겼으면 같은 키로 1건만 보장
+    const c0 = r.case;
+    if (input.userId !== c0.requester_user_id && (await lastCaseTransitionBy(sb, c0.id, input.userId, "reopen"))) {
+      await ensureRequesterSupportNotification(sb, (lang) => reopenedNotification(c0, input.userId, lang), {
+        requesterUserId: c0.requester_user_id,
+        dedupeKey: reopenedDedupeKey(c0),
+      }).catch((err: unknown) => console.error("[support] reopened_notification_ensure_failed", { caseId: c0.id, err }));
+    }
+    return { ok: true, case: c0 };
+  }
   let c = r.case;
 
-  // A-7: 재오픈한 문의의 담당자가 지금 받을 수 없으면(권한 잃음·정지 — 결정 4: 프로필 못 읽음 = 정지) 담당을 푼다
+  // A-7: 재오픈한 문의의 담당자가 권한을 잃은 것이 확인되면(정지·차단·탈퇴·권한 없음) 담당을 푼다.
+  // 재감사 2차 1: 읽기 실패(판정 못 함)는 담당을 그대로 둔다 — 알림은 받는 사람 판정(결정 4)이 전원 대체로 처리한다.
   const assignee = c.assigned_admin_id ? String(c.assigned_admin_id) : "";
   if (assignee) {
-    const authority = await resolveAdminRecipientAuthority(sb, assignee).catch(() => ({ active: false }) as const);
-    if (!authorityAllows(authority, "support")) {
+    const authority = await resolveAdminRecipientAuthority(sb, assignee).catch(
+      () => ({ active: false, unknown: true }) as const
+    );
+    if (authorityConfirmedLoss(authority, "support")) {
       const released = await releaseSupportAssigneeOnActiveCases(sb, {
         assigneeId: assignee,
         caseId: c.id,
@@ -1668,20 +1773,8 @@ export async function reopenSupportCase(
 
   // Phase 3 A5 — notify only when someone else (admin) reopened it; never self-notify.
   if (input.userId !== c.requester_user_id) {
-    const at = String(c.updated_at ?? new Date().toISOString());
-    await notifyRequester(sb, c.requester_user_id, (reopenedLang) => ({
-      userId: c.requester_user_id,
-      type: "support_case_reopened",
-      title: notifySafeT(reopenedLang, "notify_support_case_reopened_title"),
-      body: notifySafeT(reopenedLang, "notify_support_case_reopened_body"),
-      copy: { titleKey: "notify_support_case_reopened_title", messageKey: "notify_support_case_reopened_body" },
-      caseId: c.id,
-      publicCaseNo: c.public_case_no,
-      audience: c.audience,
-      storeId: c.owner_store_id,
-      dedupeKey: `support_case_reopened:${c.id}:${at}`,
-      actorUserId: input.userId,
-    }));
+    const reopened = c;
+    await notifyRequester(sb, c.requester_user_id, (lang) => reopenedNotification(reopened, input.userId, lang));
   }
 
   return { ok: true, case: c };

@@ -23,6 +23,8 @@ import {
   SupportTicketSubmitted,
 } from "@/components/support/SupportTicketViews";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import {
   SUPPORT_CONTEXT_SESSION_KEY,
   buildGenericSupportTriageContext,
@@ -35,8 +37,9 @@ import {
   flushSupportOpenAfterRoute,
 } from "@/lib/support/deliver-support-open";
 import {
-  consumeSupportLoginReturn,
+  clearSupportLoginReturn,
   hasSupportLoginReturn,
+  readSupportLoginReturn,
   stashSupportLoginReturn,
 } from "@/lib/support/support-modal-restore-stash";
 import {
@@ -102,29 +105,50 @@ type OpenCaseJson = {
   error?: string;
 };
 
-/** 로그인 화면 경로 — 여기서는 「로그인 뒤 다시 열기」를 하지 않는다 */
+/** 로그인·가입·가입 뒤 프로필 화면 — 여기서는 「로그인 뒤 다시 열기」를 하지도, 표시를 버리지도 않는다 */
 function isSupportAuthPath(pathname: string): boolean {
-  return /^\/(login|signup|auth)(\/|$)/.test(pathname);
+  return /^\/(login|signup|auth|onboarding)(\/|$)/.test(pathname);
 }
 
 /**
- * 로그인 안내 → 로그인·가입 → 돌아온 화면에서 **같은 창**을 다시 연다 (재감사: 로그인 전 맥락이 사라지던 것).
- * 로그인이 확인되고 로그인 화면이 아닐 때 1번만(표시 소비). 문의 상세였으면 그 문의, 아니면 저장한 쓰기 맥락.
+ * 「로그인 뒤 같은 창」 판정 — 표시는 그 로그인 시도 1번의 것이다 (재감사: 로그인 직후 안 열리고 나중 이동에 뜨던 것).
+ * 부르는 때: 마운트 · 경로 변화 · 로그인 신호(프로필 캐시 채움 `TEST_AUTH_CHANGED_EVENT`) · 세션 단계 변화.
+ * - 로그인됨: 기다리던 사용자와 다르면 버림 · 로그인 화면이 아니면 1번 열고 소비 · 로그인 화면이면 기다림
+ * - 로그인 안 됨: 로그인 화면이면 기다림 · 세션 확인 중(loading·recovering)이면 기다림(새로고침 복귀는 곧 신호가 온다)
+ *   · 비로그인 확정이면 버림(로그인을 그만두고 일반 화면으로 돌아옴 — 나중 로그인·이동에서 뜨지 않게)
  */
-function openSupportLoginReturn(pathname: string): void {
-  if (!hasSupportLoginReturn() || isSupportAuthPath(pathname)) return;
-  if (!getCurrentUser()?.id) return;
-  if (getSupportModalMachineState().phase === "open") return;
-  const ret = consumeSupportLoginReturn();
+function evaluateSupportLoginReturn(pathname: string): void {
+  const ret = readSupportLoginReturn();
   if (!ret) return;
-  if (ret.caseId) {
+  const userId = getCurrentUser()?.id ?? null;
+  const onAuth = isSupportAuthPath(pathname);
+  if (userId) {
+    if (ret.expectUserId && ret.expectUserId !== userId) {
+      clearSupportLoginReturn();
+      clearPendingSupportContext();
+      return;
+    }
+    if (onAuth) return;
+    if (getSupportModalMachineState().phase === "open") {
+      clearSupportLoginReturn();
+      return;
+    }
+    clearSupportLoginReturn();
+    if (ret.caseId) {
+      clearPendingSupportContext();
+      deliverSupportOpen({ caseId: ret.caseId, source: "restore" });
+      return;
+    }
+    const pending = readPendingSupportContext();
     clearPendingSupportContext();
-    deliverSupportOpen({ caseId: ret.caseId, source: "restore" });
+    if (pending) deliverSupportOpen({ context: pending, source: "enter" });
     return;
   }
-  const pending = readPendingSupportContext();
+  if (onAuth) return;
+  const phase = getSessionPhase();
+  if (phase === "loading" || phase === "recovering" || phase === "authenticated") return;
+  clearSupportLoginReturn();
   clearPendingSupportContext();
-  if (pending) deliverSupportOpen({ context: pending, source: "enter" });
 }
 
 export function SupportModalHost() {
@@ -156,7 +180,7 @@ export function SupportModalHost() {
     if (getSupportModalMachineState().phase === "open") return;
     // 로그인 안내에서 나갔다 돌아옴 — 로그인이 확인된 화면에서만 연다(아래 경로 effect 와 같은 함수)
     if (hasSupportLoginReturn()) {
-      openSupportLoginReturn(window.location.pathname);
+      evaluateSupportLoginReturn(window.location.pathname);
       return;
     }
     const restoreId = consumeSupportModalRestoreCaseId();
@@ -178,13 +202,25 @@ export function SupportModalHost() {
     }
   }, []);
 
+  // 로그인 뒤 같은 창: 로그인 확인 신호(새로고침 복귀는 마운트 뒤 프로필이 늦게 채워진다)·세션 단계 변화 때도 판정
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const run = () => evaluateSupportLoginReturn(window.location.pathname);
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, run);
+    const offPhase = subscribeSessionPhase(run);
+    return () => {
+      window.removeEventListener(TEST_AUTH_CHANGED_EVENT, run);
+      offPhase();
+    };
+  }, []);
+
   // C-21: 진입 주소 화면이 주소를 정리한 뒤(경로가 바뀐 뒤) 보관한 열기를 실행한다
   // C-20: 창이 열린 채 창 아래에서 경로가 바뀌면 닫는다 — 넣은 기록 항목은 그 이동이 소비한 것으로 본다(되돌리지 않음)
   useEffect(() => {
     // 고객센터 흐름 자신이 한 주소 정리(진입 주소 화면·푸시 고객센터 갈래) — 창을 닫지 않고 창의 경로만 바꾼다
     const ownReplace = consumeSupportEntryReplace(pathname);
     flushSupportOpenAfterRoute(pathname);
-    if (pathname) openSupportLoginReturn(pathname);
+    if (pathname) evaluateSupportLoginReturn(pathname);
     const st = getSupportModalMachineState();
     if (st.phase !== "open" || openPathRef.current == null) return;
     if (pathname && pathname !== openPathRef.current) {
@@ -408,7 +444,7 @@ export function SupportModalHost() {
       } catch {
         /* 저장 실패 — 로그인 후 버튼을 다시 누르면 된다 */
       }
-      if ((ctx && isSupportContextEnabled(ctx)) || ret?.caseId) stashSupportLoginReturn({ caseId: ret?.caseId ?? null });
+      if ((ctx && isSupportContextEnabled(ctx)) || ret?.caseId) stashSupportLoginReturn({ caseId: ret?.caseId ?? null, expectUserId: getCurrentUser()?.id ?? null });
       const next = pathname || "/";
       closeAndNavigate(`${path}?next=${encodeURIComponent(next)}`);
     },

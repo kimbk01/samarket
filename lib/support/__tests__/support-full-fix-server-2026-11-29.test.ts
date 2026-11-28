@@ -60,7 +60,9 @@ vi.mock("@/lib/notifications/notification-user-language", () => ({
 // ── 어드민 알림 서비스: 호출만 기록 + 권한 결과 조절 ──
 const adminNotifyCalls: { kind: string; dedupeKey: string; recipientAdminIds?: string[]; broadcastPermission?: unknown }[] = [];
 const adminReadCalls: { adminUserId: string; kinds?: readonly string[]; workRef?: { id: string } }[] = [];
-const authority = { allowed: new Set<string>(), all: true };
+const authority = { allowed: new Set<string>(), all: true, unknown: new Set<string>() };
+/** 담당자 1명에게 보낸 알림의 결과 흉내 — unknown = 프로필을 못 읽음 · revoked = 권한 잃음 확인 */
+const assigneeOutcome: { uid: string; kind: "unknown" | "revoked" | null } = { uid: "", kind: null };
 vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
   createAdminNotification: vi.fn(async (_sb: unknown, input: { kind: string; dedupeKey: string; recipientAdminIds?: string[]; broadcastPermission?: unknown }) => {
     adminNotifyCalls.push({
@@ -69,7 +71,10 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
       recipientAdminIds: input.recipientAdminIds,
       broadcastPermission: input.broadcastPermission,
     });
-    return { ok: true, created: 1, skippedRecipients: 0, pushed: 1 };
+    if (assigneeOutcome.kind && input.recipientAdminIds?.includes(assigneeOutcome.uid)) {
+      return { ok: true, created: 0, skippedRecipients: 1, revokedRecipients: assigneeOutcome.kind === "revoked" ? 1 : 0, pushed: 0 };
+    }
+    return { ok: true, created: 1, skippedRecipients: 0, revokedRecipients: 0, pushed: 1 };
   }),
   markAdminNotificationsRead: vi.fn(async (_sb: unknown, input: { adminUserId: string; kinds?: readonly string[]; workRef?: { id: string } }) => {
     adminReadCalls.push(input);
@@ -78,8 +83,13 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
   resolveAdminNotificationsForWork: vi.fn(async () => 0),
   settleSupportCustomerMessageNotification: vi.fn(async () => undefined),
   authorityAllows: vi.fn((a: { active: boolean; uid?: string }) => a.active),
+  authorityConfirmedLoss: vi.fn((a: { active: boolean; unknown?: boolean }) => !a.active && !a.unknown),
   resolveAdminRecipientAuthority: vi.fn(async (_sb: unknown, uid: string) =>
-    authority.all || authority.allowed.has(uid) ? { active: true, isSuperAdmin: false, permissions: ["support"], uid } : { active: false }
+    authority.unknown.has(uid)
+      ? { active: false, unknown: true }
+      : authority.all || authority.allowed.has(uid)
+        ? { active: true, isSuperAdmin: false, permissions: ["support"], uid }
+        : { active: false }
   ),
 }));
 
@@ -114,6 +124,7 @@ import {
   openSupportCaseFromContext,
   postRequesterSupportMessage,
   reopenSupportCase,
+  requesterCloseSupportCase,
   sumSupportRequesterUnread,
 } from "@/lib/support/support-case-service";
 import { supportErrorHttpStatus, supportErrorLabel } from "@/lib/support/support-display-labels";
@@ -287,6 +298,9 @@ beforeEach(() => {
   adminReadCalls.length = 0;
   authority.all = true;
   authority.allowed.clear();
+  authority.unknown.clear();
+  assigneeOutcome.uid = "";
+  assigneeOutcome.kind = null;
   storeOwner.owned.clear();
   current.sb = null;
   current.userId = U;
@@ -438,6 +452,47 @@ describe("§2 상태 전이 표 (S-15·S-16·S-17)", () => {
     expect(r2.ok).toBe(true);
     expect(db.support_case_events.filter((e) => e.event_type === "reopened")).toHaveLength(1);
     expect(notifyCalls.filter((n) => n.type === "support_case_reopened")).toHaveLength(1);
+  });
+});
+
+describe("재감사 3차 — 종료·재오픈 재요청 = 첫 요청이 고객 알림 전에 끊겼으면 같은 키로 1건만", () => {
+  it("상담 종료: 알림 행 없이 끝난 첫 요청 → 같은 어드민이 다시 누르면 1건 · 또 눌러도 1건", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    // 첫 요청이 상태만 바꾸고 알림 전에 끊긴 상태를 만든다
+    db.notification_events = db.notification_events.filter((n) => n.type !== "support_case_resolved");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
+    expect(db.support_case_events.filter((e) => e.event_type === "status_changed")).toHaveLength(1);
+  });
+
+  it("고객 「확인했어요」로 종료된 문의에 어드민이 종료를 눌러도 고객 「종료」 알림은 만들지 않는다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    await flush();
+    const closed = await requesterCloseSupportCase(sb, { userId: U, caseId: a.case.id, seenLastMessageAt: null });
+    expect(closed.ok).toBe(true);
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(0);
+  });
+
+  it("재오픈: 알림 행 없이 끝난 첫 요청 → 같은 어드민이 다시 누르면 1건 · 또 눌러도 1건", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    await flush();
+    db.notification_events = db.notification_events.filter((n) => n.type !== "support_case_reopened");
+    await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    await flush();
+    expect(db.notification_events.filter((n) => n.type === "support_case_reopened")).toHaveLength(1);
   });
 });
 
@@ -861,5 +916,62 @@ describe("재감사 4 — 쓰기 창 진행 중 목록 (GET /api/support/cases?l
     expect(json.cases.map((c: { id: string }) => c.id)).toEqual(["answered", "open5", "open4", "open3", "open2"]);
     expect(json.counts).toBeUndefined();
     expect(caseQueries).toBe(1);
+  });
+});
+
+describe("재감사 2차 1 — 판정 못 함(프로필 읽기 실패)으로는 담당을 풀지 않는다", () => {
+  it("고객 글: 담당자 판정 못 함 → 담당 그대로 + 이 글은 전원 대체 · 권한 잃음 확인 → 담당 해제", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: ADMIN_B });
+    await settle();
+    adminNotifyCalls.length = 0;
+    assigneeOutcome.uid = ADMIN_B;
+    assigneeOutcome.kind = "unknown";
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또" });
+    await settle();
+    expect(db.support_cases[0].assigned_admin_id).toBe(ADMIN_B);
+    expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.broadcastPermission ?? "assignee")).toEqual([
+      "assignee",
+      "support",
+    ]);
+    // 대조: 확인된 권한 잃음이면 푼다
+    assigneeOutcome.kind = "revoked";
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또또" });
+    await settle();
+    expect(db.support_cases[0].assigned_admin_id).toBeNull();
+  });
+
+  it("재오픈: 담당자 판정 못 함 → 담당 그대로 (A-7 확인된 잃음 해제는 위 시험)", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminAssignSupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, assigneeAdminId: ADMIN_B });
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    authority.unknown.add(ADMIN_B);
+    const r = await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    expect(r.ok).toBe(true);
+    expect(db.support_cases[0].assigned_admin_id).toBe(ADMIN_B);
+  });
+});
+
+describe("재감사 2차 2 — 어드민 답변 replay 는 고객 알림을 보장한다", () => {
+  it("첫 요청이 저장 뒤 알림 전에 끊겼다(알림 행 없음) → 같은 requestId 재전송이 알림을 한 번 만든다 · 또 보내도 1건", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    const rid = randomUUID();
+    const r1 = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답", clientRequestId: rid });
+    if (!r1.ok) throw new Error(r1.error);
+    await flush();
+    const key = `support_admin_replied:${r1.message.id}`;
+    // 끊김 흉내: 알림 행이 저장되지 않았다
+    db.notification_events = db.notification_events.filter((n) => n.dedupe_key !== key);
+    const r2 = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답", clientRequestId: rid });
+    await flush();
+    expect(r2.ok && r2.replayed).toBe(true);
+    expect(db.notification_events.filter((n) => n.dedupe_key === key)).toHaveLength(1);
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답", clientRequestId: rid });
+    await flush();
+    expect(db.notification_events.filter((n) => n.dedupe_key === key)).toHaveLength(1);
+    expect(db.support_messages.filter((m) => m.sender_type === "ADMIN")).toHaveLength(1);
   });
 });

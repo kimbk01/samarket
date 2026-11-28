@@ -31,10 +31,18 @@ vi.mock("@/lib/auth/get-current-user", () => ({
   getCurrentUser: () => (authUser.id ? { id: authUser.id, nickname: "Kim" } : null),
   getCurrentUserIdForDb: async () => authUser.id,
 }));
-const session = vi.hoisted(() => ({ ensure: vi.fn(async () => undefined), phase: "authenticated" }));
+const session = vi.hoisted(() => ({
+  ensure: vi.fn(async () => undefined),
+  phase: "authenticated",
+  listeners: new Set<(p: string) => void>(),
+}));
 vi.mock("@/lib/auth/dibay-session-manager", () => ({
   ensureSessionHealthy: session.ensure,
   getSessionPhase: () => session.phase,
+  subscribeSessionPhase: (l: (p: string) => void) => {
+    session.listeners.add(l);
+    return () => session.listeners.delete(l);
+  },
 }));
 const ownerLite = vi.hoisted(() => ({
   snap: { ownerStores: [] as { id: string; store_name: string; approval_status: string }[] },
@@ -1298,5 +1306,79 @@ describe("재감사 4 — 마감 = 작업 전체(본문 읽기·401 세션 살�
     } finally {
       timers.restore();
     }
+  });
+});
+
+/* ───────────── 2차 재감사 (HEAD 4f11bba68) — 로그인 뒤 같은 창 표시 = 그 로그인 시도 1번 ───────────── */
+
+describe("2차 재감사 — 로그인 뒤 같은 창 표시는 그 로그인 시도 1번", () => {
+  /** 비로그인 FAB → 로그인 안내 → 「로그인」 (표시·맥락 저장) */
+  async function startLoginFromFab() {
+    authUser.id = null;
+    session.phase = "terminal_guest";
+    route = (url) => (url.startsWith("/api/support/cases?") ? { ok: true, cases: [] } : { ok: false });
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => {
+      navigateToSupportCenter(ownerCtx());
+    });
+    await flush();
+    click(q('[data-support-ticket-login="1"]'));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+    nav.pathname = "/login";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+  }
+  const signalAuthChanged = () =>
+    act(() => {
+      window.dispatchEvent(new Event("kasama-test-auth-changed"));
+      for (const l of session.listeners) l(session.phase);
+    });
+
+  it("전체 새로고침 복귀: 마운트 뒤 로그인 신호로 사용자가 채워지면 그때 1번 연다", async () => {
+    await startLoginFromFab();
+    // OAuth·네이티브 로그인 = 문서 새로 열기 — 호스트가 새로 마운트, 프로필은 아직 없음(세션 확인 중)
+    act(() => root.unmount());
+    root = createRoot(container);
+    await resetModal();
+    nav.pathname = "/mypage/customer-center";
+    window.history.replaceState(null, "", "/mypage/customer-center");
+    session.phase = "loading";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+    // 프로필 캐시가 채워지고 로그인 신호
+    authUser.id = "u1";
+    session.phase = "authenticated";
+    signalAuthChanged();
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(getSupportModalState().context?.storeId).toBe("s1");
+    // 1번만 — 닫고 신호·이동이 또 와도 다시 열지 않는다
+    act(() => closeSupportModal());
+    await flush();
+    signalAuthChanged();
+    nav.pathname = "/market";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+  });
+
+  it("로그인을 그만둠: 비로그인 채 일반 화면으로 돌아오면 표시를 버림 → 나중 로그인·이동에 창이 뜨지 않음", async () => {
+    await startLoginFromFab();
+    expect(window.sessionStorage.getItem("dibay_support_login_return")).not.toBeNull();
+    // ◁ 로 로그인 화면을 떠나 원래 화면(여전히 비로그인)
+    nav.pathname = "/mypage/customer-center";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(window.sessionStorage.getItem("dibay_support_login_return")).toBeNull();
+    // 한참 뒤 다른 경로(로그인 창 등)로 로그인 → 다른 화면으로 이동
+    authUser.id = "u1";
+    session.phase = "authenticated";
+    signalAuthChanged();
+    nav.pathname = "/market";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
   });
 });

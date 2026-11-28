@@ -42,36 +42,60 @@ export const SUPPORT_LOGIN_RETURN_KEY = "dibay_support_login_return";
 /** 오래된 표시로 한참 뒤 로그인할 때 창이 뜨지 않게 */
 export const SUPPORT_LOGIN_RETURN_TTL_MS = 30 * 60 * 1000;
 
-export function stashSupportLoginReturn(input: { caseId: string | null }): void {
+export type SupportLoginReturn = {
+  caseId: string | null;
+  /** 이 로그인 시도가 기다리는 사용자(세션 만료 401 처럼 알 때만) — 다른 사용자가 로그인하면 버린다 */
+  expectUserId: string | null;
+};
+
+/** 이 로그인 시도 1번의 표시 — 로그인 확인 때 열고, 비로그인 채 일반 화면으로 돌아오면 버린다 */
+export function stashSupportLoginReturn(input: { caseId: string | null; expectUserId?: string | null }): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(SUPPORT_LOGIN_RETURN_KEY, JSON.stringify({ at: Date.now(), caseId: input.caseId }));
+    sessionStorage.setItem(
+      SUPPORT_LOGIN_RETURN_KEY,
+      JSON.stringify({ at: Date.now(), caseId: input.caseId, expectUserId: input.expectUserId ?? null })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 표시를 읽는다(지우지 않음) — 없거나 오래됐으면 null(오래된 것은 지움) */
+export function readSupportLoginReturn(): SupportLoginReturn | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SUPPORT_LOGIN_RETURN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at?: unknown; caseId?: unknown; expectUserId?: unknown };
+    const at = Number(parsed.at);
+    if (!Number.isFinite(at) || Date.now() - at > SUPPORT_LOGIN_RETURN_TTL_MS) {
+      sessionStorage.removeItem(SUPPORT_LOGIN_RETURN_KEY);
+      return null;
+    }
+    const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    return { caseId: str(parsed.caseId), expectUserId: str(parsed.expectUserId) };
+  } catch {
+    return null;
+  }
+}
+
+export function clearSupportLoginReturn(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(SUPPORT_LOGIN_RETURN_KEY);
   } catch {
     /* ignore */
   }
 }
 
 export function hasSupportLoginReturn(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return Boolean(sessionStorage.getItem(SUPPORT_LOGIN_RETURN_KEY));
-  } catch {
-    return false;
-  }
+  return readSupportLoginReturn() != null;
 }
 
 /** 표시를 꺼낸다(1번) — 없거나 오래됐으면 null */
-export function consumeSupportLoginReturn(): { caseId: string | null } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SUPPORT_LOGIN_RETURN_KEY);
-    if (!raw) return null;
-    sessionStorage.removeItem(SUPPORT_LOGIN_RETURN_KEY);
-    const parsed = JSON.parse(raw) as { at?: unknown; caseId?: unknown };
-    const at = Number(parsed.at);
-    if (!Number.isFinite(at) || Date.now() - at > SUPPORT_LOGIN_RETURN_TTL_MS) return null;
-    return { caseId: typeof parsed.caseId === "string" && parsed.caseId.trim() ? parsed.caseId.trim() : null };
-  } catch {
-    return null;
-  }
+export function consumeSupportLoginReturn(): SupportLoginReturn | null {
+  const ret = readSupportLoginReturn();
+  clearSupportLoginReturn();
+  return ret;
 }

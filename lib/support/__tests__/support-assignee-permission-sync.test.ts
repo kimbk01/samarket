@@ -9,6 +9,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
   resolveAdminRecipientAuthority: vi.fn(async () => ({ active: true, isSuperAdmin: false, permissions: [] })),
   authorityAllows: vi.fn(() => state.allows),
+  // 재감사 2차 1: 해제 판정은 「확인된 잃음」 — 이 흉내에서는 allows 의 반대
+  authorityConfirmedLoss: vi.fn(() => !state.allows),
 }));
 vi.mock("@/lib/admin/admin-membership", () => ({
   releaseSupportAssignmentsOnRevoke: vi.fn(async (_sb: unknown, input: { userId: string }) => {

@@ -22,6 +22,10 @@ vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
       input: { type: string; userId: string; dedupeKey: string; body?: string },
       opts?: { deferPush?: boolean }
     ) => {
+      // 실제 알림 파이프라인과 같게: 같은 dedupe 키는 두 번 만들지 않는다(duplicate)
+      if (notifyCalls.some((c) => c.dedupeKey === input.dedupeKey && c.userId === input.userId)) {
+        return { ok: false, duplicate: true, error: "duplicate" };
+      }
       notifyCalls.push({
         type: input.type,
         userId: input.userId,
@@ -90,6 +94,7 @@ vi.mock("@/lib/admin/notifications/admin-notification-service", () => ({
     }
   ),
   authorityAllows: vi.fn(() => authorityAllowsResult.value),
+  authorityConfirmedLoss: vi.fn((a: { active?: boolean; unknown?: boolean }) => !(a?.active === false && a?.unknown) && !authorityAllowsResult.value),
   settleSupportCustomerMessageNotification: vi.fn(async () => undefined),
   resolveAdminRecipientAuthority: vi.fn(async () => ({ active: true, isSuperAdmin: true, permissions: [] })),
 }));
@@ -1904,7 +1909,7 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     // 담당자 알림을 만드는 사이 문의가 종료됐고, 담당자는 권한을 잃었다(받을 수 없음)
     vi.mocked(createAdminNotification).mockImplementationOnce(async () => {
       db.support_cases[0].status = "RESOLVED";
-      return { ok: true, created: 0, skippedRecipients: 1, pushed: 0 };
+      return { ok: true, created: 0, skippedRecipients: 1, revokedRecipients: 1, pushed: 0 };
     });
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
     await flush();
@@ -1919,7 +1924,7 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     if (!a.ok) throw new Error(a.error);
     db.support_cases[0].assigned_admin_id = OTHER_ADMIN;
     const { createAdminNotification } = await import("@/lib/admin/notifications/admin-notification-service");
-    vi.mocked(createAdminNotification).mockImplementationOnce(async () => ({ ok: true, created: 0, skippedRecipients: 1, pushed: 0 }));
+    vi.mocked(createAdminNotification).mockImplementationOnce(async () => ({ ok: true, created: 0, skippedRecipients: 1, revokedRecipients: 1, pushed: 0 }));
     adminNotifyCalls.length = 0;
     await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
     await flush();

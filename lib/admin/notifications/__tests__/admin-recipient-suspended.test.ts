@@ -19,7 +19,12 @@ vi.mock("@/lib/admin/admin-user-server", () => ({
   permissionKeyAllowed: (perms: string[], key: string) => perms.includes(key),
 }));
 
-import { authorityAllows, resolveAdminRecipientAuthority } from "@/lib/admin/notifications/admin-notification-service";
+import {
+  authorityAllows,
+  authorityConfirmedLoss,
+  createAdminNotification,
+  resolveAdminRecipientAuthority,
+} from "@/lib/admin/notifications/admin-notification-service";
 
 function sbWithProfiles(profiles: Record<string, { status: string } | null>, fail = false) {
   return {
@@ -64,13 +69,36 @@ describe("재감사 5 — 정지 운영자는 알림 받는 사람이 아니다"
   it("결정 4 (2026-11-29): 프로필 읽기 실패 = 정지로 본다(fail-closed · RLS 와 같게)", async () => {
     const sb = sbWithProfiles({}, true);
     const a = await resolveAdminRecipientAuthority(sb, "op3");
-    expect(a).toEqual({ active: false });
+    // 재감사 2차 1: 받는 사람으로는 보지 않되(fail-closed) 「판정 못 함」 표시 — 담당 해제 근거가 아니다
+    expect(a).toEqual({ active: false, unknown: true });
     expect(authorityAllows(a, "support")).toBe(false);
+    expect(authorityConfirmedLoss(a, "support")).toBe(false);
+    // 확인된 정지는 잃음
+    const suspended = await resolveAdminRecipientAuthority(sbWithProfiles({ op9: { status: "suspended" } }), "op9");
+    expect(authorityConfirmedLoss(suspended, "support")).toBe(true);
   });
 
   it("결정 4: 최고관리자는 프로필을 읽지 않으므로 읽기 실패와 무관하게 받는다", async () => {
     const sb = sbWithProfiles({}, true);
     const a = await resolveAdminRecipientAuthority(sb, "super2");
     expect(authorityAllows(a, "support")).toBe(true);
+  });
+});
+
+describe("재감사 2차 1 — 받지 못한 후보 중 「권한 잃음 확인」만 따로 센다(담당 해제 근거)", () => {
+  const input = {
+    recipientAdminIds: ["op1"],
+    requiredPermission: "support" as const,
+    kind: "support_customer_replied",
+    title: "t",
+    dedupeKey: "support_customer_replied:m1",
+  };
+  it("프로필 읽기 실패(판정 못 함) → 받지 않음(skipped 1) 이지만 revoked 0", async () => {
+    const r = await createAdminNotification({} as never, input, { resolveAuthority: async () => ({ active: false, unknown: true }) });
+    expect(r).toMatchObject({ ok: true, created: 0, skippedRecipients: 1, revokedRecipients: 0 });
+  });
+  it("정지 확인 → revoked 1", async () => {
+    const r = await createAdminNotification({} as never, input, { resolveAuthority: async () => ({ active: false }) });
+    expect(r).toMatchObject({ ok: true, created: 0, skippedRecipients: 1, revokedRecipients: 1 });
   });
 });

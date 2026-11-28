@@ -583,6 +583,44 @@ export async function recordRequesterSupportNotification(
 }
 
 /**
+ * 재감사 2차 2 — 같은 요청 id 재전송(replay)에서 고객 알림을 **보장**한다: 첫 요청이 DB 저장 뒤 알림 전에 끊겼으면 알림 행·대기열 행이
+ * 영영 없다. 같은 dedupe 키로 단일 다시 만들기(`recreateSupportRequesterNotification` — 지운 답·이미 본 답이면 만들지 않음)만 쓴다.
+ * 이미 행이 있으면 언어도 읽지 않고 끝(조회 1). 실패는 대기열에 넣는다.
+ */
+export async function ensureRequesterSupportNotification(
+  sb: SupabaseClient,
+  build: (lang: Awaited<ReturnType<typeof loadNotificationUserLanguage>>) => SupportRequesterNotificationInput,
+  opts: { requesterUserId: string; dedupeKey: string; replyMessageId?: string | null }
+): Promise<{ ok: boolean; created: boolean }> {
+  const { data: has, error } = await sb
+    .from("notification_events")
+    .select("id")
+    .eq("user_id", opts.requesterUserId)
+    .eq("dedupe_key", opts.dedupeKey)
+    .maybeSingle();
+  if (!error && has) return { ok: true, created: false };
+  let lang: Awaited<ReturnType<typeof loadNotificationUserLanguage>>;
+  try {
+    lang = await loadNotificationUserLanguage(sb, opts.requesterUserId);
+  } catch {
+    lang = "en" as Awaited<ReturnType<typeof loadNotificationUserLanguage>>;
+  }
+  const event = requesterNotificationEvent(build(lang)) as unknown as Record<string, unknown> & { dedupeKey: string };
+  const r = await recreateSupportRequesterNotification(sb, {
+    event,
+    requesterUserId: opts.requesterUserId,
+    replyMessageId: opts.replyMessageId ?? null,
+  });
+  if (r.ok) return { ok: true, created: r.created };
+  await enqueueSupportRequesterNotification(
+    sb,
+    { event, requesterUserId: opts.requesterUserId, replyMessageId: opts.replyMessageId ?? null },
+    r.error
+  );
+  return { ok: false, created: false };
+}
+
+/**
  * 응답을 보낸 **뒤에** 시작하는 작업(Next `after(fn)`) — 푸시는 그때 알림 행을 다시 읽으므로, 응답 직후의 답변 수정·삭제가 반영된다.
  * 요청 밖(크론·시험)에서는 지금 작업이 끝난 다음 차례에 시작한다.
  */
