@@ -374,52 +374,36 @@ function deferredPatch() {
 
 const draftValue = () => q<HTMLTextAreaElement>("[data-admin-support-composer] textarea")?.value ?? null;
 
-describe("PR #687 재감사 1·2·3 — A 저장 중 B 로 바꾸면 B 가 멈추지 않고, A 결과가 B 에 섞이지 않는다 (동작)", () => {
-  it("1: A 저장 끝난 뒤 B 상세가 그려진다(A 다시 읽기로 B 응답이 버려지지 않음)", async () => {
+describe("병합 전 2차 1 — 저장 중에는 다른 문의로 바꿀 수 없고, 결과·실패는 그 문의 화면에 남는다 (동작)", () => {
+  it("저장 중 B 클릭 = 무시(B 요청 없음) · 실패 → A 화면에 안내 · 쓰던 답 남음", async () => {
     await mount();
     await click(q('[data-admin-support-row="A"]'));
     await resolveDetail("A");
     await typeDraft("answer A");
     const finishPatch = deferredPatch();
     await click(q("[data-admin-support-send]"));
+    expect(q('[data-admin-support-row="B"]')?.getAttribute("data-admin-support-row-disabled")).toBe("1");
     await click(q('[data-admin-support-row="B"]'));
-    await finishPatch({ status: 200, body: { ok: true } });
-    // 저장 뒤 A 상세를 다시 읽지 않는다
-    expect(pendingDetail.A ?? []).toHaveLength(0);
-    await resolveDetail("B");
-    expect(centerText()).toContain("SP-B");
-    expect(centerText()).toContain("msg of B");
+    expect(pendingDetail.B ?? []).toHaveLength(0);
+    await finishPatch({ status: 400, body: { ok: false, error: "network_error" } });
+    expect(centerText()).toContain("SP-A");
+    expect(host!.textContent ?? "").toContain("common_network_error");
+    expect(draftValue()).toBe("answer A");
   });
 
-  it("2: A 저장 실패 문구가 B 화면에 뜨지 않는다", async () => {
+  it("저장이 끝나면 다시 다른 문의를 누를 수 있다", async () => {
     await mount();
     await click(q('[data-admin-support-row="A"]'));
     await resolveDetail("A");
     await typeDraft("answer A");
     const finishPatch = deferredPatch();
     await click(q("[data-admin-support-send]"));
-    await click(q('[data-admin-support-row="B"]'));
-    await resolveDetail("B");
-    await finishPatch({ status: 400, body: { ok: false, error: "status_conflict" } });
-    expect(centerText()).toContain("SP-B");
-    expect(host!.textContent ?? "").not.toContain("admin_support_error_status_conflict");
-  });
-
-  it("3: A 답변 성공이 B 에 쓰던 답을 지우지 않는다", async () => {
-    await mount();
-    await click(q('[data-admin-support-row="A"]'));
-    await resolveDetail("A");
-    await typeDraft("answer A");
-    const finishPatch = deferredPatch();
-    await click(q("[data-admin-support-send]"));
-    await click(q('[data-admin-support-row="B"]'));
-    await resolveDetail("B");
-    await typeDraft("draft for B");
     await finishPatch({ status: 200, body: { ok: true } });
-    // (수정 전 코드는 여기서 A 를 다시 읽으며 기다린다 — 그 응답도 풀어 저장 흐름을 끝까지 돌린다)
     if (pendingDetail.A?.length) await resolveDetail("A");
-    await flush();
-    expect(draftValue()).toBe("draft for B");
+    expect(q('[data-admin-support-row="B"]')?.getAttribute("data-admin-support-row-disabled")).toBeNull();
+    await click(q('[data-admin-support-row="B"]'));
+    await resolveDetail("B");
+    expect(centerText()).toContain("SP-B");
   });
 });
 

@@ -155,11 +155,14 @@ function SupportQueueRow({
   selected,
   onSelect,
   rowId,
+  disabled = false,
   children,
 }: {
   selected: boolean;
   onSelect: () => void;
   rowId: string;
+  /** 병합 전 2차 1: 저장 중에는 다른 문의로 바꿀 수 없다(저장 결과·실패 안내가 그 문의 화면에 뜨도록) */
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -167,16 +170,19 @@ function SupportQueueRow({
       role="button"
       tabIndex={0}
       aria-current={selected ? "true" : undefined}
-      onClick={onSelect}
+      aria-disabled={disabled ? "true" : undefined}
+      data-admin-support-row-disabled={disabled ? "1" : undefined}
+      onClick={disabled ? undefined : onSelect}
       onKeyDown={(e) => {
+        if (disabled) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();
         }
       }}
-      className={`w-full cursor-pointer px-3 py-2.5 text-left hover:bg-sam-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sam-primary ${
-        selected ? "bg-sam-primary/10" : ""
-      }`}
+      className={`w-full px-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sam-primary ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-sam-surface-muted"
+      } ${selected ? "bg-sam-primary/10" : ""}`}
       data-admin-support-row={rowId}
     >
       {children}
@@ -772,7 +778,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           syncUrl={false}
           onChange={(id) => {
             setTab(id as AdminSupportTab);
-            setActiveId(null);
+            // 병합 전 2차 1: 저장 중이면 열린 문의를 닫지 않는다(결과·실패 안내가 사라지지 않게)
+            if (!busy) setActiveId(null);
           }}
         />
       </div>
@@ -896,7 +903,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   const unread = Number(c.admin_unread_count) || 0;
                   return (
                     <li key={c.id}>
-                      <SupportQueueRow selected={activeId === c.id} onSelect={() => setActiveId(c.id)} rowId={c.id}>
+                      <SupportQueueRow
+                        selected={activeId === c.id}
+                        onSelect={() => setActiveId(c.id)}
+                        rowId={c.id}
+                        disabled={busy && activeId !== c.id}
+                      >
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold text-sam-fg">{c.public_case_no}</span>
                           <span className="rounded border border-sam-border px-1 text-[12px] text-sam-muted">
@@ -982,6 +994,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     size="sm"
                     className="lg:hidden"
                     data-admin-support-back="1"
+                    disabled={busy}
                     onClick={() => setActiveId(null)}
                   >
                     ← {t("admin_support_list")}

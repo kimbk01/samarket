@@ -313,9 +313,14 @@ export function SupportModalHost() {
   const handleNewInquiry = useCallback(
     (fromCase: { audience: "MEMBER" | "OWNER"; ownerStoreId: string | null } | null) => {
       const prev = getSupportModalState().context;
-      // 푸시·목록으로 연 경우 context 가 없다 — 열었던 문의의 대상(회원/매장)을 이어 받는다.
-      const audience = (prev?.audience ?? fromCase?.audience) === "OWNER" ? "OWNER" : "MEMBER";
-      const storeId = prev?.storeId ?? (audience === "OWNER" ? fromCase?.ownerStoreId ?? undefined : undefined);
+      // 병합 전 2차 6: 「같은 대상 새 쓰기」(계약 §6) = **그 문의**의 대상·매장이 먼저. 문의 정보가 없을 때만 연 맥락.
+      // (회원 맥락에서 「매장으로」 바꿔 연 매장 문의가 종료돼 「문의하기」 → 회원 쓰기가 열리던 것)
+      const caseAudience = fromCase?.audience === "OWNER" && fromCase.ownerStoreId ? "OWNER" : fromCase ? "MEMBER" : null;
+      const audience = (caseAudience ?? prev?.audience) === "OWNER" ? "OWNER" : "MEMBER";
+      const storeId =
+        audience === "OWNER"
+          ? (caseAudience === "OWNER" ? fromCase?.ownerStoreId ?? undefined : prev?.storeId) ?? undefined
+          : undefined;
       resetSupportModalToStart(
         buildGenericSupportTriageContext({
           audience,

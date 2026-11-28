@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearSupportRequesterUnreadCache,
   fetchSupportRequesterUnread,
+  markSupportRequesterUnreadStale,
   SUPPORT_REQUESTER_UNREAD_UNAUTHORIZED,
 } from "@/lib/support/support-requester-unread-fetch";
 
@@ -85,5 +86,24 @@ describe("support requester unread fetch", () => {
     expect(await forcedB).toBe(5);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
-});
 
+  it("병합 전 2차 2: 창이 열렸다(낡음 표시) → 닫힌 뒤 첫 읽기는 5초 캐시를 쓰지 않고 새로 읽는다", async () => {
+    expect(await fetchSupportRequesterUnread("k2", "q", false)).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // 창 안에서 답변을 읽어 서버 숫자가 0 이 됨
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ok: true, unread: 0 }), { status: 200 }));
+    markSupportRequesterUnreadStale();
+    // 다시 붙는 FAB 의 첫 읽기(강제 아님) — 5초 안이어도 새로 읽는다
+    expect(await fetchSupportRequesterUnread("k2", "q", false)).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 그 뒤로는 다시 캐시
+    expect(await fetchSupportRequesterUnread("k2", "q", false)).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("병합 전 2차 2 (구조 확인): FAB 호스트가 창이 열릴 때 낡음 표시를 한다", async () => {
+    const { readFileSync } = await import("node:fs");
+    const host = readFileSync("components/support/SupportFabHost.tsx", "utf8");
+    expect(host).toContain("if (modalOpen) markSupportRequesterUnreadStale();");
+  });
+});

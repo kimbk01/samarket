@@ -355,6 +355,20 @@ describe("M2 진행 중 상세의 「확인했어요」·「확인」 → 쓰기
     expect(document.body.textContent).not.toContain("OLD ANSWER");
   });
 
+  it("병합 전 2차 6: 회원 맥락에서 연 매장 문의가 종료 → 「문의하기」 = 매장 대상·같은 매장 새 쓰기", async () => {
+    await openDetailFromCompose(() => ({
+      ok: true,
+      closed: true,
+      case: caseRow({ status: "RESOLVED", audience: "OWNER", owner_store_id: "store-9", requester_unread_count: 0 }),
+      messages: [],
+    }));
+    click(q('[data-support-ticket-new="1"]'));
+    await flush();
+    const ctx = getSupportModalState().context;
+    expect(ctx?.audience).toBe("OWNER");
+    expect(ctx?.storeId).toBe("store-9");
+  });
+
   it("직접 연 상세(푸시·목록)의 확인했어요 → 닫기(그대로)", async () => {
     route = (url, init) =>
       url.startsWith("/api/support/cases/c1")
@@ -482,6 +496,60 @@ describe("병합 전 C — 초안 카드가 떠 있을 때 새로 쓴 글도 저
     click(q('[data-support-modal-close="1"]'));
     expect(getSupportModalState().phase).toBe("closed");
     expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("새로 쓴 글");
+  });
+});
+
+describe("병합 전 2차 3 — 초안 카드가 떠 있을 때 분야만 고르면 카드·옛 초안이 그대로 (동작)", () => {
+  it("카드 있음 → 분야 고르기 → 카드 그대로 · 닫기 → 저장본 = 옛 초안", async () => {
+    route = (url) => (url.startsWith("/api/support/cases?") ? { ok: true, cases: [] } : { ok: false });
+    const ctx = memberCtx();
+    writeSupportTicketDraft(supportTicketDraftKey(ctx), setSupportTicketBody(initSupportTicketForm(ctx), "옛 초안"));
+    await act(async () => root.render(<SupportModalHost />));
+    openCompose(ctx);
+    await flush();
+    expect(q('[data-support-ticket-draft="1"]')).not.toBeNull();
+    click(q('[data-testid="support-ticket-field-category"]'));
+    await flush();
+    const firstCat = document.querySelector('[data-testid^="support-ticket-cat-"]');
+    expect(firstCat).not.toBeNull();
+    click(firstCat);
+    await flush();
+    // 분야 고른 뒤 세부 화면 → 쓰기 화면으로 돌아오기(◁)
+    deviceBack();
+    await flush();
+    expect(q('[data-support-ticket-draft="1"]')).not.toBeNull();
+    click(q('[data-support-modal-close="1"]'));
+    await flush();
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("옛 초안");
+  });
+});
+
+describe("병합 전 2차 7 — 「문의 접수」 전송 중 입력은 무시되고, 접수 뒤 초안이 되살아나지 않는다 (동작)", () => {
+  it("전송 중 한 글자 더 입력 → 접수 성공 → 저장본 없음", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    route = (url) => {
+      if (url.startsWith("/api/support/cases?")) return { ok: true, cases: [] };
+      if (url.startsWith("/api/support/cases/open")) return new Promise((r) => (release = r));
+      return { ok: false };
+    };
+    const ctx = memberCtx();
+    await act(async () => root.render(<SupportModalHost />));
+    openCompose(ctx);
+    await flush();
+    click(q('[data-testid="support-ticket-field-category"]'));
+    click(q('[data-testid^="support-ticket-cat-"]'));
+    click(q('[data-testid^="support-ticket-issue-"]'));
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "접수할 글");
+    click(q('[data-support-ticket-submit="1"]'));
+    await flush(2);
+    const ta = q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!;
+    expect(ta.readOnly).toBe(true);
+    typeInto(ta, "접수할 글!");
+    await act(async () => {
+      release({ ok: true, case: { ...caseRow(), id: "c-new" }, merged: false });
+    });
+    await flush(3);
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))).toBeNull();
   });
 });
 

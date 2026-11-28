@@ -18,9 +18,11 @@ import {
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   buildSupportCustomerRepliedTitle,
+  loadSupportAdminReplySeenAt,
   loadSupportCustomerMessageAnswers,
   releaseSupportAssigneeOnActiveCases,
   supportCustomerMessageNeedsAdmin,
+  supportReplySawMessage,
 } from "@/lib/support/support-admin-work-check";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -372,10 +374,17 @@ export async function settleAdminWorkAfterSeenReply(
  */
 async function reconcileSupportAdminWork(
   sb: SupabaseClient,
-  input: { caseRow: SupportCaseRow; mode: "reply" | "delete"; fallbackLatestReplyAt?: string | null }
+  input: {
+    caseRow: SupportCaseRow;
+    mode: "reply" | "delete";
+    fallbackLatestReplyAt?: string | null;
+    /** delete: 지운 답변 — 그 답변이 봤던 고객 글만 「새로 답 못 받음」 후보 */
+    deletedReply?: { id: string; created_at: string } | null;
+  }
 ): Promise<number> {
   const c = input.caseRow;
-  if (input.mode === "delete" && c.status !== "WAITING_USER") return 0;
+  // 병합 전 2차 4: 이미 WAITING_ADMIN 이어도 지운 답변이 유일한 답이던 글의 알림은 되살린다(상태는 그대로)
+  if (input.mode === "delete" && c.status !== "WAITING_USER" && c.status !== "WAITING_ADMIN") return 0;
   const answers = await loadSupportCustomerMessageAnswers(sb, {
     caseId: c.id,
     onlyBeforeLatestReply: input.mode === "reply",
@@ -391,6 +400,20 @@ async function reconcileSupportAdminWork(
   const workRef = { table: "support_cases", id: c.id };
   if (input.mode === "delete") {
     if (unanswered.length === 0) return 0;
+    if (c.status === "WAITING_ADMIN") {
+      // 지운 답변이 본 글(답변 시각·본 시각 이하)만 — 원래부터 답을 기다리던 글의 알림(어드민이 읽었을 수 있음)은 건드리지 않는다
+      const del = input.deletedReply;
+      if (!del) return 0;
+      const seenMap = await loadSupportAdminReplySeenAt(sb, c.id);
+      if (!seenMap) return 0;
+      const newly = unanswered.filter((m) =>
+        Date.parse(m.created_at) <= Date.parse(del.created_at) && supportReplySawMessage(del, seenMap, m.created_at)
+      );
+      if (newly.length === 0) return 0;
+      await reopenCustomerMessageAdminAlerts(sb, c.id, newly.map((m) => m.id));
+      await notifyUnansweredCustomerMessages(sb, c, newly.map((m) => m.id));
+      return newly.length;
+    }
     const { data: moved, error: moveErr } = await sb
       .from("support_cases")
       .update({ status: "WAITING_ADMIN", updated_at: new Date().toISOString() })
@@ -447,13 +470,23 @@ async function notifyUnansweredCustomerMessages(sb: SupabaseClient, c: SupportCa
     console.error("[support] reply_unseen_body_read_failed", { caseId: c.id, error: bodies.error.message });
     return;
   }
+  // 병합 전 2차 5: 그 문의의 첫 고객 공개 글이면 제목 「새 고객 문의」(다른 경로와 같은 판정)
+  const first = await sb
+    .from("support_messages")
+    .select("id")
+    .eq("case_id", c.id)
+    .eq("message_type", "PUBLIC")
+    .in("sender_type", ["MEMBER", "OWNER"])
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const firstId = first.error ? "" : String(((first.data ?? [])[0] as { id?: unknown } | undefined)?.id ?? "");
   for (const m of (bodies.data ?? []) as unknown as { id: string; body: string; sender_user_id: string | null }[]) {
     notifyAdminsAfterResponse(sb, {
       caseRow: c,
       messageId: m.id,
       body: m.body,
       actorUserId: String(m.sender_user_id ?? ""),
-      isNewCase: false,
+      isNewCase: Boolean(firstId) && m.id === firstId,
     });
   }
 }
@@ -1208,7 +1241,13 @@ export async function adminDeleteSupportMessage(
   // (답변 정리와 같은 판정 `reconcileSupportAdminWork`). 실패는 기록만 — 삭제는 이미 끝났다.
   if (own.message.message_type === "PUBLIC") {
     const latest = await getSupportCaseForAdmin(sb, input.caseId);
-    if (latest.ok) await reconcileSupportAdminWork(sb, { caseRow: latest.case, mode: "delete" });
+    if (latest.ok) {
+      await reconcileSupportAdminWork(sb, {
+        caseRow: latest.case,
+        mode: "delete",
+        deletedReply: { id: own.message.id, created_at: own.message.created_at },
+      });
+    }
   }
   return { ok: true };
 }

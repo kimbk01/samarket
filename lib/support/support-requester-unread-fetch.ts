@@ -12,8 +12,18 @@ type Entry = {
   inflight: Promise<number | null> | null;
   /** 최종 점검 L4: 진행 중 요청이 있을 때 온 강제 다시 읽기 — 그 요청이 끝난 뒤 1번 더(여러 번 와도 1번) */
   queued: Promise<number | null> | null;
+  /** 병합 전 2차 2: 문의 창이 열렸다 — 다음 읽기는 캐시를 쓰지 않는다(창 안에서 답변을 읽었을 수 있음) */
+  stale?: boolean;
 };
 const entries = new Map<string, Entry>();
+
+/**
+ * 병합 전 2차 2: 문의 창이 열리면 부른다. 창이 열린 동안 FAB 는 화면에서 빠져 「창 닫힘」 신호를 못 받으므로,
+ * 닫힌 뒤 다시 붙는 FAB 의 첫 읽기가 5초 캐시·옛 진행 중 요청 값을 쓰지 않게 표시해 둔다.
+ */
+export function markSupportRequesterUnreadStale(): void {
+  for (const e of entries.values()) e.stale = true;
+}
 
 export function clearSupportRequesterUnreadCache(key?: string): void {
   if (key == null) entries.clear();
@@ -51,6 +61,10 @@ export function fetchSupportRequesterUnread(key: string, qs: string, force: bool
     entries.set(key, e);
   }
   const entry = e;
+  if (entry.stale) {
+    entry.stale = false;
+    force = true;
+  }
   if (entry.inflight) {
     if (!force) return entry.inflight;
     // 최종 점검 L4: 강제 신호(새 답변 알림 등)는 진행 중 요청(신호 전에 시작 — 옛 숫자일 수 있음)을 그대로 쓰지 않는다 →

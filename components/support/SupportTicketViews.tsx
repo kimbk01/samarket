@@ -487,11 +487,14 @@ export function SupportTicketCompose({
     if (hidden) flushPendingSave();
   }, [hidden, flushPendingSave]);
 
+  // 병합 전 2차 7: 「문의 접수」 전송 중에는 쓰기 내용을 바꾸지 않는다(접수 뒤 그 글이 「작성 중인 문의」로 되살아나던 것)
+  const submittingRef = useRef(submitting);
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
   const update = useCallback((fn: (s: SupportTicketFormState) => SupportTicketFormState) => {
+    if (submittingRef.current) return;
     touchedRef.current = true;
-    // 병합 전 C: 「작성 중인 문의가 있어요」 카드를 두고 새로 입력을 시작하면 카드를 닫고 새 글을 저장한다
-    // (화면에 보이는 글 = 저장되는 글 하나 · 카드가 떠 있는 동안 입력이 저장되지 않던 것)
-    setDraft(null);
     setState(fn);
   }, []);
 
@@ -784,10 +787,15 @@ export function SupportTicketCompose({
             value={state.body}
             onChange={(e) => {
               const v = e.target.value;
+              // 병합 전 C·2차 3: 카드를 두고 **내용 칸에 글을 쓰기 시작하면** 카드를 닫고 새 글을 저장한다
+              // (분야 고르기·회원↔매장 전환으로는 닫지 않는다 — 빈 내용 저장이 옛 초안을 지우던 것)
+              if (v.trim()) setDraft(null);
               update((s) => setSupportTicketBody(s, v));
             }}
             rows={5}
             maxLength={SUPPORT_TICKET_BODY_MAX}
+            readOnly={submitting}
+            aria-busy={submitting || undefined}
             data-form-keyboard-field="1"
             data-support-ticket-body="1"
             className="block min-h-[7.5rem] w-full resize-none rounded-ui-rect border border-[var(--overlay-border)] bg-[var(--overlay-surface)] px-3 py-2.5 text-[14px] leading-relaxed text-[var(--overlay-text-primary)] placeholder:text-[var(--overlay-text-secondary)] focus:border-sam-primary focus:outline-none"

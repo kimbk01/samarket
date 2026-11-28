@@ -520,7 +520,8 @@ describe("support audit phase 1 — regression lock", () => {
     expect(load).toMatch(/catch \{[\s\S]*setError\("network_error"\)/);
     // 최종 감사: case_closed·case_updated·invalid_transition 이면 다시 읽는다(단일 판정 supportErrorNeedsReload)
     expect(views).toContain("if (supportErrorNeedsReload(json.error)) void load();");
-    expect(host).toContain("(prev?.audience ?? fromCase?.audience)");
+    // 병합 전 2차 6: 새 문의 대상 = 그 문의의 대상 먼저(동작 시험은 support-ui-final-check 「병합 전 2차 6」)
+    expect(host).toContain("(caseAudience ?? prev?.audience)");
     const ctrl = readFileSync(join(process.cwd(), "lib/support/support-modal-controller.ts"), "utf8");
     expect(ctrl).toMatch(/closeSupportModal\(\): void \{[\s\S]*clearSupportModalRestoreCaseId\(\)/);
     const detail = readFileSync(
@@ -1753,6 +1754,35 @@ describe("support final check 2026-11-28 — server M5·M6·M8·L2·L6·L8 (동�
     expect(adminNotifyCalls.filter((c) => c.kind === "support_customer_replied").map((c) => c.dedupeKey)).toEqual([
       `support_customer_replied:${seed.id}`,
     ]);
+  });
+
+  it("병합 전 2차 4·5: 이미 「답변 필요」(WAITING_ADMIN)에서 유일한 답을 지우면 그 답이 본 글 알림만 되살리고, 첫 글 제목 = 「새 고객 문의」", async () => {
+    const { db, sb } = makeDb();
+    const a = await openStructured(sb, "ORDER_STATUS", "x");
+    if (!a.ok) throw new Error(a.error);
+    const seed = db.support_messages.find((m) => m.sender_type === "MEMBER")!;
+    const reply = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    if (!reply.ok) throw new Error(reply.error);
+    await flush();
+    const late = await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "추가" });
+    if (!late.ok) throw new Error(late.error);
+    await flush();
+    const row = db.support_cases[0];
+    expect(row.status).toBe("WAITING_ADMIN");
+    db.admin_notifications = [
+      { id: "an-seed", recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${seed.id}`, read_at: "2026-12-01T00:00:00.000Z", archived_at: null },
+      { id: "an-late", recipient_admin_id: OTHER_ADMIN, kind: "support_customer_replied", work_ref_table: "support_cases", work_ref_id: a.case.id, dedupe_key: `support_customer_replied:${late.message.id}`, read_at: "2026-12-01T00:00:00.000Z", archived_at: null },
+    ];
+    adminNotifyCalls.length = 0;
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: reply.message.id });
+    await flush();
+    expect(row.status).toBe("WAITING_ADMIN");
+    // 지운 답이 봤던 첫 글만 되살림 · 원래부터 기다리던 추가 글(어드민이 읽음)은 그대로
+    expect(db.admin_notifications.find((n) => n.id === "an-seed")?.read_at).toBeNull();
+    expect(db.admin_notifications.find((n) => n.id === "an-late")?.read_at).not.toBeNull();
+    const calls = adminNotifyCalls.filter((c) => c.kind === "support_customer_replied");
+    expect(calls.map((c) => c.dedupeKey)).toEqual([`support_customer_replied:${seed.id}`]);
+    expect(calls[0].title).toContain("새 고객 문의");
   });
 
   it("M5: deleting one of two answers that both saw the message keeps 「고객 확인 대기」 (no re-notify)", async () => {
