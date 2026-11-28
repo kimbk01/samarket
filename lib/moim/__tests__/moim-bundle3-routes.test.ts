@@ -50,7 +50,7 @@ describe("가입 라우트", () => {
     moimJoin.mockResolvedValueOnce({ ok: true, status: "pending", request_id: "req-1" });
     await joinPost(req({ nickname: "Kim" }), { params: Promise.resolve({ moimId: MOIM }) });
     await flush();
-    expect(notifyMoimJoinRequested).toHaveBeenCalledWith(g.sb, MOIM, "req-1", "Kim");
+    expect(notifyMoimJoinRequested).toHaveBeenCalledWith(g.sb, MOIM, "req-1", "Kim", "u-me");
     expect(notifyMoimMemberJoined).not.toHaveBeenCalled();
   });
 });
@@ -60,7 +60,7 @@ describe("초대 수락 라우트", () => {
     moimInviteRespond.mockResolvedValueOnce({ ok: true, status: "pending", request_id: "req-9", moim_id: MOIM });
     await invitePost(req({ accept: true }), { params: Promise.resolve({ inviteId: INVITE }) });
     await flush();
-    expect(notifyMoimJoinRequested).toHaveBeenCalledWith(g.sb, MOIM, "req-9", "");
+    expect(notifyMoimJoinRequested).toHaveBeenCalledWith(g.sb, MOIM, "req-9", "", "u-me");
   });
 
   it("운영진 초대 수락(바로 가입) → 모임장에게 새 멤버 알림", async () => {

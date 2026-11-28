@@ -30,6 +30,7 @@ const moimInviteSend = vi.fn(async () => ({ ok: true as const, invite_target_id:
 const moimClose = vi.fn(async () => ({ ok: true as const }));
 const moimAccountCleanup = vi.fn();
 const notifyMoimMany = vi.fn(async () => undefined);
+const notifyMoimClosedOrDeleted = vi.fn(async () => undefined);
 const pendingAfter: Promise<unknown>[] = [];
 const flushAfter = async () => {
   await Promise.all(pendingAfter.splice(0));
@@ -47,6 +48,8 @@ vi.mock("@/lib/moim/server/moim-rpc.server", () => ({
 }));
 vi.mock("@/lib/moim/server/moim-notify.server", () => ({
   notifyMoimMany: (...a: unknown[]) => notifyMoimMany(...(a as [])),
+  notifyMoimClosedOrDeleted: (...a: unknown[]) => notifyMoimClosedOrDeleted(...(a as [])),
+  MOIM_ROLE_KEY: { host: "moim_role_host", co_host: "moim_role_co_host", staff: "moim_role_staff", member: "moim_role_member" },
   /** 응답 뒤 발송(3번 묶음 E1) — 시험에서는 바로 실행해 결과를 본다 */
   notifyMoimAfterResponse: (work: () => Promise<unknown>) => pendingAfter.push(work()),
   moimPaths: { invites: () => "/moim/invites", home: (id: string) => `/moim/${id}`, schedule: (m: string, s: string) => `/moim/${m}/schedules/${s}` },
@@ -87,29 +90,33 @@ describe("B4 초대 — 나를 차단한 사람에게는 보낼 수 없다 (설�
     const res = await invitePost(req({ userId: INVITEE }), { params: Promise.resolve({ moimId: MOIM }) });
     expect(res.status).toBe(200);
     expect(moimInviteSend).toHaveBeenCalledTimes(1);
-    expect(notifyMoimMany).toHaveBeenCalledWith(expect.anything(), [INVITEE], expect.objectContaining({ kind: "moim_invited" }));
+    /** R2: 응답 뒤 발송(W5) · 보낸 사람 역할(U9-03a) · 행위자 = 초대한 사람(N-08a) */
+    await flushAfter();
+    expect(notifyMoimMany).toHaveBeenCalledWith(
+      expect.anything(),
+      [INVITEE],
+      expect.objectContaining({ kind: "moim_invited", actorId: "u-inviter", keyVars: { role: "moim_role_member" } })
+    );
   });
 });
 
-describe("B13 모임 종료 — 취소된 일정의 확정·신청자에게 일정 취소 알림 (설계 P15·§7)", () => {
-  it("종료 알림 + 일정마다 참여자에게 moim_schedule_cancelled (종료한 사람 제외)", async () => {
+describe("B13 모임 종료 — 취소된 일정의 확정 참여자에게 일정 취소 알림 (설계 P15·§7 · R2 N-08f)", () => {
+  it("받는 사람은 DB 가 같은 트랜잭션에서 돌려준 값 — 종료한 사람은 행위자로 제외 (라우트의 사전 조회 없음)", async () => {
     g.userId = "u-host";
-    g.sb = fakeSb({
-      moim_schedules: [{ id: "s1", title: "Sat game" }, { id: "s2", title: "Empty" }],
-      moim_schedule_participants: [
-        { schedule_id: "s1", user_id: "u-host" },
-        { schedule_id: "s1", user_id: "u-a" },
-        { schedule_id: "s1", user_id: "u-b" },
-      ],
-    });
+    const sb = fakeSb({});
+    g.sb = sb;
+    const result = {
+      ok: true as const,
+      name: "Moim",
+      notify_user_ids: ["u-host", "u-a", "u-b"],
+      cancelled_schedules: [{ schedule_id: "s1", title: "Sat game", user_ids: ["u-host", "u-a"] }],
+    };
+    moimClose.mockResolvedValueOnce(result as never);
     const res = await closePost(req({ confirmName: "Moim" }), { params: Promise.resolve({ moimId: MOIM }) });
     expect(res.status).toBe(200);
     await flushAfter();
-    const kinds = notifyMoimMany.mock.calls.map((c) => [(c as unknown[])[1], ((c as unknown[])[2] as { kind: string }).kind]);
-    expect(kinds).toEqual([
-      [["u-a", "u-b"], "moim_closed"],
-      [["u-a", "u-b"], "moim_schedule_cancelled"],
-    ]);
+    expect(sb.calls).toEqual([]);
+    expect(notifyMoimClosedOrDeleted).toHaveBeenCalledWith(sb, MOIM, result, { actorId: "u-host", kind: "closed" });
   });
 
   it("종료가 실패하면 알림 없음", async () => {
@@ -118,6 +125,7 @@ describe("B13 모임 종료 — 취소된 일정의 확정·신청자에게 일�
     const res = await closePost(req({ confirmName: "wrong" }), { params: Promise.resolve({ moimId: MOIM }) });
     expect(res.status).toBe(400);
     expect(notifyMoimMany).not.toHaveBeenCalled();
+    expect(notifyMoimClosedOrDeleted).not.toHaveBeenCalled();
   });
 });
 

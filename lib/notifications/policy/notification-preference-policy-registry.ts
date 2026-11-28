@@ -92,6 +92,11 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   // M5: 플랫폼 제재 = 필수(설계 §7 · P14) · 미접속 모임장 변경 요청 결과 = 결과 통지(끌 수 없음)
   moim_sanctioned: row("member", "community_social", "mandatory", MANDATORY),
   moim_host_request_result: row("member", "community_social", "mandatory", MANDATORY),
+  // R2 (D-22): 어드민 조치 결과 = 끌 수 없음 (§7 「결과 = X」)
+  moim_unbanned: row("member", "community_social", "mandatory", MANDATORY),
+  moim_content_moderated: row("member", "community_social", "mandatory", MANDATORY),
+  moim_sanction_released: row("member", "community_social", "mandatory", MANDATORY),
+  moim_restored: row("member", "community_social", "mandatory", MANDATORY),
 
   // Member financial (mandatory)
   user_point_charge_approved: row("member", "member_financial", "mandatory", MANDATORY),

@@ -418,6 +418,33 @@ export async function markCommunityPostNotificationEventsRead(
   return data?.length ?? 0;
 }
 
+/**
+ * 모임 알림이 여는 목적지 화면에 들어갔을 때 그 화면으로 가는 모임 알림만 읽음 (모임 R2 N-06 · 설계 §7 「대상 화면에 들어갔을 때」).
+ * 경로가 정확히 같을 때만 — 모임 홈을 연다고 일정 알림까지 읽음이 되지 않는다. 경로 형식은 라우트가 검증한다.
+ */
+export async function markMoimTargetNotificationEventsRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  path: string
+): Promise<number> {
+  const uid = userId.trim();
+  const p = path.trim();
+  if (!uid || !p) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .in("category", ["community_activity"])
+    .eq("unread", true)
+    .is("read_at", null)
+    .eq("display_payload->>routeUrl", p)
+    .like("display_payload->legacyMeta->>kind", "moim_%")
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
 export async function markTradeStatusNotificationEventsReadByProductId(
   sb: SupabaseClient<any>,
   userId: string,

@@ -9,7 +9,7 @@ import { MOIM_ADMIN_SANCTION_LEVELS, type MoimAdminSanctionLevel } from "@/lib/a
 import { moimAdminBad, moimAdminJson, moimAdminReason, moimAdminRpcResponse, moimAdminUuid } from "@/lib/admin/moim/moim-admin-route.server";
 import { isMoimReportReasonCode } from "@/lib/moim/moim-report-reasons";
 import { moimAdminSanctionApply } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,14 +39,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   const r = await moimAdminSanctionApply(gate.actor.userId, moimId, { level, reasonCode: body?.reasonCode as string, reason, endsAt, reportId }, gate.sb);
   if (r.ok) {
-    await notifyMoimMany(gate.sb, r.notify_user_ids ?? [], {
-      kind: "moim_sanctioned",
-      variant: level,
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: r.sanction_id,
-      vars: { moim: r.name ?? "" },
-    });
+    const to = r.notify_user_ids ?? [];
+    const sanctionId = r.sanction_id;
+    const name = r.name ?? "";
+    notifyMoimAfterResponse(() =>
+      notifyMoimMany(gate.sb, to, {
+        kind: "moim_sanctioned",
+        variant: level,
+        moimId,
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: sanctionId,
+        vars: { moim: name },
+      })
+    );
   }
   return moimAdminRpcResponse(r);
 }

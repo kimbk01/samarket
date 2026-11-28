@@ -1,5 +1,6 @@
 "use client";
 
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
@@ -47,6 +48,8 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
 
   const loadMembers = useCallback(() => moimApi.members(moimId), [moimId]);
   const members = useMoimResource(loadMembers);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/manage/members`, members.state.status !== "loading");
   const canBan = c.ban_member;
   const loadBanned = useCallback(
     () => (canBan ? moimApi.banned(moimId) : Promise.resolve({ ok: true as const, banned: [] as MoimBannedDto[] })),

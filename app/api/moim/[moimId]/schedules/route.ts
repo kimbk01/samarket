@@ -46,6 +46,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         linkUrl: moimPaths.schedule(moimId, scheduleId),
         dedupeRef: scheduleId,
         vars: { moim, title: scheduleTitle },
+        actorId: g.userId,
       });
     });
   }

@@ -113,7 +113,7 @@ describe("B2·B3 가입 알림", () => {
   });
 
   it("B3 가입 신청 → 승인권자에게 moim_join_requested (가입·초대 수락 공용)", async () => {
-    await notifyMoimJoinRequested(fakeSb({}), "m1", "req-1", "Lee");
+    await notifyMoimJoinRequested(fakeSb({}), "m1", "req-1", "Lee", "u-applicant");
     expect(listMoimActorsFor).toHaveBeenCalledWith(expect.anything(), "m1", "decide_join");
     expect(appendCalls[0]).toMatchObject({ user_id: "u-decider", link_url: "/moim/m1/manage/requests", dedupe_key: "moim:moim_join_requested:req-1:u-decider" });
   });

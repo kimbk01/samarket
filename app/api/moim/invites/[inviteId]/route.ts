@@ -41,7 +41,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const name = typeof body.nickname === "string" ? body.nickname.trim() : "";
     if (result.status === "pending" && typeof result.request_id === "string") {
       const requestId = result.request_id;
-      notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, name));
+      const requestName = (typeof result.nickname === "string" ? result.nickname : name).trim();
+      notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, requestName, g.userId));
     } else if (result.status === "active") {
       notifyMoimAfterResponse(() => notifyMoimMemberJoined(g.sb, moimId, g.userId, name));
     }

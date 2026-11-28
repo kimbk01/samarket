@@ -3,6 +3,7 @@ import {
   markAllMissedCallEventsRead,
   markCommunityPostNotificationEventsRead,
   markMissedCallEventsRead,
+  markMoimTargetNotificationEventsRead,
   markNotificationEventRead,
   markNotificationEventsReadByCategory,
   markNotificationEventsReadByThread,
@@ -135,6 +136,8 @@ export async function markNotificationThreadRead(
     count = await markOrderNotificationEventsRead(sb, userId, threadId);
   } else if (threadType === "community_post") {
     count = await markCommunityPostNotificationEventsRead(sb, userId, threadId);
+  } else if (threadType === "moim") {
+    count = await markMoimTargetNotificationEventsRead(sb, userId, threadId);
   } else if (readReason === "trade_detail_opened") {
     count = await markTradeStatusNotificationEventsReadByProductId(sb, userId, threadId);
   } else {

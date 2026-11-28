@@ -1,5 +1,6 @@
 "use client";
 
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-overlay";
@@ -26,6 +27,8 @@ function RequestsBody({ moimId }: { moimId: string }) {
   const toast = useMoimManageToast();
   const load = useCallback(() => moimApi.joinRequests(moimId), [moimId]);
   const { state, reload } = useMoimResource(load);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/manage/requests`, state.status !== "loading");
   const [done, setDone] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<MoimJoinRequestDto | null>(null);

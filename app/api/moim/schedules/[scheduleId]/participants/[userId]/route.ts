@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimScheduleAttendance, moimScheduleDecide, moimScheduleRemoveParticipant } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,13 +26,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const approve = body.action === "approve";
     const result = await moimScheduleDecide(g.userId, scheduleId, target, approve, g.sb);
     if (result.ok) {
-      await notifyMoimMany(g.sb, [target], {
-        kind: approve ? "moim_schedule_decided_ok" : "moim_schedule_decided_no",
-        moimId: result.moim_id,
-        linkUrl: moimPaths.schedule(result.moim_id, scheduleId),
-        dedupeRef: `${scheduleId}:${new Date().toISOString().slice(0, 16)}`,
-        vars: { title: result.title },
-      });
+      const moimId = result.moim_id;
+      const title = result.title;
+      const ref = `${scheduleId}:${target}:${Date.now()}`;
+      /** 키 = 일정:사람:밀리초(R-c) · 응답 뒤(R-e) */
+      notifyMoimAfterResponse(() =>
+        notifyMoimMany(g.sb, [target], {
+          kind: approve ? "moim_schedule_decided_ok" : "moim_schedule_decided_no",
+          moimId,
+          linkUrl: moimPaths.schedule(moimId, scheduleId),
+          dedupeRef: ref,
+          vars: { title },
+        })
+      );
     }
     return moimRpcResponse(result);
   }

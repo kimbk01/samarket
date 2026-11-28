@@ -94,7 +94,7 @@ export function moimJoin(
   input: { answers?: string[]; profile?: MoimMemberProfileInput; /** 초대 링크로 들어온 경우 — 링크 사용 횟수 */ inviteToken?: string | null },
   sb?: SupabaseServer
 ) {
-  return callMoimRpc<{ status: "active" | "pending"; room_id?: string; request_id?: string }>(
+  return callMoimRpc<{ status: "active" | "pending"; room_id?: string; request_id?: string; nickname?: string }>(
     "moim_join",
     {
       p_actor: actorId,
@@ -129,7 +129,8 @@ export function moimMemberRemove(
   reason: string | null,
   sb?: SupabaseServer
 ) {
-  return callMoimRpc(
+  /** R2 N-08d: was_active = 활동 멤버였을 때만 「내보내졌어요」 */
+  return callMoimRpc<{ was_active?: boolean }>(
     "moim_member_remove",
     { p_actor: actorId, p_moim: moimId, p_target: targetUserId, p_ban: ban, p_reason: reason },
     sb
@@ -179,8 +180,15 @@ export function moimAccountCleanup(userId: string, sb?: SupabaseServer) {
   );
 }
 
+/** 종료·어드민 삭제로 함께 취소된 일정과 그 확정 참여자 (R2 · `moim__close_cleanup` 반환) */
+export type MoimCancelledSchedule = { schedule_id: string; title: string; user_ids: string[] };
+
 export function moimClose(actorId: string, moimId: string, confirmName: string, sb?: SupabaseServer) {
-  return callMoimRpc("moim_close", { p_actor: actorId, p_moim: moimId, p_confirm_name: confirmName }, sb);
+  return callMoimRpc<{ name?: string; notify_user_ids?: string[]; cancelled_schedules?: MoimCancelledSchedule[] }>(
+    "moim_close",
+    { p_actor: actorId, p_moim: moimId, p_confirm_name: confirmName },
+    sb
+  );
 }
 
 export type MoimInfoPatch = Partial<{
@@ -266,7 +274,7 @@ export function moimInviteRespond(
   profile?: MoimMemberProfileInput,
   sb?: SupabaseServer
 ) {
-  return callMoimRpc<{ status: "active" | "pending" | "declined"; moim_id?: string; request_id?: string }>(
+  return callMoimRpc<{ status: "active" | "pending" | "declined"; moim_id?: string; request_id?: string; nickname?: string }>(
     "moim_invite_respond",
     { p_actor: actorId, p_invite_target: inviteTargetId, p_accept: accept, p: profilePayload(profile) },
     sb
@@ -325,7 +333,8 @@ export function moimPostPin(actorId: string, postId: string, pinned: boolean, sb
 }
 
 export function moimCommentCreate(actorId: string, postId: string, body: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ comment_id: string; post_author_id: string; moim_id: string }>(
+  /** R2 N-02: post_author_id = 글쓴이가 지금 활동 멤버일 때만(아니면 null) */
+  return callMoimRpc<{ comment_id: string; post_author_id: string | null; moim_id: string }>(
     "moim_comment_create",
     { p_actor: actorId, p_post: postId, p_body: body },
     sb
@@ -471,8 +480,23 @@ export function moimSchedulesFinishDue(limit: number, sb?: SupabaseServer) {
   return callMoimRpc<{ done: MoimScheduleBatchItem[] }>("moim_schedules_finish_due", { p_limit: limit }, sb);
 }
 
+/** R2 N-08e: 고르기만 한다 — 보낸 뒤 `moimSchedulesAckReminders` 로 표시 */
 export function moimSchedulesClaimReminders(window: "24h" | "1h", sb?: SupabaseServer) {
   return callMoimRpc<{ reminders: MoimScheduleBatchItem[] }>("moim_schedules_claim_reminders", { p_window: window }, sb);
+}
+
+/** 보낸 리마인드만 표시 — 같은 시작 시각일 때만(그사이 시간이 바뀐 일정은 다음 회차에 새 시각으로) */
+export function moimSchedulesAckReminders(window: "24h" | "1h", items: { schedule_id: string; starts_at: string }[], sb?: SupabaseServer) {
+  return callMoimRpc<{ acked: number }>("moim_schedules_ack_reminders", { p_window: window, p_items: items }, sb);
+}
+
+/** 보낼 후기 안내 (끝난 지 24시간 안 · 받는 사람 = 확정 참여자 중 지금 활동 멤버) */
+export function moimSchedulesReviewsPending(limit: number, sb?: SupabaseServer) {
+  return callMoimRpc<{ reviews: MoimScheduleBatchItem[] }>("moim_schedules_reviews_pending", { p_limit: limit }, sb);
+}
+
+export function moimSchedulesAckReviews(scheduleIds: string[], sb?: SupabaseServer) {
+  return callMoimRpc<{ acked: number }>("moim_schedules_ack_reviews", { p_ids: scheduleIds }, sb);
 }
 
 export function moimAlbumAdd(actorId: string, moimId: string, urls: string[], scheduleId: string | null, sb?: SupabaseServer) {
@@ -611,7 +635,7 @@ export function moimAdminContent(
   reason: string,
   sb?: SupabaseServer
 ) {
-  return callMoimRpc<{ moim_id: string; status?: string; title?: string; notify_user_ids?: string[] }>(
+  return callMoimRpc<{ moim_id: string; status?: string; title?: string; notify_user_ids?: string[]; author_id?: string | null; name?: string }>(
     "moim_admin_content",
     { p_admin: adminId, p_type: type, p_id: id, p_action: action, p_reason: reason },
     sb
@@ -643,7 +667,7 @@ export function moimAdminSanctionApply(
 }
 
 export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ moim_id: string; platform_state: string }>(
+  return callMoimRpc<{ moim_id: string; platform_state: string; level?: string; name?: string; notify_user_ids?: string[] }>(
     "moim_admin_sanction_revoke",
     { p_admin: adminId, p_sanction: sanctionId, p_reason: reason },
     sb
@@ -677,6 +701,8 @@ export type MoimAdminReportDecideAction = {
   user_id?: string;
   community_sanction_id?: string | null;
   duplicate?: boolean;
+  /** content_hide: 숨김이 실제로 바꾼 행이 있었는가 (R2 재감사 F5) */
+  changed?: boolean;
   restriction?: "post" | "comment" | "all";
   days?: number | null;
   end_at?: string | null;
@@ -742,6 +768,8 @@ export function moimClosedRetentionDue(limit: number, sb?: SupabaseServer) {
  */
 export type MoimCronTick = {
   finish: MoimRpcResult<{ done: MoimScheduleBatchItem[] }>;
+  /** R2: 보낼 후기 안내 — DB 가 옛 판(키 없음)이면 null → 호출부가 따로 부른다 */
+  reviews: MoimRpcResult<{ reviews: MoimScheduleBatchItem[] }> | null;
   reminders24h: MoimRpcResult<{ reminders: MoimScheduleBatchItem[] }>;
   reminders1h: MoimRpcResult<{ reminders: MoimScheduleBatchItem[] }>;
   sanctions: MoimRpcResult<{ refreshed: { moim_id: string; platform_state: string }[] }>;
@@ -770,6 +798,7 @@ export async function moimCronTick(sb?: SupabaseServer): Promise<MoimCronTick | 
     if (!p || p.ok !== true) return null;
     return {
       finish: moimRpcResultFromTickJson(p.finish),
+      reviews: p.reviews === undefined ? null : moimRpcResultFromTickJson<{ reviews: MoimScheduleBatchItem[] }>(p.reviews),
       reminders24h: moimRpcResultFromTickJson(p.reminders_24h),
       reminders1h: moimRpcResultFromTickJson(p.reminders_1h),
       sanctions: moimRpcResultFromTickJson(p.sanctions),
@@ -783,11 +812,15 @@ export async function moimCronTick(sb?: SupabaseServer): Promise<MoimCronTick | 
 }
 
 export function moimAdminDelete(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc("moim_admin_delete", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
+  return callMoimRpc<{ name?: string; notify_user_ids?: string[]; cancelled_schedules?: MoimCancelledSchedule[] }>(
+    "moim_admin_delete",
+    { p_admin: adminId, p_moim: moimId, p_reason: reason },
+    sb
+  );
 }
 
 export function moimAdminRestore(adminId: string, moimId: string, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ status: string }>("moim_admin_restore", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
+  return callMoimRpc<{ status: string; name?: string; notify_user_ids?: string[] }>("moim_admin_restore", { p_admin: adminId, p_moim: moimId, p_reason: reason }, sb);
 }
 
 export type MoimAdminCategoryInput = {

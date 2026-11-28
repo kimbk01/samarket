@@ -1,5 +1,6 @@
 "use client";
 
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +30,8 @@ export function MoimTabHome() {
   const { t, language } = useI18n();
   const router = useRouter();
   const [mine, setMine] = useState<MoimCardDto[] | null>(null);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead("/moim", mine !== null);
   const [categories, setCategories] = useState<MoimCategoryDto[] | null>(null);
   const [categoriesFailed, setCategoriesFailed] = useState(false);
   const [inviteCount, setInviteCount] = useState(0);

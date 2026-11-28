@@ -12,6 +12,8 @@ const SAFE_NOTIFICATION_ROUTE_PREFIXES = [
   "/my",
   "/mypage",
   "/philife",
+  /** 모임 (docs/design/moim §7 이동 위치 · 2026-11-28 R2 재감사 F1 — 빠져 있어 모든 모임 알림이 대체 주소로 저장되던 결함) */
+  "/moim",
   "/notifications",
   "/business",
   "/admin",
