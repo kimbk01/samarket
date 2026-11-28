@@ -110,6 +110,8 @@ export function SupportModalHost() {
    * 이동할 주소가 있으면 back 대신 모달이 넣은 기록 항목을 그 주소로 **교체**한다(뒤로 = 원래 화면).
    */
   const navigateOnClose = useRef<string | null>(null);
+  /** 병합 전 3차: 창이 닫힐 때마다 +1 — 접수 응답이 보낸 회차와 같을 때만 화면에 반영 */
+  const openSessionRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -145,6 +147,8 @@ export function SupportModalHost() {
 
   useEffect(() => {
     if (!open) {
+      // 병합 전 3차: 창이 닫혔다 — 이 회차에 보낸 접수의 늦은 응답은 화면에 남기지 않는다
+      openSessionRef.current += 1;
       setComposeKept(false);
       setSubmitting(false);
       setSubmitError(null);
@@ -257,6 +261,10 @@ export function SupportModalHost() {
       }
       setSubmitting(true);
       setSubmitError(null);
+      // 병합 전 3차: 응답 전에 창이 닫히면(✕·◁) 결과 화면·오류·다시 열 문의를 남기지 않는다
+      // (다음에 창을 열면 지난 「접수 완료」가 나오던 것). 성공이면 초안만 지운다(이미 접수된 글이 되살아나지 않게).
+      const session = openSessionRef.current;
+      const sameSession = () => openSessionRef.current === session;
       try {
         const res = await fetch("/api/support/cases/open", {
           method: "POST",
@@ -265,7 +273,7 @@ export function SupportModalHost() {
           body: JSON.stringify(payload),
         });
         if (res.status === 401) {
-          setAuth("out");
+          if (sameSession()) setAuth("out");
           return;
         }
         const json = (await res.json().catch(() => ({}))) as {
@@ -281,11 +289,12 @@ export function SupportModalHost() {
           error?: string;
         };
         if (!res.ok || !json.ok || !json.case?.id) {
-          setSubmitError(json.error ?? (res.status === 429 ? "rate_limited" : "open_failed"));
+          if (sameSession()) setSubmitError(json.error ?? (res.status === 429 ? "rate_limited" : "open_failed"));
           return;
         }
         clearPendingSupportContext();
         clearSupportTicketDraft(draftKey);
+        if (!sameSession()) return;
         // 새로고침해도 방금 접수한 문의로 돌아오게 복원값 저장
         stashSupportModalRestoreCaseId(json.case.id);
         // 고객 문의 SSOT §6 (F4): 같은 분야 진행 중 문의에 붙었으면(created=false) 그 문의의 분야·세부·접수 시각을 보여 준다.
@@ -302,9 +311,9 @@ export function SupportModalHost() {
           merged,
         });
       } catch {
-        setSubmitError("network_error");
+        if (sameSession()) setSubmitError("network_error");
       } finally {
-        setSubmitting(false);
+        if (sameSession()) setSubmitting(false);
       }
     },
     [submitting, labels]

@@ -553,6 +553,47 @@ describe("병합 전 2차 7 — 「문의 접수」 전송 중 입력은 무시�
   });
 });
 
+describe("병합 전 3차 — 접수 중 창을 닫으면 늦은 응답이 다음 창에 남지 않는다 (동작)", () => {
+  it("접수 → 응답 전 ✕ → 성공 도착 → 초안 지워짐 · 다시 열 문의 저장 안 함 · 다시 열면 접수 완료 아님", async () => {
+    let release: (v: unknown) => void = () => undefined;
+    route = (url) => {
+      if (url.startsWith("/api/support/cases?")) return { ok: true, cases: [] };
+      if (url.startsWith("/api/support/cases/open")) return new Promise((r) => (release = r));
+      return { ok: false };
+    };
+    const ctx = memberCtx();
+    await act(async () => root.render(<SupportModalHost />));
+    openCompose(ctx);
+    await flush();
+    click(q('[data-testid="support-ticket-field-category"]'));
+    click(q('[data-testid^="support-ticket-cat-"]'));
+    click(q('[data-testid^="support-ticket-issue-"]'));
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "보낸 글");
+    click(q('[data-support-ticket-submit="1"]'));
+    await flush(2);
+    click(q('[data-support-modal-close="1"]'));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+    await act(async () => {
+      release({ ok: true, case: { ...caseRow(), id: "c-late", public_case_no: "SC-LATE" }, created: true });
+    });
+    await flush(3);
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))).toBeNull();
+    // 닫은 뒤 늦게 온 성공이 「새로고침하면 다시 열 문의」를 남기지 않는다(고치기 전: c-late 저장 → 닫은 창이 새로고침 때 다시 열림)
+    expect(window.sessionStorage.getItem("dibay_support_modal_restore_case_id")).toBeNull();
+    // 푸시처럼 문의 상세로 다시 연다 → 지난 「접수 완료」가 아니라 그 문의 상세
+    route = (url) =>
+      url.startsWith("/api/support/cases/c1") ? { ok: true, case: caseRow(), messages: [questionMsg, answerMsg()] } : { ok: false };
+    act(() => {
+      openSupportModal({ caseId: "c1" });
+    });
+    await flush();
+    expect(q('[data-support-ticket-view="submitted"]')).toBeNull();
+    expect(q('[data-support-ticket-view="detail"]')).not.toBeNull();
+    expect(document.body.textContent).not.toContain("SC-LATE");
+  });
+});
+
 /* ───────────── U3 닫는 「확인」 한 모양 · 새 문의 라벨 하나 ───────────── */
 
 describe("U3 닫는 「확인」 = 보조 모양 · 새 문의 = 「문의하기」 (동작)", () => {
