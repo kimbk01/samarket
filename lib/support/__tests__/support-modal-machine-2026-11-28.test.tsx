@@ -830,6 +830,16 @@ describe("R7 경로 변화·진입 주소 (C-20·C-21)", () => {
     expect(getSupportModalState().phase).toBe("closed");
     // 새 화면을 되돌리지 않는다
     expect(back).not.toHaveBeenCalled();
+    // C-20 마무리: 새 화면에서 ◁ 로 창이 남긴 기록 항목에 돌아오면 한 번 더 뒤로(◁ 두 번 누를 필요 없음)
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: { dibaySupportModal: true } }));
+    });
+    expect(back).toHaveBeenCalledTimes(1);
+    // 창 표시가 없는 보통 항목으로 돌아온 것은 건드리지 않는다
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    });
+    expect(back).toHaveBeenCalledTimes(1);
     back.mockRestore();
   });
 

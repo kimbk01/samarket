@@ -37,7 +37,8 @@ describe("A2-3 support notification → Support Modal restore", () => {
   });
 
   it("(구조 확인) customer support events write display_route + buildSupportCaseRoute", () => {
-    const svc = read("lib/support/support-case-service.ts");
+    // 고객 알림 문구·키·경로 = 단일 정의 support-requester-notification-copy.ts (2026-11-29) + 서비스의 답변 알림
+    const svc = read("lib/support/support-case-service.ts") + read("lib/support/support-requester-notification-copy.ts");
     expect(svc).toContain('type: "support_admin_replied"');
     expect(svc).toContain('type: "support_case_resolved"');
     expect(svc).toContain("buildSupportCaseRoute");

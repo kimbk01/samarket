@@ -14,7 +14,6 @@ import {
   createAdminNotification,
   resolveAdminRecipientAuthority,
 } from "@/lib/admin/notifications/admin-notification-service";
-import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
 import {
   buildSupportCustomerRepliedTitle,
   loadSupportCustomerMessageAnswers,
@@ -36,6 +35,7 @@ import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { buildReopenedNotification, buildResolvedNotification } from "@/lib/support/support-requester-notification-copy";
 import { buildSupportOpenedSeedBody, buildSupportTriageSeedBody } from "@/lib/support/support-seed-message-text";
 import {
   buildAdminSupportCaseRoute,
@@ -369,8 +369,7 @@ async function reconcileSupportAdminWork(
         Date.parse(m.created_at) <= Date.parse(del.created_at) && supportReplySawMessage(del, seenMap, m.created_at)
       );
       if (newly.length === 0) return 0;
-      await reviveCustomerMessageAdminAlerts(sb, c.id, newly.map((m) => m.id));
-      await notifyUnansweredCustomerMessages(sb, c, newly.map((m) => m.id), answers);
+      scheduleAdminAlertsForUnanswered(sb, c, newly.map((m) => m.id), answers, true);
       return newly.length;
     }
     const { data: moved, error: moveErr } = await sb
@@ -386,8 +385,7 @@ async function reconcileSupportAdminWork(
     }
     // 그사이 고객 글·다른 답변으로 상태가 바뀌었다 → 그쪽 경로가 맞춘다
     if (!moved || moved.length === 0) return 0;
-    await reviveCustomerMessageAdminAlerts(sb, c.id, unanswered.map((m) => m.id));
-    await notifyUnansweredCustomerMessages(sb, c, unanswered.map((m) => m.id), answers);
+    scheduleAdminAlertsForUnanswered(sb, c, unanswered.map((m) => m.id), answers, true);
     return unanswered.length;
   }
   const latestReplyAt = answers.latestReplyAt;
@@ -411,7 +409,7 @@ async function reconcileSupportAdminWork(
     if (backErr) console.error("[support] reply_unseen_status_failed", { caseId: c.id, error: backErr.message });
   }
   if (unanswered.length === 0) return 0;
-  await notifyUnansweredCustomerMessages(sb, c, unanswered.map((m) => m.id), answers);
+  scheduleAdminAlertsForUnanswered(sb, c, unanswered.map((m) => m.id), answers, false);
   return unanswered.length;
 }
 
@@ -419,6 +417,27 @@ async function reconcileSupportAdminWork(
  * 남은 고객 글의 알림을 (없으면) 만든다 — B-3: 이미 어드민 알림 행(또는 대기 중 발송)이 있는 글은 건너뛴다(같은 행을 다시 읽거나
  * 받는 사람 권한을 다시 묻지 않는다). 본문·첫 글 판정은 한 번씩만 읽는다. 발송은 응답 뒤(같은 판정 · 같은 dedupe 키).
  */
+/**
+ * 요청 예산(2026-11-29 실측): 답 못 받은 고객 글의 어드민 알림 되살림·만들기는 어드민 쪽 일이라 **응답 뒤**에 한다
+ * (상태 되돌림·숫자는 응답 전 — 화면이 바로 맞는 값을 본다). 같은 dedupe 키·「이미 알림 있는 글 건너뜀」이라 다시 해도 같다.
+ */
+function scheduleAdminAlertsForUnanswered(
+  sb: SupabaseClient,
+  c: SupportCaseRow,
+  messageIds: string[],
+  answers: Parameters<typeof notifyUnansweredCustomerMessages>[3],
+  revive: boolean
+): void {
+  runAfterResponse(async () => {
+    try {
+      if (revive) await reviveCustomerMessageAdminAlerts(sb, c.id, messageIds);
+      await notifyUnansweredCustomerMessages(sb, c, messageIds, answers);
+    } catch (err) {
+      console.error("[support] unanswered_admin_alerts_failed", { caseId: c.id, err });
+    }
+  });
+}
+
 async function notifyUnansweredCustomerMessages(
   sb: SupabaseClient,
   c: SupportCaseRow,
@@ -496,10 +515,12 @@ function notifyAdminsAfterResponse(
   sb: SupabaseClient,
   input: Parameters<typeof notifyAdminsOfCustomerMessage>[1]
 ): void {
-  const work = notifyAdminsOfCustomerMessage(sb, input).catch((err: unknown) => {
-    console.error("[support] admin_notification_failed", { caseId: input.caseRow.id, err });
-  });
-  keepAliveAfterResponse(work);
+  // 요청 예산·지연: 응답을 보낸 **뒤에 시작**한다(전에는 응답 전에 시작해 같은 요청 안에서 돌았다 — 받는 어드민 수에 비례).
+  runAfterResponse(() =>
+    notifyAdminsOfCustomerMessage(sb, input).catch((err: unknown) => {
+      console.error("[support] admin_notification_failed", { caseId: input.caseRow.id, err });
+    })
+  );
 }
 
 /** 요청 id (계약 §1) — uuid 문자열. 없음 = null(옛 클라이언트 · 지금처럼). 형식이 틀리면 "invalid". */
@@ -814,36 +835,6 @@ async function filterRequesterOwnedCases<T extends { audience?: unknown; owner_s
   return rows.filter((r) => r.audience !== "OWNER" || (r.owner_store_id != null && owned.has(String(r.owner_store_id))));
 }
 
-/** 상담 내역 탭 개수(count 모드, S63) — 같은 조건으로 head count */
-export async function countSupportCasesForRequester(
-  sb: SupabaseClient,
-  input: {
-    userId: string;
-    audience?: "MEMBER" | "OWNER";
-    storeId?: string | null;
-    status: SupportCaseHistoryTab;
-  }
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
-  // A-6: 소유 확인을 행마다 해야 해서 head 개수 대신 열 3개를 읽는다(진행 중 문의 = 몇 건 · 상한 1000)
-  let query = sb
-    .from("support_cases")
-    .select("id, audience, owner_store_id")
-    .eq("requester_user_id", input.userId);
-  query =
-    input.status === "active"
-      ? query.or(requesterVisibleActiveOrFilter())
-      : query.in("status", [...SUPPORT_CASE_HISTORY_TAB_STATUSES[input.status]]);
-  if (input.audience) query = query.eq("audience", input.audience);
-  if (input.audience === "OWNER" && input.storeId) query = query.eq("owner_store_id", input.storeId);
-  const { data, error } = await query.limit(1000);
-  if (error) {
-    if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
-    console.error("[support] requester_cases_count_failed", { error: error.message });
-    return { ok: false, error: "cases_fetch_failed" };
-  }
-  const owned = await filterRequesterOwnedCases(sb, input.userId, (data ?? []) as { audience?: unknown; owner_store_id?: unknown }[]);
-  return { ok: true, count: owned.length };
-}
 
 /**
  * 최종 감사 L10 — 고객센터 FAB 숫자 전용: 안 읽은 답변 수 합(`requester_unread_count`)만 읽는다.
@@ -1580,21 +1571,7 @@ export async function adminUpdateSupportCaseStatus(
   if (!r.ok) return { ok: false, error: r.error };
   if (mode === "close") {
     const c = r.case;
-    const at = String(c.resolved_at ?? c.updated_at ?? new Date().toISOString());
-    const build = (resolvedLang: Parameters<typeof notifySafeT>[0]): SupportRequesterNotificationInput => ({
-      userId: c.requester_user_id,
-      type: "support_case_resolved",
-      title: notifySafeT(resolvedLang, "notify_support_case_resolved_title"),
-      // Phase 3 A5 — fixed copy; `subject` is an internal "CATEGORY · surface" token.
-      body: notifySafeT(resolvedLang, "notify_support_case_resolved_body"),
-      copy: { titleKey: "notify_support_case_resolved_title", messageKey: "notify_support_case_resolved_body" },
-      caseId: c.id,
-      publicCaseNo: c.public_case_no,
-      audience: c.audience,
-      storeId: c.owner_store_id,
-      dedupeKey: `support_case_resolved:${c.id}:${at}`,
-      actorUserId: input.adminUserId,
-    });
+    const build = (resolvedLang: Parameters<typeof notifySafeT>[0]) => buildResolvedNotification(c, input.adminUserId, resolvedLang);
     // 고객 「종료」 알림 — 바뀐 때만(이미 종료 = 다시 보내지 않음 · 고객 「확인했어요」·보관 해제와 사건 모양이 같아 재요청으로 판정할 수 없다).
     // 알림함 행은 응답 전 저장(원장) · 푸시는 응답 뒤.
     if (r.changed) await notifyRequester(sb, c.requester_user_id, build);
@@ -1666,13 +1643,14 @@ export async function adminAssignSupportCase(
   //   답 못 받은 고객 글 다시 알림(재배정 = 새 담당자 · 해제 = support 어드민 전원). 응답 뒤(문의 글 수 비례).
   if (previous && previous !== target) {
     await markFormerAssigneeCaseAlertsRead(sb, { adminUserId: previous, caseId: c.id });
-    const renotify = (async () => {
-      const { renotifyReleasedSupportCases } = await import("@/lib/support/support-released-case-renotify");
-      await renotifyReleasedSupportCases(sb, [c.id], { assigneeAdminId: target });
-    })().catch((e: unknown) => {
-      console.error("[support] reassign_renotify_failed", { caseId: c.id, error: (e as Error)?.message ?? String(e) });
-    });
-    keepAliveAfterResponse(renotify);
+    runAfterResponse(() =>
+      (async () => {
+        const { renotifyReleasedSupportCases } = await import("@/lib/support/support-released-case-renotify");
+        await renotifyReleasedSupportCases(sb, [c.id], { assigneeAdminId: target });
+      })().catch((e: unknown) => {
+        console.error("[support] reassign_renotify_failed", { caseId: c.id, error: (e as Error)?.message ?? String(e) });
+      })
+    );
   }
 
   return { ok: true, case: c };
@@ -1692,31 +1670,6 @@ export async function adminSetSupportCasePriority(
   });
   if (!r.ok) return { ok: false, error: r.error === "transition_failed" ? "priority_failed" : r.error };
   return { ok: true, case: r.case };
-}
-
-/** 재오픈 알림 키 — 재오픈 시각(DB 함수가 재오픈 때 `last_message_at`·`updated_at` 을 그 시각으로 둔다). */
-function reopenedDedupeKey(c: SupportCaseRow): string {
-  return `support_case_reopened:${c.id}:${String(c.last_message_at ?? c.updated_at ?? "")}`;
-}
-
-function reopenedNotification(
-  c: SupportCaseRow,
-  actorUserId: string,
-  lang: Parameters<typeof notifySafeT>[0]
-): SupportRequesterNotificationInput {
-  return {
-    userId: c.requester_user_id,
-    type: "support_case_reopened",
-    title: notifySafeT(lang, "notify_support_case_reopened_title"),
-    body: notifySafeT(lang, "notify_support_case_reopened_body"),
-    copy: { titleKey: "notify_support_case_reopened_title", messageKey: "notify_support_case_reopened_body" },
-    caseId: c.id,
-    publicCaseNo: c.public_case_no,
-    audience: c.audience,
-    storeId: c.owner_store_id,
-    dedupeKey: reopenedDedupeKey(c),
-    actorUserId,
-  };
 }
 
 /** 고객 문의 SSOT §2 (2차 재감사 J): 재오픈은 어드민만. `isAdmin` 은 옛 호출 호환용 — 값과 무관하게 어드민 판정. */
@@ -1754,7 +1707,7 @@ export async function reopenSupportCase(
   // Phase 3 A5 — notify only when someone else (admin) reopened it; never self-notify.
   if (input.userId !== c.requester_user_id) {
     const reopened = c;
-    await notifyRequester(sb, c.requester_user_id, (lang) => reopenedNotification(reopened, input.userId, lang));
+    await notifyRequester(sb, c.requester_user_id, (lang) => buildReopenedNotification(reopened, input.userId, lang));
   }
 
   return { ok: true, case: c };

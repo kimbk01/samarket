@@ -2,6 +2,13 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import type { SupportCaseRow } from "@/lib/support/support-case-types";
+import {
+  buildReopenedNotification,
+  buildResolvedNotification,
+  requesterNotificationEvent,
+} from "@/lib/support/support-requester-notification-copy";
 
 /**
  * 고객 알림 영구 재시도 (전체 수정 계약 §4 · 재감사 S-6).
@@ -19,7 +26,37 @@ export type SupportRequesterOutboxPayload = {
   replyMessageId: string | null;
 };
 
-export function isSupportRequesterOutboxPayload(payload: unknown): payload is SupportRequesterOutboxPayload {
+/**
+ * 재감사 4차 — DB 함수(`support_transition_case`)가 종료·재오픈과 **같은 트랜잭션**에서 넣는 안전망 행.
+ * 문구는 없고(언어는 보낼 때 정한다) 종류·문의·키만 있다 — 작업자가 문의를 다시 읽어 앱과 같은 문구로 만든다.
+ */
+export type SupportRequesterDeferredOutboxPayload = {
+  kind: typeof SUPPORT_REQUESTER_OUTBOX_KIND;
+  deferred: true;
+  type: "support_case_resolved" | "support_case_reopened";
+  caseId: string;
+  requesterUserId: string;
+  actorUserId: string | null;
+  dedupeKey: string;
+};
+
+export function isSupportRequesterDeferredOutboxPayload(payload: unknown): payload is SupportRequesterDeferredOutboxPayload {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as Record<string, unknown>;
+  return (
+    p.kind === SUPPORT_REQUESTER_OUTBOX_KIND &&
+    p.deferred === true &&
+    (p.type === "support_case_resolved" || p.type === "support_case_reopened") &&
+    typeof p.caseId === "string" &&
+    typeof p.requesterUserId === "string" &&
+    typeof p.dedupeKey === "string"
+  );
+}
+
+export function isSupportRequesterOutboxPayload(
+  payload: unknown
+): payload is SupportRequesterOutboxPayload | SupportRequesterDeferredOutboxPayload {
+  if (isSupportRequesterDeferredOutboxPayload(payload)) return true;
   if (!payload || typeof payload !== "object") return false;
   const p = payload as Record<string, unknown>;
   const ev = p.event as Record<string, unknown> | undefined;
@@ -128,8 +165,42 @@ export async function recreateSupportRequesterNotification(
 /** 작업자가 꺼낸 고객 알림 1건 다시 만들기 — `recreateSupportRequesterNotification` 하나로 */
 export async function replaySupportRequesterNotification(
   sb: SupabaseClient,
-  payload: SupportRequesterOutboxPayload
+  payload: SupportRequesterOutboxPayload | SupportRequesterDeferredOutboxPayload
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (isSupportRequesterDeferredOutboxPayload(payload)) {
+    // 이미 있으면(앱이 먼저 만듦) 문의·언어도 읽지 않고 끝
+    const existing = await sb
+      .from("notification_events")
+      .select("id")
+      .eq("user_id", payload.requesterUserId)
+      .eq("dedupe_key", payload.dedupeKey)
+      .maybeSingle();
+    if (existing.error) return { ok: false, error: "notification_read_failed" };
+    if (existing.data) return { ok: true };
+    const { data: row, error } = await sb.from("support_cases").select("*").eq("id", payload.caseId).maybeSingle();
+    if (error) return { ok: false, error: "case_read_failed" };
+    if (!row) return { ok: true };
+    const c = row as SupportCaseRow;
+    let lang: Awaited<ReturnType<typeof loadNotificationUserLanguage>>;
+    try {
+      lang = await loadNotificationUserLanguage(sb, payload.requesterUserId);
+    } catch {
+      lang = "en" as Awaited<ReturnType<typeof loadNotificationUserLanguage>>;
+    }
+    const input =
+      payload.type === "support_case_resolved"
+        ? buildResolvedNotification(c, payload.actorUserId ?? undefined, lang)
+        : buildReopenedNotification(c, payload.actorUserId ?? undefined, lang);
+    // 키는 DB 가 넣은 값 그대로(그사이 다시 종료·재오픈돼 문의 시각이 바뀌었으면 그 회차 알림은 아래 상태 확인에서 걸러진다)
+    input.dedupeKey = payload.dedupeKey;
+    const event = requesterNotificationEvent(input) as unknown as Record<string, unknown> & { dedupeKey: string };
+    const r = await recreateSupportRequesterNotification(sb, {
+      event,
+      requesterUserId: payload.requesterUserId,
+      replyMessageId: null,
+    });
+    return r.ok ? { ok: true } : r;
+  }
   const r = await recreateSupportRequesterNotification(sb, payload);
   return r.ok ? { ok: true } : r;
 }

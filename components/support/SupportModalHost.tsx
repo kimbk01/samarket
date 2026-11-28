@@ -236,6 +236,24 @@ export function SupportModalHost() {
     }
   }, [pathname]);
 
+  // C-20 마무리(2026-11-29): 창 아래에서 경로가 바뀌어 창이 닫히면 창이 넣은 기록 항목은 브라우저 기록 중간에 남는다
+  //   (지울 수 없음). ◁ 로 그 항목에 돌아오면(창은 닫혀 있고 항목에 창 표시가 있음) 한 번 더 뒤로 가서 건너뛴다 —
+  //   사용자가 ◁ 를 두 번 누를 필요가 없다. 새로고침으로 그 항목에 머무는 경우는 건드리지 않는다(popstate 때만).
+  useEffect(() => {
+    const onPopStale = (e: PopStateEvent) => {
+      if (getSupportModalMachineState().phase === "open" || historyPushed.current) return;
+      const st = e.state as Record<string, unknown> | null;
+      if (!st || st[HISTORY_KEY] !== true) return;
+      try {
+        window.history.back();
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("popstate", onPopStale);
+    return () => window.removeEventListener("popstate", onPopStale);
+  }, []);
+
   // 창 회차가 바뀔 때마다 로그인 확인 — 비로그인은 분야를 고르기 전에 안내한다.
   const session = m.session;
   useEffect(() => {

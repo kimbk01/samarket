@@ -9,14 +9,17 @@ import {
   dispatchNotificationEvent,
 } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
-import { notificationCopyMeta, type NotificationCopyMetaInput } from "@/lib/notifications/notification-stored-copy";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { after } from "next/server";
 import {
   enqueueSupportRequesterNotification,
   recreateSupportRequesterNotification,
 } from "@/lib/support/support-requester-outbox";
-import { buildSupportCaseRoute, type SupportCaseRow } from "@/lib/support/support-case-types";
+import type { SupportCaseRow } from "@/lib/support/support-case-types";
+import {
+  requesterNotificationEvent,
+  type SupportRequesterNotificationInput,
+} from "@/lib/support/support-requester-notification-copy";
 import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
 
 /**
@@ -141,15 +144,32 @@ export async function markSupportCaseNotificationsRead(
   let data: { id: string }[] | null = null;
   let error: { message: string } | null = null;
   if (input.shownMessageIds) {
-    const replyKeys = input.shownMessageIds.map((id) => `support_admin_replied:${id}`);
-    const chunks: string[][] = [];
-    for (let i = 0; i < replyKeys.length; i += 100) chunks.push(replyKeys.slice(i, i + 100));
-    const results = await Promise.all([
-      base().like("type", "support_%").neq("type", "support_admin_replied").select("id"),
-      ...chunks.map((keys) => base().eq("type", "support_admin_replied").in("dedupe_key", keys).select("id")),
-    ]);
-    error = results.find((r) => r.error)?.error ?? null;
-    data = results.flatMap((r) => (r.data ?? []) as { id: string }[]);
+    // 요청 예산(2026-11-29 실측): 보여 준 글 수와 상관없이 2번 — 그 문의의 안 읽은 support_* 알림을 한 번 읽고,
+    //   답변 알림은 보여 준 답변 것만 · 그 밖 종류는 전부 골라 id 로 한 번에 읽음 처리(전에는 답변 키 100개마다 1번씩 늘었다).
+    const shownKeys = new Set(input.shownMessageIds.map((id) => `support_admin_replied:${id}`));
+    const { data: unreadRows, error: readErr } = await sb
+      .from("notification_events")
+      .select("id, type, dedupe_key")
+      .eq("user_id", uid)
+      .eq("unread", true)
+      .is("read_at", null)
+      .eq("display_payload->>supportCaseId", caseId)
+      .like("type", "support_%");
+    if (readErr) {
+      error = readErr;
+      data = [];
+    } else {
+      const ids = ((unreadRows ?? []) as { id: string; type: string; dedupe_key: string | null }[])
+        .filter((r) => r.type !== "support_admin_replied" || shownKeys.has(String(r.dedupe_key ?? "")))
+        .map((r) => r.id);
+      if (ids.length > 0) {
+        const r = await base().in("id", ids).select("id");
+        error = r.error;
+        data = (r.data ?? []) as { id: string }[];
+      } else {
+        data = [];
+      }
+    }
   } else {
     const r = await base().like("type", "support_%").select("id");
     error = r.error;
@@ -305,7 +325,10 @@ export async function applyRequesterSeen(
     caseId: c.id,
     shownMessageIds: input.shownMessageIds,
   });
-  if (unreadChanged && notificationsRead === 0) await signalRequesterSupportCounts(sb, { userId: input.userId, caseId: c.id });
+  // 요청 예산(실측): 숫자 신호(행 고르기 + UPDATE)는 응답 뒤 — 같은 기기는 seen 응답 뒤 화면이 바로 다시 읽는다
+  if (unreadChanged && notificationsRead === 0) {
+    runAfterResponse(() => signalRequesterSupportCounts(sb, { userId: input.userId, caseId: c.id }).catch(() => undefined));
+  }
   return { ok: true, notificationsRead, unreadChanged };
 }
 
@@ -466,54 +489,16 @@ export async function applyRequesterClosed(
   input: { userId: string; caseId: string; unreadBefore: number }
 ): Promise<number> {
   const n = await markSupportCaseNotificationsRead(sb, { userId: input.userId, caseId: input.caseId });
-  if (input.unreadBefore > 0 && n === 0) await signalRequesterSupportCounts(sb, { userId: input.userId, caseId: input.caseId });
+  if (input.unreadBefore > 0 && n === 0) {
+    runAfterResponse(() => signalRequesterSupportCounts(sb, { userId: input.userId, caseId: input.caseId }).catch(() => undefined));
+  }
   return n;
 }
 
-export type SupportRequesterNotificationType =
-  | "support_admin_replied"
-  | "support_case_resolved"
-  | "support_case_reopened";
-
-export type SupportRequesterNotificationInput = {
-  userId: string;
-  type: SupportRequesterNotificationType;
-  title: string;
-  body: string;
-  caseId: string;
-  publicCaseNo: string;
-  audience: "MEMBER" | "OWNER";
-  storeId?: string | null;
-  dedupeKey: string;
-  actorUserId?: string;
-  copy?: NotificationCopyMetaInput;
-};
-
-function requesterNotificationEvent(input: SupportRequesterNotificationInput) {
-  const routeUrl =
-    input.audience === "OWNER" && input.storeId
-      ? `${buildSupportCaseRoute(input.caseId)}?storeId=${encodeURIComponent(input.storeId)}`
-      : buildSupportCaseRoute(input.caseId);
-  return {
-    userId: input.userId,
-    type: input.type,
-    category: input.type === "support_admin_replied" ? "inquiry_answered" : "admin_notice",
-    title: input.title,
-    body: input.body.slice(0, 500),
-    displayPayload: {
-      routeUrl,
-      supportCaseId: input.caseId,
-      publicCaseNo: input.publicCaseNo,
-      previewKind: "support_case",
-      audience: input.audience,
-      ...(input.storeId ? { ownerStoreId: input.storeId } : {}),
-      ...(input.copy ? { legacyMeta: notificationCopyMeta(input.copy) } : {}),
-    },
-    dedupeKey: input.dedupeKey,
-    actorUserId: input.actorUserId,
-    appState: "background" as const,
-  };
-}
+export type {
+  SupportRequesterNotificationInput,
+  SupportRequesterNotificationType,
+} from "@/lib/support/support-requester-notification-copy";
 
 /**
  * 고객 알림 (S-6·A-4/S-13·계약 §4):

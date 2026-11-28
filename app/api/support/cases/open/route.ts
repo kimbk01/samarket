@@ -54,26 +54,28 @@ export async function POST(req: NextRequest) {
   const requestId = parseSupportRequestId(body.requestId);
   if (requestId === "invalid") return fail("invalid_request_id");
 
-  // 계약 §1: 멱등 확인은 속도 제한보다 먼저 — 같은 요청 id 로 이미 접수됐으면 처음과 같은 문의·created (알림·속도 제한 소모 없음)
-  if (requestId) {
-    const replay = await findSupportMessageReplay(sb, { requestId, senderUserId: auth.userId });
-    if ("conflict" in replay) return fail("request_id_conflict");
-    if ("found" in replay && replay.found) {
-      const first = await loadSupportOpenReplay(sb, { userId: auth.userId, message: replay.message });
-      if (!first) return fail("forbidden");
-      return NextResponse.json({
-        ok: true,
-        case: toSupportRequesterCaseView(first.case),
-        sessionId: first.sessionId,
-        created: first.created,
-        href: buildSupportCaseRoute(first.case.id),
-        replayed: true,
-      });
-    }
-  }
-
+  // 계약 §1: 같은 요청 id 재전송은 429 를 받지 않는다. 판정은 접수 DB 함수가 잠금 안에서 하므로(처음과 같은 문의·created · 알림 없음)
+  //   평소에는 미리 확인하지 않는다 — 속도 제한에 걸렸을 때만 「같은 요청 id 재전송인가」를 본다(요청 예산 실측: 접수 1회 조회 1건 덜).
   // 고객 문의 최종 감사 D5: 접수도 고객 글 1건(새 문의 첫 글 또는 진행 중 문의에 붙는 글) → 같은 속도 제한
-  if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") return fail("rate_limited");
+  if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") {
+    if (requestId) {
+      const replay = await findSupportMessageReplay(sb, { requestId, senderUserId: auth.userId });
+      if ("conflict" in replay) return fail("request_id_conflict");
+      if ("found" in replay && replay.found) {
+        const first = await loadSupportOpenReplay(sb, { userId: auth.userId, message: replay.message });
+        if (!first) return fail("forbidden");
+        return NextResponse.json({
+          ok: true,
+          case: toSupportRequesterCaseView(first.case),
+          sessionId: first.sessionId,
+          created: first.created,
+          href: buildSupportCaseRoute(first.case.id),
+          replayed: true,
+        });
+      }
+    }
+    return fail("rate_limited");
+  }
 
   const res = await openSupportCaseFromContext(sb, {
     userId: auth.userId,

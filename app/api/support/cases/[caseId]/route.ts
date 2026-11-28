@@ -134,17 +134,17 @@ export async function POST(
   const gate = await getSupportCaseForUser(sb, { userId: auth.userId, caseId });
   if (!gate.ok) return fail(gate.error);
 
-  // 계약 §1: 같은 요청 id 의 글이 이미 있으면 처음 결과 — 속도 제한·알림·숫자 증가 없음
-  if (requestId) {
-    const replay = await findSupportMessageReplay(sb, { requestId, caseId, senderUserId: auth.userId });
-    if ("conflict" in replay) return fail("request_id_conflict");
-    if ("found" in replay && replay.found) {
-      return NextResponse.json({ ok: true, message: toSupportRequesterMessageView(replay.message), replayed: true });
-    }
-  }
-
+  // 계약 §1: 같은 요청 id 재전송은 429 를 받지 않는다 — 판정은 저장 DB 함수가 잠금 안에서(처음 결과 · 알림·숫자 증가 없음).
+  //   속도 제한에 걸렸을 때만 미리 확인한다(요청 예산 실측: 추가 문의 1회 조회 1건 덜).
   // 고객 문의 최종 감사 D5: 고객 글 속도 제한(1분 5건 · 1시간 30건) — 넘으면 저장·어드민 알림 없이 429
   if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") {
+    if (requestId) {
+      const replay = await findSupportMessageReplay(sb, { requestId, caseId, senderUserId: auth.userId });
+      if ("conflict" in replay) return fail("request_id_conflict");
+      if ("found" in replay && replay.found) {
+        return NextResponse.json({ ok: true, message: toSupportRequesterMessageView(replay.message), replayed: true });
+      }
+    }
     return fail("rate_limited");
   }
 

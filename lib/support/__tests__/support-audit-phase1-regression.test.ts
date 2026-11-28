@@ -11,6 +11,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+/** 응답 뒤 작업(Next `after`) — 모아 두었다가 flush 에서 실행(다른 시험으로 새지 않게 beforeEach 에서 버림) */
+const afterQueue = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (orig) => ({
+  ...(await orig<typeof import("next/server")>()),
+  after: (task: (() => unknown) | Promise<unknown>) => {
+    afterQueue.push(typeof task === "function" ? task : () => task);
+  },
+}));
+
 const notifyCalls: { type: string; userId: string; dedupeKey: string; body?: string; deferPush?: boolean }[] = [];
 /** 응답 뒤 푸시 발송(원장 · 2026-11-29) — 저장된 알림 행 유형 */
 const pushCalls: { type: string; body?: string }[] = [];
@@ -363,7 +372,14 @@ const openStructuredRaw = (sb: never, issueType: string, summary: string) =>
   });
 
 /** 응답 뒤로 미룬 어드민 알림 발송(after)까지 끝나게 — 시험은 그 결과를 본다 */
-const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+const flush = async () => {
+  for (let i = 0; i < 20; i += 1) {
+    await new Promise<void>((r) => setTimeout(r, 0));
+    const tasks = afterQueue.splice(0);
+    if (tasks.length === 0) break;
+    await Promise.all(tasks.map((t) => Promise.resolve().then(t).catch(() => undefined)));
+  }
+};
 const openStructured = async (sb: never, issueType: string, summary: string) => {
   const r = await openStructuredRaw(sb, issueType, summary);
   await flush();
@@ -371,6 +387,7 @@ const openStructured = async (sb: never, issueType: string, summary: string) => 
 };
 
 beforeEach(() => {
+  afterQueue.length = 0;
   notifyCalls.length = 0;
   pushCalls.length = 0;
   adminNotifyCalls.length = 0;
@@ -759,6 +776,7 @@ describe("support inquiry SSOT 2026-11-27 — reaudit fixes", () => {
     const { db, sb } = makeDb();
     const a = await openStructured(sb, "ORDER_STATUS", "주문이 안 와요");
     if (!a.ok) throw new Error(a.error);
+    await flush(); // 어드민 알림 = 응답 뒤
     expect(adminNotifyCalls).toHaveLength(1);
     const n = adminNotifyCalls[0];
     expect(n.kind).toBe("support_customer_replied");
@@ -987,7 +1005,7 @@ describe("support inquiry SSOT 2026-11-27 — post-fix reaudit D1~D16", () => {
     // 전체 수정 §2: 접수(문의·세션·첫 글·사건)는 DB 함수 한 트랜잭션 — 빈 문의가 남을 수 없다
     expect(svc).toContain('sb.rpc("support_open_case"');
     expect(svc).toContain("if (/support_case_closed/.test(error?.message ?? \"\")) return { ok: false, error: \"case_closed\" };");
-    expect(svc).toContain("keepAliveAfterResponse(work)");
+    expect(svc).toMatch(/runAfterResponse\(\(\) =>\s+notifyAdminsOfCustomerMessage\(sb, input\)/);
     const customerRoute = src("app/api/support/cases/[caseId]/route.ts");
     expect(customerRoute).not.toContain("reopenSupportCase");
     const adminRoute = src("app/api/admin/support/cases/[caseId]/route.ts");

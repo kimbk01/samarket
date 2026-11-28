@@ -368,6 +368,23 @@ BEGIN
      WHERE case_id = p_case_id AND closed_at IS NULL;
     INSERT INTO public.support_case_events (case_id, event_type, actor_user_id, payload)
     VALUES (p_case_id, 'status_changed', p_actor_user_id, jsonb_build_object('status', 'RESOLVED'));
+    -- 재감사 4차: 고객 「종료」 알림의 안전망 — 같은 트랜잭션에서 대기열에 넣는다(앱이 알림 저장 전에 끊겨도 5분 작업자가 만든다).
+    --   키 = 앱 즉시 발송과 같은 dedupe(`support_case_resolved:<id>:<resolved_at>`) · 앱이 먼저 만들었으면 작업자는 「이미 있음」으로 닫는다.
+    --   첫 시도 = 작업자 다음 회차 뒤(backoff 1) — 보통은 앱이 먼저 만든다.
+    PERFORM public.admin_notification_outbox_enqueue(
+      'requester:support_case_resolved:' || p_case_id::text || ':' || (to_jsonb(v_case.resolved_at) #>> '{}'),
+      'support_requester_notification',
+      jsonb_build_object(
+        'kind', 'support_requester_notification',
+        'deferred', true,
+        'type', 'support_case_resolved',
+        'caseId', p_case_id,
+        'requesterUserId', v_case.requester_user_id,
+        'actorUserId', p_actor_user_id,
+        'dedupeKey', 'support_case_resolved:' || p_case_id::text || ':' || (to_jsonb(v_case.resolved_at) #>> '{}')
+      ),
+      'inline_first'
+    );
 
   ELSIF p_action = 'requester_close' THEN
     IF v_case.requester_user_id IS DISTINCT FROM p_actor_user_id THEN
@@ -458,6 +475,23 @@ BEGIN
     ON CONFLICT (case_id) WHERE closed_at IS NULL DO NOTHING;
     INSERT INTO public.support_case_events (case_id, event_type, actor_user_id, payload)
     VALUES (p_case_id, 'reopened', p_actor_user_id, '{}'::jsonb);
+    -- 재감사 4차: 고객 「재오픈」 알림 안전망(위 종료와 같음 · 본인이 연 재오픈은 알림 없음 = 앱과 같은 규칙)
+    IF p_actor_user_id IS DISTINCT FROM v_case.requester_user_id THEN
+      PERFORM public.admin_notification_outbox_enqueue(
+        'requester:support_case_reopened:' || p_case_id::text || ':' || (to_jsonb(v_case.last_message_at) #>> '{}'),
+        'support_requester_notification',
+        jsonb_build_object(
+          'kind', 'support_requester_notification',
+          'deferred', true,
+          'type', 'support_case_reopened',
+          'caseId', p_case_id,
+          'requesterUserId', v_case.requester_user_id,
+          'actorUserId', p_actor_user_id,
+          'dedupeKey', 'support_case_reopened:' || p_case_id::text || ':' || (to_jsonb(v_case.last_message_at) #>> '{}')
+        ),
+        'inline_first'
+      );
+    END IF;
 
   ELSIF p_action = 'assign' THEN
     IF v_closed THEN

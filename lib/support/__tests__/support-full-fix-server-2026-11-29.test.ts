@@ -12,6 +12,21 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupportRpcEmulator } from "@/lib/support/__tests__/support-rpc-emulator";
 
+/** 응답 뒤 작업(Next `after`) — 모아 두었다가 flush·settle 에서 실행(요청 안 호출 수와 나눠 잰다) */
+const afterQueue = vi.hoisted(() => [] as (() => unknown)[]);
+vi.mock("next/server", async (orig) => ({
+  ...(await orig<typeof import("next/server")>()),
+  after: (task: (() => unknown) | Promise<unknown>) => {
+    afterQueue.push(typeof task === "function" ? task : () => task);
+  },
+}));
+async function drainAfter() {
+  for (let i = 0; i < 20 && afterQueue.length > 0; i += 1) {
+    const tasks = afterQueue.splice(0);
+    await Promise.all(tasks.map((t) => Promise.resolve().then(t).catch(() => undefined)));
+  }
+}
+
 type Row = Record<string, unknown>;
 
 // ── 알림 파이프라인: 넘겨받은 클라이언트의 notification_events 표에 실제로 저장(같은 요청 저장·본문 맞춤을 볼 수 있게) ──
@@ -118,7 +133,6 @@ import {
   adminReplySupportCase,
   adminSetSupportCasePriority,
   adminUpdateSupportCaseStatus,
-  countSupportCasesForRequester,
   listSupportCasesForAdmin,
   listSupportCasesForRequester,
   openSupportCaseFromContext,
@@ -130,6 +144,8 @@ import {
 import { supportErrorHttpStatus, supportErrorLabel } from "@/lib/support/support-display-labels";
 import type { SupportContext } from "@/lib/support/support-context";
 
+/** 요청 예산 측정 — DB 호출(from·rpc) 기록. 흉내 낸 모듈의 실제 호출 수는 아래 `measure` 가 더한다. */
+const callLog: string[] = [];
 function makeDb(seed: Record<string, Row[]> = {}) {
   const db: Record<string, Row[]> = {
     support_cases: [],
@@ -256,8 +272,12 @@ function makeDb(seed: Record<string, Row[]> = {}) {
   const emulate = createSupportRpcEmulator(db, now);
   const rpcCalls: string[] = [];
   const sb = {
-    from: (t: string) => builder(t),
+    from: (t: string) => {
+      callLog.push(`from:${t}`);
+      return builder(t);
+    },
     rpc: async (name: string, args: Record<string, unknown> = {}) => {
+      callLog.push(`rpc:${name}`);
       rpcCalls.push(name);
       return emulate(name, args) ?? { data: null, error: { message: `Could not find the function public.${name}` } };
     },
@@ -269,7 +289,11 @@ const U = "11111111-1111-4111-8111-111111111111";
 const ADMIN = "22222222-2222-4222-8222-222222222222";
 const ADMIN_B = "33333333-3333-4333-8333-333333333333";
 const ctx = (): SupportContext => ({ enabled: true, audience: "MEMBER", category: "ORDER", sourceSurface: "mypage_customer_center" });
-const flush = () => new Promise<void>((r) => setTimeout(r, 0));
+const flush = async () => {
+  await new Promise<void>((r) => setTimeout(r, 0));
+  await drainAfter();
+  await new Promise<void>((r) => setTimeout(r, 0));
+};
 // 응답 뒤 다시 알림이 쓰는 동적 import 를 미리 불러 둔다 — 시험 안에서는 이미 불러온 모듈이라 바로 풀린다(시간 대기에 기대지 않음)
 await import("@/lib/support/support-released-case-renotify");
 /**
@@ -281,6 +305,7 @@ const settle = async () => {
   let last = -1;
   for (let i = 0; i < 300 && quiet < 5; i += 1) {
     await new Promise<void>((r) => setTimeout(r, 10));
+    await drainAfter();
     const n = adminNotifyCalls.length + adminReadCalls.length + notifyCalls.length;
     quiet = n === last ? quiet + 1 : 0;
     last = n;
@@ -498,6 +523,83 @@ describe("재감사 3차 — 종료·재오픈을 다시 눌러도(변화 없음
   });
 });
 
+describe("재감사 4차 — 종료·재오픈 고객 알림 안전망(같은 트랜잭션의 대기열 행)", () => {
+  it("종료: DB 함수만 커밋되고 앱이 알림 전에 끊겨도 → 대기열 행(앱과 같은 키) → 작업자가 1건 만든다 · 다시 꺼내도 1건", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await flush();
+    // 앱 쪽(알림 저장) 없이 DB 함수만 = 끊김 흉내
+    const r = (await (sb as { rpc: (n: string, x: Record<string, unknown>) => Promise<{ data: { case: Row } }> }).rpc("support_transition_case", {
+      p_case_id: a.case.id,
+      p_action: "admin_resolve",
+      p_actor_user_id: ADMIN,
+    })).data;
+    const ob = db.admin_notification_outbox.filter((o) => o.kind === "support_requester_notification");
+    expect(ob).toHaveLength(1);
+    const { resolvedDedupeKey } = await import("@/lib/support/support-requester-notification-copy");
+    expect((ob[0].payload as { dedupeKey: string }).dedupeKey).toBe(resolvedDedupeKey(r.case as never));
+    const { replaySupportRequesterNotification } = await import("@/lib/support/support-requester-outbox");
+    expect(await replaySupportRequesterNotification(sb, ob[0].payload as never)).toEqual({ ok: true });
+    expect(await replaySupportRequesterNotification(sb, ob[0].payload as never)).toEqual({ ok: true });
+    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
+  });
+
+  it("종료: 앱이 정상으로 알림을 만들었으면 작업자는 「이미 있음」으로 닫는다(중복 없음)", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
+    const ob = db.admin_notification_outbox.find((o) => o.kind === "support_requester_notification")!;
+    const { replaySupportRequesterNotification } = await import("@/lib/support/support-requester-outbox");
+    expect(await replaySupportRequesterNotification(sb, ob.payload as never)).toEqual({ ok: true });
+    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
+  });
+
+  it("재오픈: 끊김 → 대기열 행 → 작업자 1건 · 그사이 다시 종료됐으면 만들지 않음 · 고객 「확인했어요」는 안전망 행 없음", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "x");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    await flush();
+    await (sb as { rpc: (n: string, x: Record<string, unknown>) => Promise<unknown> }).rpc("support_transition_case", {
+      p_case_id: a.case.id,
+      p_action: "reopen",
+      p_actor_user_id: ADMIN,
+    });
+    const ob = db.admin_notification_outbox.find((o) => (o.payload as { type?: string }).type === "support_case_reopened")!;
+    expect(ob).toBeTruthy();
+    const { replaySupportRequesterNotification } = await import("@/lib/support/support-requester-outbox");
+    expect(await replaySupportRequesterNotification(sb, ob.payload as never)).toEqual({ ok: true });
+    expect(db.notification_events.filter((n) => n.type === "support_case_reopened")).toHaveLength(1);
+
+    // 그사이 다시 종료된 문의의 재오픈 안전망은 만들지 않는다
+    const b = await open(sb, "y", { context: { ...ctx(), category: "ACCOUNT" }, issueType: null, allowMissingIssue: true });
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: b.case.id, status: "RESOLVED" });
+    await (sb as { rpc: (n: string, x: Record<string, unknown>) => Promise<unknown> }).rpc("support_transition_case", {
+      p_case_id: b.case.id,
+      p_action: "reopen",
+      p_actor_user_id: ADMIN,
+    });
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: b.case.id, status: "RESOLVED" });
+    await flush();
+    const obB = db.admin_notification_outbox.find(
+      (o) => (o.payload as { type?: string; caseId?: string }).type === "support_case_reopened" && (o.payload as { caseId?: string }).caseId === b.case.id
+    )!;
+    expect(await replaySupportRequesterNotification(sb, obB.payload as never)).toEqual({ ok: true });
+    expect(db.notification_events.filter((n) => n.type === "support_case_reopened" && String(n.dedupe_key).includes(b.case.id))).toHaveLength(0);
+
+    // 고객 「확인했어요」 = 알림 대상 아님 → 안전망 행 없음
+    const before = db.admin_notification_outbox.length;
+    const c = await open(sb, "z", { context: { ...ctx(), category: "DELIVERY" }, issueType: null, allowMissingIssue: true });
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: c.case.id, body: "답" });
+    await flush();
+    await requesterCloseSupportCase(sb, { userId: U, caseId: c.case.id, seenLastMessageAt: null });
+    expect(
+      db.admin_notification_outbox.slice(before).filter((o) => o.kind === "support_requester_notification" && (o.payload as { deferred?: boolean }).deferred)
+    ).toHaveLength(0);
+  });
+});
+
 describe("§3 읽음 = 화면에 보인 것 (A-1)", () => {
   it("A-1 고객: 상세 GET 은 읽기만 — 미읽음·알림 그대로, seen 을 보내야 보여 준 답변까지 읽음", async () => {
     const { db, sb } = makeDb();
@@ -592,6 +694,7 @@ describe("§4 숫자 신호·원장 (A-3·A-4/S-13·S-6·B-3·B-4)", () => {
     );
     expect(res.status).toBe(200);
     expect(db.support_cases[0].requester_unread_count).toBe(0);
+    await flush(); // 숫자 신호 = 응답 뒤
     expect(updates.filter((u) => u.table === "notification_events").length).toBeGreaterThan(0);
   });
 
@@ -709,7 +812,13 @@ describe("권한·소유 (A-6·A-7·결정 2)", () => {
     expect(await sumSupportRequesterUnread(sb, { userId: U, audience: "OWNER", storeId: STORE })).toEqual({ ok: true, unread: 0 });
     const list = await listSupportCasesForRequester(sb, { userId: U, status: "active", paged: true });
     expect(list.ok && list.cases.map((c) => c.id)).toEqual(["m1"]);
-    expect(await countSupportCasesForRequester(sb, { userId: U, status: "active" })).toEqual({ ok: true, count: 1 });
+    // 「내 문의」 첫 페이지 개수(라우트 — 한 번 읽어 개수·첫 페이지를 같이 만든다)
+    current.sb = sb;
+    current.userId = U;
+    const { GET: listGet } = await import("@/app/api/support/cases/route");
+    const first = await (await listGet(jsonReq("http://x/api/support/cases?status=active&limit=20", "GET"))).json();
+    expect(first.counts).toEqual({ active: 1 });
+    expect(first.cases.map((c: { id: string }) => c.id)).toEqual(["m1"]);
     storeOwner.owned.add(STORE);
     expect(await sumSupportRequesterUnread(sb, { userId: U })).toEqual({ ok: true, unread: 5 });
   });
@@ -844,6 +953,7 @@ describe("재감사 2026-11-29 (신호·다시 만들기)", () => {
     );
     expect(res.status).toBe(200);
     expect(db.support_cases[0].requester_unread_count).toBe(0);
+    await flush(); // 요청 예산: 숫자 신호는 응답 뒤
     // 읽음 처리 UPDATE(보여 준 답변 없음 = 0행)와 구분: 신호는 unread 를 바꾸지 않는 UPDATE
     const signal = updates.filter((u) => u.table === "notification_events" && !("unread" in u.patch));
     expect(signal).toHaveLength(1);
@@ -1009,5 +1119,116 @@ describe("재감사 2차 2 — 어드민 답변 replay 는 고객 알림을 보�
     await settle();
     expect(db.support_case_events.filter((e) => e.event_type === "admin_reply_seen")).toHaveLength(1);
     expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+  });
+});
+
+/* ───────────── 요청 예산 — 요청 1회 실제 DB 호출 수 (실측 · 응답 뒤 작업 제외) ───────────── */
+describe("요청 예산 — 고객센터 라우트 요청 1회의 DB 호출 수 ≤ ROUTE_SUPABASE_CALL_BUDGET (2026-11-29 실측)", () => {
+  /**
+   * 센 것: 이 가짜 DB 의 from()·rpc() + 흉내 낸 모듈의 실제 호출 수(언어 읽기 2 · 매장 소유 1 · 어드민 알림 읽음 1)
+   *   + 인증(고객 로그인 1 · 어드민 권한 2) + 어드민 변경의 감사 기록 1. 응답 뒤(`after`) 작업은 따로 모았다가 뒤에 돈다(세지 않음).
+   */
+  async function calls(fn: () => Promise<unknown>, extra: { auth: number; audit?: number }) {
+    const { loadNotificationUserLanguage } = await import("@/lib/notifications/notification-user-language");
+    const { getCachedStoreIfOwner } = await import("@/lib/stores/owner-store-ownership-cache");
+    const lang0 = vi.mocked(loadNotificationUserLanguage).mock.calls.length;
+    const own0 = vi.mocked(getCachedStoreIfOwner).mock.calls.length;
+    const read0 = adminReadCalls.length;
+    callLog.length = 0;
+    await fn();
+    const n =
+      callLog.length +
+      (vi.mocked(loadNotificationUserLanguage).mock.calls.length - lang0) * 2 +
+      (vi.mocked(getCachedStoreIfOwner).mock.calls.length - own0) +
+      (adminReadCalls.length - read0) +
+      extra.auth +
+      (extra.audit ?? 0);
+    await settle();
+    return n;
+  }
+
+  it("어드민 상세 라우트(13): 답변(보통·답 쓰는 사이 고객 글)·삭제·GET·seen·종료 모두 예산 안", async () => {
+    const { ROUTE_SUPABASE_CALL_BUDGET } = await import("@/lib/perf/request-budget");
+    const budget = ROUTE_SUPABASE_CALL_BUDGET["/api/admin/support/cases/[caseId]"]!;
+    const { db, sb } = makeDb();
+    current.sb = sb;
+    const a = await open(sb, "첫 글");
+    await flush();
+    current.userId = ADMIN;
+    const route = await import("@/app/api/admin/support/cases/[caseId]/route");
+    const seen0 = String(db.support_cases[0].last_message_at);
+    const patch = (body: Record<string, unknown>) => route.PATCH(jsonReq("http://x/a", "PATCH", body), params(a.case.id));
+    const got: Record<string, number> = {};
+    got.reply = await calls(() => patch({ action: "reply", body: "답1", requestId: randomUUID(), seenLastMessageAt: seen0 }), { auth: 2, audit: 1 });
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "고객 또" });
+    await flush();
+    got.replyWhileCustomerWrote = await calls(
+      () => patch({ action: "reply", body: "답2", requestId: randomUUID(), seenLastMessageAt: seen0 }),
+      { auth: 2, audit: 1 }
+    );
+    const lastReply = [...db.support_messages].reverse().find((m) => m.sender_type === "ADMIN")!;
+    got.deleteReply = await calls(() => patch({ action: "delete_message", messageId: lastReply.id, reason: "잘못 보낸 답변입니다" }), {
+      auth: 2,
+      audit: 1,
+    });
+    const detail = await route.GET(jsonReq("http://x/a", "GET"), params(a.case.id));
+    const dj = await detail.json();
+    got.get = await calls(() => route.GET(jsonReq("http://x/a", "GET"), params(a.case.id)), { auth: 2 });
+    got.seen = await calls(
+      () => patch({ action: "seen", shownMessageIds: dj.messages.map((m: { id: string }) => m.id), seenLastMessageAt: dj.case.last_message_at }),
+      { auth: 2 }
+    );
+    got.close = await calls(() => patch({ action: "status", status: "RESOLVED" }), { auth: 2, audit: 1 });
+    for (const [k, v] of Object.entries(got)) expect({ path: k, calls: v <= budget ? "ok" : v }).toEqual({ path: k, calls: "ok" });
+  });
+
+  it("고객 상세 라우트(7)·접수(7)·목록(3): 회원·사장님 모두 예산 안", async () => {
+    const { ROUTE_SUPABASE_CALL_BUDGET } = await import("@/lib/perf/request-budget");
+    const STORE = randomUUID();
+    storeOwner.owned.add(STORE);
+    const { db, sb } = makeDb();
+    current.sb = sb;
+    current.userId = U;
+    const ownerCtx = (): SupportContext => ({ enabled: true, audience: "OWNER", storeId: STORE, category: "STORE", sourceSurface: "owner_customer_center" } as SupportContext);
+    const { POST: openPost } = await import("@/app/api/support/cases/open/route");
+    const openBody = (c: SupportContext, text: string) => ({ context: c, issueType: null, initialSummary: text, initialBody: text, requestId: randomUUID() });
+    const got: Record<string, [number, number]> = {};
+    const openBudget = ROUTE_SUPABASE_CALL_BUDGET["/api/support/cases/open"]!;
+    got.openMember = [await calls(() => openPost(jsonReq("http://x/o", "POST", openBody(ctx(), "회원 문의"))), { auth: 1 }), openBudget];
+    let ownerOpen: unknown = null;
+    got.openOwner = [
+      await calls(async () => {
+        ownerOpen = await (await openPost(jsonReq("http://x/o", "POST", openBody(ownerCtx(), "사장님 문의")))).json();
+      }, { auth: 1 }),
+      openBudget,
+    ];
+    expect(ownerOpen).toMatchObject({ ok: true });
+    const ownerCase = db.support_cases.find((c) => c.audience === "OWNER")!;
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: String(ownerCase.id), body: "답" });
+    await flush();
+    const detailRoute = await import("@/app/api/support/cases/[caseId]/route");
+    const detailBudget = ROUTE_SUPABASE_CALL_BUDGET["/api/support/cases/[caseId]"]!;
+    const p = params(String(ownerCase.id));
+    got.getOwner = [await calls(() => detailRoute.GET(jsonReq("http://x/c", "GET"), p), { auth: 1 }), detailBudget];
+    const dj = await (await detailRoute.GET(jsonReq("http://x/c", "GET"), p)).json();
+    got.seenOwner = [
+      await calls(
+        () =>
+          detailRoute.POST(
+            jsonReq("http://x/c", "POST", { action: "seen", shownMessageIds: dj.messages.map((m: { id: string }) => m.id), seenLastMessageAt: dj.case.last_message_at }),
+            p
+          ),
+        { auth: 1 }
+      ),
+      detailBudget,
+    ];
+    got.followUpOwner = [await calls(() => detailRoute.POST(jsonReq("http://x/c", "POST", { body: "추가 문의", requestId: randomUUID() }), p), { auth: 1 }), detailBudget];
+    const { GET: listGet } = await import("@/app/api/support/cases/route");
+    const listBudget = ROUTE_SUPABASE_CALL_BUDGET["/api/support/cases"]!;
+    const q = `audience=OWNER&storeId=${STORE}`;
+    got.fabOwner = [await calls(() => listGet(jsonReq(`http://x/api/support/cases?summary=unread&${q}`, "GET")), { auth: 1 }), listBudget];
+    got.composeListOwner = [await calls(() => listGet(jsonReq(`http://x/api/support/cases?limit=5&${q}`, "GET")), { auth: 1 }), listBudget];
+    got.historyFirstOwner = [await calls(() => listGet(jsonReq(`http://x/api/support/cases?status=active&limit=20&${q}`, "GET")), { auth: 1 }), listBudget];
+    for (const [k, [v, b]] of Object.entries(got)) expect({ path: k, calls: v <= b ? "ok" : `${v} > ${b}` }).toEqual({ path: k, calls: "ok" });
   });
 });
