@@ -270,8 +270,22 @@ const ADMIN = "22222222-2222-4222-8222-222222222222";
 const ADMIN_B = "33333333-3333-4333-8333-333333333333";
 const ctx = (): SupportContext => ({ enabled: true, audience: "MEMBER", category: "ORDER", sourceSurface: "mypage_customer_center" });
 const flush = () => new Promise<void>((r) => setTimeout(r, 0));
-/** 응답 뒤 작업 중 동적 import 가 있는 것(다시 알림)까지 끝나게 */
-const settle = () => new Promise<void>((r) => setTimeout(r, 50));
+// 응답 뒤 다시 알림이 쓰는 동적 import 를 미리 불러 둔다 — 시험 안에서는 이미 불러온 모듈이라 바로 풀린다(시간 대기에 기대지 않음)
+await import("@/lib/support/support-released-case-renotify");
+/**
+ * 응답 뒤 작업 중 동적 import 가 있는 것(다시 알림)까지 끝나게 — 고정 대기(50ms)는 부하가 크면 모자라 시험이 흔들렸다.
+ * 응답 뒤 작업이 더 생기지 않을 때까지(조용한 차례 5번 연속) 최대 3초 기다린다.
+ */
+const settle = async () => {
+  let quiet = 0;
+  let last = -1;
+  for (let i = 0; i < 300 && quiet < 5; i += 1) {
+    await new Promise<void>((r) => setTimeout(r, 10));
+    const n = adminNotifyCalls.length + adminReadCalls.length + notifyCalls.length;
+    quiet = n === last ? quiet + 1 : 0;
+    last = n;
+  }
+};
 const open = async (sb: never, summary: string, extra: Record<string, unknown> = {}) => {
   const r = await openSupportCaseFromContext(sb, {
     userId: U,
@@ -455,41 +469,29 @@ describe("§2 상태 전이 표 (S-15·S-16·S-17)", () => {
   });
 });
 
-describe("재감사 3차 — 종료·재오픈 재요청 = 첫 요청이 고객 알림 전에 끊겼으면 같은 키로 1건만", () => {
-  it("상담 종료: 알림 행 없이 끝난 첫 요청 → 같은 어드민이 다시 누르면 1건 · 또 눌러도 1건", async () => {
-    const { db, sb } = makeDb();
-    const a = await open(sb, "x");
-    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
-    await flush();
-    // 첫 요청이 상태만 바꾸고 알림 전에 끊긴 상태를 만든다
-    db.notification_events = db.notification_events.filter((n) => n.type !== "support_case_resolved");
-    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
-    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
-    await flush();
-    expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(1);
-    expect(db.support_case_events.filter((e) => e.event_type === "status_changed")).toHaveLength(1);
-  });
-
-  it("고객 「확인했어요」로 종료된 문의에 어드민이 종료를 눌러도 고객 「종료」 알림은 만들지 않는다", async () => {
+describe("재감사 3차 — 종료·재오픈을 다시 눌러도(변화 없음) 고객 알림을 다시 만들지 않는다", () => {
+  it("보관 해제 뒤 오래된 탭의 「상담 종료」 = 고객에게 처음 보는 종료 알림 없음", async () => {
     const { db, sb } = makeDb();
     const a = await open(sb, "x");
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
     await flush();
     const closed = await requesterCloseSupportCase(sb, { userId: U, caseId: a.case.id, seenLastMessageAt: null });
     expect(closed.ok).toBe(true);
-    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
+    // 보관 → 보관 해제(사건 모양이 어드민 종료와 같다) → 오래된 탭의 「상담 종료」(변화 없음)
+    expect((await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "ARCHIVED" })).ok).toBe(true);
+    expect((await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" })).ok).toBe(true);
+    expect(db.support_cases[0].status).toBe("RESOLVED");
+    await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED", mode: "close" });
     await flush();
     expect(db.notification_events.filter((n) => n.type === "support_case_resolved")).toHaveLength(0);
   });
 
-  it("재오픈: 알림 행 없이 끝난 첫 요청 → 같은 어드민이 다시 누르면 1건 · 또 눌러도 1건", async () => {
+  it("재오픈 뒤 글이 오고 오래된 탭에서 「재오픈」 = 재오픈 알림 1건 그대로", async () => {
     const { db, sb } = makeDb();
     const a = await open(sb, "x");
     await adminUpdateSupportCaseStatus(sb, { adminUserId: ADMIN, caseId: a.case.id, status: "RESOLVED" });
     await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
-    await flush();
-    db.notification_events = db.notification_events.filter((n) => n.type !== "support_case_reopened");
-    await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
+    await postRequesterSupportMessage(sb, { userId: U, caseId: a.case.id, body: "또" });
     await reopenSupportCase(sb, { userId: ADMIN, caseId: a.case.id, isAdmin: true });
     await flush();
     expect(db.notification_events.filter((n) => n.type === "support_case_reopened")).toHaveLength(1);

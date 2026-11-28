@@ -130,7 +130,9 @@ function evaluateSupportLoginReturn(pathname: string): void {
     }
     if (onAuth) return;
     if (getSupportModalMachineState().phase === "open") {
+      // 3차 재감사: 창이 이미 열려 있으면 이 로그인 시도는 끝 — 표시와 맥락을 함께 버린다
       clearSupportLoginReturn();
+      clearPendingSupportContext();
       return;
     }
     clearSupportLoginReturn();

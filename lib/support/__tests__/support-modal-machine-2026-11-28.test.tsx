@@ -1381,4 +1381,44 @@ describe("2차 재감사 — 로그인 뒤 같은 창 표시는 그 로그인 �
     await flush();
     expect(getSupportModalState().phase).toBe("closed");
   });
+
+  it("3차 재감사: 표시 기한(30분)이 지나면 맥락도 함께 지운다 → 그 뒤 새로고침에 쓰기 창이 저절로 열리지 않음", async () => {
+    await startLoginFromFab();
+    expect(window.sessionStorage.getItem("dibay:support:center:pending-context")).not.toBeNull();
+    const raw = JSON.parse(window.sessionStorage.getItem("dibay_support_login_return")!);
+    window.sessionStorage.setItem("dibay_support_login_return", JSON.stringify({ ...raw, at: Date.now() - 31 * 60 * 1000 }));
+    // 로그인 화면에서 오래 있다가 로그인(로그인 화면 위 신호)
+    authUser.id = "u1";
+    session.phase = "authenticated";
+    signalAuthChanged();
+    await flush();
+    expect(window.sessionStorage.getItem("dibay_support_login_return")).toBeNull();
+    expect(window.sessionStorage.getItem("dibay:support:center:pending-context")).toBeNull();
+    // 같은 탭 새로고침 = 호스트 새로 마운트
+    act(() => root.unmount());
+    root = createRoot(container);
+    await resetModal();
+    nav.pathname = "/mypage/customer-center";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+  });
+
+  it("3차 재감사: 로그인 확인 때 창이 이미 열려 있으면 표시와 맥락을 함께 버린다", async () => {
+    await startLoginFromFab();
+    authUser.id = "u1";
+    session.phase = "authenticated";
+    route = (url) =>
+      url.startsWith("/api/support/cases/c1") ? { ok: true, case: caseRow(), messages: [questionMsg, answerMsg()] } : { ok: false };
+    act(() => {
+      openSupportModal({ caseId: "c1" });
+    });
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    nav.pathname = "/mypage/customer-center";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(window.sessionStorage.getItem("dibay_support_login_return")).toBeNull();
+    expect(window.sessionStorage.getItem("dibay:support:center:pending-context")).toBeNull();
+  });
 });

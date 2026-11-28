@@ -11,7 +11,10 @@ vi.mock("@/lib/admin/admin-membership", () => ({
     status: "active",
     admin_tier: "operator",
   })),
-  resolveEffectiveAdminRole: vi.fn(async (_sb: unknown, userId: string) => (userId.startsWith("super") ? "super_admin" : "admin")),
+  // 3차 재감사 D3: 판정 캐시 재조회가 읽기 오류를 삼키면 null — 받는 사람 판정은 이 값을 쓰면 안 된다
+  resolveEffectiveAdminRole: vi.fn(async (_sb: unknown, userId: string) =>
+    userId.startsWith("flaky") ? null : userId.startsWith("super") ? "super_admin" : "admin"
+  ),
 }));
 vi.mock("@/lib/admin/admin-user-server", () => ({
   isSuperAdminRole: (role: string | null | undefined) => role === "super_admin",
@@ -58,6 +61,13 @@ describe("재감사 5 — 정지 운영자는 알림 받는 사람이 아니다"
     const sb = sbWithProfiles({ op3: { status: "blocked" }, op4: { status: "withdrawn" } });
     expect(await resolveAdminRecipientAuthority(sb, "op3")).toEqual({ active: false });
     expect(await resolveAdminRecipientAuthority(sb, "op4")).toEqual({ active: false });
+  });
+
+  it("3차 재감사 D3: 역할 재조회가 일시 실패(null)해도 활성 멤버십이 있으면 권한 잃음으로 보지 않는다(담당 해제 금지)", async () => {
+    const sb = sbWithProfiles({ flaky1: { status: "active" } });
+    const a = await resolveAdminRecipientAuthority(sb, "flaky1");
+    expect(authorityAllows(a, "support")).toBe(true);
+    expect(authorityConfirmedLoss(a, "support")).toBe(false);
   });
 
   it("최고관리자는 정지여도 받는다(잠김 방지 — 앱 규칙과 같음) · 프로필을 읽지 않는다", async () => {

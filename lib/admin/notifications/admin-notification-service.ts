@@ -18,8 +18,8 @@ import {
   isSupportRequesterOutboxPayload,
   replaySupportRequesterNotification,
 } from "@/lib/support/support-requester-outbox";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
+import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";
 import { isLoginDeniedMemberAccount, isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
@@ -76,7 +76,9 @@ export async function resolveAdminRecipientAuthority(
 ): Promise<AdminRecipientAuthority> {
   const membership = await loadActiveAdminMembership(sb, userId);
   if (!membership) return { active: false };
-  const role = await resolveEffectiveAdminRole(sb, userId);
+  // 3차 재감사 D3: 역할은 방금 읽은 활성 멤버십 행에서 바로 — 다시 읽는 판정 캐시(`resolveEffectiveAdminRole`)는 읽기 오류를 삼켜
+  //   「역할 없음 = 권한 잃음 확인」이 되어 정상 담당자가 풀렸다(다른 인스턴스의 낡은 「없음」 캐시도 같음). 같은 공식, 조회 1회 덜.
+  const role = normalizeAdminRole(membership.role);
   if (!role || !isPrivilegedAdminRole(role)) return { active: false };
   const isSuperAdmin = isSuperAdminRole(role);
   // 재감사 5: 정지된 운영자(최고관리자 제외)는 관리자 경로가 막혀 문의를 열 수 없다(앱 `isSuspendedNonSuperAdminActor`) —

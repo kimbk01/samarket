@@ -55,6 +55,7 @@ import {
   applyRequesterClosed,
   applyRequesterSeen,
   ensureRequesterSupportNotification,
+  runAfterResponse,
   loadCustomerMessageIdsWithAdminAlert,
   markFormerAssigneeCaseAlertsRead,
   markSupportCaseNotificationsRead as ledgerMarkSupportCaseNotificationsRead,
@@ -474,32 +475,6 @@ const SUPPORT_MESSAGES_LIST_LIMIT = 1000;
  * 고객 알림 — 원장(`recordRequesterSupportNotification`): 알림함 행은 응답 전 저장(실패 1회 재시도), 푸시는 응답 뒤.
  * 실패는 기록만(상태·글은 이미 저장됨).
  */
-/**
- * 재감사 3차 (2026-11-29): 「상담 종료」·「재오픈」을 다시 눌러 changed=false 가 된 경우 — 첫 요청이 상태를 바꾼 뒤 고객 알림 전에 끊겼을 수 있다.
- * 마지막 상태 사건이 **이 어드민의 같은 행동**일 때만 true (고객 「확인했어요」·자동 종료·보관 해제는 알림 대상이 아니므로 제외).
- */
-async function lastCaseTransitionBy(
-  sb: SupabaseClient,
-  caseId: string,
-  actorUserId: string,
-  kind: "admin_resolve" | "reopen"
-): Promise<boolean> {
-  const { data, error } = await sb
-    .from("support_case_events")
-    .select("event_type, actor_user_id, payload")
-    .eq("case_id", caseId)
-    .in("event_type", ["status_changed", "reopened"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return false;
-  const ev = data as { event_type?: string; actor_user_id?: string | null; payload?: Record<string, unknown> | null };
-  if (String(ev.actor_user_id ?? "") !== actorUserId) return false;
-  if (kind === "reopen") return ev.event_type === "reopened";
-  const payload = ev.payload ?? {};
-  return ev.event_type === "status_changed" && payload.status === "RESOLVED" && payload.by == null;
-}
-
 async function notifyRequester(
   sb: SupabaseClient,
   requesterUserId: string,
@@ -1415,29 +1390,53 @@ export async function adminReplySupportCase(
   });
   // DEF-02: 종료 문의엔 공개 답변 불가 — DB 함수가 잠금 안에서 거부(case_closed · replay 는 먼저 처음 결과)
   if (!res.ok) return res;
-  // 같은 요청 id 재전송 = 처음 결과만(정리·미읽음 증가 없음).
-  // 재감사 2차 2: 단, 첫 요청이 저장 뒤 고객 알림 전에 끊겼을 수 있다 → 공개 답변이면 고객 알림을 같은 키로 보장(있으면 조회 1번으로 끝)
+  // 같은 요청 id 재전송 = 처음 결과만(미읽음 증가·감사 없음 · 응답은 바로).
+  // 재감사 2차 2·3차 D4·D5: 첫 요청이 저장 뒤 「답변 정리」·고객 알림 전에 끊겼을 수 있다 → 공개 답변이면 **응답 뒤에**
+  //   ① 그 답변의 본 시각 기록이 없으면 정리를 다시(기록 + 상태·알림 맞춤 — CAS·같은 키라 다시 해도 같음) ② 고객 알림을 같은 키로 보장.
+  //   응답 전 호출·푸시 없음(요청 예산 · 응답이 푸시를 기다리지 않음).
   if (res.replayed) {
     const m = res.message;
     if (m.message_type === "PUBLIC" && m.sender_type === "ADMIN" && !m.deleted_at) {
       const c = gate.case;
-      await ensureRequesterSupportNotification(
-        sb,
-        (replyLang) => ({
-          userId: c.requester_user_id,
-          type: "support_admin_replied",
-          title: notifySafeT(replyLang, "notify_support_admin_replied_title"),
-          body: m.body,
-          copy: { titleKey: "notify_support_admin_replied_title" },
-          caseId: c.id,
-          publicCaseNo: c.public_case_no,
-          audience: c.audience,
-          storeId: c.owner_store_id,
-          dedupeKey: `support_admin_replied:${m.id}`,
-          actorUserId: input.adminUserId,
-        }),
-        { requesterUserId: c.requester_user_id, dedupeKey: `support_admin_replied:${m.id}`, replyMessageId: m.id }
-      ).catch((err: unknown) => console.error("[support] replay_notification_ensure_failed", { caseId: c.id, err }));
+      const seenForReplay = typeof input.seenLastMessageAt === "string" ? input.seenLastMessageAt.trim() : "";
+      runAfterResponse(async () => {
+        try {
+          const { data: seenEv } = await sb
+            .from("support_case_events")
+            .select("id")
+            .eq("case_id", c.id)
+            .eq("event_type", "admin_reply_seen")
+            .eq("payload->>reply_message_id", m.id)
+            .limit(1)
+            .maybeSingle();
+          if (!seenEv) {
+            await settleAdminWorkAfterSeenReply(sb, {
+              caseRow: c,
+              seenLastMessageAt: seenForReplay || null,
+              reply: { id: m.id, created_at: m.created_at },
+            });
+          }
+          await ensureRequesterSupportNotification(
+            sb,
+            (replyLang) => ({
+              userId: c.requester_user_id,
+              type: "support_admin_replied",
+              title: notifySafeT(replyLang, "notify_support_admin_replied_title"),
+              body: m.body,
+              copy: { titleKey: "notify_support_admin_replied_title" },
+              caseId: c.id,
+              publicCaseNo: c.public_case_no,
+              audience: c.audience,
+              storeId: c.owner_store_id,
+              dedupeKey: `support_admin_replied:${m.id}`,
+              actorUserId: input.adminUserId,
+            }),
+            { requesterUserId: c.requester_user_id, dedupeKey: `support_admin_replied:${m.id}`, replyMessageId: m.id }
+          );
+        } catch (err) {
+          console.error("[support] replay_followup_failed", { caseId: c.id, err });
+        }
+      });
     }
     return { ok: true, message: m, unseenCustomerMessages: 0, replayed: true };
   }
@@ -1596,16 +1595,9 @@ export async function adminUpdateSupportCaseStatus(
       dedupeKey: `support_case_resolved:${c.id}:${at}`,
       actorUserId: input.adminUserId,
     });
-    if (r.changed) {
-      // 고객 「종료」 알림 — 알림함 행은 응답 전 저장(원장) · 푸시는 응답 뒤
-      await notifyRequester(sb, c.requester_user_id, build);
-    } else if (c.status === "RESOLVED" && (await lastCaseTransitionBy(sb, c.id, input.adminUserId, "admin_resolve"))) {
-      // 재감사 3차: 같은 어드민의 종료 재요청 — 첫 요청이 알림 전에 끊겼으면 같은 키로 1건만 보장(있으면 조회 1번)
-      await ensureRequesterSupportNotification(sb, build, {
-        requesterUserId: c.requester_user_id,
-        dedupeKey: `support_case_resolved:${c.id}:${at}`,
-      }).catch((err: unknown) => console.error("[support] resolved_notification_ensure_failed", { caseId: c.id, err }));
-    }
+    // 고객 「종료」 알림 — 바뀐 때만(이미 종료 = 다시 보내지 않음 · 고객 「확인했어요」·보관 해제와 사건 모양이 같아 재요청으로 판정할 수 없다).
+    // 알림함 행은 응답 전 저장(원장) · 푸시는 응답 뒤.
+    if (r.changed) await notifyRequester(sb, c.requester_user_id, build);
   }
   return { ok: true, case: r.case };
 }
@@ -1702,10 +1694,7 @@ export async function adminSetSupportCasePriority(
   return { ok: true, case: r.case };
 }
 
-/**
- * 재오픈 알림 키 — 재오픈 시각(DB 함수가 재오픈 때 `last_message_at` 을 그 시각으로 둔다).
- * `updated_at` 은 재오픈 뒤 담당 해제 등으로 바뀌어, 다시 누른 요청이 같은 키를 못 만들었다(재감사 3차).
- */
+/** 재오픈 알림 키 — 재오픈 시각(DB 함수가 재오픈 때 `last_message_at`·`updated_at` 을 그 시각으로 둔다). */
 function reopenedDedupeKey(c: SupportCaseRow): string {
   return `support_case_reopened:${c.id}:${String(c.last_message_at ?? c.updated_at ?? "")}`;
 }
@@ -1739,17 +1728,8 @@ export async function reopenSupportCase(
   // S-17: 이미 진행 중 = ok(changed=false) · 상태·세션·사건 = 한 트랜잭션
   const r = await transitionSupportCase(sb, { caseId: input.caseId, action: "reopen", actorUserId: input.userId });
   if (!r.ok) return { ok: false, error: r.error === "transition_failed" ? "reopen_failed" : r.error };
-  if (!r.changed) {
-    // 재감사 3차: 같은 어드민의 재오픈 재요청 — 첫 요청이 알림 전에 끊겼으면 같은 키로 1건만 보장
-    const c0 = r.case;
-    if (input.userId !== c0.requester_user_id && (await lastCaseTransitionBy(sb, c0.id, input.userId, "reopen"))) {
-      await ensureRequesterSupportNotification(sb, (lang) => reopenedNotification(c0, input.userId, lang), {
-        requesterUserId: c0.requester_user_id,
-        dedupeKey: reopenedDedupeKey(c0),
-      }).catch((err: unknown) => console.error("[support] reopened_notification_ensure_failed", { caseId: c0.id, err }));
-    }
-    return { ok: true, case: c0 };
-  }
+  // 이미 진행 중 = 변화 없음 · 알림도 다시 보내지 않는다
+  if (!r.changed) return { ok: true, case: r.case };
   let c = r.case;
 
   // A-7: 재오픈한 문의의 담당자가 권한을 잃은 것이 확인되면(정지·차단·탈퇴·권한 없음) 담당을 푼다.

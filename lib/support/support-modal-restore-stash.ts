@@ -1,3 +1,5 @@
+import { SUPPORT_CONTEXT_SESSION_KEY } from "@/lib/support/support-context";
+
 /** sessionStorage flag: cold-start case restore after shell mounts */
 export const SUPPORT_MODAL_RESTORE_CASE_KEY = "dibay_support_modal_restore_case_id";
 
@@ -70,7 +72,9 @@ export function readSupportLoginReturn(): SupportLoginReturn | null {
     const parsed = JSON.parse(raw) as { at?: unknown; caseId?: unknown; expectUserId?: unknown };
     const at = Number(parsed.at);
     if (!Number.isFinite(at) || Date.now() - at > SUPPORT_LOGIN_RETURN_TTL_MS) {
+      // 3차 재감사: 표시와 그 로그인 시도의 맥락은 한 묶음 — 기한이 지나면 맥락도 지운다(나중 새로고침에 옛 쓰기 창 금지)
       sessionStorage.removeItem(SUPPORT_LOGIN_RETURN_KEY);
+      sessionStorage.removeItem(SUPPORT_CONTEXT_SESSION_KEY);
       return null;
     }
     const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);

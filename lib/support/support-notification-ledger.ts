@@ -624,7 +624,7 @@ export async function ensureRequesterSupportNotification(
  * 응답을 보낸 **뒤에** 시작하는 작업(Next `after(fn)`) — 푸시는 그때 알림 행을 다시 읽으므로, 응답 직후의 답변 수정·삭제가 반영된다.
  * 요청 밖(크론·시험)에서는 지금 작업이 끝난 다음 차례에 시작한다.
  */
-function runAfterResponse(task: () => Promise<unknown>): void {
+export function runAfterResponse(task: () => Promise<unknown>): void {
   try {
     after(task);
   } catch {
