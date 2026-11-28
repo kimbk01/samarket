@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayConfirmDialog, DibayOverlayActions } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -9,10 +10,33 @@ import type { MoimBoardDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { MOIM_ROLES, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
-import { MoimManageFrame, moimManageCardClass, moimManageSheetInputClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
+import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
+import {
+  MoimManageFrame,
+  moimManageCardClass,
+  moimManageSheetInputClass,
+  moimRoleAtLeastLabel,
+  useMoimManageToast,
+} from "./moim-manage-shared";
 
 const NAME_MAX = 30;
 const ROLES_LOW_TO_HIGH: MoimRole[] = [...MOIM_ROLES].reverse();
+
+/** R5 C4: 화면 안 순서에서 한 칸 옮기기 — 맨 위·맨 아래를 넘으면 그대로 */
+export function moveMoimBoardOrder(order: readonly string[], id: string, dir: -1 | 1): string[] {
+  const i = order.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= order.length) return [...order];
+  const next = [...order];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+/** 켜진 게시판(순서대로)·닫은 게시판 — 상세는 멤버에게 닫은 게시판까지 준다 (R5 C15) */
+export function splitMoimBoards(boards: readonly MoimBoardDto[]): { active: MoimBoardDto[]; closed: MoimBoardDto[] } {
+  const sorted = [...boards].sort((a, b) => a.sortOrder - b.sortOrder);
+  return { active: sorted.filter((b) => b.isActive), closed: sorted.filter((b) => !b.isActive) };
+}
 
 type Sheet = { kind: "add" } | { kind: "rename"; board: MoimBoardDto } | { kind: "role"; board: MoimBoardDto } | null;
 
@@ -26,7 +50,33 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
   const [deactivateTarget, setDeactivateTarget] = useState<MoimBoardDto | null>(null);
 
   const boardName = (b: MoimBoardDto) => (b.kind === "custom" ? b.name ?? "" : t(`moim_board_${b.kind}` as MessageKey));
-  const boards = [...detail.boards].filter((b) => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  const { active: activeBoards, closed: closedBoards } = splitMoimBoards(detail.boards);
+  /** R5 C4: 화면 안에서만 바꾼 순서 (null = 저장된 순서 그대로) */
+  const [order, setOrder] = useState<string[] | null>(null);
+  const savedOrder = activeBoards.map((b) => b.id);
+  const viewOrder = order ?? savedOrder;
+  const byId = new Map(activeBoards.map((b) => [b.id, b]));
+  const boards = viewOrder.map((id) => byId.get(id)).filter((b): b is MoimBoardDto => !!b);
+  const orderChanged = order != null && order.join(",") !== savedOrder.join(",");
+  const move = (id: string, dir: -1 | 1) => setOrder(moveMoimBoardOrder(viewOrder, id, dir));
+  const saveOrder = async () => {
+    if (!order || busy) return;
+    setBusy(true);
+    const r = await moimApi.reorderBoards(detail.id, order);
+    setBusy(false);
+    if (!r.ok) {
+      toast.showError(r.error);
+      /** 다른 운영진이 그 사이 게시판을 바꿈 → 다시 불러온다 */
+      if (r.error === "moim_board_order_invalid") {
+        setOrder(null);
+        reload();
+      }
+      return;
+    }
+    toast.show(t("moim_manage_board_order_saved_toast"), "success");
+    setOrder(null);
+    reload();
+  };
 
   const submit = async (input: Parameters<typeof moimApi.saveBoard>[1], successKey: MessageKey) => {
     setBusy(true);
@@ -70,7 +120,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
           className={`${role === r ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
           onClick={() => setRole(r)}
         >
-          {t("moim_manage_perm_role_or_above_chip", { role: t(moimRoleKey(r)) })}
+          {moimRoleAtLeastLabel(r, t)}
         </button>
       ))}
     </div>
@@ -79,13 +129,36 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
   return (
     <div className="px-4 pb-6 pt-4">
       <ul className={`${moimManageCardClass} divide-y divide-sam-border-soft`}>
-        {boards.map((b) => (
+        {boards.map((b, i) => (
           <li key={b.id} className="px-4 py-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="break-all text-[15px] font-medium text-sam-fg">{boardName(b)}</span>
-              {b.kind !== "custom" ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_board_system_badge")}</span> : null}
+            <div className="flex items-start gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                <span className="break-all text-[15px] font-medium text-sam-fg">{boardName(b)}</span>
+                {b.kind !== "custom" ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_board_system_badge")}</span> : null}
+              </div>
+              {/* R5 C4: 순서 바꾸기 — 44px 버튼, 맨 위·맨 아래는 비활성 */}
+              <div className="-my-2 -mr-2 flex shrink-0">
+                <button
+                  type="button"
+                  className="grid h-[length:var(--sam-tap-min)] w-[length:var(--sam-tap-min)] place-items-center rounded-ui-rect text-sam-muted disabled:opacity-30"
+                  aria-label={t("moim_manage_board_move_up_aria")}
+                  disabled={busy || i === 0}
+                  onClick={() => move(b.id, -1)}
+                >
+                  <ChevronUp className="h-5 w-5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className="grid h-[length:var(--sam-tap-min)] w-[length:var(--sam-tap-min)] place-items-center rounded-ui-rect text-sam-muted disabled:opacity-30"
+                  aria-label={t("moim_manage_board_move_down_aria")}
+                  disabled={busy || i === boards.length - 1}
+                  onClick={() => move(b.id, 1)}
+                >
+                  <ChevronDown className="h-5 w-5" aria-hidden />
+                </button>
+              </div>
             </div>
-            <p className="mt-0.5 text-[12px] text-sam-meta">{t("moim_manage_board_write_role", { role: t(moimRoleKey(b.writeMinRole)) })}</p>
+            <p className="mt-0.5 text-[12px] text-sam-meta">{moimRoleAtLeastLabel(b.writeMinRole, t, "board_write")}</p>
             {b.kind === "notice" ? (
               <p className="mt-0.5 text-[12px] text-sam-meta">{t("moim_manage_board_notice_fixed")}</p>
             ) : (
@@ -134,6 +207,41 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
       >
         {t("moim_manage_board_add_btn")}
       </button>
+
+      {/* R5 C15: 닫은 게시판 — 다시 열기 (서버가 상한을 검사하고 맨 뒤로 둔다) */}
+      {closedBoards.length > 0 ? (
+        <>
+          <h2 className="pb-2 pt-5 text-[13px] font-semibold text-sam-muted">{t("moim_manage_boards_closed_title")}</h2>
+          <ul className={`${moimManageCardClass} divide-y divide-sam-border-soft`}>
+            {closedBoards.map((b) => (
+              <li key={b.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="min-w-0 flex-1 break-all text-[15px] text-sam-muted">{boardName(b)}</span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`}
+                  onClick={() => void submit({ boardId: b.id, isActive: true }, "moim_manage_board_reopened_toast")}
+                >
+                  {t("moim_manage_board_reopen_btn")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+
+      {orderChanged ? (
+        <MoimStickyFooter className="-mx-4 mt-5">
+          <div className={`${moimCls.column} flex gap-2`}>
+            <button type="button" disabled={busy} className={`${moimCls.btnSecondary} flex-1`} onClick={() => setOrder(null)}>
+              {t("moim_manage_board_order_reset_btn")}
+            </button>
+            <button type="button" disabled={busy} className={`${moimCls.btnPrimary} flex-1`} onClick={() => void saveOrder()}>
+              {t("moim_manage_board_order_save_btn")}
+            </button>
+          </div>
+        </MoimStickyFooter>
+      ) : null}
 
       <DibayBottomSheet
         open={sheet != null}

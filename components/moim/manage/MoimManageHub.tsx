@@ -68,7 +68,7 @@ function HubBody({ detail }: { detail: MoimDetailDto }) {
   if (c.close)
     entries.push({ key: "close", href: moimRoutes.manageClose(id), titleKey: "moim_manage_close_title", descKey: "moim_manage_hub_close_desc", danger: true });
 
-  if (entries.length === 0) return <MoimManageForbidden moimId={id} />;
+  if (entries.length === 0) return <MoimManageForbidden moimId={id} detail={detail} />;
 
   return (
     <div className="px-4 pt-4">

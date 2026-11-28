@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const { g, rpc, sent, notifyMoimMany, readPrefs, after } = vi.hoisted(() => {
-const g = { ok: true as const, userId: "u-me", sb: {} as unknown };
+/** R5 C18: 가입 신청 결정 라우트가 신청의 모임을 먼저 읽는다 — 주소의 모임(MOIM)과 같은 행을 돌려준다 */
+const reqRowQuery = { select: () => reqRowQuery, eq: () => reqRowQuery, maybeSingle: async () => ({ data: { moim_id: "11111111-1111-4111-8111-111111111111" }, error: null }) };
+const g = { ok: true as const, userId: "u-me", sb: { from: () => reqRowQuery } as unknown };
 const rpc = {
   moimMemberRoleSet: vi.fn(),
   moimMemberNoteSet: vi.fn(),

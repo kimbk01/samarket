@@ -15,7 +15,7 @@ type Ctx = { params: Promise<{ moimId: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   const moimId = requireUuid((await params).moimId);
   if (!moimId) return moimNotFound();
-  const g = await guardMoimRead(req, { rateKey: "schedules", requireLogin: true });
+  const g = await guardMoimRead(req, { rateKey: "schedules" });
   if (!g.ok) return g.response;
   const access = await loadMoimAccess(g.sb, moimId, g.userId);
   if (!access) return moimNotFound();

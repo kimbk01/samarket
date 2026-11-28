@@ -5,7 +5,6 @@
  * 모든 쓰기는 사유 필수(조치 시트 2단계 확인) · 기본정보 수정은 낙관적 잠금(다른 관리자가 먼저 바꾸면 409 → 새로 불러오기).
  * 모임 삭제·복구는 최고관리자만 (버튼도 최고관리자에게만).
  */
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -26,16 +25,24 @@ import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import {
   MOIM_ADMIN_DETAIL_TABS,
+  MOIM_ADMIN_PAGE_MAX,
   MOIM_ADMIN_SANCTION_LEVELS,
+  moimAdminAllowedActions,
   moimAdminLevelAllowsPeriod,
+  moimSanctionFollowUpHref,
+  moimSanctionRowView,
   type MoimAdminCategoryRow,
   type MoimAdminPerson,
   type MoimAdminSanctionLevel,
+  type MoimAdminSanctionRowView,
 } from "@/lib/admin/moim/moim-admin-contract";
 import {
   MOIM_ADMIN_FIELD,
   MOIM_ADMIN_REASON,
+  MoimAdminGatedLink,
+  MoimAdminNote,
   MoimAdminPersonCell,
+  MoimAdminStateNote,
   MoimAdminSection,
   MoimAdminTime,
   MoimPlatformBadge,
@@ -93,10 +100,13 @@ type InfoResponse = {
   warnCount: number | null;
   reportCount: number | null;
   openTransfer: { id: string; kind: string; to_user_id: string; created_at: string } | null;
+  /** R5 D21: 운영 정책 글자 수 (옛 서버면 없음 → 기본 60·2000) */
+  limits?: { nameMin: number; nameMax: number; introMax: number };
 };
 
 export function AdminMoimDetailPage({ moimId }: { moimId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const sp = useSearchParams();
   const backHref = readAdminReturnToFromSearch(sp) ?? "/admin/community/moims";
   const tabs = useMemo(() => MOIM_ADMIN_DETAIL_TABS.map((id) => ({ id, label: t(`admin_moim_detail_tab_${id}` as MessageKey) })), [t]);
@@ -105,9 +115,9 @@ export function AdminMoimDetailPage({ moimId }: { moimId: string }) {
   const { settle, node: bannerNode } = useMoimSettleBanner(reload);
   const info = state.data && state.data.ok !== false ? state.data : null;
 
-  if (state.status === "loading" && !info) return <AdminLoadingState ko />;
+  if (state.status === "loading" && !info) return <AdminLoadingState ko={ko} />;
   if (!info) {
-    return state.status === "error" ? <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null;
+    return state.status === "error" ? <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null;
   }
   const m = info.moim;
 
@@ -125,16 +135,19 @@ export function AdminMoimDetailPage({ moimId }: { moimId: string }) {
       </div>
       {bannerNode}
       <AdminTabs ariaLabel={t("admin_moim_detail_tabs_aria")} tabs={tabs} value={tab} defaultValue="info" />
-      {tab === "info" ? <InfoPanel info={info} onSettled={settle} /> : null}
-      {tab === "members" ? <MembersPanel moimId={m.id} hostUserId={m.host?.userId ?? null} onResult={settle} /> : null}
-      {tab === "requests" ? <MoimRequestsPanel moimId={m.id} /> : null}
-      {tab === "posts" ? <MoimPostsPanel moimId={m.id} onResult={settle} /> : null}
-      {tab === "schedules" ? <MoimSchedulesPanel moimId={m.id} onResult={settle} /> : null}
-      {tab === "album" ? <MoimAlbumPanel moimId={m.id} onResult={settle} /> : null}
-      {tab === "chats" ? <MoimChatsPanel moimId={m.id} /> : null}
-      {tab === "reports" ? <MoimReportsPanel moimId={m.id} /> : null}
-      {tab === "sanctions" ? <SanctionsPanel moimId={m.id} name={m.name} status={m.status} onResult={settle} /> : null}
-      {tab === "events" ? <MoimEventsPanel moimId={m.id} /> : null}
+      {/* R5 D26: 삭제·복구·제재로 모임 행이 바뀌면 열린 탭을 다시 마운트해 새로 읽는다 */}
+      <div key={`${tab}:${m.status}:${m.platformState}:${m.updatedAt}`} className="space-y-4">
+        {tab === "info" ? <InfoPanel info={info} onSettled={settle} /> : null}
+        {tab === "members" ? <MembersPanel moimId={m.id} moimStatus={m.status} hostUserId={m.host?.userId ?? null} onResult={settle} /> : null}
+        {tab === "requests" ? <MoimRequestsPanel moimId={m.id} /> : null}
+        {tab === "posts" ? <MoimPostsPanel moimId={m.id} moimStatus={m.status} onResult={settle} /> : null}
+        {tab === "schedules" ? <MoimSchedulesPanel moimId={m.id} moimStatus={m.status} onResult={settle} /> : null}
+        {tab === "album" ? <MoimAlbumPanel moimId={m.id} moimStatus={m.status} onResult={settle} /> : null}
+        {tab === "chats" ? <MoimChatsPanel moimId={m.id} /> : null}
+        {tab === "reports" ? <MoimReportsPanel moimId={m.id} /> : null}
+        {tab === "sanctions" ? <SanctionsPanel moimId={m.id} name={m.name} status={m.status} onResult={settle} /> : null}
+        {tab === "events" ? <MoimEventsPanel moimId={m.id} /> : null}
+      </div>
     </div>
   );
 }
@@ -222,7 +235,10 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
   if (draft.lguId !== base.lguId) patch.lguId = draft.lguId;
   if (draft.questions.join("\n") !== base.questions.join("\n")) patch.questions = draft.questions.map((q) => q.trim()).filter(Boolean);
   const changed = Object.keys(patch);
-  const editable = m.status !== "deleted";
+  const editable = moimAdminAllowedActions(m.status).editInfo;
+  /** R5 D21: 입력 상한 = 운영 정책 (어드민 저장도 같은 SQL 검사를 받는다) */
+  const nameMax = info.limits?.nameMax ?? 60;
+  const introMax = info.limits?.introMax ?? 2000;
   const cat = (id: string) => {
     const c = info.categories.find((x) => x.id === id);
     return c ? (language === "en" ? c.labelEn : c.labelKo) : "—";
@@ -246,9 +262,7 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
           {
             label: t("admin_moim_field_main_room"),
             value: m.mainRoomId ? (
-              <Link href={`/admin/chats/messenger/${encodeURIComponent(m.mainRoomId)}`} className="text-sam-primary hover:underline">
-                {t("admin_moim_open_chat")}
-              </Link>
+              <MoimAdminGatedLink href={`/admin/chats/messenger/${encodeURIComponent(m.mainRoomId)}`}>{t("admin_moim_open_chat")}</MoimAdminGatedLink>
             ) : (
               "—"
             ),
@@ -268,7 +282,8 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
         <div className="grid gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-[13px] sm:grid-cols-2">
           <label className="flex flex-col gap-1">
             <span className="text-sam-muted">{t("admin_moim_col_name")}</span>
-            <input className={MOIM_ADMIN_FIELD} value={draft.name} maxLength={60} disabled={!editable} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <input className={MOIM_ADMIN_FIELD} value={draft.name} maxLength={nameMax} disabled={!editable} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            <span className="text-[12px] text-sam-muted">{t("admin_moim_field_text_count", { n: draft.name.length, max: nameMax })}</span>
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-sam-muted">{t("admin_moim_col_category")}</span>
@@ -288,7 +303,8 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
           ) : null}
           <label className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-sam-muted">{t("admin_moim_field_intro")}</span>
-            <textarea className={`${MOIM_ADMIN_FIELD} min-h-[100px]`} value={draft.intro} maxLength={2000} disabled={!editable} onChange={(e) => setDraft({ ...draft, intro: e.target.value })} />
+            <textarea className={`${MOIM_ADMIN_FIELD} min-h-[100px]`} value={draft.intro} maxLength={introMax} disabled={!editable} onChange={(e) => setDraft({ ...draft, intro: e.target.value })} />
+            <span className="text-[12px] text-sam-muted">{t("admin_moim_field_text_count", { n: draft.intro.length, max: introMax })}</span>
           </label>
           <label className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-sam-muted">{t("admin_moim_field_cover")}</span>
@@ -312,6 +328,8 @@ function InfoPanel({ info, onSettled }: { info: InfoResponse; onSettled: (k: Com
           <label className="flex flex-col gap-1 sm:col-span-2">
             <span className="text-sam-muted">{t("admin_moim_field_lgu_id")}</span>
             <input className={MOIM_ADMIN_FIELD} value={draft.lguId} disabled={!editable} onChange={(e) => setDraft({ ...draft, lguId: e.target.value.trim() })} />
+            {/* R5 D7: 저장된 동네 이름 — 틀린 코드는 서버가 「동네 코드를 찾을 수 없어요」로 거부 */}
+            <span className="text-[12px] text-sam-muted">{t("admin_moim_field_lgu_current", { name: m.lguLabel ?? m.lguId })}</span>
           </label>
           {draft.questions.map((q, i) => (
             <label key={i} className="flex flex-col gap-1 sm:col-span-2">
@@ -375,9 +393,25 @@ type MemberRow = {
 
 type MemberSheet = { action: "role" | "remove" | "ban" | "unban" | "assign_host"; row: MemberRow };
 
-function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUserId: string | null; onResult: (k: CommunitySheetSettle) => void }) {
+type BanOnlyRow = { user_id: string; account: MoimAdminPerson | null; ban: { reason: string | null; created_at: string } };
+
+function MembersPanel({
+  moimId,
+  moimStatus,
+  hostUserId,
+  onResult,
+}: {
+  moimId: string;
+  moimStatus: string;
+  hostUserId: string | null;
+  onResult: (k: CommunitySheetSettle) => void;
+}) {
   const { t } = useI18n();
+  /** R5 D4·D11: 종료 = 역할 변경·모임장 지정 없음 · 삭제 = 멤버 조치 없음 (서버도 같은 표로 거부) */
+  const allowed = moimAdminAllowedActions(moimStatus);
   const sec = useMoimSection<MemberRow>(moimId, "members");
+  /** R5 D25·신규1: 모임에 없는 차단 사용자 — 쪽과 상관없이 따로 */
+  const bansOutside = sec.bansWithoutMember as BanOnlyRow[];
   const [sheet, setSheet] = useState<MemberSheet | null>(null);
   const [role, setRole] = useState<"co_host" | "staff" | "member">("member");
   const [historyUser, setHistoryUser] = useState<string | null>(null);
@@ -389,6 +423,7 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
 
   return (
     <div className="space-y-5">
+      <MoimAdminStateNote status={moimStatus} />
       <MoimSectionBody sec={sec} emptyKey="admin_moim_members_empty">
         <CommunityTable
           head={[
@@ -423,7 +458,7 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
                 <td className={COMMUNITY_TD}>{r.rejoin_count ?? 0}</td>
                 <td className={COMMUNITY_TD}>
                   <div className="flex flex-wrap gap-1">
-                    {active && !isHost ? (
+                    {allowed.roleAndHost && active && !isHost ? (
                       <>
                         <AdminActionButton size="sm" variant="secondary" onClick={() => openSheet({ action: "role", row: r })}>
                           {t("admin_moim_member_role")}
@@ -433,17 +468,17 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
                         </AdminActionButton>
                       </>
                     ) : null}
-                    {(active || r.status === "pending") && !isHost ? (
+                    {allowed.members && (active || r.status === "pending") && !isHost ? (
                       <AdminActionButton size="sm" variant="secondary" onClick={() => openSheet({ action: "remove", row: r })}>
                         {t("admin_moim_member_remove")}
                       </AdminActionButton>
                     ) : null}
-                    {!isHost && !r.ban ? (
+                    {allowed.members && !isHost && !r.ban ? (
                       <AdminActionButton size="sm" variant="danger" onClick={() => openSheet({ action: "ban", row: r })}>
                         {t("admin_moim_member_ban")}
                       </AdminActionButton>
                     ) : null}
-                    {r.ban ? (
+                    {allowed.members && r.ban ? (
                       <AdminActionButton size="sm" variant="secondary" onClick={() => openSheet({ action: "unban", row: r })}>
                         {t("admin_moim_member_unban")}
                       </AdminActionButton>
@@ -455,6 +490,37 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
           })}
         </CommunityTable>
       </MoimSectionBody>
+
+      {bansOutside.length ? (
+        <MoimAdminSection title={t("admin_moim_members_banned_outside_title")}>
+          <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface" data-moim-admin-bans-outside>
+            <CommunityTable head={[t("admin_moim_col_member"), t("admin_moim_col_status"), t("admin_moim_col_actions")]}>
+              {bansOutside.map((b) => (
+                <tr key={b.user_id} className="border-b border-sam-border-soft align-top">
+                  <td className={COMMUNITY_TD}>
+                    <MoimAdminPersonCell person={b.account} />
+                  </td>
+                  <td className={COMMUNITY_TD}>
+                    <div className="text-[12px] text-sam-danger">{t("admin_moim_banned_since", { date: b.ban.created_at.slice(0, 10) })}</div>
+                    {b.ban.reason ? <div className="text-[12px] text-sam-muted">{b.ban.reason}</div> : null}
+                  </td>
+                  <td className={COMMUNITY_TD}>
+                    {allowed.members ? (
+                      <AdminActionButton
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openSheet({ action: "unban", row: { user_id: b.user_id, role: null, status: "banned", nickname: null, account: b.account, ban: b.ban } })}
+                      >
+                        {t("admin_moim_member_unban")}
+                      </AdminActionButton>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </CommunityTable>
+          </div>
+        </MoimAdminSection>
+      ) : null}
 
       <MoimAdminSection
         title={t("admin_moim_profile_history_title")}
@@ -521,8 +587,12 @@ function MembersPanel({ moimId, hostUserId, onResult }: { moimId: string; hostUs
 
 /* ───────── 제재 (적용 · 해제) ───────── */
 
-type SanctionRow = {
+/** 제재 행 (뷰 moim_admin_sanction_rows_v · R5 D1·D2 — 모임 상세 「제재」 탭과 「제재 이력」 화면이 같이 쓴다) */
+export type MoimSanctionRow = {
   id: string;
+  moim_id?: string;
+  target_kind: string;
+  target_id: string;
   level: string;
   reason_code: string;
   reason: string;
@@ -530,40 +600,119 @@ type SanctionRow = {
   ends_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  live_state?: string | null;
+  report_target_type?: string | null;
+  community_sanction_id?: string | null;
   actor: MoimAdminPerson | null;
   revoker: MoimAdminPerson | null;
+  target?: { label: string | null; person: MoimAdminPerson | null; roomId: string | null } | null;
 };
 
-export function sanctionStateKey(r: { revoked_at: string | null; ends_at: string | null }): MessageKey {
-  if (r.revoked_at) return "admin_moim_sanction_state_revoked";
-  if (r.ends_at && Date.parse(r.ends_at) <= Date.now()) return "admin_moim_sanction_state_expired";
-  return "admin_moim_sanction_state_active";
+const SANCTION_STATE_KEY: Record<MoimAdminSanctionRowView["state"], MessageKey> = {
+  active: "admin_moim_sanction_state_active",
+  expired: "admin_moim_sanction_state_expired",
+  revoked: "admin_moim_sanction_state_revoked",
+  lifted: "admin_moim_sanction_state_lifted",
+};
+
+export function moimSanctionStateKey(view: MoimAdminSanctionRowView): MessageKey {
+  return SANCTION_STATE_KEY[view.state];
+}
+
+const FOLLOW_UP_KEY: Record<NonNullable<MoimAdminSanctionRowView["followUp"]>, MessageKey> = {
+  content_posts: "admin_moim_sanction_followup_content",
+  content_album: "admin_moim_sanction_followup_content",
+  schedule_none: "admin_moim_sanction_followup_schedule",
+  message_admin: "admin_moim_sanction_followup_message",
+  user_restrictions: "admin_moim_sanction_followup_user",
+};
+
+/** 대상 칸 — 「모임 전체」 / 「글 · 첫 줄」 / 「회원 닉네임 · @ID」 */
+export function MoimSanctionTargetCell({ row, view }: { row: MoimSanctionRow; view: MoimAdminSanctionRowView }) {
+  const { t } = useI18n();
+  if (view.kind === "moim") return <span>{t("admin_moim_sanction_target_moim")}</span>;
+  if (view.kind === "user") return <MoimAdminPersonCell person={row.target?.person ?? null} />;
+  const type = row.report_target_type;
+  return (
+    <span className="flex flex-col">
+      <span>{type ? t(`admin_moim_target_${type}` as MessageKey) : t("admin_moim_sanction_kind_content")}</span>
+      {row.target?.label ? <span className="text-[12px] text-sam-muted [overflow-wrap:anywhere]">{row.target.label}</span> : null}
+    </span>
+  );
+}
+
+/** 조치 칸 — 모임 제재만 「해제」, 그 밖은 후속 처리 안내·링크 (R5 D §1-3) */
+export function MoimSanctionActionCell({
+  row,
+  view,
+  moimId,
+  onRevoke,
+}: {
+  row: MoimSanctionRow;
+  view: MoimAdminSanctionRowView;
+  moimId: string;
+  onRevoke: () => void;
+}) {
+  const { t } = useI18n();
+  if (view.revocable) {
+    return (
+      <AdminActionButton size="sm" variant="secondary" onClick={onRevoke}>
+        {t("admin_moim_sanction_revoke")}
+      </AdminActionButton>
+    );
+  }
+  if (!view.followUp || view.state !== "active") return null;
+  const href = moimSanctionFollowUpHref(view, row, { moimId, chatRoomId: row.target?.roomId ?? null });
+  const label = t(FOLLOW_UP_KEY[view.followUp]);
+  return href ? (
+    <MoimAdminGatedLink href={href} className="text-[13px] text-sam-primary hover:underline">
+      {label}
+    </MoimAdminGatedLink>
+  ) : (
+    <span className="text-[12px] text-sam-muted">{label}</span>
+  );
 }
 
 function SanctionsPanel({ moimId, name, status, onResult }: { moimId: string; name: string; status: string; onResult: (k: CommunitySheetSettle) => void }) {
   const { t } = useI18n();
   const { label: reasonLabel } = useMoimReasonLabel();
-  const sec = useMoimSection<SanctionRow>(moimId, "sanctions");
+  const sec = useMoimSection<MoimSanctionRow>(moimId, "sanctions");
   const [applying, setApplying] = useState(false);
-  const [revoke, setRevoke] = useState<SanctionRow | null>(null);
+  const [revoke, setRevoke] = useState<MoimSanctionRow | null>(null);
   return (
     <MoimAdminSection
       title={t("admin_moim_detail_tab_sanctions")}
       actions={
-        status !== "deleted" ? (
+        moimAdminAllowedActions(status).sanctions ? (
           <AdminActionButton size="sm" variant="danger" onClick={() => setApplying(true)}>
             {t("admin_moim_sanction_apply")}
           </AdminActionButton>
         ) : null
       }
     >
+      <MoimAdminStateNote status={status} />
       <p className="text-[12px] text-sam-muted">{t("admin_moim_sanction_m6_note")}</p>
       <MoimSectionBody sec={sec} emptyKey="admin_moim_sanctions_empty">
-        <CommunityTable head={[t("admin_moim_col_level"), t("admin_moim_col_reason"), t("admin_moim_col_period"), t("admin_moim_col_status"), t("admin_moim_col_actor"), t("admin_moim_col_actions")]}>
+        <CommunityTable
+          head={[
+            t("admin_moim_col_kind"),
+            t("admin_moim_col_target"),
+            t("admin_moim_col_level"),
+            t("admin_moim_col_reason"),
+            t("admin_moim_col_period"),
+            t("admin_moim_col_status"),
+            t("admin_moim_col_actor"),
+            t("admin_moim_col_actions"),
+          ]}
+        >
           {sec.rows.map((r) => {
-            const stateKey = sanctionStateKey(r);
+            const view = moimSanctionRowView(r, status);
             return (
-              <tr key={r.id} className="border-b border-sam-border-soft align-top">
+              <tr key={r.id} className="border-b border-sam-border-soft align-top" data-moim-sanction-row={r.id} data-moim-sanction-kind={view.kind}>
+                <td className={COMMUNITY_TD}>{t(`admin_moim_sanction_kind_${view.kind}` as MessageKey)}</td>
+                <td className={`${COMMUNITY_TD} max-w-[240px]`}>
+                  <MoimSanctionTargetCell row={r} view={view} />
+                </td>
                 <td className={COMMUNITY_TD}>{t(`admin_moim_level_${r.level}` as MessageKey)}</td>
                 <td className={`${COMMUNITY_TD} max-w-[320px]`}>
                   <div>{reasonLabel(r.reason_code)}</div>
@@ -572,16 +721,12 @@ function SanctionsPanel({ moimId, name, status, onResult }: { moimId: string; na
                 <td className={COMMUNITY_TD}>
                   <MoimAdminTime iso={r.starts_at} /> ~ {r.ends_at ? <MoimAdminTime iso={r.ends_at} /> : t("admin_moim_no_end")}
                 </td>
-                <td className={COMMUNITY_TD}>{t(stateKey)}</td>
+                <td className={COMMUNITY_TD}>{t(moimSanctionStateKey(view))}</td>
                 <td className={COMMUNITY_TD}>
                   <MoimAdminPersonCell person={r.actor} />
                 </td>
                 <td className={COMMUNITY_TD}>
-                  {stateKey === "admin_moim_sanction_state_active" ? (
-                    <AdminActionButton size="sm" variant="secondary" onClick={() => setRevoke(r)}>
-                      {t("admin_moim_sanction_revoke")}
-                    </AdminActionButton>
-                  ) : null}
+                  <MoimSanctionActionCell row={r} view={view} moimId={moimId} onRevoke={() => setRevoke(r)} />
                 </td>
               </tr>
             );
@@ -632,10 +777,18 @@ export function MoimSanctionApplySheet({
   const [level, setLevel] = useState<MoimAdminSanctionLevel>("unlist");
   const [reasonCode, setReasonCode] = useState<string>("");
   const [endDate, setEndDate] = useState("");
-  /** R1 A-16: 같은 모임의 처리 전 신고를 골라 연결(선택) */
-  const reports = useMoimSection<{ id: string; target_type: string; reason_code: string; status: string; created_at: string }>(moimId, "reports");
-  /** 처리 전 신고 = received·reviewing (moim_reports.status CHECK) — 재감사 M-1 */
+  /**
+   * R1 A-16: 같은 모임의 처리 전 신고를 골라 연결(선택). R5 D15: 서버가 처리 전(접수·검토 중)만 최대 100건 —
+   * 처리된 신고는 서버가 moim_report_link_invalid 로 거부한다.
+   */
+  const reports = useMoimSection<{ id: string; target_type: string; reason_code: string; status: string; created_at: string }>(
+    moimId,
+    "reports",
+    { open: "1" },
+    { pageSize: MOIM_ADMIN_PAGE_MAX }
+  );
   const openReports = reports.rows.filter((r) => r.status === "received" || r.status === "reviewing");
+  const reportsLimited = (reports.total ?? 0) > MOIM_ADMIN_PAGE_MAX;
   const [reportId, setReportId] = useState("");
   /** 끝나는 날(PHT) 23:59:59 까지 — 추천 제외만 (R4 D-14 · 경고·차단은 어드민이 해제할 때까지) */
   const periodAllowed = moimAdminLevelAllowsPeriod(level);
@@ -698,6 +851,7 @@ export function MoimSanctionApplySheet({
             ))}
           </select>
         </label>
+        {reportsLimited ? <MoimAdminNote>{t("admin_moim_link_reports_limited", { n: MOIM_ADMIN_PAGE_MAX })}</MoimAdminNote> : null}
         {periodAllowed ? (
           <label className="flex flex-col gap-1">
             <span className="text-sam-muted">{t("admin_moim_field_ends_at")}</span>

@@ -114,14 +114,23 @@ export function buildMessengerInAppBannerContent(args: {
   language: AppLanguageCode;
   chatPreviewEnabled: boolean;
   nowMs?: number;
+  /**
+   * 모임 방이거나 판정 전인 비공개 그룹(표면 규칙 `state !== "not_moim"` · Owner 결정 1 과 같은 방향) — 모임 R5 A14.
+   * 보낸 사람은 방 스냅샷 멤버(서버가 모임 프로필로 바꾼 값)만 쓴다. 못 찾으면 `senderLabel`(메신저 프로필)·방 사진을 쓰지 않고
+   * 이름 없는 본문 · 사진 없음.
+   */
+  moimManaged?: boolean;
 }): MessengerInAppBannerContent | null {
   const { viewerUserId, language, room } = args;
   const message = latestIncomingMessage(args.messages, viewerUserId, args.nowMs ?? Date.now());
   if (!message) return null;
   const sender = (args.members ?? []).find((p) => p.id === message.senderId);
-  const senderName = trimText(sender?.label) || trimText(message.senderLabel);
-  const avatarUrl =
-    trimText(sender?.avatarUrl) || (room.roomType === "direct" ? trimText(room.avatarUrl) : "") || null;
+  const moimManaged = args.moimManaged === true;
+  const omitSenderPrefix = moimManaged && !sender;
+  const senderName = moimManaged ? trimText(sender?.label) : trimText(sender?.label) || trimText(message.senderLabel);
+  const avatarUrl = moimManaged
+    ? trimText(sender?.avatarUrl) || null
+    : trimText(sender?.avatarUrl) || (room.roomType === "direct" ? trimText(room.avatarUrl) : "") || null;
 
   /**
    * D7 (2026-11-13 실측): 통화 기록은 이 경로(안 읽은 수 증가 순간)에서 배너를 만들지 않는다 — 발신자 취소는 이 순간이
@@ -140,6 +149,7 @@ export function buildMessengerInAppBannerContent(args: {
     room: { name: trimText(roomTitleForLanguage(room, language)) || null, contextLabel },
     roomId: room.id,
     chatDomain: room.chatDomain ?? null,
+    omitSenderPrefix,
   });
   return { title: display.title, preview: display.body, avatarUrl: display.senderAvatarUrl, kind: "message" };
 }

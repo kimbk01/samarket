@@ -9,7 +9,7 @@ import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS, samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
-import type { MoimAction } from "@/lib/moim/moim-permission-contract";
+import { MOIM_TRANSFER_STALE_ERRORS, moimAfterLeaveHref, moimHostTransferGate } from "@/lib/moim/moim-state-gate";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { MoimMemberView } from "@/components/moim/MoimMemberView";
 import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
@@ -17,21 +17,8 @@ import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
-import { canOpenMoimTransfer, canRequestMoimHostChange } from "@/components/moim/manage/MoimManageHub";
-
-/** 운영 관리 메뉴를 보여 줄 권한 (멤버 누구나 가진 권한은 제외) */
-const MANAGE_ACTIONS: readonly MoimAction[] = [
-  "edit_info",
-  "decide_join",
-  "manage_invite_link",
-  "manage_boards",
-  "remove_member",
-  "ban_member",
-  "write_note",
-  "set_role",
-  "transfer_host",
-  "close",
-];
+import { canOpenMoimTransfer } from "@/components/moim/manage/MoimManageHub";
+import { canOpenMoimManageHub } from "@/components/moim/manage/moim-manage-shared";
 
 /** R4 #15: 모임 머리글 ⋮ — 로그인했을 때만 (메뉴 항목이 모두 로그인 뒤에만 생긴다) */
 export function moimDetailMenuVisible(moim: Pick<MoimDetailDto, "viewer">): boolean {
@@ -59,10 +46,24 @@ export function useMoimDetail(moimId: string) {
   return { moim, error, reload };
 }
 
-/** 모임장 위임 요청 받음 — 수락·거절 */
-function HostTransferBanner({ transferId, onDone, onToast }: { transferId: string; onDone: () => void; onToast: (m: string, tone?: "default" | "success" | "error") => void }) {
+/**
+ * 모임장 위임 요청 받음 — 수락·거절.
+ * R5 C7: 경고·차단·종료 모임은 수락 버튼 대신 안내 1줄(거절은 늘 된다). 낡은 요청으로 실패하면 다시 불러와 배너를 걷는다.
+ */
+export function HostTransferBanner({
+  transferId,
+  moim,
+  onDone,
+  onToast,
+}: {
+  transferId: string;
+  moim: Pick<MoimDetailDto, "status" | "platformState">;
+  onDone: () => void;
+  onToast: (m: string, tone?: "default" | "success" | "error") => void;
+}) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
+  const gate = moimHostTransferGate(moim);
   const respond = async (accept: boolean) => {
     /** R3 W4·G-dng-01: 거절은 위험 동작 — 확인 후 */
     if (!accept) {
@@ -82,6 +83,7 @@ function HostTransferBanner({ transferId, onDone, onToast }: { transferId: strin
       // 결정 1 — 수락은 가입 필요: 「가입 이어하기」 창이 이미 떴다 → 토스트를 겹쳐 띄우지 않는다
       if (r.code === "signup_incomplete") return;
       onToast(t(moimErrorKey(r.error)), "error");
+      if (MOIM_TRANSFER_STALE_ERRORS.has(r.error)) onDone();
       return;
     }
     onToast(accept ? t("moim_transfer_accepted_toast") : t("moim_transfer_declined_toast"));
@@ -90,13 +92,16 @@ function HostTransferBanner({ transferId, onDone, onToast }: { transferId: strin
   return (
     <div className={`${moimCls.noticeInfo} mx-4 mt-3 grid gap-2`}>
       <p className="text-[13px] font-bold">{t("moim_transfer_banner")}</p>
+      {gate.blockedKey ? <p className="text-[12px]">{t(gate.blockedKey)}</p> : null}
       <div className="flex gap-2">
         <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} flex-1`} onClick={() => void respond(false)}>
           {t("common_reject")}
         </button>
-        <button type="button" disabled={busy} className={`${moimCls.btnPrimary} ${moimCls.btnSm} flex-1`} onClick={() => void respond(true)}>
-          {t("common_accept")}
-        </button>
+        {gate.canAccept ? (
+          <button type="button" disabled={busy} className={`${moimCls.btnPrimary} ${moimCls.btnSm} flex-1`} onClick={() => void respond(true)}>
+            {t("common_accept")}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -120,8 +125,11 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
    * 초대 링크 권한(manage_invite_link)이 있는 멤버에게만 머리글 공유를 그린다. 화면에 머무는 동안 만든 링크 1개를 다시 쓴다.
    */
   const { canShareInvite, shareInvite, shareSheet } = useMoimInviteShare(moim, showToast);
-  // 부모임장·운영진은 권한이 없어도 「모임장 변경 요청」(P8 미접속 위임) 때문에 운영 메뉴를 연다
-  const canManage = !!moim && (MANAGE_ACTIONS.some((a) => moim.can[a]) || canRequestMoimHostChange(moim));
+  /**
+   * 운영 관리 메뉴 = 운영 허브를 열 수 있는 사람 (R5 C1 — 허브 「뒤로」와 같은 판정 하나).
+   * 부모임장·운영진은 권한이 없어도 「모임장 변경 요청」(P8 미접속 위임) 때문에 운영 메뉴를 연다.
+   */
+  const canManage = !!moim && canOpenMoimManageHub(moim);
 
   const rightSlot = useMemo(
     () =>
@@ -185,8 +193,11 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
       return;
     }
     toast.show(t("moim_leave_done_toast"));
-    reload();
-  }, [moim, reload, t, toast]);
+    /** R5 B15: 종료 모임에서 나가면 다시 불러와도 열 수 없다 → 모임 탭으로 */
+    const next = moimAfterLeaveHref(moim, moimRoutes.tab);
+    if (next) router.replace(next);
+    else reload();
+  }, [moim, reload, router, t, toast]);
 
   if (error) {
     return (
@@ -235,7 +246,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
     <>
       {moim.viewer.incomingHostTransferId ? (
         <div className={moimCls.column}>
-          <HostTransferBanner transferId={moim.viewer.incomingHostTransferId} onDone={reload} onToast={toast.show} />
+          <HostTransferBanner transferId={moim.viewer.incomingHostTransferId} moim={moim} onDone={reload} onToast={toast.show} />
         </div>
       ) : null}
       {isMember ? (

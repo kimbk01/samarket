@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ token: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   const token = ((await params).token ?? "").trim();
   if (!/^[a-f0-9]{64}$/.test(token)) return moimNotFound();
-  const g = await guardMoimRead(req, { rateKey: "invite_resolve", limit: 60 });
+  const g = await guardMoimRead(req, { rateKey: "invite_resolve", limit: 60, allowGuest: true });
   if (!g.ok) return g.response;
   const result = await moimInviteLinkResolve(token, g.sb);
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 404 });

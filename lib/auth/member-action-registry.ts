@@ -212,11 +212,13 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("PATCH", "/api/moim/[moimId]", "manage"),
   W("POST", "/api/moim/[moimId]/album", "new"),
   W("POST", "/api/moim/[moimId]/boards", "new"),
+  W("PUT", "/api/moim/[moimId]/boards", "manage"), // R5 C4 게시판 순서 저장
   W("POST", "/api/moim/[moimId]/close", "manage"),
   W("POST", "/api/moim/[moimId]/host-inactive-request", "new"), // 결정 2 2026-11-27: 관리자 큐에 새 요청 = 신청
   W("POST", "/api/moim/[moimId]/host-transfer", "manage"),
   W("POST", "/api/moim/[moimId]/invite-links", "new"),
   W("POST", "/api/moim/[moimId]/invites", "new"),
+  W("POST", "/api/moim/[moimId]/invites/check", "manage"), // R5 C2 초대 후보 확인(읽기성 POST)
   W("POST", "/api/moim/[moimId]/join", "new"),
   W("POST", "/api/moim/[moimId]/join-requests/[requestId]", "manage"),
   W("PATCH", "/api/moim/[moimId]/members/[userId]", "manage"),
@@ -230,7 +232,6 @@ export const MEMBER_WRITE_REGISTRY: readonly MemberWriteEntry[] = [
   W("POST", "/api/moim/album/[itemId]/pin", "manage"),
   W("POST", "/api/moim/host-transfers/[transferId]", "split"), // 결정 1 2026-11-27: 수락(accept:true)만 가입 필요, 거절은 가입 없이
   W("DELETE", "/api/moim/invite-links/[inviteId]", "manage"),
-  W("POST", "/api/moim/invites/[inviteId]", "split"),
   W("PATCH", "/api/moim/posts/[postId]", "manage"),
   W("POST", "/api/moim/posts/[postId]/comments", "new"),
   W("POST", "/api/moim/posts/[postId]/pin", "manage"),

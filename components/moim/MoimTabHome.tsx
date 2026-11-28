@@ -10,7 +10,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimCardDto, MoimCategoryDto } from "@/lib/moim/moim-api-types";
 import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { MoimMineItem } from "@/components/moim/MoimCard";
+import { MoimMineItem, arrangeMoimMine } from "@/components/moim/MoimCard";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MoimLocalList } from "@/components/moim/MoimLocalList";
 import { useMoimLocalList } from "@/components/moim/use-moim-local-list";
@@ -70,6 +70,8 @@ export function MoimTabHome() {
       alive = false;
     };
   }, []);
+
+  const mineView = arrangeMoimMine(mine ?? []);
 
   const onCreate = () => {
     if (categories && categories.length === 0) {
@@ -138,14 +140,26 @@ export function MoimTabHome() {
           <section>
             <div className={moimCls.sectionHead}>
               <h2 className={moimCls.sectionTitle}>{t("moim_home_mine_title")}</h2>
-              <span className={moimCls.sectionLink}>{t("moim_home_mine_count", { count: mine.length })}</span>
+              <span className={moimCls.sectionLink}>{t("moim_home_mine_count", { count: mineView.count })}</span>
             </div>
             <div className="flex min-w-0 gap-3 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {mine.map((m) => (
+              {mineView.items.map((m) => (
                 <MoimMineItem key={m.id} moim={m} />
               ))}
             </div>
           </section>
+        ) : null}
+
+        {/* R5 B1: 나간 모임·종료 모임에 남긴 내 글·댓글·사진을 지우는 길 (모임 페이지를 열 수 없을 때의 유일한 길) */}
+        {mine !== null ? (
+          <Link
+            href={moimRoutes.myContent()}
+            className="mx-4 mt-3 flex min-h-[length:var(--sam-tap-min)] items-center justify-between gap-2 text-[13px] text-sam-muted"
+            data-testid="moim-home-my-content-link"
+          >
+            <span>{t("moim_my_content_title")}</span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
+          </Link>
         ) : null}
 
 
@@ -157,7 +171,8 @@ export function MoimTabHome() {
           {categories && categories.length === 0 && !categoriesFailed ? (
             <p className={`${moimCls.noticeInfo} mx-4 mb-2`}>{t("moim_home_categories_preparing_body")}</p>
           ) : null}
-          <MoimLocalList list={list} emptyKey="moim_home_local_empty" />
+          {/* R5 B20: 카테고리가 아직 없으면 「첫 모임을 만들어 보세요」 대신 「아직 우리 동네에 모임이 없어요」 */}
+          <MoimLocalList list={list} emptyKey={moimLocalEmptyKey(categories)} />
         </section>
       </div>
 
@@ -171,4 +186,9 @@ export function MoimTabHome() {
       </button>
     </div>
   );
+}
+
+/** R5 B20: 동네 모임 빈 문구 — 카테고리 0개(만들 수 없음)면 만들기 권유 문구를 쓰지 않는다 */
+export function moimLocalEmptyKey(categories: readonly MoimCategoryDto[] | null): "moim_home_local_empty" | "moim_home_local_empty_preparing" {
+  return categories && categories.length === 0 ? "moim_home_local_empty_preparing" : "moim_home_local_empty";
 }

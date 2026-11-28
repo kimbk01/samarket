@@ -29,7 +29,7 @@ import {
   MOIM_ADMIN_REPORT_TARGET_TYPES,
   type MoimAdminPerson,
 } from "@/lib/admin/moim/moim-admin-contract";
-import { MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, useMoimReasonLabel, moimRoleKey } from "@/components/admin/moim/admin-moim-shared";
+import { MoimAdminGatedLink, MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, useMoimReasonLabel, moimRoleKey } from "@/components/admin/moim/admin-moim-shared";
 import { MoimReportDecisionPanel, type MoimReportDecisionBanner, type MoimReportResultAction } from "@/components/admin/moim/AdminMoimReportDecisionForm";
 import { adminChatLabel } from "@/lib/admin/status-labels/chat-status-labels";
 
@@ -96,10 +96,11 @@ export function AdminMoimReportsPage() {
       description={t("admin_moim_reports_desc")}
       actions={
         <div className="flex flex-wrap gap-2">
-          <AdminActionButton size="sm" variant="secondary" onClick={() => q.setExtra("view", view === "group" ? "" : "group")}>
+          <AdminActionButton size="sm" variant="secondary" onClick={() => q.patch({ extras: { view: view === "group" ? "" : "group", type: "" } })}>
             {t(view === "group" ? "admin_moim_reports_view_list" : "admin_moim_reports_view_group")}
           </AdminActionButton>
-          <AdminActionButton size="sm" variant="secondary" onClick={() => q.setExtra("view", view === "messenger" ? "" : "messenger")}>
+          {/* R5 D16: 메신저 신고 유형과 모임 대상 유형은 1:1 이 아니다 — 보기를 바꿀 때 대상 유형 필터를 비운다 */}
+          <AdminActionButton size="sm" variant="secondary" onClick={() => q.patch({ extras: { view: view === "messenger" ? "" : "messenger", type: "" } })}>
             {t(view === "messenger" ? "admin_moim_reports_view_list" : "admin_moim_reports_view_messenger")}
           </AdminActionButton>
         </div>
@@ -126,13 +127,15 @@ export function AdminMoimReportsPage() {
         />
       }
       filters={
-        <CommunityFilterField label={t("admin_moim_col_target")}>
-          <CommunitySelect
-            value={q.query.extras.type}
-            onChange={(v) => q.setExtra("type", v)}
-            options={[{ value: "", label: t("admin_moim_filter_any") }, ...MOIM_ADMIN_REPORT_TARGET_TYPES.map((v) => ({ value: v, label: t(`admin_moim_target_${v}` as MessageKey) }))]}
-          />
-        </CommunityFilterField>
+        view === "messenger" ? undefined : (
+          <CommunityFilterField label={t("admin_moim_col_target")}>
+            <CommunitySelect
+              value={q.query.extras.type}
+              onChange={(v) => q.setExtra("type", v)}
+              options={[{ value: "", label: t("admin_moim_filter_any") }, ...MOIM_ADMIN_REPORT_TARGET_TYPES.map((v) => ({ value: v, label: t(`admin_moim_target_${v}` as MessageKey) }))]}
+            />
+          </CommunityFilterField>
+        )
       }
       footer={<CommunityListPagination lq={q} total={total} disabled={state.status === "loading"} />}
     >
@@ -148,9 +151,9 @@ export function AdminMoimReportsPage() {
                   <td className={COMMUNITY_TD}>
                     <div>{adminChatLabel("report_target", r.report_type, ko).label}</div>
                     {r.room_id ? (
-                      <Link href={messengerQueueHref(r.room_id)} className="text-[12px] text-sam-primary hover:underline">
+                      <MoimAdminGatedLink href={messengerQueueHref(r.room_id)} className="text-[12px] text-sam-primary hover:underline">
                         {t("admin_moim_reports_messenger_open")}
-                      </Link>
+                      </MoimAdminGatedLink>
                     ) : null}
                   </td>
                   <td className={COMMUNITY_TD}>
@@ -253,8 +256,21 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v : null;
 }
 
+/**
+ * R5 D17: 대상 상태 문구 — 대상 종류별 기존 문구 (글·댓글·사진 = 콘텐츠 상태, 일정 = 일정 상태, 모임 = 모임 상태, 멤버 = 멤버 상태).
+ * 모르는 종류(채팅 메시지 등 상태 열 없음)는 null.
+ */
+export function moimReportTargetStatusKey(type: string, status: string): MessageKey | null {
+  if (type === "post" || type === "comment" || type === "album") return `admin_moim_content_status_${status}` as MessageKey;
+  if (type === "schedule") return `moim_schedule_status_${status}_badge` as MessageKey;
+  if (type === "moim") return `admin_moim_status_${status}` as MessageKey;
+  if (type === "member") return `admin_moim_member_status_${status}` as MessageKey;
+  return null;
+}
+
 function TargetPreview({ target }: { target: Record<string, unknown> | null }) {
   const { t } = useI18n();
+  const statusKey = str(target?.status) ? moimReportTargetStatusKey(String(target?.type), String(target?.status)) : null;
   if (!target) return <p className="text-[13px] text-sam-muted">{t("admin_moim_report_target_missing")}</p>;
   const images = Array.isArray(target.images) ? (target.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
   const url = str(target.url) ?? str(target.cover_image_url);
@@ -265,7 +281,7 @@ function TargetPreview({ target }: { target: Record<string, unknown> | null }) {
     <div className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]">
       <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
         <span>{t(`admin_moim_target_${String(target.type)}` as MessageKey)}</span>
-        {str(target.status) ? <span>· {String(target.status)}</span> : null}
+        {statusKey ? <span>· {t(statusKey)}</span> : null}
         {target.is_hidden_by_admin === true ? <span>· {t("admin_moim_message_hidden")}</span> : null}
         {str(target.deleted_at) ? <span>· {t("admin_moim_message_deleted")}</span> : null}
         {str(target.authorNickname) ? <span>· {String(target.authorNickname)}</span> : null}
@@ -297,24 +313,23 @@ function TargetPreview({ target }: { target: Record<string, unknown> | null }) {
         </div>
       ) : null}
       {str(target.room_id) ? (
-        <Link href={`/admin/chats/messenger/${encodeURIComponent(String(target.room_id))}`} className="text-sam-primary hover:underline">
-          {t("admin_moim_open_chat")}
-        </Link>
+        <MoimAdminGatedLink href={`/admin/chats/messenger/${encodeURIComponent(String(target.room_id))}`}>{t("admin_moim_open_chat")}</MoimAdminGatedLink>
       ) : null}
     </div>
   );
 }
 
 function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onClose: () => void; onChanged: () => void }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const { label: reasonLabel } = useMoimReasonLabel();
   const [banner, setBanner] = useState<MoimReportDecisionBanner>(null);
   const { state, reload } = useCommunityAdminJson<DetailResponse>(`/api/admin/moim/reports/${encodeURIComponent(reportId)}`);
   const d = state.status === "ok" ? state.data : null;
   return (
     <AdminFormSheet title={t("admin_moim_report_detail_title")} onClose={onClose}>
-      {state.status === "loading" && !d ? <AdminLoadingState ko /> : null}
-      {state.status === "error" ? <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
+      {state.status === "loading" && !d ? <AdminLoadingState ko={ko} /> : null}
+      {state.status === "error" ? <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
       {d ? (
         <div className="space-y-4 text-[13px]">
           <dl className="grid gap-2 sm:grid-cols-2">
@@ -375,6 +390,7 @@ function ReportDrawer({ reportId, onClose, onChanged }: { reportId: string; onCl
               warnCount: d.warnCount ?? null,
               openSameTargetCount: d.openSameTargetCount ?? null,
               resultActions: d.resultActions ?? [],
+              moimStatus: d.report.moim?.status ?? null,
             }}
             banner={banner}
             setBanner={setBanner}

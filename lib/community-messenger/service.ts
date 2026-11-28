@@ -2165,15 +2165,17 @@ async function fetchRoomProfilesByRoomIds(roomIds: string[]): Promise<Map<string
 /**
  * 방 프로필 적용. `moimOwned` = 모임 소유 방(owner_domain='moim') — 멤버 부제를 메신저 기본 부제(공개 DIBAY ID 등)로
  * 대신 채우지 않는다. 모임 방 신원은 모임 프로필만 (모임 R4 §5(b)① · 계약 §4 신원).
+ * 모임 방 사진도 모임 프로필 사진만 — 비우면 DIBAY 사진으로 대신 채우지 않고 null(머리글자 동그라미) (모임 R5 A19).
+ * 시험용으로 내보낸다.
  */
-function resolveRoomProfileLite(
+export function resolveRoomProfileLite(
   baseProfile: CommunityMessengerProfileLite | undefined,
   roomProfile: RoomProfileRow | DevRoomProfile | undefined,
   opts?: { moimOwned?: boolean }
 ): CommunityMessengerProfileLite | undefined {
   if (!baseProfile) return undefined;
   const moimOwned = opts?.moimOwned === true;
-  if (!roomProfile) return moimOwned ? { ...baseProfile, subtitle: undefined } : baseProfile;
+  if (!roomProfile) return moimOwned ? { ...baseProfile, subtitle: undefined, avatarUrl: null } : baseProfile;
   const isDbProfile = "room_id" in roomProfile;
   const identityMode = (isDbProfile ? roomProfile.identity_mode : roomProfile.identityMode) as CommunityMessengerIdentityMode;
   if (identityMode !== "alias") {
@@ -2185,7 +2187,7 @@ function resolveRoomProfileLite(
       ...(moimOwned ? { subtitle: undefined } : {}),
       identityMode: "real_name",
       aliasProfile: null,
-      avatarUrl: safeAvatar,
+      avatarUrl: moimOwned ? null : safeAvatar,
     };
   }
   const displayName = trimText(isDbProfile ? roomProfile.display_name : roomProfile.displayName);
@@ -2196,7 +2198,7 @@ function resolveRoomProfileLite(
   const rawBaseAvatar = trimText(baseProfile.avatarUrl);
   const fromBase =
     rawBaseAvatar && !isCommunityMessengerStickerPublicPath(rawBaseAvatar) ? rawBaseAvatar : null;
-  const avatarUrl = fromRoom ?? fromBase;
+  const avatarUrl = moimOwned ? fromRoom : fromRoom ?? fromBase;
   return {
     ...baseProfile,
     label: displayName || baseProfile.label,

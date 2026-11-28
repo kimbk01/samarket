@@ -139,6 +139,10 @@ export const MEMBER_CONSENT_EXEMPT_RULES: readonly Rule[] = [
   R("DELETE", "/api/moim/comments/[commentId]", "delete_own_content"),
   R("DELETE", "/api/moim/schedules/[scheduleId]/join", "leave"),
   R("DELETE", "/api/moim/album/[itemId]", "delete_own_content"),
+  // R5 B5: 초대 응답 — 거절 분기는 동의 예외. 수락 분기는 라우트가 약관 → 가입 → 이용 제한·휴대폰을 확인한다(split 과 같은 모양)
+  R("POST", "/api/moim/invites/[inviteId]", "leave"),
+  // R5 C5: 내가 보낸 위임 요청 취소 — 물러나는 동작
+  R("DELETE", "/api/moim/host-transfers/[transferId]", "leave"),
   R("DELETE", "/api/community-messenger/friends/[friendUserId]", "leave"),
   R("POST", "/api/community-messenger/friends/[friendUserId]/hidden", "leave"),
   R("DELETE", "/api/community-messenger/relations/friend", "leave"),

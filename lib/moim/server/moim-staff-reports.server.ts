@@ -31,6 +31,9 @@ export async function listMoimStaffReports(
 ): Promise<{ reports: MoimStaffReportDto[]; capped: boolean } | null> {
   if (!moimCanMap(access).hide_post) return null;
   const moimId = access.moim.id;
+  /** R5 C3: 운영진 본인 콘텐츠면 화면이 「삭제」로 처리한다 */
+  const viewerId = access.me?.user_id ?? null;
+  const mine = (authorId: string | null | undefined) => !!viewerId && authorId === viewerId;
   const { data, error } = await sb
     .from("moim_reports")
     .select("target_type, target_id, reason_code, created_at")
@@ -110,6 +113,7 @@ export async function listMoimStaffReports(
         imageUrl: gone ? null : firstImage,
         postId: p ? p.id : null,
         authorNickname: p && p.author_id ? nickMap.get(p.author_id) ?? null : null,
+        viewerIsAuthor: mine(p?.author_id),
       };
     }
     if (g.type === "comment") {
@@ -123,6 +127,7 @@ export async function listMoimStaffReports(
         imageUrl: null,
         postId: c?.post_id ?? null,
         authorNickname: c && c.author_id ? nickMap.get(c.author_id) ?? null : null,
+        viewerIsAuthor: mine(c?.author_id),
       };
     }
     const a = albumMap.get(g.id);
@@ -135,6 +140,7 @@ export async function listMoimStaffReports(
       imageUrl: status === "deleted" ? null : a?.url ?? null,
       postId: null,
       authorNickname: a && a.uploader_id ? nickMap.get(a.uploader_id) ?? null : null,
+      viewerIsAuthor: mine(a?.uploader_id),
     };
   });
   // 숨길 수 있는 것(진행 중) 먼저 · 신고 많은 순 · 최근 순

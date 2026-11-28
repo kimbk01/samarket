@@ -20,6 +20,8 @@ import { MoimAvatar, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, u
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { MoimNoticeBadge } from "@/components/moim/MoimPostRow";
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
+import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
+import { moimPostGate, moimReadOnlyReason } from "@/lib/moim/moim-state-gate";
 
 /**
  * 댓글 칸 머리·안내 (R3 U-05 · D-35): 비회원은 댓글 내용·작성자를 받지 않는다 → 수는 목록과 같은 `post.commentCount`,
@@ -85,6 +87,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   const [report, setReport] = useState<MoimReportTarget | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const { openAt: openImage, viewer: imageViewer } = useDibayImageViewer();
 
   useEffect(() => {
     let alive = true;
@@ -115,7 +118,8 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
     setCommentsBefore(r.nextBefore);
   };
 
-  const board = post ? moim?.boards.find((b) => b.id === post.boardId) ?? { kind: post.boardKind, name: null } : null;
+  /** R5 B19: 게시판 목록을 받지 못한 비멤버도 사용자 게시판 이름을 보인다 */
+  const board = post ? moim?.boards.find((b) => b.id === post.boardId) ?? { kind: post.boardKind, name: post.boardName } : null;
 
   const rightSlot = useMemo(
     () =>
@@ -170,7 +174,12 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
     reload();
   };
   const removeComment = async (c: MoimCommentDto) => {
-    const ok = await dibayConfirm({ title: t("moim_comment_delete_confirm_title"), confirmLabel: t("common_delete"), cancelLabel: t("common_cancel"), confirmTone: "destructive" });
+    /** R5 B3: 남의 댓글은 지우는 것이 아니라 숨기는 것 — 확인창도 「숨길까요?」 */
+    const ok = await dibayConfirm(
+      c.viewerIsAuthor
+        ? { title: t("moim_comment_delete_confirm_title"), confirmLabel: t("common_delete"), cancelLabel: t("common_cancel"), confirmTone: "destructive" }
+        : { title: t("moim_comment_hide_confirm_title"), confirmLabel: t("moim_post_hide_btn"), cancelLabel: t("common_cancel"), confirmTone: "destructive" }
+    );
     if (!ok) return;
     const r = await moimApi.removeComment(c.id);
     if (!r.ok) return toast.show(t(moimErrorKey(r.error)), "error");
@@ -192,27 +201,31 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
     );
   }
 
-  const can = moim?.can;
+  /**
+   * R5 R-A (B2·B17): 모임 상태 → 할 수 있는 동작 한 곳. 모임 상세가 아직 없으면 작성자의 수정·삭제만(글 응답으로 앎),
+   * 하단 줄은 그리지 않는다(깜빡임 방지).
+   */
+  const gate = moim ? moimPostGate(moim, post, viewerIsMember) : null;
   /** ⋮ 순서 (R3 1-1): 일반(수정·고정) → 신고 → 위험(삭제·숨김) */
   const items: DibayActionSheetItem[] = [];
-  if (post.viewerIsAuthor) {
+  if (gate ? gate.canEdit : post.viewerIsAuthor) {
     items.push({ key: "edit", label: t("common_edit"), onClick: () => router.push(`${moimRoutes.write(moimId)}?edit=${post.id}`) });
   }
-  if (post.boardKind === "notice" && can?.pin_notice) {
+  if (gate?.canPin) {
     items.push({ key: "pin", label: post.isPinned ? t("moim_post_unpin_btn") : t("moim_post_pin_btn"), onClick: () => void togglePin() });
   }
-  if (!post.viewerIsAuthor && moim?.viewer.loggedIn) {
+  if (gate?.canReport) {
     items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "post", id: post.id }) });
   }
   if (post.viewerIsAuthor) {
     items.push({ key: "delete", label: t("common_delete"), danger: true, onClick: () => void removePost() });
-  } else if (can?.hide_post) {
+  } else if (gate?.canHide) {
     items.push({ key: "hide", label: t("moim_post_hide_btn"), danger: true, onClick: () => void hidePost() });
   }
   const commentSection = moimCommentSection(viewerIsMember, post, comments.length, !!commentsBefore);
 
   const commentItems: DibayActionSheetItem[] = commentMenu
-    ? commentMenu.viewerIsAuthor || can?.hide_post
+    ? commentMenu.viewerIsAuthor || gate?.canHide
       ? [{ key: "delete", label: commentMenu.viewerIsAuthor ? t("common_delete") : t("moim_post_hide_btn"), danger: true, onClick: () => void removeComment(commentMenu) }]
       : [{ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "comment", id: commentMenu.id }) }]
     : [];
@@ -230,9 +243,18 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
           <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-sam-fg">{post.body}</p>
           {post.images.length > 0 ? (
             <div className="mt-3 grid gap-2">
+              {/* R5 B8: 누르면 공용 사진 뷰어 */}
               {post.images.map((u, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${u}-${i}`} src={u} alt="" className="w-full rounded-ui-rect bg-sam-surface-muted object-cover" />
+                <button
+                  key={`${u}-${i}`}
+                  type="button"
+                  className="block w-full rounded-ui-rect"
+                  aria-label={t("moim_post_image_aria", { n: i + 1 })}
+                  onClick={() => openImage(post.images, i)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="w-full rounded-ui-rect bg-sam-surface-muted object-cover" />
+                </button>
               ))}
             </div>
           ) : null}
@@ -273,37 +295,52 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
         </section>
       </article>
 
-      <MoimStickyFooter compact>
-        <div className={moimCls.column}>
-          {viewerIsMember ? (
-            <div className="flex items-end gap-2">
-              <textarea
-                className={`${moimCls.textarea} flex-1 resize-none py-2`}
-                rows={1}
-                value={draft}
-                maxLength={2000}
-                placeholder={t("moim_comment_placeholder")}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              <button type="button" className={`${moimCls.btnPrimary} ${moimCls.btnSm}`} disabled={!draft.trim() || sending} onClick={sendComment}>
-                {t("moim_comment_send_btn")}
-              </button>
-            </div>
-          ) : moim && !moim.viewer.loggedIn ? (
-            <Link href={buildLoginPath(pathname ?? undefined)} className={`${moimCls.btnSecondary} w-full`}>
-              {t("moim_comment_login_btn")}
-            </Link>
-          ) : (
-            <Link href={moimRoutes.home(moimId)} className={`${moimCls.btnSecondary} w-full`}>
-              {t("moim_comment_join_btn")}
-            </Link>
-          )}
-        </div>
-      </MoimStickyFooter>
+      {gate ? (
+        <MoimStickyFooter compact>
+          <div className={moimCls.column}>
+            {gate.footer === "composer" ? (
+              <div className="flex items-end gap-2">
+                <textarea
+                  className={`${moimCls.textarea} flex-1 resize-none py-2`}
+                  rows={1}
+                  value={draft}
+                  maxLength={2000}
+                  placeholder={t("moim_comment_placeholder")}
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+                <button type="button" className={`${moimCls.btnPrimary} ${moimCls.btnSm}`} disabled={!draft.trim() || sending} onClick={sendComment}>
+                  {t("moim_comment_send_btn")}
+                </button>
+              </div>
+            ) : gate.footer === "readonly" ? (
+              <p role="status" className="py-1 text-center text-[13px] text-sam-muted" data-testid="moim-post-footer-readonly">
+                {t(moimReadOnlyReason(moim) === "blocked" ? "moim_err_moim_blocked" : "moim_screen_closed_notice")}
+              </p>
+            ) : gate.footer === "login" ? (
+              <Link href={buildLoginPath(pathname ?? undefined)} className={`${moimCls.btnSecondary} w-full`}>
+                {t("moim_comment_login_btn")}
+              </Link>
+            ) : gate.footer === "banned" ? (
+              <p role="status" className="py-1 text-center text-[13px] text-sam-muted">
+                {t("moim_err_moim_join_not_allowed")}
+              </p>
+            ) : gate.footer === "pending" ? (
+              <p role="status" className="py-1 text-center text-[13px] text-sam-muted">
+                {t("moim_comment_pending_note")}
+              </p>
+            ) : (
+              <Link href={moimRoutes.home(moimId)} className={`${moimCls.btnSecondary} w-full`}>
+                {t("moim_comment_join_btn")}
+              </Link>
+            )}
+          </div>
+        </MoimStickyFooter>
+      ) : null}
 
       <DibayActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} cancelLabel={t("common_cancel")} items={items} notice={items.length === 0 ? t("moim_menu_empty") : undefined} />
       <DibayActionSheet open={commentMenu != null} onClose={() => setCommentMenu(null)} cancelLabel={t("common_cancel")} items={commentItems} />
       <MoimReportSheet moimId={moimId} reasons={moim?.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      {imageViewer}
       {toast.node}
     </div>
   );

@@ -8,7 +8,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadAdminMoimName } from "@/lib/admin/moim/moim-admin-queries.server";
 import { moimAdminBad, moimAdminJson, moimAdminReason, moimAdminRpcResponse, moimAdminUuid } from "@/lib/admin/moim/moim-admin-route.server";
 import { moimAdminHostRequestDecide } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimHostChanged, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,15 +29,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     /** 발송은 응답 뒤 (R2 R-e) */
     notifyMoimAfterResponse(async () => {
       const name = await loadAdminMoimName(gate.sb, moimId);
+      /** R5 E16: 모임장 변경 알림은 공용 함수 하나 (새 모임장 모임 닉네임 · 비면 대체 이름) */
       if (r.approved && r.to_user_id) {
-        const { data: m } = await gate.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", r.to_user_id).maybeSingle();
-        await notifyMoimMany(gate.sb, r.notify_user_ids ?? [], {
-          kind: "moim_host_changed",
-          moimId,
-          linkUrl: moimPaths.home(moimId),
-          dedupeRef: transferId,
-          vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
-        });
+        await notifyMoimHostChanged(gate.sb, moimId, r.to_user_id, r.notify_user_ids ?? [], transferId);
       }
       if (r.requester_id) {
         await notifyMoimMany(gate.sb, [r.requester_id], {

@@ -272,6 +272,8 @@ export type AdminChatReportSheetInput = {
   cmMessageId: string | null;
   /** CM 방 id (방 정지 제재 가능) */
   cmRoomId: string | null;
+  /** R5 D5: 모임 방이면 방 정지 제재를 고를 수 없다 (차단·보관은 모임 상태에 따라 모임 함수만 — 서버도 422) */
+  cmRoomManagedByMoim?: boolean;
   reportedUserHref: string | null;
 };
 
@@ -296,7 +298,7 @@ export function adminChatReportActionsFor(input: AdminChatReportSheetInput): Adm
   if (input.bucket === "received") out.push("reviewing");
   out.push("resolved", "rejected");
   if (input.cmMessageId) out.push("sanction_message_hide");
-  if (input.cmRoomId) out.push("sanction_room_block");
+  if (input.cmRoomId && !input.cmRoomManagedByMoim) out.push("sanction_room_block");
   return out;
 }
 

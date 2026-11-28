@@ -77,6 +77,7 @@ import { resetMessengerBottomChatUnreadForAuthEpoch } from "@/lib/notifications/
 import { clearMessengerAttachmentRecent } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
 import { clearMessengerFailedTextSends } from "@/lib/community-messenger/room/messenger-failed-text-store";
 import { clearLastRunSnapshot } from "@/lib/startup/last-run-snapshot";
+import { clearMoimRoomOwnerCacheForAuthChange } from "@/lib/moim/use-moim-room-owner";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -177,6 +178,8 @@ function resetInMemoryClientStores(): void {
   clearMessengerAttachmentRecent();
   /** P1 — 이전 계정의 메신저 실패 글(재전송 대기) 보관 폐기 */
   clearMessengerFailedTextSends();
+  /** 모임 R5 A13 — 이전 계정의 모임 방 판정(역할·권한·모임 상태)·실패·대기 폐기 */
+  clearMoimRoomOwnerCacheForAuthChange();
 }
 
 function resetAddressClientCaches(): void {

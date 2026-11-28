@@ -15,6 +15,7 @@ import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-roo
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimScheduleDto, MoimScheduleParticipantDto } from "@/lib/moim/moim-api-types";
 import { MOIM_LIST_CAP } from "@/lib/moim/moim-api-types";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { canWriteMoimBoard } from "@/components/moim/MoimMemberView";
@@ -26,12 +27,23 @@ import {
   formatMoimScheduleCount,
   formatMoimScheduleWhen,
   moimScheduleDisplayStatus,
-  moimScheduleStarted,
 } from "@/components/moim/moim-schedule-ui";
 import { MoimAvatar, MoimEmptyState, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
+import { useDibayImageViewer } from "@/components/common/media/DibayImageViewer";
+import { moimScheduleGate } from "@/lib/moim/moim-state-gate";
 
 const MOTIVATION_MIN = 8;
+
+/** R5 C8: 일정 참여 신청이 이미 처리됨 — 새 코드(moim_schedule_request_not_found)와 옛 DB 코드(moim_request_not_found) 둘 다 */
+export function isMoimScheduleRequestGone(code: string | undefined | null): boolean {
+  return code === "moim_schedule_request_not_found" || code === "moim_request_not_found";
+}
+
+/** 일정 참여 처리 오류 문구 — 가입 신청 문구(moim_request_not_found)를 일정 화면에 쓰지 않는다 */
+export function moimScheduleRequestErrorKey(code: string | undefined | null): MessageKey {
+  return isMoimScheduleRequestGone(code) ? "moim_err_moim_schedule_request_not_found" : moimErrorKey(code);
+}
 const MOTIVATION_MAX = 500;
 
 type Toast = (message: string, tone?: "default" | "success" | "error") => void;
@@ -195,13 +207,14 @@ function ScheduleBody({
     return () => clearInterval(id);
   }, []);
 
-  const started = moimScheduleStarted(s, now);
-  const finished = s.status === "done" || s.status === "cancelled";
-  const live = !finished && moim.status === "active" && moim.platformState !== "blocked";
+  /** R5 R-A: 모임·일정 상태 → 할 수 있는 동작 (한 곳) */
+  const gate = moimScheduleGate(moim, s, now);
+  const { started, live } = gate;
   const confirmed = participants.filter((p) => p.status === "confirmed");
   const requested = participants.filter((p) => p.status === "requested");
   const my = s.viewer.status;
   const manage = s.viewer.canManage && live;
+  const { openAt: openImage, viewer: imageViewer } = useDibayImageViewer();
   const reviewBoard = moim.boards.find((b) => b.kind === "review" && canWriteMoimBoard(moim, b)) ?? null;
 
   const run = async (fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) => {
@@ -210,7 +223,10 @@ function ScheduleBody({
     const r = await fn();
     setBusy(false);
     if (!r.ok) {
-      onToast(t(moimErrorKey((r as { error?: string }).error)), "error");
+      const code = (r as { error?: string }).error;
+      onToast(t(moimScheduleRequestErrorKey(code)), "error");
+      /** R5 C8: 다른 운영진이 먼저 처리한 신청 → 목록을 다시 불러온다 */
+      if (isMoimScheduleRequestGone(code)) onReload();
       return false;
     }
     onToast(okMsg, "success");
@@ -368,9 +384,8 @@ function ScheduleBody({
   }
 
   // 출석은 시작 뒤 · 끝난 일정도 체크 가능 (설계 P10 「종료 후」), 취소 일정은 제외
-  const showAttendance =
-    s.viewer.canManage && started && s.status !== "cancelled" && moim.status === "active" && moim.platformState !== "blocked";
-  const canClose = manage && !started && (s.status === "recruiting" || s.status === "full" || s.status === "closed");
+  const showAttendance = gate.canAttendance;
+  const canClose = gate.canToggleClosed;
 
   /**
    * 시안 U5 머리글 ⋮ (감사 F11): 본문 「일정 관리」 칸의 수정·마감/다시 열기·일정 취소를 머리글 메뉴로 옮긴다.
@@ -378,8 +393,8 @@ function ScheduleBody({
    */
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const canEditMenu = manage && !started;
-  const canCancelMenu = manage && (!s.viewer.isHost || my !== "confirmed");
+  const canEditMenu = gate.canEdit;
+  const canCancelMenu = gate.canCancel && (!s.viewer.isHost || my !== "confirmed");
   /** R3 W6·W7: 일정 신고 (계약 P13 「일정 … 각 화면의 ⋮」) — 일정을 연 사람(호스트)이 아니면 누구나 */
   const canReport = moim.viewer.loggedIn && !s.viewer.isHost;
   const hasMenu = canEditMenu || canClose || canCancelMenu || canReport;
@@ -453,7 +468,8 @@ function ScheduleBody({
             <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>
               {s.joinMode === "approval" ? t("moim_schedule_approval_badge") : t("moim_schedule_first_come_badge")}
             </span>
-            <MoimScheduleMyBadge status={my} />
+            {/* R5 B7: 취소된 일정에는 「취소됨」 배지만 */}
+            {gate.showMyBadge ? <MoimScheduleMyBadge status={my} /> : null}
           </div>
           <h1 className="mt-1.5 break-words text-[18px] font-bold text-sam-fg">{s.title}</h1>
           <div className="mt-2">
@@ -474,9 +490,18 @@ function ScheduleBody({
           {s.description ? <p className="mt-2 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{s.description}</p> : null}
           {s.images.length > 0 ? (
             <div className="mt-3 grid gap-2">
+              {/* R5 B8: 누르면 공용 사진 뷰어 */}
               {s.images.map((u, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={`${u}-${i}`} src={u} alt="" className="w-full rounded-ui-rect bg-sam-surface-muted object-cover" />
+                <button
+                  key={`${u}-${i}`}
+                  type="button"
+                  className="block w-full rounded-ui-rect"
+                  aria-label={t("moim_post_image_aria", { n: i + 1 })}
+                  onClick={() => openImage(s.images, i)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt="" className="w-full rounded-ui-rect bg-sam-surface-muted object-cover" />
+                </button>
               ))}
             </div>
           ) : null}
@@ -503,7 +528,7 @@ function ScheduleBody({
           </div>
         ) : null}
 
-        {manage && requested.length > 0 ? (
+        {gate.canDecideRequests && requested.length > 0 ? (
           <section>
             <div className={moimCls.sectionHead}>
               <h2 className={moimCls.sectionTitle}>{t("moim_schedule_requests_title", { count: requested.length })}</h2>
@@ -537,7 +562,7 @@ function ScheduleBody({
           <div className={moimCls.sectionHead}>
             <h2 className={moimCls.sectionTitle}>{t("moim_schedule_confirmed_title", { count: confirmed.length })}</h2>
           </div>
-          {participantsCapped ? <p className="px-4 pb-2 text-[12px] text-sam-meta">{t("moim_list_capped_hint", { count: MOIM_LIST_CAP })}</p> : null}
+          {participantsCapped ? <p className="px-4 pb-2 text-[12px] text-sam-meta">{t("moim_list_capped_people_hint", { count: MOIM_LIST_CAP })}</p> : null}
           {confirmed.length === 0 ? (
             <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_confirmed_empty")}</p>
           ) : (
@@ -581,7 +606,7 @@ function ScheduleBody({
                           ))}
                         </span>
                       ) : null}
-                      {manage && !started && !isHost && !self ? (
+                      {gate.canRemoveParticipant && !isHost && !self ? (
                         <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} shrink-0`} onClick={() => removeParticipant(p)}>
                           {t("moim_schedule_remove_btn")}
                         </button>
@@ -608,6 +633,7 @@ function ScheduleBody({
 
       <DibayActionSheet open={menuOpen} onClose={() => setMenuOpen(false)} cancelLabel={t("common_cancel")} items={menuItems} />
       {shareSheet}
+      {imageViewer}
       {cta ? (
         <MoimStickyFooter>
           <div className={moimCls.column}>{cta}</div>

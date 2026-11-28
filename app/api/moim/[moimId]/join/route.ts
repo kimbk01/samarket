@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { guardMoimWrite, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimJoin, moimJoinCancel } from "@/lib/moim/server/moim-rpc.server";
+import { readMoimJoinAnswers } from "@/lib/moim/moim-state-gate";
 import { notifyMoimAfterResponse, notifyMoimJoinRequested, notifyMoimMemberJoined } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
@@ -14,11 +16,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const g = await guardMoimWrite(req, { rateKey: "join", limit: 10, phone: true });
   if (!g.ok) return g.response;
   const body = (await readMoimJson<{ answers?: unknown; nickname?: unknown; avatarUrl?: unknown; bio?: unknown; inviteToken?: unknown }>(req)) ?? {};
+  /** R5 B11: 1,000자를 넘는 답은 자르지 않고 거부 */
+  const answers = readMoimJoinAnswers(body.answers);
+  if (answers === "too_long") return NextResponse.json({ ok: false, error: "moim_join_answer_too_long" }, { status: 400 });
   const result = await moimJoin(
     g.userId,
     moimId,
     {
-      answers: Array.isArray(body.answers) ? body.answers.map((a) => (typeof a === "string" ? a.slice(0, 1000) : "")).slice(0, 3) : [],
+      answers: answers ?? [],
       profile: {
         nickname: typeof body.nickname === "string" ? body.nickname : undefined,
         avatarUrl: typeof body.avatarUrl === "string" ? body.avatarUrl : undefined,

@@ -30,6 +30,10 @@ describe("사진 확대 진입점 — 공용 뷰어 하나", () => {
     "components/community/post-detail/ImportedRichContent.tsx",
     "components/product/detail/ProductImageGallery.tsx",
     "components/stores/StoreDetailPublic.tsx",
+    /** R5 B8·B9: 모임 앨범·글·일정 사진 */
+    "components/moim/MoimAlbum.tsx",
+    "components/moim/MoimPostDetailScreen.tsx",
+    "components/moim/MoimScheduleDetailScreen.tsx",
   ];
   it.each(entryPoints)("%s 는 DibayImageViewer 를 쓴다", (f) => {
     expect(read(f)).toContain("@/components/common/media/DibayImageViewer");
@@ -38,6 +42,10 @@ describe("사진 확대 진입점 — 공용 뷰어 하나", () => {
   it("옛 메신저 전용 뷰어·옛 게시글 뷰어 파일이 없다", () => {
     expect(existsSync(join(process.cwd(), "components/community-messenger/room/MessengerImageLightbox.tsx"))).toBe(false);
     expect(existsSync(join(process.cwd(), "components/common/media/PostImageViewer.tsx"))).toBe(false);
+  });
+
+  it("구조 확인: 모임 앨범 전용 뷰어(MoimAlbumViewer)가 없다 (R5 B8)", () => {
+    expect(read("components/moim/MoimAlbum.tsx")).not.toContain("MoimAlbumViewer");
   });
 
   it("메신저 말풍선은 말풍선 썸네일을 placeholder 로 넘긴다", () => {
@@ -132,6 +140,28 @@ describe("DibayImageViewer 계약", () => {
         if (prevDecode) proto.decode = prevDecode;
         else delete proto.decode;
       }
+    });
+
+    it("onMore 를 주면 「⋯」 버튼이 생기고, 누르면 지금 칸 번호를 넘긴다 (R5 B8·B9)", () => {
+      const onMore = vi.fn();
+      const items = [
+        { display: "https://x.test/a.webp", original: "https://x.test/a.webp" },
+        { display: "https://x.test/b.webp", original: "https://x.test/b.webp" },
+      ];
+      act(() => {
+        root.render(<DibayImageViewer open items={items} index={1} onClose={() => {}} onMore={onMore} moreLabel="more" />);
+      });
+      const btn = document.querySelector('[data-testid="image-viewer-more"]') as HTMLButtonElement | null;
+      expect(btn?.getAttribute("aria-label")).toBe("more");
+      act(() => btn?.click());
+      expect(onMore).toHaveBeenCalledWith(1);
+    });
+
+    it("onMore 가 없으면 「⋯」 버튼이 없다 (다른 진입점 그대로)", () => {
+      act(() => {
+        root.render(<DibayImageViewer open items={[{ display: "https://x.test/a.webp", original: "https://x.test/a.webp" }]} index={0} onClose={() => {}} />);
+      });
+      expect(document.querySelector('[data-testid="image-viewer-more"]')).toBeNull();
     });
 
     it("placeholder 가 없으면 로딩 표시", () => {

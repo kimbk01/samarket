@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MOIM_JOIN_ANSWER_MAX } from "@/lib/moim/moim-state-gate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibaySheetHeader, DibayUsableAreaSheet } from "@/components/ui/dibay-overlay";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
@@ -83,9 +84,14 @@ export function MoimJoinSheet({
             <textarea
               className={`${inMoimSheet(moimCls.textarea)} min-h-[72px]`}
               value={answers[i] ?? ""}
+              maxLength={MOIM_JOIN_ANSWER_MAX}
               onChange={(e) => setAnswers((as) => as.map((x, j) => (j === i ? e.target.value : x)))}
               placeholder={t("moim_join_answer_placeholder")}
             />
+            {/* R5 B11: 1,000자에서 멈추고 몰래 자르지 않는다 */}
+            <span className={`${moimCls.hint} text-right`}>
+              {(answers[i] ?? "").length}/{MOIM_JOIN_ANSWER_MAX}
+            </span>
           </label>
         ))}
         <div className="grid gap-1.5">

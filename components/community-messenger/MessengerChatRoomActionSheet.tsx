@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
 import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface } from "@/lib/moim/moim-room-surface-policy";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import {
@@ -175,11 +176,18 @@ export function MessengerChatRoomActionSheet({
         ]
       : []),
   ];
-  /** 모임 방은 모임에서만 나간다 (목록이 이미 조회한 결과로 판단). 모임 방이거나 아직 판정 중(unknown)이면 나가기를 숨긴다 (모임 R4 #14 · 판정 실패면 보임) */
-  /** 판정 결과를 구독 — 시트가 판정 전에 열려도 판정이 끝나면 다시 그린다 */
+  /**
+   * 모임 방은 모임에서만 나간다 — 모임 방이거나 판정 중·실패면 나가기를 숨긴다 (모임 R5 A §1 표면 규칙 · Owner 결정 1: 실패도 숨김).
+   * 판정 결과를 구독 — 시트가 판정 전에 열려도 판정이 끝나면 다시 그린다.
+   */
   const moimOwnerState = useMoimRoomOwnerState(isPrivateGroup ? room.id : null);
-  const isMoimRoom = isPrivateGroup && (Boolean(moimOwnerState.owner) || !moimOwnerState.resolved);
-  const dangerItems: DibayMenuItem[] = onLeave && !isMoimRoom
+  const moimSurface = resolveMoimRoomSurface({
+    roomType: isPrivateGroup ? "private_group" : null,
+    owner: moimOwnerState.owner,
+    ownerStatus: moimOwnerState.status,
+    viewerUserId: null,
+  });
+  const dangerItems: DibayMenuItem[] = onLeave && moimSurface.messengerManagement
     ? [{ key: "leave", icon: <LeaveIcon />, label: t("cm_ui_leave"), onClick: onLeave, disabled: anyBusy || isLeaveBusy, danger: true }]
     : [];
 

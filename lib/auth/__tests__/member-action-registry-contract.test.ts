@@ -110,7 +110,6 @@ describe("분류 — 설계 §4 대표", () => {
   it.each([
     ["PATCH", "/api/community-messenger/friend-requests/r1"],
     ["POST", "/api/community-messenger/friend-requests/respond-incoming"],
-    ["POST", "/api/moim/invites/i1"],
     ["POST", "/api/favorites/toggle"],
     ["POST", "/api/community/neighbor-relations"],
     ["POST", "/api/community-messenger/rooms"],

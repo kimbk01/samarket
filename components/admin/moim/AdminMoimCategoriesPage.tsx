@@ -25,7 +25,9 @@ type Draft = { id: string | null; slug: string; labelKo: string; labelEn: string
 const EMPTY: Draft = { id: null, slug: "", labelKo: "", labelEn: "", sortOrder: "0", isActive: true, isRestricted: false, allowCustomTopic: false, updatedAt: null };
 
 export function AdminMoimCategoriesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  /** R5 D18: 영어 어드민은 로딩·실패·빈 목록도 영어 */
+  const ko = language !== "en";
   const { state, reload } = useCommunityAdminJson<ListResponse>("/api/admin/moim/categories");
   const rows = state.data?.categories ?? [];
   const topicRank = state.data?.topicRank ?? [];
@@ -45,9 +47,9 @@ export function AdminMoimCategoriesPage() {
       }
       banner={node}
     >
-      {state.status === "loading" && !state.data ? <AdminLoadingState ko /> : null}
-      {state.status === "error" ? <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
-      {state.status === "ok" && rows.length === 0 ? <AdminEmptyState ko message={t("admin_moim_categories_empty")} /> : null}
+      {state.status === "loading" && !state.data ? <AdminLoadingState ko={ko} /> : null}
+      {state.status === "error" ? <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
+      {state.status === "ok" && rows.length === 0 ? <AdminEmptyState ko={ko} message={t("admin_moim_categories_empty")} /> : null}
       {rows.length ? (
         <CommunityTable
           head={[
@@ -102,7 +104,7 @@ export function AdminMoimCategoriesPage() {
           <h3 className="text-[14px] font-bold text-sam-fg">{t("admin_moim_topic_rank_title")}</h3>
           <p className="text-[12px] text-sam-muted">{t("admin_moim_topic_rank_desc")}</p>
           {topicRank.length === 0 ? (
-            <AdminEmptyState ko message={t("admin_moim_topic_rank_empty")} />
+            <AdminEmptyState ko={ko} message={t("admin_moim_topic_rank_empty")} />
           ) : (
             <CommunityTable head={[t("admin_moim_topic_rank_col_topic"), t("admin_moim_topic_rank_col_count")]}>
               {topicRank.map((r) => (

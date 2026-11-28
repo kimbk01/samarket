@@ -49,6 +49,11 @@ export type BuildMessageNotificationDisplayInput = {
   roomId: string;
   chatDomain?: string | null;
   domainIdentityKey?: string | null;
+  /**
+   * 본문 앞 「보낸 사람: 」을 붙이지 않는다 — 모임 방에서 보낸 사람의 모임 프로필을 모를 때(앱 안 배너 · 모임 R5 A14).
+   * 기본 false 라 다른 호출처는 그대로다.
+   */
+  omitSenderPrefix?: boolean;
 };
 
 function trimText(v: unknown): string {
@@ -158,6 +163,7 @@ function buildTitleBody(input: {
   contextLabel: string | null;
   previewText: string;
   privacyRedacted: boolean;
+  omitSenderPrefix?: boolean;
 }): { title: string; body: string } {
   const senderName = input.senderName || notifySafeT(input.language, "notify_peer_fallback");
   const previewText = input.previewText;
@@ -167,7 +173,7 @@ function buildTitleBody(input: {
   if (input.roomKind === "group") {
     return {
       title: roomName,
-      body: input.privacyRedacted ? previewText : `${senderName}: ${previewText}`,
+      body: input.privacyRedacted || input.omitSenderPrefix ? previewText : `${senderName}: ${previewText}`,
     };
   }
 
@@ -209,6 +215,7 @@ export function buildMessageNotificationDisplay(
     contextLabel: input.room.contextLabel,
     previewText,
     privacyRedacted,
+    omitSenderPrefix: input.omitSenderPrefix === true,
   });
 
   return {

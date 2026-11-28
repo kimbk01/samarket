@@ -1,0 +1,134 @@
+# 모임 전수 결함 감사 — 감사자 원본 목록 (2026-11-28, 코드 eac581f07, 검증 전)
+
+감사자 5명(메신저 모임 방 A · 사용자 화면 B · 운영 관리 C · 어드민 D · 서버·DB·알림 E)이 코드만 읽고 낸 목록. 각 줄 = 주장 + 근거 위치. 검증 결과는 `moim-full-defect-audit-2026-11-28.md`.
+
+## A. 메신저 모임 방 (owner_domain='moim')
+- A1 높음 · 서랍 맨 위 「비공개 그룹·채팅방 설정」 카드 + 「멤버 초대」(누르면 참가자 목록). RoomSheets.tsx:376 조건 isPrivateGroupRoom 만, :403-411. (실기 16:14 확인)
+- A2 높음 · 서랍 요약 「방장」/「내 역할 admin·member」 영어 원값. presentation.ts:281-285 myRoleLabel, RoomSheets.tsx:479
+- A3 높음 · 방 정보 「방장 {이름}」「내 역할」「멤버 초대: 제한」. RoomSheets.tsx:1072-1080, :1110-1115
+- A4 높음 · 방 정보 메신저 「권한 설정」 칸(체크박스 6개). RoomSheets.tsx:1346 `vm.isPrivateGroupRoom` 만 (hard-lock :195 는 숨김이라 적음)
+- A5 중간 · 방 정보 위쪽 카드 「비공개 그룹」「기본 프로필」「기본 입장 · 초대 기반」「참가자 › 멤버 관리」. RoomSheets.tsx:986,1000-1008,1033
+- A6 중간 · 타임라인 칩·방 정보 「채팅방 종류」 = 「비공개 그룹」. Timeline.tsx:1938-1939, RoomSheets.tsx:1068-1069
+- A7 높음 · 멤버 동작 시트 「역할 변경: 제한 / 내보내기: 제한 / 방장 위임: 가능·불가」, 「· 닉네임 프로필」. MemberActionModal.tsx:93,95-110
+- A8 높음 · 채팅 목록 스와이프 「나가기」가 모임 방에도(메신저 방장 아닌 사람) → 일반 그룹 확인 문구 → 409. chat-room-swipe-actions.ts:24-81, MessengerChatListItem.tsx:373-394, Home.tsx:3292-3305
+- A9 중간 · 종료 후 열람 기간 끝난(retention_ended_at) 모임에서도 「모임 홈」 진입점 → 열 수 없음. rooms/route.ts:52-60,88-89, use-moim-room-owner.ts:24-26 (= B25)
+- A10 중간 · 서랍 「모임 공지」 줄: 삭제 모임에서도 보임 / 조회 실패를 「공지 없음」처럼. MoimRoomNoticeMenuItem.tsx:24-45, RoomSheets.tsx:517-518
+- A11 중간 · /api/moim/rooms 가 DB 오류를 ok:true owners:{} 로 → 「모임 방 아님」 세션 고정 → 메신저 메뉴 전부 노출. route.ts:103-110,113-117,122-125, use-moim-room-owner.ts:62-71
+- A12 중간(충돌) · R4 #14 판정 실패 시 메신저 메뉴 다시 보임 vs 계약 §1
+- A13 중간 · 모임 방 판정 모듈 캐시가 앱 종료 전까지 갱신 안 됨(삭제·역할 변경·start_dm 변경·계정 전환). use-moim-room-owner.ts:46-55,94-103 (실기 16:20 확인)
+- A14 높음 · 모임 방 채팅 푸시·알림함·앱 안 배너에 DIBAY 닉네임·@dibay_id·DIBAY 사진. load-message-notification-display-context.ts:29-32,237-268,285-307, build-message-notification-display.ts:167-171
+- A15 낮음 · 알림함 출처 「그룹 채팅」. notification-inbox-surface-label.ts:92-104
+- A16 중간 · 읽기 전용 모임 방 안내가 이유 없는 메신저 문구(「제한 상태」). Timeline.tsx:1925-1933, messenger-room-chat-unavailable.ts:47-51 (실기 16:20 화면과 같음)
+- A17 낮음 · 대화상대 목록 왕관(메신저 방장) + 「참여자 및 초대 · 전체 보기」. RoomSheets.tsx:636-645,679 (실기 16:14 왕관 보임)
+- A18 중간 · 참가자 목록 부제 「별칭 참여」, 모임 소개가 방 프로필로 동기화 안 됨. RoomSheets.tsx:894-907, m2 moim__room_member_activate :554-557, r1 moim_profile_update :863-869
+- A19 낮음 · 모임 프로필 사진 비우면 DIBAY 사진으로 대체. service.ts:2193-2199
+- A20 낮음 · 서랍·방 정보 「운영 이력」 칸. RoomSheets.tsx:684-703,1414-1442
+- A21 낮음 · 「멤버 초대·내보내기·나가기는 모임 홈에서」 안내가 일정 방·삭제 모임·일반 멤버에 안 맞음. RoomSheets.tsx:750,1281, moim-core.ts:15 (실기 16:21 삭제 모임 확인)
+- A22 낮음 · 판정 중 순간 메신저 공지·역할 배지·[1:1] 잠깐 보임. RoomSheets.tsx:517,110-115,649,880, MemberActionModal.tsx:67-70
+- A23 낮음 · 메시지 고정 알림이 방 알림 끄기 무시. group-room-pin-notify.ts:26-55
+- A24 낮음(충돌) · 일정 방 행 둘째 줄·머리글이 시안 U8 과 다름
+- A25 낮음(충돌) · 서랍 항목이 시안 U8 「알림 끄기만」보다 많음(뒤 결정 hard-lock :191 이 허용)
+
+## B. 사용자 모임 화면
+- B1 중간 · 나간 사람이 자기 멤버 전용 글·댓글·사진에 닿을 수 없어 지울 수 없음(나가기 안내는 「지울 수 있어요」). getMoimPost, posts/[postId]/route.ts:19, MoimPostDetailScreen.tsx:265, album/route.ts:17, moim-screens.ts:63
+- B2 중간 · 종료·차단 모임 글 상세에 댓글 입력칸·⋮ 수정. 종료 모임 댓글 → 「글을 찾을 수 없어요」, 글 수정은 저장됨. MoimPostDetailScreen.tsx:198-200,278-291, m3:143, r1 moim_post_update :678-680
+- B3 중간 · 운영진의 남 댓글 「숨기기」 확인창이 「삭제할까요?」. MoimPostDetailScreen.tsx:172-174,216
+- B4 중간 · 운영진이 「전체」에서 글쓰기 → 공지 게시판 기본 선택(전원 알림). MoimMemberView.tsx:386, MoimWriteScreen.tsx:71
+- B5 중간 · 받은 초대 「거절」도 전화 인증 요구. invites/[inviteId]/route.ts:15 (= E7)
+- B6 중간(충돌) · 비로그인 API 가 모임 상세·공개 글 반환 vs Owner G-7(초대 랜딩만). moim-route-guard.server.ts:83-99
+- B7 낮음 · 일정 상세 머리 「취소됨」+「참여 확정」 함께. MoimScheduleDetailScreen.tsx:418-424
+- B8 낮음 · 사진 확대가 공용 뷰어 아님, 글·일정 사진 확대 불가. MoimAlbum.tsx:127-282, PostDetail:231-237, ScheduleDetail:446-452
+- B9 낮음 · 앨범 보기 버튼 순서 위험이 가운데. MoimAlbum.tsx:261-275
+- B10 낮음 · 바로 가입 시트 제목 두 번. moim-screens.ts:74,85
+- B11 낮음 · 가입 질문 답변 maxLength 없음, 서버 1000자 자름. MoimJoinSheet.tsx:83-88, join/route.ts:21
+- B12 낮음 · 내 모임에 신청 중 모임이 표시 없이 섞이고 개수에 포함. moim-queries.server.ts:192-195,205, MoimCard.tsx:57-66, MoimTabHome.tsx:141
+- B13 낮음 · 받은 초대 「님의 초대」(이름 빈칸). MoimInvitesScreen.tsx:101, moim-queries.server.ts:891
+- B14 낮음 · 차단 모임 초대가 받은 초대에 남고 수락 실패. moim-queries.server.ts:841 (= E19)
+- B15 낮음 · 종료 모임에서 나가면 「모임을 찾을 수 없어요」 화면에 남음. MoimDetailScreen.tsx:188,194,229-231
+- B16 낮음 · 멤버 전용 화면 5곳에 비멤버 진입 시 갈 곳 없음
+- B17 낮음 · 차단된 사람·신청 대기자에게 「가입하고 댓글 쓰기」. MoimPostDetailScreen.tsx:296-300
+- B18 낮음 · 고정 공지가 「최근 글」에 또 나옴. MoimPublicView.tsx:156-205, MoimMemberView.tsx:254-274
+- B19 낮음 · 비멤버 공개 페이지 사용자 게시판 이름 빈칸. MoimPublicView.tsx:163,202
+- B20 낮음 · 카테고리 없을 때 안내 두 줄 모순. MoimTabHome.tsx:157-160
+- B21 낮음 · 알림 설정 채팅 줄 안내와 동작 다름, 상태 없음. MoimNotificationSettingsScreen.tsx:105-113
+- B22 낮음 · 일정 폼 「끝 시각 지우기」 44px 미만. MoimScheduleFormScreen.tsx:248-258
+- B23 낮음 · 시작한 일정 수정 화면이 주소로 열림. MoimScheduleFormScreen.tsx:96 (= C9)
+- B24 낮음 · 일정 입력은 기기 시간대, 표시는 PHT. MoimScheduleFormScreen.tsx:25-39
+- B25 낮음 · = A9
+- B26 충돌 · 동네 모임 정렬 계약(최근 활동→멤버 수→생성일) vs 구현(최근 활동, id)
+
+## C. 운영 관리 화면
+- C1 중간 · 일반 멤버가 「친구 초대」에서 뒤로 → 허브. moim-manage-shared.tsx:40-54 vs MoimDetailScreen.tsx:22-34
+- C2 중간 · 친구 초대 목록에 이미 멤버·대기·차단 친구, 실패 문구가 받는 사람 입장. MoimManageInvite.tsx:264-270,288
+- C3 중간 · 운영진 자기 글 신고 [숨김] = 실제 삭제인데 「숨김」 표시. MoimManageReports.tsx:54-59,66,85
+- C4 중간 · 게시판 순서 변경 없음(계약 §5.2). MoimManageBoards.tsx, moim_board_upsert r1:798-838
+- C5 중간 · 위임 요청 보낸 것 안 보임, 재요청 시 이전 요청(미접속 요청 포함) 말없이 취소, 취소 버튼 없음. MoimManageTransfer.tsx:37,46, bundle2:532
+- C6 중간 · 시작한 일정 신청자 승인·거절 버튼 → 서버 늘 거절. MoimScheduleDetailScreen.tsx:204,506
+- C7 낮음~중간 · 경고·차단 모임 위임 배너 [수락] 보임, 실패 뒤 배너 남음. MoimDetailScreen.tsx:62-103
+- C8 낮음 · 일정 신청 처리됨 → 「가입 신청을 찾을 수 없어요」. m4:288
+- C9 낮음 · = B23
+- C10 낮음 · 내보내기·차단 사유 placeholder 「운영진만 볼 수 있는」이 실제와 다름. MoimManageMembers.tsx:480,519
+- C11 낮음 · 가입 거절 사유가 신청자에게 간다는 안내 없음, 100자 자름. MoimManageRequests.tsx:138-148, route.ts:27
+- C12 낮음 · 「모임장 이상」 문구. MoimManagePermissions.tsx:84,100, MoimManageBoards.tsx:73,88
+- C13 낮음 · 메모 권한 멤버 탭·메모 탭·서버 규칙이 서로 다름. MoimManageMembers.tsx:157,331, r1:1570
+- C14 낮음 · 멤버 1000·메모 500 상한 안내 없음/부정확, 「개」 단위. moim-queries.server.ts:615,620, moim-screens.ts:228
+- C15 낮음 · 닫은 게시판 다시 열 수 없음, 안내 없음. moim-queries.server.ts:578
+- C16 낮음 · 종료·차단·삭제·비로그인에서 운영 주소 → 「권한 없음」 문구. moim-manage-shared.tsx:119-125,140-163
+- C17 낮음 · 정보 수정 서버가 사진 주소·출생 연도 검사 안 함. r1:1111,1113-1114 (≈ E12·E20)
+- C18 낮음 · 가입 승인 라우트가 모임 id 일치 확인 안 함. join-requests/[requestId]/route.ts:22-23
+- C19 낮음 · 머리글 공유 누를 때마다 새 초대 링크 생성·누적. use-moim-invite-share.ts:38-46
+- C20 낮음 · QR 색 hex(토큰 밖). MoimManageInvite.tsx:46,70
+- C21 낮음 · 모임 종료 성공 안내 없음. MoimManageClose.tsx:43
+- C22 낮음 · 「가입 신청 N」에서 들어간 화면 뒤로 = 허브. MoimManageMembers.tsx:261
+
+## D. 어드민
+- D1 중간 · 제재 탭 콘텐츠 숨김·이용 제한 줄에 「해제」 → 서버 404 거부, 대상 열 없음, 상태 동기화 없음. AdminMoimDetailPage.tsx:580, moim-admin-queries.server.ts:485-496, r2:556
+- D2 중간 · 제재 이력 화면에 사용자별 제재 없음. moim-admin-queries.server.ts:831-832
+- D3 중간 · 신고 처리가 같은 단계 모임 제재 중복 생성·알림 재발송. r4 moim_admin_report_decide (= E2)
+- D4 중간 · 종료·삭제 모임 멤버 탭 버튼 → 「대상 없음」. AdminMoimDetailPage.tsx:426-445, moim-admin-route.server.ts:41, AdminChatActionSheet.tsx:108-110
+- D5 중간 · 메신저 어드민이 모임 방 차단·보관 가능(트리거에 room_status 없음). moim-room-admin-guard.ts:13-15, admin-chat-moderation-cas.ts
+- D6 중간 · 신고 사유 전부 끄기 저장됨 → 신고·직접 제재 불가. AdminMoimPoliciesPage.tsx:223, r4:322-340
+- D7 중간 · 어드민 기본정보 동네 자유 문자열 저장. AdminMoimDetailPage.tsx:312-315, r1:1203
+- D8 낮음 · 주제만 바꾸면 「바뀐 항목」 빈칸(키 admin_moim_info_field_topicLabel 없음)
+- D9 낮음 · 「검토 시작」 사유 없이 상태 변경, 기록 「review」. ReviewForm, review/route.ts:14-19
+- D10 낮음 · 삭제 모임 신고 처리 막힌 조치가 「대상 없음」
+- D11 낮음 · 삭제 모임 제재 해제·숨김 해제·복구가 되고 알림이 404 링크로
+- D12 낮음 · 신고 처리 폼 실패 안내에 원래 코드(invalid_request 등). AdminMoimReportDecisionForm.tsx:184,215, admin-moim-shared.tsx:51-52
+- D13 낮음 · 동시 처리 두 번째가 「대상 없음」. moim-admin-route.server.ts:41
+- D14 낮음 · 직접 제재 안내 문구가 옛 문구(신고 연결 칸과 모순). admin-moim.ts:258,648
+- D15 낮음 · 연결할 신고 최근 50건만. AdminMoimDetailPage.tsx:636-638
+- D16 낮음 · 메신저 신고 보기 대상 유형 필터 미적용. AdminMoimReportsPage.tsx:128-135, reports/route.ts:24-31
+- D17 낮음 · 원래 코드 노출(대상 상태·운영기록 종류·report_not_found·CSV 카테고리 한국어)
+- D18 낮음 · 영어 어드민 로딩·실패·다시 시도 한국어(ko 항상 참)
+- D19 낮음 · 정책 문구 「바로 모든 모임에 적용」(실제 5분 캐시), 빈칸 = 제한 없음(실제 60·2000)
+- D20 낮음 · 정책 영어 이름 선택 → 영어 화면에 코드 노출. moim-admin-contract.ts:155-157
+- D21 낮음 · 어드민 기본정보 입력 상한 60·2000 vs 정책 30·1000. AdminMoimDetailPage.tsx:271,291
+- D22 낮음 · 삭제·복구 안내 「채팅방은 보관돼요」 실제와 다름, 전원 알림 안내 없음. admin-moim.ts:164-165,554-555
+- D23 낮음 · 메신저 방 상세에서 모임 방 표시·모임 어드민 링크 없음, 메신저 조치가 모임 운영기록에 안 남음
+- D24 낮음 · 모임 권한만 있는 관리자에게 열 수 없는 chats 링크
+- D25 낮음 · 쪽 넘김(댓글 필터 시 쪽 유지, 비멤버 차단자 1쪽만)
+- D26 낮음 · 상단 삭제·복구 뒤 열린 탭 갱신 안 됨. AdminMoimDetailPage.tsx:105,123
+- D27 낮음 · 처리 폼 「대상 작성자」 문구가 대상 종류와 안 맞음. admin-moim.ts:296
+- D-충돌 · 설계 §8 「메신저 어드민에서 방 읽기 전용」 vs R4 §5(c)
+
+## E. 서버·DB·알림
+- E1 높음 · 신고 처리 「같은 대상 닫기」가 다른 모임 신고까지 닫음(moim_id 조건 없음), 신고 중복 검사도 모임 무관. r4 moim_admin_report_decide :185, moim_report_create
+- E2 중간 · = D3
+- E3 중간 · 부모임장이 어드민이 건 모임 차단을 풀 수 있고, 어드민 사유가 모임 운영진에게 보임. r1 moim_member_unban :237, listMoimBans :682-700
+- E4 중간 · 알림 이동 위치 404(비멤버 신고자 결과·계정 정리 모임장 변경·종료 모임 내보내기·삭제 모임 제재 해제). decision/route.ts:151, r2:465, moim-account-cleanup.server.ts:23-29
+- E5 낮음 · moim_report_result 푸시 대상·끌 수 있음(계약 §7 벨만·못 끔). moim-notify.server.ts:59-64, notification-preference-policy-registry.ts:83-99
+- E6 낮음 · moim_admin_info_updated 끌 수 있음(D-22). registry :83-99
+- E7 낮음 · = B5
+- E8 낮음 · 숨겨진 내 글·댓글·사진을 작성자가 지울 수 없음(D-36). m3:94, r1:1326, r4:472
+- E9 낮음 · 같은 역할 재저장도 기록·알림. r1:452, members/[userId]/route.ts:24
+- E10 낮음 · 신청자 내보내기·차단 시 결과 알림 없음. remove/route.ts:22, admin members/[userId]/route.ts:63
+- E11 낮음 · 직접 제재에 이미 처리된 신고 연결 가능(D-18 「처리 전」). r4:47
+- E12 낮음 · 모임 표지·멤버 사진 주소 검사 없음(A-10 남은 부분)
+- E13 낮음 · 운영 기록 누락(사진 본인 삭제·초대 거절·위임 요청 덮어쓰기 취소)
+- E14 낮음 · 시작했지만 안 끝난 일정 호스트가 나가도 호스트 유지. r1:129
+- E15 낮음(결정 필요) · 비노출 기간 만료 시 모임장 알림 없음
+- E16 낮음 · moim_host_changed 이름 대체 없음 → 「님으로 바뀌었어요」
+- E17 낮음 · 동네 모임 검색어 정리 약함(" \ * 남음). moim-queries.server.ts:352
+- E18 낮음 · 상태별 빈틈(차단 모임 일정 참여 취소 불가·종료/차단/삭제 모임 프로필 수정 가능·차단 모임 미접속 요청 가능·경고 모임 어드민 승인·종료 모임 제재 알림)
+- E19 낮음 · = B14
+- E20 낮음 · DB 제약 위반·형 변환이 moim_unknown 400

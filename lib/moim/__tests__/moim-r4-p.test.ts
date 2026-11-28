@@ -341,7 +341,8 @@ describe("#3 나가기 안내 · 새 문구 ko·en", () => {
     const ko = moimScreensMessages.ko.moim_leave_confirm_body;
     expect(ko).toContain("쓴 글과 댓글은 남아요");
     expect(ko).toContain("확정한 다가오는 일정은 자동으로 취소돼요");
-    expect(ko).toContain("나간 뒤에도 지울 수 있어요");
+    /** R5 B1: 지우는 곳(모임 탭 › 내가 쓴 글·댓글·사진)까지 안내 */
+    expect(ko).toContain("나간 뒤에도 모임 탭 › 내가 쓴 글·댓글·사진에서 지울 수 있어요");
     expect(ko).not.toContain("나가기 전에");
     expect(moimScreensMessages.en.moim_leave_confirm_body).toMatch(/canceled/);
     for (const k of ["moim_comments_older_btn", "moim_list_capped_hint"] as const) {

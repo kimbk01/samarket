@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 import { isUuidString } from "@/lib/shared/uuid-string";
-import { MOIM_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/moim/moim-admin-contract";
+import { MOIM_ADMIN_REASON_MIN_LENGTH, moimAdminHttpStatus } from "@/lib/admin/moim/moim-admin-contract";
 
 /**
  * 모임 어드민 API 공용 (설계 moim §8). 권한 판정은 각 라우트가 `requireAdminPermission("moim")` /
@@ -31,19 +31,14 @@ export function moimAdminBad(error = "invalid_request", status = 400) {
   return NextResponse.json({ ok: false, error }, { status });
 }
 
-/** RPC 결과 → 응답 (409 = 다른 관리자가 먼저 바꿈 · 404 = 없음 · 그 외 400) */
+/**
+ * RPC 결과 → 응답 (R5 D §1-1 번호표 하나 — `moimAdminHttpStatus`): 409 = 다른 관리자가 먼저 바꿈 · 404 = 행이 정말 없음 ·
+ * 422 = 모임 상태 때문에 못 하는 조치(종료·삭제·해제 불가·같은 단계 진행 중 등) · 500 = 알 수 없음 · 그 밖 = 400.
+ */
 export function moimAdminRpcResponse(result: { ok: true } | { ok: false; error: string }, extra?: Record<string, unknown>) {
   if (result.ok) return NextResponse.json({ ...result, ...(extra ?? {}) });
   const error = result.error;
-  const status =
-    error === "moim_conflict" || error === "moim_transfer_stale"
-      ? 409
-      : error === "moim_not_found" || error.endsWith("_not_found")
-        ? 404
-        : error === "moim_unknown"
-          ? 500
-          : 400;
-  return NextResponse.json({ ok: false, error }, { status });
+  return NextResponse.json({ ok: false, error }, { status: moimAdminHttpStatus(error) });
 }
 
 export function moimAdminReadError(error: string) {

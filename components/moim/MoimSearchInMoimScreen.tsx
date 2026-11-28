@@ -104,7 +104,7 @@ export function MoimSearchInMoimScreen({ moimId }: { moimId: string }) {
                   </div>
                   <div className="grid gap-2 px-4">
                     {result.posts.map((p) => (
-                      <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardsById.get(p.boardId) ?? { kind: p.boardKind, name: null })} />
+                      <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardsById.get(p.boardId) ?? { kind: p.boardKind, name: p.boardName })} />
                     ))}
                   </div>
                 </section>

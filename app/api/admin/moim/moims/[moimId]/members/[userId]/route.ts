@@ -2,7 +2,10 @@
  * POST /api/admin/moim/moims/[moimId]/members/[userId] — 어드민 멤버 조치 (설계 moim §8 「멤버」). 권한 키 `moim`.
  * body { action: "role"|"remove"|"ban"|"unban"|"assign_host", role?: "co_host"|"staff"|"member", reason }
  * 알림: 역할 → `moim_role_changed`(대상) · 내보내기/차단(활성 멤버였을 때) → `moim_member_removed`(대상) ·
- *       모임장 지정 → `moim_host_changed`(전체 멤버) · 차단 해제 → `moim_unbanned`(대상, R2 N-04). 발송은 응답 뒤
+ *       가입 신청자 내보내기/차단 → `moim_join_rejected`(대상, R5 E10) ·
+ *       모임장 지정 → `moim_host_changed`(전체 멤버, R5 E16 공용 함수) · 차단 해제 → `moim_unbanned`(대상, R2 N-04). 발송은 응답 뒤
+ * 이동 위치(R5 E4): 대상은 더 이상 멤버가 아니므로 `moimNotifyLink(상태, 비멤버)` — 열 수 없는 모임이면 모임 탭.
+ * 모임 상태(R5 D4·D11): 종료 모임 역할·모임장 지정 = 422 moim_closed · 삭제 모임 전부 = 422 moim_deleted (SQL 판정).
  */
 import type { NextRequest } from "next/server";
 import { isMoimRole } from "@/lib/moim/moim-permission-contract";
@@ -16,7 +19,8 @@ import {
   moimAdminMemberRole,
   moimAdminMemberUnban,
 } from "@/lib/moim/server/moim-rpc.server";
-import { MOIM_ROLE_KEY, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { MOIM_ROLE_KEY, moimNotifyLink, moimPaths, notifyMoimAfterResponse, notifyMoimHostChanged, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimViewStateFromRpc } from "@/lib/moim/moim-view-rule";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,13 +64,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   if (action === "remove" || action === "ban") {
     const r = await moimAdminMemberRemove(adminId, moimId, userId, action === "ban", reason, sb);
-    if (r.ok && r.was_active) {
+    /** 활동 멤버 → 「내보내졌어요」 · 가입 신청자 → 「가입 신청이 거절됐어요」(R5 E10) · 그 밖(비멤버 차단) = 알림 없음 */
+    const kind = r.ok ? (r.was_active ? "moim_member_removed" : r.was_pending ? "moim_join_rejected" : null) : null;
+    if (r.ok && kind) {
       const ref = `${moimId}:${userId}:${Date.now()}`;
+      const linkUrl = moimNotifyLink(moimViewStateFromRpc(r), false, moimPaths.home(moimId), { result: true }) ?? moimPaths.list();
       notifyMoimAfterResponse(async () =>
         notifyMoimMany(sb, [userId], {
-          kind: "moim_member_removed",
+          kind,
           moimId,
-          linkUrl: moimPaths.home(moimId),
+          linkUrl,
           dedupeRef: ref,
           vars: { moim: await loadAdminMoimName(sb, moimId) },
         })
@@ -78,11 +85,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const r = await moimAdminMemberUnban(adminId, moimId, userId, reason, sb);
     if (r.ok) {
       const ref = `${moimId}:${userId}:${Date.now()}`;
+      const linkUrl = moimNotifyLink(moimViewStateFromRpc(r), false, moimPaths.home(moimId), { result: true }) ?? moimPaths.list();
       notifyMoimAfterResponse(async () =>
         notifyMoimMany(sb, [userId], {
           kind: "moim_unbanned",
           moimId,
-          linkUrl: moimPaths.home(moimId),
+          linkUrl,
           dedupeRef: ref,
           vars: { moim: await loadAdminMoimName(sb, moimId) },
         })
@@ -94,17 +102,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (r.ok) {
     const to = r.notify_user_ids ?? [];
     const ref = `${moimId}:${userId}:${Date.now()}`;
-    notifyMoimAfterResponse(async () => {
-      const name = await loadAdminMoimName(sb, moimId);
-      const { data: m } = await sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", userId).maybeSingle();
-      await notifyMoimMany(sb, to, {
-        kind: "moim_host_changed",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: ref,
-        vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
-      });
-    });
+    notifyMoimAfterResponse(() => notifyMoimHostChanged(sb, moimId, userId, to, ref));
   }
   return moimAdminRpcResponse(r);
 }

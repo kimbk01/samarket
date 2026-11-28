@@ -60,7 +60,9 @@ describe("버튼 체계 (F1·F2·F3·F4·F6)", () => {
     const rejectIdx = requests.indexOf("moim_manage_reject_btn");
     expect(requests.slice(Math.max(0, rejectIdx - 400), rejectIdx)).toContain("moimCls.btnDanger");
     const album = read("components/moim/MoimAlbum.tsx");
-    expect(album).toContain("className={`${moimCls.btnDanger} ${actionBtnLayout} ${overlayDanger}`} onClick={remove}");
+    /** R5 B8·B9: 앨범은 공용 뷰어 「⋯」 시트 — 삭제·숨기기 = 시트 맨 아래 위험 줄 (예전 뷰어 버튼 줄 대신) */
+    expect(album).toMatch(/key: "delete", label: t\("common_delete"\), danger: true/);
+    expect(album).toMatch(/key: "hide", label: t\("moim_post_hide_btn"\), danger: true/);
     expect(album).not.toContain("disabled:opacity-50");
     const sched = read("components/moim/MoimScheduleDetailScreen.tsx");
     expect(sched).toContain('className={`${moimCls.btnDanger} w-full`} onClick={cancelSchedule}');

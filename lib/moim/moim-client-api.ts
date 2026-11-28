@@ -4,6 +4,7 @@ import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verifica
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { invalidateMoimDetailCache, readMoimDetailCached } from "@/lib/moim/moim-detail-cache";
+import { markMoimRoomOwnersStale } from "@/lib/moim/use-moim-room-owner";
 import type {
   MoimApiResult,
   MoimBannedDto,
@@ -24,6 +25,8 @@ import type {
   MoimStaffReportDto,
   MoimTextLimitsDto,
   MoimPageDto,
+  MoimMyContentItemDto,
+  MoimMyContentType,
 } from "@/lib/moim/moim-api-types";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -47,7 +50,11 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
      * 쓰기 요청이 끝나면(성공·실패 모두) 화면 간 공유 상세를 비운다 — 내가 바꾼 내용, 또는 다른 사람이 먼저 바꿔
      * 충돌(moim_conflict)난 최신 상태를 바로 다시 불러온다 (감사 E2 · 재감사 M2)
      */
-    if ((init?.method ?? "GET").toUpperCase() !== "GET") invalidateMoimDetailCache();
+    if ((init?.method ?? "GET").toUpperCase() !== "GET") {
+      invalidateMoimDetailCache();
+      /** R5 A §2: 모임 쓰기 뒤 메신저 모임 방 표시(역할·상태)도 다시 묻는다 — 쓰기 경로 하나라 빠지는 버튼이 없다 */
+      markMoimRoomOwnersStale();
+    }
     if (data && isPhoneVerificationRequiredApiPayload(data)) {
       openPhoneVerificationRequiredSheet({ next: typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined });
       return { ok: false, error: "moim_phone_verification_required" };
@@ -63,7 +70,10 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
     return { ok: false, error: code === "moim_rate_limited" ? code : error, code };
   } catch {
     /** 쓰기 응답이 끊겨도(시간 초과 등) 서버에는 저장됐을 수 있다 — 공유 상세를 비운다 (재감사 2차 낮음 1) */
-    if ((init?.method ?? "GET").toUpperCase() !== "GET") invalidateMoimDetailCache();
+    if ((init?.method ?? "GET").toUpperCase() !== "GET") {
+      invalidateMoimDetailCache();
+      markMoimRoomOwnersStale();
+    }
     return { ok: false, error: "moim_unknown" };
   }
 }
@@ -145,7 +155,8 @@ export const moimApi = {
   leave: (moimId: string) => call(`/api/moim/${enc(moimId)}/leave`, { method: "POST" }),
   close: (moimId: string, confirmName: string) => call(`/api/moim/${enc(moimId)}/close`, { method: "POST", json: { confirmName } }),
 
-  members: (moimId: string) => call<{ members: MoimMemberDto[]; notesCapped?: boolean }>(`/api/moim/${enc(moimId)}/members`),
+  /** R5 C14: capped = 멤버가 상한(MOIM_MEMBER_LIST_CAP)에 닿아 일부만 옴 */
+  members: (moimId: string) => call<{ members: MoimMemberDto[]; notesCapped?: boolean; capped?: boolean }>(`/api/moim/${enc(moimId)}/members`),
   banned: (moimId: string) => call<{ banned: MoimBannedDto[]; capped?: boolean }>(`/api/moim/${enc(moimId)}/members?view=banned`),
   setRole: (moimId: string, userId: string, role: Exclude<MoimRole, "host">) =>
     call(`/api/moim/${enc(moimId)}/members/${enc(userId)}`, { method: "PATCH", json: { role } }),
@@ -171,16 +182,25 @@ export const moimApi = {
   /** P8 미접속 모임장 변경 요청 (부모임장·운영진) → 어드민 큐 */
   requestInactiveHostChange: (moimId: string, toUserId: string, reason: string | null) =>
     call<{ transfer_id: string }>(`/api/moim/${enc(moimId)}/host-inactive-request`, { method: "POST", json: { toUserId, reason } }),
+  /** R5 C5: 내가 보낸 직접 위임 요청 취소 */
+  cancelHostTransfer: (transferId: string) => call(`/api/moim/host-transfers/${enc(transferId)}`, { method: "DELETE" }),
   respondHostTransfer: (transferId: string, accept: boolean) =>
     call<{ accepted: boolean; moim_id?: string }>(`/api/moim/host-transfers/${enc(transferId)}`, { method: "POST", json: { accept } }),
 
   inviteLinks: (moimId: string) => call<{ links: MoimInviteLinkDto[]; capped?: boolean }>(`/api/moim/${enc(moimId)}/invite-links`),
-  createInviteLink: (moimId: string, expiresAt: string | null) =>
-    call<{ invite_id: string; token: string }>(`/api/moim/${enc(moimId)}/invite-links`, { method: "POST", json: { expiresAt } }),
+  /** R5 C19: reuse = 내가 만든 쓸 수 있는 링크(만료까지 24시간 넘게 남음)가 있으면 그것을 돌려받는다(머리글 공유) */
+  createInviteLink: (moimId: string, expiresAt: string | null, opts?: { reuse?: boolean }) =>
+    call<{ invite_id: string; token: string; reused?: boolean }>(`/api/moim/${enc(moimId)}/invite-links`, {
+      method: "POST",
+      json: { expiresAt, ...(opts?.reuse ? { reuse: true } : {}) },
+    }),
   revokeInviteLink: (inviteId: string) => call(`/api/moim/invite-links/${enc(inviteId)}`, { method: "DELETE" }),
   resolveInvite: (token: string) => call<{ moimId: string }>(`/api/moim/invite/${enc(token)}`),
   sendInvite: (moimId: string, userId: string) =>
     call<{ invite_target_id: string }>(`/api/moim/${enc(moimId)}/invites`, { method: "POST", json: { userId } }),
+  /** R5 C2: 초대 후보 확인 — 이미 멤버 · 초대할 수 없음(가입 신청 중·차단, 이유는 나누지 않음) */
+  checkInviteCandidates: (moimId: string, userIds: string[]) =>
+    call<{ members: string[]; unavailable: string[] }>(`/api/moim/${enc(moimId)}/invites/check`, { method: "POST", json: { userIds } }),
   receivedInvites: () => call<{ invites: MoimReceivedInviteDto[] }>("/api/moim/invites"),
   /** R3 U-13: 수락이 가입 신청이 되는 초대면 가입 질문 답 `answers` 를 함께 보낸다 */
   respondInvite: (inviteId: string, accept: boolean, profile?: { nickname?: string; avatarUrl?: string | null; bio?: string; answers?: string[] }) =>
@@ -215,6 +235,15 @@ export const moimApi = {
   removeComment: (commentId: string) => call(`/api/moim/comments/${enc(commentId)}`, { method: "DELETE" }),
   saveBoard: (moimId: string, input: { boardId?: string; name?: string; writeMinRole?: MoimRole; isActive?: boolean }) =>
     call<{ board_id: string }>(`/api/moim/${enc(moimId)}/boards`, { method: "POST", json: input }),
+  /** R5 C4: 켜진 게시판 전부를 새 순서로 */
+  reorderBoards: (moimId: string, order: string[]) => call(`/api/moim/${enc(moimId)}/boards`, { method: "PUT", json: { order } }),
+  /** R5 B1: 내가 쓴 글·댓글·사진 (숨김 포함, 삭제 모임 제외) */
+  myContent: (q: { type: MoimMyContentType; moimId?: string | null; before?: string | null }) => {
+    const sp = new URLSearchParams({ type: q.type });
+    if (q.moimId) sp.set("moim", q.moimId);
+    if (q.before) sp.set("before", q.before);
+    return call<MoimPageDto<MoimMyContentItemDto>>(`/api/moim/my-content?${sp}`);
+  },
 
   report: (moimId: string, input: { targetType: string; targetId: string; reasonCode: string; detail?: string | null }) =>
     call<{ report_id: string }>(`/api/moim/${enc(moimId)}/reports`, { method: "POST", json: input }),
@@ -282,6 +311,8 @@ export const moimRoutes = {
   search: "/moim/search",
   create: "/moim/new",
   invites: "/moim/invites",
+  /** R5 B1: 내가 쓴 글·댓글·사진 (moimId 를 주면 그 모임만) */
+  myContent: (moimId?: string | null) => `/moim/my-content${moimId ? `?moim=${encodeURIComponent(moimId)}` : ""}`,
   home: (id: string) => `/moim/${id}`,
   board: (id: string, boardId: string) => `/moim/${id}?tab=board&board=${boardId}`,
   members: (id: string) => `/moim/${id}?tab=members`,
@@ -291,7 +322,8 @@ export const moimRoutes = {
   profile: (id: string) => `/moim/${id}/profile`,
   searchIn: (id: string) => `/moim/${id}/search`,
   manage: (id: string) => `/moim/${id}/manage`,
-  manageRequests: (id: string) => `/moim/${id}/manage/requests`,
+  /** R5 C22: from=members 면 가입 신청 화면 뒤로 = 멤버 관리 */
+  manageRequests: (id: string, from?: "members") => `/moim/${id}/manage/requests${from ? `?from=${from}` : ""}`,
   manageMembers: (id: string) => `/moim/${id}/manage/members`,
   managePermissions: (id: string) => `/moim/${id}/manage/permissions`,
   manageInfo: (id: string) => `/moim/${id}/manage/info`,

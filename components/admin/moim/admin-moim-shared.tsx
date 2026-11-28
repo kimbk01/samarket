@@ -11,7 +11,9 @@ import { useAdminShell } from "@/components/admin/AdminShellContext";
 import { AdminToneBadge, type AdminTone } from "@/components/admin/ui/AdminToneBadge";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { isSuperAdminFromSnapshot } from "@/lib/admin-auth/admin-me-context";
-import { moimErrorKey } from "@/lib/moim/moim-client-api";
+import { adminAccessActorFromMe } from "@/lib/admin/access/admin-access-ui";
+import { canAccessAdminRoute } from "@/lib/admin/access/admin-route-access";
+import { moimAdminFailureText } from "@/lib/admin/moim/moim-admin-errors";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MoimAdminPerson } from "@/lib/admin/moim/moim-admin-contract";
 import { MOIM_ADMIN_REASON_MIN_LENGTH } from "@/lib/admin/moim/moim-admin-contract";
@@ -29,15 +31,26 @@ export function useMoimAdminAccess() {
 }
 
 /**
- * 쓰기 호출 — 조치 시트 결과 모양. 모임 오류 코드(moim_*)는 화면 문구로 바꿔 시트에 보여 준다
- * (시트는 409 = 다른 관리자가 먼저 처리 · 404 = 대상 없음 · 403 = 권한 없음을 그대로 처리한다).
+ * 쓰기 호출 — 조치 시트 결과 모양. 실패는 `code` = 원래 코드, `message` = 화면 문장(R5 D §1-1 `moimAdminFailureText`)
+ * (시트는 409 = 다른 관리자가 먼저 처리 · 404 = 대상 없음 · 403 = 권한 없음을 그대로 처리하고, 그 밖은 `message` 를 보인다).
  */
 export async function moimAdminSend(
   url: string,
   body: unknown,
-  t: (key: MessageKey) => string,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
   method: "POST" | "PATCH" | "PUT" = "POST"
 ): Promise<CommunitySheetResult> {
+  const r = await moimAdminSendJson(url, body, t, method);
+  return r.ok ? { ok: true } : r;
+}
+
+/** 같은 호출 + 성공 응답 본문 (신고 처리 결과의 `actions[].created` 등) */
+export async function moimAdminSendJson<T extends Record<string, unknown> = Record<string, unknown>>(
+  url: string,
+  body: unknown,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+  method: "POST" | "PATCH" | "PUT" = "POST"
+): Promise<{ ok: true; data: T } | { ok: false; status: number; code: string; message: string }> {
   try {
     const res = await fetch(url, {
       method,
@@ -46,13 +59,41 @@ export async function moimAdminSend(
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-    if (res.ok && json.ok !== false) return { ok: true };
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } & Record<string, unknown>;
+    if (res.ok && json.ok !== false) return { ok: true, data: json as T };
     const code = json.error || `http_${res.status}`;
-    return { ok: false, status: res.status, code: /^moim_[a-z_]+$/.test(code) ? t(moimErrorKey(code)) : code };
+    return { ok: false, status: res.status, code, message: moimAdminFailureText(t, { status: res.status, code }) };
   } catch {
-    return { ok: false, status: 0, code: "network_error" };
+    return { ok: false, status: 0, code: "network_error", message: moimAdminFailureText(t, { status: 0, code: "network_error" }) };
   }
+}
+
+/**
+ * R5 D24: 권한 맞춘 링크 — 열 권한이 없으면 링크 대신 글자 + 「열 권한이 없어요」(접근표 = 서버 가드와 같은 키).
+ * 권한 정보를 아직 모르면(셸 스냅샷 없음) 지금처럼 링크(서버가 막음 — `historyDetailHrefForActor` 와 같은 규칙).
+ */
+export function MoimAdminGatedLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
+  const { t } = useI18n();
+  const actor = adminAccessActorFromMe(useAdminShell().adminMe);
+  if (actor && !canAccessAdminRoute(href, actor)) {
+    return (
+      <span className="text-sam-muted" data-moim-admin-link-blocked={href}>
+        {children} · {t("admin_moim_link_no_access")}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={className ?? "text-sam-primary hover:underline"}>
+      {children}
+    </Link>
+  );
+}
+
+/** R5 D4·D10·D11: 모임 상태 때문에 막힌 조치 안내 한 줄 (종료 = 역할·모임장 지정 불가 · 삭제 = 조회만) */
+export function MoimAdminStateNote({ status }: { status: string | null | undefined }) {
+  const { t } = useI18n();
+  if (status !== "closed" && status !== "deleted") return null;
+  return <MoimAdminNote>{t(status === "closed" ? "admin_moim_state_note_closed" : "admin_moim_state_note_deleted")}</MoimAdminNote>;
 }
 
 const PLATFORM_TONE: Record<string, AdminTone> = { normal: "success", unlisted: "neutral", warned: "warning", blocked: "danger" };

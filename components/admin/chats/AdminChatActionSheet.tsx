@@ -8,6 +8,7 @@
  * - 400 입력 오류 → 시트 유지·안내 · 403 → 권한 없음 표시(실행 숨김)
  * - 404 → 「대상 없음」 후 `onSettled("gone")` · 409 → 「다른 관리자가 먼저 처리」 후 `onSettled("stale")`
  * - 그 외 → 오류 안내 + 입력 유지(다시 실행 가능) · 성공 → `onSettled("done")`
+ * - 실패 결과에 `message`(화면 문장)가 있으면 그 문장을 그대로 보인다 (모임 어드민 R5 D §1-1 · 채팅 어드민 기존 호출은 넣지 않음 = 화면 그대로)
  * 버튼: 하단 고정 `DibayOverlayButton` 취소(왼쪽)·실행(오른쪽) 균등폭 (설계 §4-2).
  */
 import { useState, type ReactNode } from "react";
@@ -16,12 +17,9 @@ import { AdminForbiddenState, isAdminForbiddenCode } from "@/components/admin/ui
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
-  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY,
-} from "@/lib/admin-community-messenger/moim-room-admin-guard";
+import { MOIM_ROOM_MANAGED_BY_MOIM, MOIM_ROOM_MANAGED_BY_MOIM_MESSAGE_KEY } from "@/lib/admin-community-messenger/moim-room-admin-guard";
 
-export type AdminChatSheetResult = { ok: true } | { ok: false; status: number; code: string };
+export type AdminChatSheetResult = { ok: true } | { ok: false; status: number; code: string; message?: string };
 export type AdminChatSheetSettle = "done" | "stale" | "gone";
 export type AdminChatSheetRow = { label: string; value: ReactNode };
 
@@ -78,7 +76,7 @@ export function AdminChatActionSheet({
   const [reasonText, setReasonText] = useState("");
   const [retype, setRetype] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<{ code: string; status: number } | null>(null);
+  const [error, setError] = useState<{ code: string; status: number; message?: string } | null>(null);
   const [forbidden, setForbidden] = useState<string | null>(null);
 
   const trimmed = reasonText.trim();
@@ -114,8 +112,10 @@ export function AdminChatActionSheet({
   };
 
   const errorText = error
-    ? error.code === MOIM_ROOM_READONLY_MANAGED_BY_MOIM
-      ? t(MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY)
+    ? error.message
+      ? error.message
+      : error.code === MOIM_ROOM_MANAGED_BY_MOIM
+      ? t(MOIM_ROOM_MANAGED_BY_MOIM_MESSAGE_KEY)
       : error.status === 400
       ? t("admin_chat_sheet_err_input", { code: error.code })
       : t("admin_chat_sheet_err_failed", { code: error.code })

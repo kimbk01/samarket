@@ -1,13 +1,16 @@
 import "server-only";
 
 import { getSupabaseServer, type SupabaseServer } from "@/lib/chat/supabase-server";
-import { toMoimErrorCode, type MoimErrorCode } from "@/lib/moim/moim-error-codes";
+import { moimErrorFromRpcError, toMoimErrorCode, type MoimErrorCode } from "@/lib/moim/moim-error-codes";
 import type { MoimAction, MoimRole } from "@/lib/moim/moim-permission-contract";
 
 /**
  * 모임 RPC 호출 (서버 전용, service_role). 모든 쓰기는 이 파일의 함수만 쓴다.
  * DB 함수가 권한·정원·차단·메신저 방 입장/퇴장을 한 트랜잭션에서 처리한다 (마이그레이션 20271112210000).
  */
+
+/** R5 E4: 알림 이동 위치를 정하는 모임 상태 (RPC 반환 키 — 옛 DB 면 없음 → moimViewStateFromRpc 가 null) */
+export type MoimRpcViewKeys = { moim_status?: "active" | "closed" | "deleted"; retention_ended_at?: string | null };
 
 export type MoimRpcResult<T extends Record<string, unknown> = Record<string, unknown>> =
   | ({ ok: true } & T)
@@ -21,7 +24,8 @@ async function callMoimRpc<T extends Record<string, unknown>>(
   const client = sb ?? getSupabaseServer();
   const { data, error } = await client.rpc(fn, args);
   if (error) {
-    return { ok: false, error: toMoimErrorCode(error.message), detail: error.message };
+    /** R5 E20: 메시지에 모임 코드가 없으면 Postgres 오류 번호로 고른다 (원래 메시지는 detail — 서버 로그용) */
+    return { ok: false, error: moimErrorFromRpcError(error), detail: error.message };
   }
   const row = (data ?? {}) as Record<string, unknown>;
   if (row.ok === false) {
@@ -129,8 +133,11 @@ export function moimMemberRemove(
   reason: string | null,
   sb?: SupabaseServer
 ) {
-  /** R2 N-08d: was_active = 활동 멤버였을 때만 「내보내졌어요」 */
-  return callMoimRpc<{ was_active?: boolean }>(
+  /**
+   * R2 N-08d: was_active = 활동 멤버였을 때만 「내보내졌어요」 · R5 E10: was_pending = 가입 신청자였음(「가입 신청이 거절됐어요」)
+   * · R5 E4: moim_status·retention_ended_at = 알림 이동 위치(moimNotifyLink)용. 옛 DB 면 키가 없다.
+   */
+  return callMoimRpc<{ was_active?: boolean } & MoimRpcViewKeys & { was_pending?: boolean }>(
     "moim_member_remove",
     { p_actor: actorId, p_moim: moimId, p_target: targetUserId, p_ban: ban, p_reason: reason },
     sb
@@ -148,7 +155,8 @@ export function moimMemberRoleSet(
   role: Exclude<MoimRole, "host">,
   sb?: SupabaseServer
 ) {
-  return callMoimRpc(
+  /** R5 E9: changed=false = 같은 역할이라 바뀐 것 없음(기록·알림 없음). 옛 DB 면 키 없음 = 바뀜으로 본다 */
+  return callMoimRpc<{ changed?: boolean }>(
     "moim_member_role_set",
     { p_actor: actorId, p_moim: moimId, p_target: targetUserId, p_role: role },
     sb
@@ -163,6 +171,18 @@ export function moimHostTransferRequest(actorId: string, moimId: string, toUserI
   );
 }
 
+/**
+ * R5 C5 (N3): 보낸 사람(모임장)이 자기가 보낸 직접 위임 요청을 취소한다. 미접속 변경 요청은 취소하지 않는다.
+ * 없거나 이미 처리됨 → moim_transfer_not_found. 모임이 차단·종료여도 된다.
+ */
+export function moimHostTransferCancel(actorId: string, transferId: string, sb?: SupabaseServer) {
+  return callMoimRpc<{ transfer_id: string; moim_id: string; to_user_id: string }>(
+    "moim_host_transfer_cancel",
+    { p_actor: actorId, p_transfer: transferId },
+    sb
+  );
+}
+
 export function moimHostTransferRespond(actorId: string, transferId: string, accept: boolean, sb?: SupabaseServer) {
   return callMoimRpc<{ accepted: boolean; moim_id?: string }>(
     "moim_host_transfer_respond",
@@ -173,7 +193,13 @@ export function moimHostTransferRespond(actorId: string, transferId: string, acc
 
 /** 회원 탈퇴·영구 삭제 전 모임 정리 (설계 P8 · 감사 B8) — 어드민 회원 삭제 라우트만 부른다 */
 export function moimAccountCleanup(userId: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ transferred: number; closed: number; left: number; handovers: { moim_id: string; to_user_id: string }[] }>(
+  /** R5 E16·E4: handovers 에 모임 상태·새 모임장 모임 닉네임 (옛 DB 면 없음) */
+  return callMoimRpc<{
+    transferred: number;
+    closed: number;
+    left: number;
+    handovers: { moim_id: string; to_user_id: string; moim_status?: "active" | "closed" | "deleted"; to_nickname?: string | null }[];
+  }>(
     "moim_account_cleanup",
     { p_user: userId },
     sb
@@ -364,6 +390,14 @@ export function moimBoardUpsert(
   if (input.writeMinRole !== undefined) p.write_min_role = input.writeMinRole;
   if (input.isActive !== undefined) p.is_active = input.isActive;
   return callMoimRpc<{ board_id: string }>("moim_board_upsert", { p_actor: actorId, p_moim: moimId, p }, sb);
+}
+
+/**
+ * R5 C4 (N7): 켜진 게시판 순서 저장. boardIds = 지금 켜진 게시판 id 전부(새 순서) — 하나라도 다르면 moim_board_order_invalid.
+ * 닫힌 게시판은 그 뒤 번호로 원래 순서를 지킨다. 권한 manage_boards.
+ */
+export function moimBoardReorder(actorId: string, moimId: string, boardIds: string[], sb?: SupabaseServer) {
+  return callMoimRpc("moim_board_reorder", { p_actor: actorId, p_moim: moimId, p_board_ids: boardIds }, sb);
 }
 
 export function moimMemberNoteSet(actorId: string, moimId: string, targetUserId: string, body: string, sb?: SupabaseServer) {
@@ -574,7 +608,7 @@ export function moimAdminUpdateInfo(
   if (patch.joinMode !== undefined) p.join_mode = patch.joinMode;
   if (patch.lguId !== undefined) p.lgu_id = patch.lguId;
   if (patch.questions !== undefined) p.questions = patch.questions;
-  return callMoimRpc<{ updated_at: string; host_user_id: string; name: string }>(
+  return callMoimRpc<{ updated_at: string; host_user_id: string; name: string } & MoimRpcViewKeys>(
     "moim_admin_update_info",
     { p_admin: adminId, p_moim: moimId, p, p_expected_updated_at: expectedUpdatedAt, p_reason: reason },
     sb
@@ -599,7 +633,7 @@ export function moimAdminMemberRole(
 }
 
 export function moimAdminMemberRemove(adminId: string, moimId: string, userId: string, ban: boolean, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ was_active: boolean }>(
+  return callMoimRpc<{ was_active: boolean; was_pending?: boolean } & MoimRpcViewKeys>(
     "moim_admin_member_remove",
     { p_admin: adminId, p_moim: moimId, p_user: userId, p_ban: ban, p_reason: reason },
     sb
@@ -607,7 +641,7 @@ export function moimAdminMemberRemove(adminId: string, moimId: string, userId: s
 }
 
 export function moimAdminMemberUnban(adminId: string, moimId: string, userId: string, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc("moim_admin_member_unban", { p_admin: adminId, p_moim: moimId, p_user: userId, p_reason: reason }, sb);
+  return callMoimRpc<MoimRpcViewKeys>("moim_admin_member_unban", { p_admin: adminId, p_moim: moimId, p_user: userId, p_reason: reason }, sb);
 }
 
 /** R1 A-17: expectedHost = 화면이 본 모임장 — 다르면 moim_conflict */
@@ -658,7 +692,8 @@ export function moimAdminSanctionApply(
   input: { level: MoimSanctionLevel; reasonCode: string; reason: string; endsAt: string | null; reportId?: string | null },
   sb?: SupabaseServer
 ) {
-  return callMoimRpc<{ sanction_id: string; platform_state: string; host_user_id: string; notify_user_ids: string[]; name: string }>(
+  /** R5 E11: reportId 는 같은 모임의 처리 전 신고만(아니면 moim_report_link_invalid) — 신고 상태는 바꾸지 않는다 */
+  return callMoimRpc<{ sanction_id: string; platform_state: string; host_user_id: string; notify_user_ids: string[]; name: string } & MoimRpcViewKeys>(
     "moim_admin_sanction_apply",
     {
       p_admin: adminId,
@@ -674,7 +709,7 @@ export function moimAdminSanctionApply(
 }
 
 export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, reason: string, sb?: SupabaseServer) {
-  return callMoimRpc<{ moim_id: string; platform_state: string; level?: string; name?: string; notify_user_ids?: string[] }>(
+  return callMoimRpc<{ moim_id: string; platform_state: string; level?: string; name?: string; notify_user_ids?: string[] } & MoimRpcViewKeys>(
     "moim_admin_sanction_revoke",
     { p_admin: adminId, p_sanction: sanctionId, p_reason: reason },
     sb
@@ -683,9 +718,28 @@ export function moimAdminSanctionRevoke(adminId: string, sanctionId: string, rea
 
 // ── M6 신고 처리 (20271113400000) ──────────────────────────────────────────
 
-/** 검토 시작 (접수 → 검토 중) — 접수가 아니면 moim_conflict */
-export function moimAdminReportReview(adminId: string, reportId: string, sb?: SupabaseServer) {
-  return callMoimRpc("moim_admin_report_review", { p_admin: adminId, p_report: reportId }, sb);
+/** 검토 시작 (접수 → 검토 중) — 접수가 아니면 moim_conflict · R5 D9: 사유 필수(없으면 moim_admin_reason_required) */
+export function moimAdminReportReview(adminId: string, reportId: string, reason: string, sb?: SupabaseServer) {
+  return callMoimRpc("moim_admin_report_review", { p_admin: adminId, p_report: reportId, p_reason: reason }, sb);
+}
+
+/**
+ * R5 D23 (N5): 메신저 어드민이 모임 방 메시지를 숨김·숨김 해제했을 때 모임 운영기록에만 남긴다(제재 행은 건드리지 않음).
+ * 모임 방이 아니면 { ok:false, error:"moim_room_not_moim" } — 부르는 쪽은 무시한다.
+ */
+export function moimAdminLogRoomAction(
+  adminId: string,
+  roomId: string,
+  type: "admin_messenger_message_hidden" | "admin_messenger_message_unhidden",
+  targetId: string | null,
+  reason: string | null,
+  sb?: SupabaseServer
+) {
+  return callMoimRpc<{ moim_id: string }>(
+    "moim_admin_log_room_action",
+    { p_admin: adminId, p_room: roomId, p_type: type, p_target: targetId, p_reason: reason },
+    sb
+  );
 }
 
 export type MoimAdminReportDecision = "actioned" | "dismissed";
@@ -703,13 +757,16 @@ export type MoimAdminReportDecideInput = {
 
 export type MoimAdminReportDecideAction = {
   kind: string;
-  sanction_id: string;
+  /** R5: 새 행을 만들지 않았고 기존 행도 없으면 null */
+  sanction_id: string | null;
   platform_state?: string;
   user_id?: string;
   community_sanction_id?: string | null;
   duplicate?: boolean;
-  /** content_hide: 숨김이 실제로 바꾼 행이 있었는가 (R2 재감사 F5) */
+  /** content_hide: 숨김이 실제로 바꾼 행이 있었는가 (R2 재감사 F5) · false 면 새 숨김 행 없음(sanction_id = 기존 행 또는 null, R5 신규2) */
   changed?: boolean;
+  /** R5 D3: 모임 제재 — false = 같은 단계가 이미 진행 중이라 그 행을 썼음(알림 보내지 않음). 키 없음(옛 DB) = 새로 만듦 */
+  created?: boolean;
   restriction?: "post" | "comment" | "all";
   days?: number | null;
   end_at?: string | null;
@@ -732,7 +789,9 @@ export function moimAdminReportDecide(adminId: string, reportId: string, input: 
     chat_room_id: string | null;
     schedule_title: string | null;
     schedule_notify_user_ids: string[];
-  }>(
+    /** R5 E4: 신고자 중 이 모임 활동 멤버 — 결과 알림 이동 위치를 둘로 나눈다 (옛 DB 면 없음) */
+    reporter_member_ids?: string[];
+  } & MoimRpcViewKeys>(
     "moim_admin_report_decide",
     {
       p_admin: adminId,

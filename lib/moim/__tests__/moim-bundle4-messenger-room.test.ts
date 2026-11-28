@@ -71,7 +71,7 @@ describe("D2 일정 방 → 일정 상세, 모임 방 → 모임 홈", () => {
               { id: "bbbbbbbb-2222-4222-8222-222222222222", owner_ref_id: "s1" },
             ],
             moims: [{ id: "m1", name: "Moim", status: "active", platform_state: "normal", moim_members: [], moim_permissions: [] }],
-            moim_schedules: [{ id: "s1", moim_id: "m1" }],
+            moim_schedules: [{ id: "s1", moim_id: "m1", status: "recruiting", starts_at: "2026-11-15T10:00:00Z" }],
           }),
         }),
       };
@@ -81,9 +81,17 @@ describe("D2 일정 방 → 일정 상세, 모임 방 → 모임 홈", () => {
     const res = await GET(new NextRequest("https://x.test/api/moim/rooms?ids=aaaaaaaa-1111-4111-8111-111111111111,bbbbbbbb-2222-4222-8222-222222222222"));
     const body = (await res.json()) as { owners: Record<string, unknown> };
     /** 모임 R4: moimStatus(D-3)·memberRoles(#18)·canStartDm(D-45) 이 같은 응답에 붙는다 — 보는 사람이 활성 멤버가 아니면 [1:1] 없음 */
-    const r4 = { moimStatus: "active", memberRoles: {}, canStartDm: false };
-    expect(body.owners["bbbbbbbb-2222-4222-8222-222222222222"]).toEqual({ moimId: "m1", kind: "schedule", moimName: "Moim", scheduleId: "s1", ...r4 });
-    expect(body.owners["aaaaaaaa-1111-4111-8111-111111111111"]).toEqual({ moimId: "m1", kind: "moim", moimName: "Moim", ...r4 });
+    /** 모임 R5: homeOpen(A9)·readonlyReason(A16)·scheduleStartsAt(A24) 칸 추가 — 일정 방은 시작 시각, 모임 방은 null */
+    const r4 = { moimStatus: "active", homeOpen: true, readonlyReason: null, memberRoles: {}, canStartDm: false };
+    expect(body.owners["bbbbbbbb-2222-4222-8222-222222222222"]).toEqual({
+      moimId: "m1",
+      kind: "schedule",
+      moimName: "Moim",
+      scheduleId: "s1",
+      scheduleStartsAt: "2026-11-15T10:00:00Z",
+      ...r4,
+    });
+    expect(body.owners["aaaaaaaa-1111-4111-8111-111111111111"]).toEqual({ moimId: "m1", kind: "moim", moimName: "Moim", scheduleStartsAt: null, ...r4 });
     vi.doUnmock("@/lib/moim/server/moim-route-guard.server");
   });
 });
@@ -105,13 +113,13 @@ describe("D1 모임 방 공지 = 모임 게시판 공지", () => {
     expect(sb.calls.some((c) => c.table === "moim_posts")).toBe(false);
   });
 
-  it("메신저 방 공지 편집은 모임 방에서 꺼지고, 방 정보의 운영·공지 칸은 모임 방에서 숨는다 (구조 확인)", () => {
+  it("메신저 방 공지 편집은 모임 방에서 꺼지고, 방 정보의 운영·공지 칸은 모임 방에서 숨는다 (구조 확인 · R5 표면 규칙 깃발)", () => {
     const pres = readFileSync("lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation.ts", "utf8");
     const sheets = readFileSync("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx", "utf8");
     const svc = readFileSync("lib/community-messenger/service.ts", "utf8");
-    expect(pres).toMatch(/canEditGroupNotice = Boolean\(\s*\(isPrivateGroupRoom \|\| isOpenGroupRoom\) && !isMoimRoom && groupCaps\?\.canEditNotice/);
-    expect(sheets).toContain("{vm.isPrivateGroupRoom && !vm.isMoimRoom ? (");
-    expect(sheets).toContain("{(vm.isPrivateGroupRoom && !vm.isMoimRoom) || vm.isOpenGroupRoom ? (");
+    expect(pres).toMatch(/canEditGroupNotice = Boolean\(\s*\(isPrivateGroupRoom \|\| isOpenGroupRoom\) && messengerManagement && groupCaps\?\.canEditNotice/);
+    expect(sheets).toContain("{vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (");
+    expect(sheets).toContain("{(vm.isPrivateGroupRoom && moimSurface.messengerManagement) || vm.isOpenGroupRoom ? (");
     expect(sheets).toContain("<MoimRoomNoticeMenuItem");
     expect(svc).toContain('return { ok: false, error: "moim_room_settings_managed_by_moim" };');
   });

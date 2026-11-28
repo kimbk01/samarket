@@ -80,6 +80,8 @@ export type MoimPostDto = {
   moimId: string;
   boardId: string;
   boardKind: MoimBoardDto["kind"];
+  /** R5 B19: 게시판 이름(사용자 게시판 = 이름, 시스템 게시판 = null) — 비멤버 공개 글도 이름을 보인다 */
+  boardName: string | null;
   title: string;
   body: string;
   images: string[];
@@ -115,6 +117,7 @@ export type MoimDetailDto = {
   lastActivityAt: string;
   host: MoimAuthorDto | null;
   joinQuestions: string[];
+  /** 멤버에게만. R5 C15: 닫은 게시판까지 전부(`isActive` 로 구분) — 글쓰기·칩은 `isActive` 만 쓴다 */
   boards: MoimBoardDto[];
   /** 고정 공지 (멤버면 전부, 비멤버면 public 만) */
   pinnedNotices: MoimPostDto[];
@@ -140,6 +143,8 @@ export type MoimDetailDto = {
     banned: boolean;
     /** 모임장에게 온 위임 요청 (내가 받는 사람일 때) */
     incomingHostTransferId: string | null;
+    /** R5 C5: 내가(모임장) 보낸 직접 위임 요청 — 모임장일 때만 채움, 없으면 null */
+    outgoingHostTransfer: { id: string; toUserId: string; toNickname: string; createdAt: string } | null;
     /** 이 모임 채팅방 (활성 멤버일 때만) */
     roomId: string | null;
   };
@@ -171,7 +176,13 @@ export type MoimJoinRequestDto = {
   rejoinCount: number;
 };
 
-export type MoimBannedDto = { userId: string; nickname: string; avatarUrl: string | null; reason: string | null; createdAt: string };
+/**
+ * 차단 목록 줄. R5 E3: byPlatform = 플랫폼 어드민이 건 차단 — 사유는 돌려주지 않고(reason=null) 운영진은 풀 수 없다(서버 moim_ban_admin_only).
+ */
+export type MoimBannedDto = { userId: string; nickname: string; avatarUrl: string | null; reason: string | null; createdAt: string; byPlatform: boolean };
+
+/** R5 C14: 멤버 목록 한 번에 받는 상한 (상한에 닿으면 응답 `capped: true`) */
+export const MOIM_MEMBER_LIST_CAP = 1000;
 
 export type MoimInviteLinkDto = { id: string; token: string; expiresAt: string | null; usageCount: number; createdAt: string };
 
@@ -253,7 +264,38 @@ export type MoimAlbumItemDto = {
   viewerIsUploader: boolean;
 };
 
-export type MoimNotificationPrefsDto = { notice: boolean; posts: boolean; schedules: boolean };
+export type MoimNotificationPrefsDto = {
+  notice: boolean;
+  posts: boolean;
+  schedules: boolean;
+  /** R5 B21: 모임 채팅방 알림이 꺼졌는가(메신저 음소거 권위 — 대표 방·나). 읽지 못하면 null. 이 화면에서는 바꾸지 않는다 */
+  chatMuted?: boolean | null;
+};
+
+/**
+ * R5 B1 · E8 · D-36: 「내가 쓴 글·댓글·사진」 한 줄 (`GET /api/moim/my-content`).
+ * 숨겨진 것도 포함(작성자가 지울 수 있음). 삭제된 모임은 제외. 신고자·숨긴 사람·숨김 사유는 담지 않는다.
+ */
+export type MoimMyContentType = "post" | "comment" | "album";
+export type MoimMyContentItemDto = {
+  id: string;
+  type: MoimMyContentType;
+  moimId: string;
+  moimName: string;
+  moimStatus: "active" | "closed";
+  viewerIsActiveMember: boolean;
+  status: "active" | "hidden";
+  /** 글 제목 */
+  title?: string | null;
+  /** 글·댓글 본문 앞부분 */
+  excerpt?: string | null;
+  /** 사진 주소 */
+  imageUrl?: string | null;
+  /** 댓글이면 글 id·글 제목 */
+  postId?: string | null;
+  postTitle?: string | null;
+  createdAt: string;
+};
 
 // ---------------------------------------------------------------------------
 // M6 — 모임 안 신고 확인 (운영진 hide_post · 설계 P13 「모임 안 처리」). 신고자 정보는 담지 않는다.
@@ -277,4 +319,6 @@ export type MoimStaffReportDto = {
   /** 댓글이면 글 id (글로 이동) */
   postId: string | null;
   authorNickname: string | null;
+  /** R5 C3: 보는 사람(운영진)이 이 콘텐츠의 작성자 — 처리 버튼이 「숨김」이 아니라 「삭제」 */
+  viewerIsAuthor: boolean;
 };

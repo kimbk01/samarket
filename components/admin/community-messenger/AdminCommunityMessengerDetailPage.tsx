@@ -43,6 +43,8 @@ import { useAdminOlderMessages } from "@/components/admin/chats/use-admin-older-
 import { useAdminLocationReturnTo } from "@/components/admin/chats/use-admin-location-return-to";
 import { AdminCmRoomDomainLinksCard } from "./AdminCmRoomDomainLinksCard";
 import { AdminTechId } from "@/components/admin/ui/AdminTechId";
+import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { MoimAdminGatedLink } from "@/components/admin/moim/admin-moim-shared";
 
 type CmMessageItem = AdminCommunityMessengerRoomDetail["messages"][number];
 
@@ -354,6 +356,16 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         ) : null}
       </div>
 
+      {detail.moimRef ? (
+        /* R5 D23: 모임 방·일정 방이면 바로 알 수 있게 + 모임 어드민으로 */
+        <div className="flex flex-wrap items-center gap-2" data-admin-cm-moim-room={detail.moimRef.moimId}>
+          <AdminToneBadge tone="progress">{t(detail.moimRef.scheduleId ? "admin_cm_moim_schedule_room_badge" : "admin_cm_moim_room_badge")}</AdminToneBadge>
+          <MoimAdminGatedLink href={`/admin/community/moims/${encodeURIComponent(detail.moimRef.moimId)}?tab=chats`} className="sam-text-helper text-signature underline">
+            {t("admin_cm_moim_room_open_admin")}
+          </MoimAdminGatedLink>
+        </div>
+      ) : null}
+
       <AdminCard titleKey="admin_cm_card_room_info">
         <div className="grid gap-3 md:grid-cols-2">
           <Info label={t("admin_cm_label_room_title")} value={room.title} />
@@ -412,6 +424,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
       </AdminCard>
 
       <AdminCard titleKey="admin_cm_card_ops_actions">
+        {detail.moimRef ? (
+          /* R5 D5: 모임 방의 차단·보관·읽기 전용은 모임 상태에 따라 모임 함수만 바꾼다 — 버튼 대신 안내 (주소로 요청해도 서버가 422) */
+          <p className="sam-text-helper text-sam-muted" data-admin-chat-room-actions-moim>
+            {t("admin_cm_moim_room_managed_by_moim")}
+          </p>
+        ) : (
         <div className="flex flex-wrap justify-end gap-2" data-admin-chat-room-actions>
           {(
             [
@@ -430,6 +448,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             </AdminActionButton>
           ))}
         </div>
+        )}
       </AdminCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -778,11 +797,15 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
       ) : null}
       {sheet?.kind === "report" ? (
         <AdminChatReportSheet
-          report={cmReportSheetInput(
-            sheet.report,
-            adminChatLabel("report_reason", sheet.report.reasonType, ko).label,
-            sheet.report.reportedUserId ? adminUserDetailHref(sheet.report.reportedUserId, returnCtx.here) : null
-          )}
+          report={{
+            ...cmReportSheetInput(
+              sheet.report,
+              adminChatLabel("report_reason", sheet.report.reasonType, ko).label,
+              sheet.report.reportedUserId ? adminUserDetailHref(sheet.report.reportedUserId, returnCtx.here) : null
+            ),
+            /** R5 D5: 모임 방 신고는 방 정지 선택지 없음 */
+            cmRoomManagedByMoim: Boolean(detail.moimRef),
+          }}
           onClose={() => setSheet(null)}
           onSettled={(kind) => onSheetSettled(kind, { reportQueue: true })}
         />

@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -59,7 +60,8 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { MoimRoomNoticeMenuItem } from "@/components/moim/MoimRoomNoticeMenuItem";
-import { moimRoomMemberRoleKey, moimRoomOwnerHref, moimRoomOwnerShowsHome } from "@/lib/moim/use-moim-room-owner";
+import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurfaceFromView, resolveRoomMemberSubtitle } from "@/lib/moim/moim-room-surface-policy";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
@@ -107,9 +109,22 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
    * 모임 방 멤버 = 메신저 역할 배지(방장·부방장·멤버) 대신 이름 옆 모임 역할 「· 운영진」 (모임 R4 #18 · 시안 U8).
    * 이미 받은 /api/moim/rooms 응답의 역할 맵만 쓴다(추가 요청 0). 일반 멤버는 표시 없음.
    */
-  const moimRoleOwner = vm.isMoimRoom ? vm.moimRoomOwner : null;
+  /**
+   * 모임 방 표면 규칙 하나 (모임 R5 A §1 · `lib/moim/moim-room-surface-policy.ts`) — 이 시트의 모임 조건은 전부 이 깃발로만 정한다.
+   * 판정 중·실패(pending) = 메신저 관리 UI 숨김(Owner 결정 1).
+   */
+  const moimSurface = useMemo(
+    () =>
+      resolveMoimRoomSurfaceFromView({
+        isPrivateGroupRoom: vm.isPrivateGroupRoom,
+        isMoimRoom: vm.isMoimRoom,
+        moimRoomOwner: vm.moimRoomOwner,
+        viewerUserId: vm.snapshot.viewerUserId,
+      }),
+    [vm.isPrivateGroupRoom, vm.isMoimRoom, vm.moimRoomOwner, vm.snapshot.viewerUserId]
+  );
   const moimRoleSuffix = (userId: string) => {
-    const key = moimRoomMemberRoleKey(moimRoleOwner, userId);
+    const key = moimSurface.memberRoleKey(userId);
     return key ? ` · ${vm.t(key)}` : "";
   };
   /**
@@ -374,7 +389,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
 
-                {vm.isPrivateGroupRoom ? (
+                {/* 모임 방·판정 중에는 메신저 설정 카드(이름·초대·링크·가입 요청·차단 목록)가 없다 (모임 R5 A1) */}
+                {vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (
                   <div className="mb-4 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--sm-color-primary-soft)] p-4">
                     <p className="text-[length:var(--overlay-caption-size)] font-semibold text-[color:var(--overlay-primary)]">{vm.t("nav_messenger_private_group")}</p>
                     <p className="mt-1 text-[length:var(--overlay-body-2-size)] text-[color:var(--overlay-text-primary)]">{vm.t("nav_messenger_room_settings")}</p>
@@ -475,8 +491,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           memberCount: vm.snapshot.room.memberCount,
                           onlineCount: vm.snapshot.room.onlineCount,
                         })
-                      : vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}{" "}
-                    · {vm.myRoleLabel}
+                      : vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}
+                    {/* 모임 방 = 모임 역할 · 판정 중 = 역할 칸 생략 (모임 R5 A2) */}
+                    {vm.myRoleLabel ? ` · ${vm.myRoleLabel}` : null}
                   </p>
                 </div>
 
@@ -514,9 +531,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <span className={GROUP_MENU_TRAILING_CLASS} aria-hidden>›</span>
                   </button>
                   {/* 모임 방 공지 = 모임 게시판 공지 하나 (모임 4번 묶음 D1 · hard-lock §MOIM-owned GROUP rooms) */}
-                  {vm.isMoimRoom && vm.moimRoomOwner ? (
+                  {/* 삭제·열람 끝·판정 중이면 모임 공지 줄도 메신저 공지 줄도 없다 (모임 R5 A10·A22) */}
+                  {moimSurface.moimEntry && vm.moimRoomOwner ? (
                     <MoimRoomNoticeMenuItem moimId={vm.moimRoomOwner.moimId} trailingClassName={GROUP_MENU_TRAILING_CLASS} />
-                  ) : (
+                  ) : !moimSurface.messengerManagement ? null : (
                   <button
                     type="button"
                     onClick={() =>
@@ -637,7 +655,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             fallbackSrc=""
                             fallbackNode={<span className="sam-text-helper font-semibold text-sam-primary">{initials}</span>}
                           />
-                          {isRoomOwner ? (
+                          {/* 왕관 = 메신저 방장 — 모임 방은 이름 옆 모임 역할만 (모임 R5 A17 · 신규4) */}
+                          {isRoomOwner && moimSurface.messengerManagement ? (
                             <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-sam-surface ring-1 ring-sam-border">
                               <Crown className="h-3 w-3 text-[color:var(--overlay-primary)]" strokeWidth={2} aria-hidden />
                             </span>
@@ -649,11 +668,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             {moimRoleSuffix(member.id)}
                             {isSelf ? ` (${vm.t("nav_messenger_me")})` : ""}
                           </span>
-                          {moimRoleOwner ? null : (
+                          {moimSurface.messengerManagement ? (
                             <span className="mt-0.5 flex flex-wrap items-center gap-1">
                               <GroupMemberRoleBadge role={isRoomOwner ? "owner" : member.memberRole} />
                             </span>
-                          )}
+                          ) : null}
                         </span>
                       </>
                     );
@@ -676,12 +695,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   })}
                   <div className="flex justify-center border-t border-[color:var(--overlay-border)] py-1">
                     <button type="button" onClick={() => vm.setActiveSheet("members")} className={OverlayUi.textAction}>
-                      {vm.t("cm_ui_members_invites_view_all")} ›
+                      {vm.t(moimSurface.messengerManagement ? "cm_ui_members_invites_view_all" : "moim_room_members_view_all")} ›
                     </button>
                   </div>
                 </div>
 
-                {vm.managementEventMessages.length ? (
+                {vm.managementEventMessages.length && moimSurface.messengerManagement ? (
                   <div className={GROUP_MENU_BOX_CLASS}>
                     <p className={GROUP_MENU_GROUP_LABEL_CLASS}>{vm.t("cm_ui_operation_history")}</p>
                     {vm.managementEventMessages.map((event) => {
@@ -733,22 +752,22 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
 
-                {vm.isMoimRoom && vm.moimRoomOwner ? (
+                {/* 삭제·열람 끝·판정 중이면 「모임 홈」 줄도 안내도 없다 — 이유는 읽기 전용 안내가 말한다 (모임 R5 A9·A21) */}
+                {moimSurface.moimEntry && vm.moimRoomOwner ? (
                   <div className="mt-3">
-                    {/* 삭제된 모임이면 「모임 홈」 줄만 숨긴다 (모임 R4 D-3) */}
-                    {moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
-                      <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
-                        <a href={moimRoomOwnerHref(vm.moimRoomOwner)} data-moim-room-home="menu" className="dibay-overlay-menu__item">
-                          <span className="dibay-overlay-menu__label">
-                            {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
-                          </span>
-                        </a>
-                      </div>
+                    <div className={`${GROUP_MENU_BOX_CLASS} !mt-0`}>
+                      <a href={moimRoomOwnerHref(vm.moimRoomOwner)} data-moim-room-home="menu" className="dibay-overlay-menu__item">
+                        <span className="dibay-overlay-menu__label">
+                          {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                        </span>
+                      </a>
+                    </div>
+                    {moimSurface.captionKey ? (
+                      <p className={`${OverlayUi.caption} mt-1 px-1`}>{vm.t(moimSurface.captionKey)}</p>
                     ) : null}
-                    <p className={`${OverlayUi.caption} mt-1 px-1`}>{vm.t("moim_room_managed_in_moim")}</p>
                   </div>
                 ) : null}
-                <div className={vm.isMoimRoom ? "hidden" : GROUP_MENU_BOX_CLASS}>
+                <div className={moimSurface.messengerManagement ? GROUP_MENU_BOX_CLASS : "hidden"}>
                   <button
                     type="button"
                     onClick={() => {
@@ -878,7 +897,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               {member.label}
                               {moimRoleSuffix(member.id)}
                             </p>
-                            {moimRoleOwner ? null : vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
+                            {!moimSurface.messengerManagement ? null : vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
                               <GroupMemberRoleBadge role="owner" />
                             ) : member.memberRole === "admin" ? (
                               <GroupMemberRoleBadge role="admin" />
@@ -890,21 +909,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             ) : null}
                           </div>
                           <p className="mt-1 sam-text-helper text-sam-muted">
+                            {/* 모임 방 부제 = 모임 소개만 — 「별칭 참여」 대체 문구 없음 (모임 R5 A18) */}
                             {vm.isGroupRoom ? (
                               <GroupMemberPresenceLabel
                                 userId={member.id}
-                                fallback={
-                                  member.subtitle ??
-                                  (member.identityMode === "alias"
-                                    ? vm.t("nav_messenger_member_alias_joined")
-                                    : vm.t("nav_messenger_member_joined"))
-                                }
+                                fallback={resolveRoomMemberSubtitle({
+                                  subtitle: member.subtitle,
+                                  fallback:
+                                    member.identityMode === "alias"
+                                      ? vm.t("nav_messenger_member_alias_joined")
+                                      : vm.t("nav_messenger_member_joined"),
+                                  surface: moimSurface,
+                                })}
                               />
                             ) : (
-                              member.subtitle ??
-                              (member.identityMode === "alias"
-                                ? vm.t("nav_messenger_member_alias_joined")
-                                : vm.t("nav_messenger_member_joined"))
+                              resolveRoomMemberSubtitle({
+                                subtitle: member.subtitle,
+                                fallback:
+                                  member.identityMode === "alias"
+                                    ? vm.t("nav_messenger_member_alias_joined")
+                                    : vm.t("nav_messenger_member_joined"),
+                                surface: moimSurface,
+                              })
                             )}
                           </p>
                         </div>
@@ -984,7 +1010,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
+                      {/* 모임 방 = 「모임 채팅방」/「일정 채팅방」 · 판정 중 = 줄 생략 (모임 R5 A5·A6) */}
+                      {vm.roomTypeLabel ? <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p> : null}
                     </div>
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_online")}</p>
@@ -995,18 +1022,33 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_online_ssot_hint")}</p>
                     </div>
+                    {/* 모임 방 = 모임 역할 · 「모임 프로필」 / 판정 중 = 값·둘째 줄 생략 (모임 R5 A5) */}
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_my_status")}</p>
-                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.myRoleLabel}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomIdentityLabel || vm.t("cm_ui_default_profile")}</p>
+                      {vm.myRoleLabel ? <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.myRoleLabel}</p> : null}
+                      {moimSurface.state === "moim" ? (
+                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("moim_room_profile_label")}</p>
+                      ) : moimSurface.state === "not_moim" ? (
+                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomIdentityLabel || vm.t("cm_ui_default_profile")}</p>
+                      ) : null}
                     </div>
-                    <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_join_method")}</p>
-                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.roomJoinLabel || vm.t("cm_ui_default_join")}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">
-                        {vm.isOpenGroupRoom ? (vm.snapshot.room.isDiscoverable ? vm.t("cm_ui_search_visibility") : vm.t("nav_messenger_private_group")) : vm.t("cm_ui_invite_based")}
-                      </p>
-                    </div>
+                    {/* 모임 방 참여 방식 = 계약 §2 「들어오는 방법」 / 판정 중 = 카드 생략 (모임 R5 A5) */}
+                    {moimSurface.state === "moim" ? (
+                      <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_join_method")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
+                          {vm.t(vm.moimRoomOwner?.kind === "schedule" ? "moim_room_join_via_schedule" : "moim_room_join_via_moim")}
+                        </p>
+                      </div>
+                    ) : moimSurface.state === "not_moim" ? (
+                      <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_join_method")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.roomJoinLabel || vm.t("cm_ui_default_join")}</p>
+                        <p className="mt-1 sam-text-helper text-sam-muted">
+                          {vm.isOpenGroupRoom ? (vm.snapshot.room.isDiscoverable ? vm.t("cm_ui_search_visibility") : vm.t("nav_messenger_private_group")) : vm.t("cm_ui_invite_based")}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border bg-sam-surface px-4 py-3">
                       <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_items")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
@@ -1030,7 +1072,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       className={`${OverlayUi.selectCard} !flex-col !items-start !justify-center !gap-0`}
                     >
                       <p className="sam-text-xxs text-sam-muted">{vm.t("nav_messenger_participants")}</p>
-                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.isGroupRoom ? vm.t("cm_ui_member_management") : vm.t("cm_ui_peer_info")}</p>
+                      {/* 모임 방은 관리할 수 없고 보기만 한다 (모임 R5 A5) */}
+                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">
+                        {!vm.isGroupRoom
+                          ? vm.t("cm_ui_peer_info")
+                          : moimSurface.messengerManagement
+                            ? vm.t("cm_ui_member_management")
+                            : vm.t("moim_room_members_view")}
+                      </p>
                     </button>
                     <button
                       type="button"
@@ -1062,22 +1111,29 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         : vm.snapshot.room.summary?.trim() || vm.roomSubtitle || vm.t("nav_messenger_room_no_intro")}
                     </p>
                     <div className="mt-4 space-y-2 border-t border-sam-border-soft pt-4 sam-text-body-secondary text-sam-fg">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">{vm.t("cm_ui_room_type")}</span>
-                        <span className="font-medium text-sam-fg">{vm.roomTypeLabel}</span>
-                      </div>
+                      {vm.roomTypeLabel ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sam-muted">{vm.t("cm_ui_room_type")}</span>
+                          <span className="font-medium text-sam-fg">{vm.roomTypeLabel}</span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sam-muted">{vm.t("nav_messenger_participants")}</span>
                         <span className="font-medium text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">{vm.t("nav_messenger_owner_label")}</span>
-                        <span className="font-medium text-sam-fg">{vm.snapshot.room.ownerLabel || "-"}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">{vm.t("cm_ui_my_role")}</span>
-                        <span className="font-medium text-sam-fg">{vm.myRoleLabel}</span>
-                      </div>
+                      {/* 「방장」 줄 = 메신저 관리 방만 — 모임 방은 이름 옆 역할로 모임장을 보여 준다 (모임 R5 A3) */}
+                      {moimSurface.messengerManagement ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sam-muted">{vm.t("nav_messenger_owner_label")}</span>
+                          <span className="font-medium text-sam-fg">{vm.snapshot.room.ownerLabel || "-"}</span>
+                        </div>
+                      ) : null}
+                      {vm.myRoleLabel ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sam-muted">{vm.t("cm_ui_my_role")}</span>
+                          <span className="font-medium text-sam-fg">{vm.myRoleLabel}</span>
+                        </div>
+                      ) : null}
                       {vm.snapshot.room.memberLimit ? (
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sam-muted">{vm.t("cm_ui_max_members")}</span>
@@ -1108,7 +1164,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           <span className="font-medium text-sam-fg">{vm.snapshot.room.requiresPassword ? vm.t("cm_ui_enabled") : vm.t("common_none")}</span>
                         </div>
                       ) : null}
-                      {vm.isPrivateGroupRoom ? (
+                      {vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sam-muted">{vm.t("nav_messenger_invite_members")}</span>
                           <span className="font-medium text-sam-fg">{vm.snapshot.room.allowMemberInvite ? vm.t("cm_ui_allowed") : vm.t("cm_ui_limited")}</span>
@@ -1178,7 +1234,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </div>
 
                   {/* 모임 방: 메신저 운영 칸(공지·권한·기록·멤버/위임) 대신 모임 홈·일정 보기 (시안 U8 · 4번 묶음 D6) */}
-                  {vm.isPrivateGroupRoom && !vm.isMoimRoom ? (
+                  {vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (
                     <div className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1243,7 +1299,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         >
                           {vm.isOwner ? vm.t("cm_ui_members_transfer") : vm.t("cm_ui_members_invite")}
                         </button>
-                        {vm.isMoimRoom ? null : (
+                        {moimSurface.messengerManagement ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -1262,27 +1318,25 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               ? vm.t("cm_ui_leave_after_owner_transfer")
                               : vm.t("nav_messenger_leave_group_room")}
                         </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
-                  ) : vm.isMoimRoom && vm.moimRoomOwner ? (
+                  ) : moimSurface.moimEntry && vm.moimRoomOwner ? (
+                    /* 삭제·열람 끝·판정 중이면 「모임 홈」도 안내도 없다 (모임 R5 A9·A21) */
                     <div data-moim-room-info="" className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
-                      {/* 삭제된 모임이면 「모임 홈」 버튼만 숨긴다 (모임 R4 D-3) */}
-                      {moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
-                        <a
-                          href={moimRoomOwnerHref(vm.moimRoomOwner)}
-                          data-moim-room-home="info"
-                          className={`${OverlayUi.btn.secondary} block text-center`}
-                        >
-                          {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
-                        </a>
-                      ) : null}
-                      <p className={`${OverlayUi.caption} mt-2`}>{vm.t("moim_room_managed_in_moim")}</p>
+                      <a
+                        href={moimRoomOwnerHref(vm.moimRoomOwner)}
+                        data-moim-room-home="info"
+                        className={`${OverlayUi.btn.secondary} block text-center`}
+                      >
+                        {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_go_home")}
+                      </a>
+                      {moimSurface.captionKey ? <p className={`${OverlayUi.caption} mt-2`}>{vm.t(moimSurface.captionKey)}</p> : null}
                     </div>
                   ) : null}
 
                   {/* 모임 방에는 메신저 방 공지가 없다 — 모임 게시판 공지 하나 (4번 묶음 D1) */}
-                  {(vm.isPrivateGroupRoom && !vm.isMoimRoom) || vm.isOpenGroupRoom ? (
+                  {(vm.isPrivateGroupRoom && moimSurface.messengerManagement) || vm.isOpenGroupRoom ? (
                     <div ref={vm.groupNoticeSectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1343,7 +1397,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   ) : null}
 
-                  {vm.isPrivateGroupRoom ? (
+                  {/* 모임 방·판정 중에는 메신저 권한 칸이 없다 (모임 R5 A4 · hard-lock 「권한 숨김」) */}
+                  {vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (
                     <div ref={vm.groupPermissionsSectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -1412,7 +1467,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   ) : null}
 
-                  {vm.managementEventMessages.length ? (
+                  {vm.managementEventMessages.length && moimSurface.messengerManagement ? (
                     <div ref={vm.groupHistorySectionRef} className="rounded-[length:var(--overlay-radius-md)] border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>

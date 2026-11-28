@@ -14,6 +14,8 @@ vi.mock("@/lib/moim/server/moim-route-guard.server", async () => {
   return { ...actual, guardMoimWrite: async () => g, guardMoimAcceptGate: async () => null };
 });
 vi.mock("@/lib/auth/require-registration-for-action.server", () => ({ requireRegistrationForAction: async () => null }));
+/** R5 B5: 초대 수락 분기는 라우트가 약관을 확인한다(거절은 동의 예외) — 이 시험은 약관 통과로 둔다 */
+vi.mock("@/lib/auth/require-signup-complete-api", () => ({ requireSignupCompleteForUser: async () => ({ ok: true }) }));
 vi.mock("@/lib/moim/server/moim-rpc.server", () => ({
   moimJoin: (...a: unknown[]) => moimJoin(...(a as [])),
   moimJoinCancel: vi.fn(),

@@ -20,6 +20,7 @@ import {
   type MoimAdminReportStatus,
   type MoimAdminReportTargetType,
   type MoimAdminSanctionFilter,
+  type MoimAdminSanctionKind,
 } from "@/lib/admin/moim/moim-admin-contract";
 
 /**
@@ -30,6 +31,9 @@ import {
 type Sb = SupabaseServer;
 
 const DAY_MS = 86_400_000;
+/** R5 D25: 멤버 탭이 읽는 활동 차단 행 상한 · 「모임에 없는 차단 사용자」 표 상한 */
+const BANS_SCAN_CAP = 2000;
+const BANS_WITHOUT_MEMBER_MAX = 200;
 /** 신고 수 필터·묶음 보기에서 읽는 신고 행 상한 */
 export const MOIM_REPORT_SCAN_CAP = 10_000;
 
@@ -280,7 +284,7 @@ export async function loadAdminMoimInfo(sb: Sb, moimId: string) {
     lgu_id: string;
     main_room_id: string | null;
   };
-  const [questions, categories, people, sanctions, warnCount, openTransfer, reportCount] = await Promise.all([
+  const [questions, categories, people, sanctions, warnCount, openTransfer, reportCount, policies] = await Promise.all([
     sb.from("moim_join_questions").select("question, sort_order").eq("moim_id", moimId).order("sort_order"),
     listAdminMoimCategories(sb),
     loadAdminPeople(sb, [moim.host_user_id, moim.created_by, moim.deleted_by]),
@@ -299,7 +303,10 @@ export async function loadAdminMoimInfo(sb: Sb, moimId: string) {
       .eq("status", "requested")
       .maybeSingle(),
     sb.from("moim_reports").select("id", { count: "exact", head: true }).eq("moim_id", moimId),
+    /** R5 D21: 이름·소개 글자 수는 운영 정책 값 (어드민은 캐시 없이 직접 — 저장 직후 값) */
+    sb.from("moim_policies").select("name_min_len, name_max_len, intro_max_len").eq("id", 1).maybeSingle(),
   ]);
+  const pol = (policies.data ?? null) as { name_min_len: number | null; name_max_len: number | null; intro_max_len: number | null } | null;
   const nowMs = Date.now();
   const activeSanctions = ((sanctions.data ?? []) as { id: string; level: string; reason_code: string; reason: string; starts_at: string; ends_at: string | null }[]).filter(
     (s) => Date.parse(s.starts_at) <= nowMs && (!s.ends_at || Date.parse(s.ends_at) > nowMs)
@@ -336,7 +343,82 @@ export async function loadAdminMoimInfo(sb: Sb, moimId: string) {
     warnCount: warnCount.count ?? null,
     reportCount: reportCount.count ?? null,
     openTransfer: (openTransfer.data as { id: string; kind: string; to_user_id: string; created_at: string } | null) ?? null,
+    /** 빈 값 = SQL 기본값 (이름 1~60 · 소개 2000) */
+    limits: {
+      nameMin: pol?.name_min_len ?? MOIM_NAME_MIN_DEFAULT,
+      nameMax: pol?.name_max_len ?? MOIM_NAME_MAX_DEFAULT,
+      introMax: pol?.intro_max_len ?? MOIM_INTRO_MAX_DEFAULT,
+    },
   };
+}
+
+const MOIM_NAME_MIN_DEFAULT = 1;
+const MOIM_NAME_MAX_DEFAULT = 60;
+const MOIM_INTRO_MAX_DEFAULT = 2000;
+
+// ── R5 제재 행 (뷰 moim_admin_sanction_rows_v · 리드 결정 1) ───────────────────
+
+/** 제재 행 읽기 열 — 표가 아니라 뷰를 읽는다 (이용 제한은 연결된 커뮤니티 제재, 콘텐츠 숨김은 콘텐츠의 지금 상태) */
+const SANCTION_VIEW_COLS =
+  "id, moim_id, target_kind, target_id, level, reason_code, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, revoked_by, created_at, report_target_type, community_sanction_id, content_now, live_state";
+
+type SanctionViewRow = {
+  id: string;
+  moim_id: string;
+  target_kind: string;
+  target_id: string;
+  level: string;
+  actor_id: string;
+  revoked_by: string | null;
+  report_target_type: string | null;
+};
+
+export type MoimAdminSanctionTarget = { label: string | null; person: MoimAdminPerson | null; roomId: string | null };
+
+function clipText(v: unknown, n = 60): string | null {
+  const s = typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+  if (!s) return null;
+  return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+/**
+ * R5 D1: 제재 대상 보강 — 콘텐츠는 짧은 내용(종류별 한 번씩 묶어 읽기), 사람은 계정. 모임 단위 행은 보강 없음.
+ * 반환: 제재 id → 대상.
+ */
+export async function loadAdminMoimSanctionTargets(sb: Sb, rows: readonly SanctionViewRow[]): Promise<Map<string, MoimAdminSanctionTarget>> {
+  const out = new Map<string, MoimAdminSanctionTarget>();
+  const byType = new Map<string, string[]>();
+  const userIds: string[] = [];
+  for (const r of rows) {
+    if (r.target_kind === "content") {
+      const t = r.report_target_type ?? "";
+      byType.set(t, [...(byType.get(t) ?? []), r.target_id]);
+    } else if (r.target_kind === "host" || r.target_kind === "member") userIds.push(r.target_id);
+  }
+  const ids = (t: string) => [...new Set(byType.get(t) ?? [])].slice(0, 500);
+  const [people, posts, comments, schedules, messages] = await Promise.all([
+    loadAdminPeople(sb, userIds),
+    ids("post").length ? sb.from("moim_posts").select("id, title, body").in("id", ids("post")) : Promise.resolve({ data: [] }),
+    ids("comment").length ? sb.from("moim_comments").select("id, body").in("id", ids("comment")) : Promise.resolve({ data: [] }),
+    ids("schedule").length ? sb.from("moim_schedules").select("id, title").in("id", ids("schedule")) : Promise.resolve({ data: [] }),
+    ids("chat_message").length
+      ? sb.from("community_messenger_messages").select("id, content, room_id").in("id", ids("chat_message"))
+      : Promise.resolve({ data: [] }),
+  ]);
+  const text = new Map<string, { label: string | null; roomId: string | null }>();
+  for (const p of (posts.data ?? []) as { id: string; title: string | null; body: string | null }[]) text.set(p.id, { label: clipText(p.title) ?? clipText(p.body), roomId: null });
+  for (const c of (comments.data ?? []) as { id: string; body: string | null }[]) text.set(c.id, { label: clipText(c.body), roomId: null });
+  for (const x of (schedules.data ?? []) as { id: string; title: string | null }[]) text.set(x.id, { label: clipText(x.title), roomId: null });
+  for (const m of (messages.data ?? []) as { id: string; content: string | null; room_id: string | null }[]) text.set(m.id, { label: clipText(m.content), roomId: m.room_id });
+  for (const r of rows) {
+    if (r.target_kind === "content") {
+      const hit = text.get(r.target_id);
+      out.set(r.id, { label: hit?.label ?? null, person: null, roomId: hit?.roomId ?? null });
+    } else if (r.target_kind === "host" || r.target_kind === "member") {
+      out.set(r.id, { label: null, person: person(people, r.target_id), roomId: null });
+    }
+  }
+  return out;
 }
 
 export async function loadAdminMoimSection(
@@ -344,8 +426,8 @@ export async function loadAdminMoimSection(
   moimId: string,
   section: Exclude<MoimAdminDetailSection, "info">,
   page: { limit: number; offset: number },
-  opts: { userId?: string | null; postId?: string | null } = {}
-): Promise<{ ok: true; total: number | null; rows: unknown[] } | { ok: false; error: string }> {
+  opts: { userId?: string | null; postId?: string | null; open?: boolean } = {}
+): Promise<{ ok: true; total: number | null; rows: unknown[]; bansWithoutMember?: unknown[] } | { ok: false; error: string }> {
   const range = [page.offset, page.offset + page.limit - 1] as const;
   switch (section) {
     case "members": {
@@ -360,21 +442,26 @@ export async function loadAdminMoimSection(
       const rows = (data ?? []) as { user_id: string }[];
       const [people, bans] = await Promise.all([
         loadAdminPeople(sb, rows.map((r) => r.user_id)),
-        sb.from("moim_bans").select("user_id, reason, created_at").eq("moim_id", moimId).is("released_at", null),
+        sb.from("moim_bans").select("user_id, reason, created_at").eq("moim_id", moimId).is("released_at", null).limit(BANS_SCAN_CAP),
       ]);
       const banned = new Map(((bans.data ?? []) as { user_id: string; reason: string | null; created_at: string }[]).map((b) => [b.user_id, b]));
-      // 멤버 행이 없는 차단(비멤버 차단)도 보여 준다
-      const extraBans = [...banned.values()].filter((b) => !rows.some((r) => r.user_id === b.user_id));
+      /**
+       * R5 D25·신규1: 멤버 행이 없는 차단(비멤버 차단)은 쪽과 상관없이 따로 — 모임 전체 멤버 행과 비교한다
+       * (지금 쪽 행과만 비교하면 다른 쪽에 있는 차단 멤버가 1쪽에 또 나온다).
+       */
+      const bannedIds = [...banned.keys()];
+      const memberIds = new Set<string>();
+      for (let i = 0; i < bannedIds.length; i += 200) {
+        const { data: mem } = await sb.from("moim_members").select("user_id").eq("moim_id", moimId).in("user_id", bannedIds.slice(i, i + 200));
+        for (const m of (mem ?? []) as { user_id: string }[]) memberIds.add(m.user_id);
+      }
+      const extraBans = [...banned.values()].filter((b) => !memberIds.has(b.user_id)).slice(0, BANS_WITHOUT_MEMBER_MAX);
       const extraPeople = await loadAdminPeople(sb, extraBans.map((b) => b.user_id));
       return {
         ok: true,
         total: count ?? null,
-        rows: [
-          ...rows.map((r) => ({ ...r, account: person(people, r.user_id), ban: banned.get(r.user_id) ?? null })),
-          ...(page.offset === 0
-            ? extraBans.map((b) => ({ user_id: b.user_id, role: null, status: "banned", nickname: null, account: person(extraPeople, b.user_id), ban: b }))
-            : []),
-        ],
+        rows: rows.map((r) => ({ ...r, account: person(people, r.user_id), ban: banned.get(r.user_id) ?? null })),
+        bansWithoutMember: extraBans.map((b) => ({ user_id: b.user_id, account: person(extraPeople, b.user_id), ban: b })),
       };
     }
     case "requests": {
@@ -471,28 +558,34 @@ export async function loadAdminMoimSection(
       return { ok: true, total: rows.length, rows };
     }
     case "reports": {
-      const { data, error, count } = await sb
+      let q = sb
         .from("moim_reports")
         .select("id, reporter_id, target_type, target_id, reason_code, detail, status, handled_by, handled_at, created_at", { count: "exact" })
-        .eq("moim_id", moimId)
-        .order("created_at", { ascending: false })
-        .range(...range);
+        .eq("moim_id", moimId);
+      /** R5 D15: 직접 제재에 연결할 신고 = 처리 전(접수·검토 중)만 */
+      if (opts.open) q = q.in("status", ["received", "reviewing"]);
+      const { data, error, count } = await q.order("created_at", { ascending: false }).range(...range);
       if (error) return { ok: false, error: error.message };
       const rows = (data ?? []) as { reporter_id: string }[];
       const people = await loadAdminPeople(sb, rows.map((r) => r.reporter_id));
       return { ok: true, total: count ?? null, rows: rows.map((r) => ({ ...r, reporter: person(people, r.reporter_id) })) };
     }
     case "sanctions": {
+      /** R5 D1: 뷰를 읽는다 — 모임·콘텐츠·사용자 제재가 같은 열로 (상태 = live_state) */
       const { data, error, count } = await sb
-        .from("moim_sanctions")
-        .select("id, target_kind, target_id, level, reason_code, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, revoked_by, created_at", { count: "exact" })
+        .from("moim_admin_sanction_rows_v")
+        .select(SANCTION_VIEW_COLS, { count: "exact" })
         .eq("moim_id", moimId)
         .order("created_at", { ascending: false })
         .range(...range);
       if (error) return { ok: false, error: error.message };
-      const rows = (data ?? []) as { actor_id: string; revoked_by: string | null }[];
-      const people = await loadAdminPeople(sb, rows.flatMap((r) => [r.actor_id, r.revoked_by]));
-      return { ok: true, total: count ?? null, rows: rows.map((r) => ({ ...r, actor: person(people, r.actor_id), revoker: person(people, r.revoked_by) })) };
+      const rows = (data ?? []) as unknown as SanctionViewRow[];
+      const [people, targets] = await Promise.all([loadAdminPeople(sb, rows.flatMap((r) => [r.actor_id, r.revoked_by])), loadAdminMoimSanctionTargets(sb, rows)]);
+      return {
+        ok: true,
+        total: count ?? null,
+        rows: rows.map((r) => ({ ...r, actor: person(people, r.actor_id), revoker: person(people, r.revoked_by), target: targets.get(r.id) ?? null })),
+      };
     }
     case "events": {
       const { data, error, count } = await sb
@@ -547,11 +640,13 @@ export async function listAdminMoimReports(
 /** 같은 모임 신고 묶음 — 상태·유형 조건에 맞는 신고(최대 MOIM_REPORT_SCAN_CAP)를 모임별로 센다 */
 export async function groupAdminMoimReports(
   sb: Sb,
-  f: { status: MoimAdminReportStatus | null; targetType: MoimAdminReportTargetType | null; limit: number; offset: number }
+  f: { status: MoimAdminReportStatus | null; targetType: MoimAdminReportTargetType | null; moimId?: string | null; limit: number; offset: number }
 ) {
   let q = sb.from("moim_reports").select("moim_id, target_type, created_at").limit(MOIM_REPORT_SCAN_CAP);
   if (f.status) q = q.eq("status", f.status);
   if (f.targetType) q = q.eq("target_type", f.targetType);
+  /** R5 신규3: 모임 필터가 켜진 채 묶음 보기 → 그 모임 한 줄 */
+  if (f.moimId) q = q.eq("moim_id", f.moimId);
   const { data, error } = await q.order("created_at", { ascending: false });
   if (error) return { ok: false as const, error: error.message };
   const groups = new Map<string, { moimId: string; count: number; latestAt: string; types: Record<string, number> }>();
@@ -577,7 +672,8 @@ export async function groupAdminMoimReports(
 export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
   const { data: r, error } = await sb.from("moim_reports").select("*").eq("id", reportId).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
-  if (!r) return { ok: false as const, error: "report_not_found" };
+  /** R5 D17: 다른 모임 어드민 코드와 같은 이름 (화면은 404 문장) */
+  if (!r) return { ok: false as const, error: "moim_report_not_found" };
   const report = r as {
     id: string;
     reporter_id: string;
@@ -599,9 +695,11 @@ export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
     loadMoimNames(sb, [report.moim_id]),
     loadReportTargetPreview(sb, report.moim_id, report.target_type, report.target_id),
     // M6: 같은 대상의 다른 열린 신고 수 (「같은 대상 신고 함께 처리」)
+    /** R5 E1: 같은 모임의 신고만 (SQL 의 함께 닫기와 같은 조건) */
     sb
       .from("moim_reports")
       .select("id", { count: "exact", head: true })
+      .eq("moim_id", report.moim_id)
       .eq("target_type", report.target_type)
       .eq("target_id", report.target_id)
       .in("status", ["received", "reviewing"])
@@ -611,8 +709,8 @@ export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
     sb.from("moims").select("host_user_id").eq("id", report.moim_id).maybeSingle(),
     // M6: 처리 결과 — 이 신고가 근거인 조치 + 함께 닫힌 신고면 근거 신고의 조치(action_id)
     sb
-      .from("moim_sanctions")
-      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at")
+      .from("moim_admin_sanction_rows_v")
+      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at, live_state, report_target_type")
       .or(report.action_id && isUuidString(report.action_id) ? `source_report_id.eq.${report.id},id.eq.${report.action_id}` : `source_report_id.eq.${report.id}`)
       .order("created_at", { ascending: true }),
   ]);
@@ -622,8 +720,8 @@ export async function loadAdminMoimReportDetail(sb: Sb, reportId: string) {
   const sourceId = sanctionRows.find((x) => x.id === report.action_id)?.source_report_id;
   if (sourceId && sourceId !== report.id) {
     const { data } = await sb
-      .from("moim_sanctions")
-      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at")
+      .from("moim_admin_sanction_rows_v")
+      .select("id, target_kind, target_id, level, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, created_at, live_state, report_target_type")
       .eq("source_report_id", sourceId)
       .order("created_at", { ascending: true });
     sanctionRows = (data ?? sanctionRows) as typeof sanctionRows;
@@ -824,32 +922,46 @@ export async function listAdminMoimHostRequests(sb: Sb, f: { status: MoimAdminHo
 
 export async function listAdminMoimSanctions(
   sb: Sb,
-  f: { filter: MoimAdminSanctionFilter; moimId: string | null; limit: number; offset: number },
+  f: { filter: MoimAdminSanctionFilter; kind?: MoimAdminSanctionKind; moimId: string | null; userId?: string | null; limit: number; offset: number },
   now: Date = new Date()
 ) {
   const nowIso = now.toISOString();
-  let q = sb
-    .from("moim_sanctions")
-    .select("id, moim_id, target_kind, target_id, level, reason_code, reason, source_report_id, actor_id, starts_at, ends_at, revoked_at, revoked_by, created_at", { count: "exact" })
-    .eq("target_kind", "moim");
+  const weekIso = new Date(now.getTime() + 7 * DAY_MS).toISOString();
+  /** R5 D2: 모임 제재만이 아니라 콘텐츠·사용자 제재도 (뷰 — 상태는 live_state 한 열로 거른다) */
+  let q = sb.from("moim_admin_sanction_rows_v").select(SANCTION_VIEW_COLS, { count: "exact" });
+  const kind = f.kind ?? "all";
+  if (kind === "moim") q = q.eq("target_kind", "moim");
+  if (kind === "content") q = q.eq("target_kind", "content");
+  if (kind === "user" || f.userId) q = q.in("target_kind", ["host", "member"]);
+  if (f.userId) q = q.eq("target_id", f.userId);
   if (f.moimId) q = q.eq("moim_id", f.moimId);
-  if (f.filter === "active") q = q.is("revoked_at", null).or(`ends_at.is.null,ends_at.gt.${nowIso}`);
+  /** 연결 안 된 옛 이용 제한 행(unlinked)은 지금 ends_at·revoked_at 기준으로 본다 (D §1-3) */
+  const unlinked = "live_state.eq.unlinked";
+  if (f.filter === "active") q = q.or(`live_state.eq.active,and(${unlinked},revoked_at.is.null,or(ends_at.is.null,ends_at.gt.${nowIso}))`);
   if (f.filter === "expiring")
-    q = q.is("revoked_at", null).gt("ends_at", nowIso).lte("ends_at", new Date(now.getTime() + 7 * DAY_MS).toISOString());
-  if (f.filter === "expired") q = q.is("revoked_at", null).lte("ends_at", nowIso);
-  if (f.filter === "revoked") q = q.not("revoked_at", "is", null);
+    q = q.or(`live_state.eq.active,and(${unlinked},revoked_at.is.null)`).gt("ends_at", nowIso).lte("ends_at", weekIso);
+  if (f.filter === "expired") q = q.or(`live_state.eq.expired,and(${unlinked},revoked_at.is.null,ends_at.lte.${nowIso})`);
+  /** 해제 = 해제됨 + 콘텐츠가 복구됨(lifted) */
+  if (f.filter === "revoked") q = q.or(`live_state.in.(revoked,lifted),and(${unlinked},revoked_at.not.is.null)`);
   const order = f.filter === "expiring" ? { col: "ends_at", asc: true } : { col: "created_at", asc: false };
   const { data, error, count } = await q.order(order.col, { ascending: order.asc }).range(f.offset, f.offset + f.limit - 1);
   if (error) return { ok: false as const, error: error.message };
-  const rows = (data ?? []) as { moim_id: string; actor_id: string; revoked_by: string | null }[];
-  const [people, moims] = await Promise.all([
+  const rows = (data ?? []) as unknown as SanctionViewRow[];
+  const [people, moims, targets] = await Promise.all([
     loadAdminPeople(sb, rows.flatMap((r) => [r.actor_id, r.revoked_by])),
     loadMoimNames(sb, rows.map((r) => r.moim_id)),
+    loadAdminMoimSanctionTargets(sb, rows),
   ]);
   return {
     ok: true as const,
     total: count ?? rows.length,
-    rows: rows.map((r) => ({ ...r, moim: moims.get(r.moim_id) ?? null, actor: person(people, r.actor_id), revoker: person(people, r.revoked_by) })),
+    rows: rows.map((r) => ({
+      ...r,
+      moim: moims.get(r.moim_id) ?? null,
+      actor: person(people, r.actor_id),
+      revoker: person(people, r.revoked_by),
+      target: targets.get(r.id) ?? null,
+    })),
   };
 }
 

@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { resolveMessengerRoomChatUnavailable } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface, withMoimReadonlyReason } from "@/lib/moim/moim-room-surface-policy";
 import { MessengerRoomChatUnavailableBar } from "@/components/community-messenger/room/phase2/MessengerRoomChatUnavailableBar";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
@@ -156,14 +158,27 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     await vm.sendMessage(text, { fromComposer: true });
   }, [draft, setPhase1Message, vm]);
 
+  /** 모임 방 읽기 전용이면 방 화면 2단계와 같은 이유 한 문장 — 판정 전이면 기존 문구 (모임 R5 A16) */
+  const pass1Room = vm?.snapshot.room;
+  const moimOwnerState = useMoimRoomOwnerState(pass1Room?.roomType === "private_group" ? pass1Room.id : null);
+
   if (!vm) return null;
 
   const roomUnavailable = vm.roomUnavailable;
   /** S-1 §4 — Phase2 와 같은 안내 줄(첫 화면). 「상품 보기」 버튼은 Phase2 입력창이 붙을 때 표시된다. */
-  const chatUnavailable = resolveMessengerRoomChatUnavailable({
-    snapshot: vm.snapshot,
-    roomUnavailable: Boolean(roomUnavailable),
-  });
+  const chatUnavailable = withMoimReadonlyReason(
+    resolveMessengerRoomChatUnavailable({
+      snapshot: vm.snapshot,
+      roomUnavailable: Boolean(roomUnavailable),
+    }),
+    resolveMoimRoomSurface({
+      roomType: vm.snapshot.room.roomType,
+      owner: moimOwnerState.owner,
+      ownerStatus: moimOwnerState.status,
+      viewerUserId: vm.snapshot.viewerUserId,
+    }).readonlyNoticeKey,
+    t
+  );
   if (chatUnavailable) {
     return (
       <ChatComposer data-cm-pass1-composer-shell className="delivery-ui z-[5]">

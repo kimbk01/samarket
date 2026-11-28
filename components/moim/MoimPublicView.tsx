@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
-import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
+import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { MoimJoinSheet } from "@/components/moim/MoimJoinSheet";
@@ -44,6 +45,12 @@ export function MoimHeadBlock({ moim, showIntro = true }: { moim: MoimDetailDto;
       </div>
     </div>
   );
+}
+
+/** R5 B1: 공개 페이지 「내가 쓴 글·댓글·사진 ›」 — 한때 멤버였던 사람(나감·내보내짐·차단)만 */
+export function moimShowsMyContentLink(moim: Pick<MoimDetailDto, "viewer">): boolean {
+  const st = moim.viewer.status;
+  return moim.viewer.loggedIn && (st === "left" || st === "kicked" || st === "banned");
 }
 
 /** 상태 안내 줄 — 종료·차단 */
@@ -160,7 +167,7 @@ export function MoimPublicView({
             </div>
             <div className="grid gap-2 px-4">
               {moim.pinnedNotices.map((p) => (
-                <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardById.get(p.boardId) ?? { kind: p.boardKind, name: null })} />
+                <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardById.get(p.boardId) ?? { kind: p.boardKind, name: p.boardName })} />
               ))}
             </div>
           </section>
@@ -199,12 +206,23 @@ export function MoimPublicView({
           ) : (
             <div className="grid gap-2 px-4">
               {moim.recentPosts.map((p) => (
-                <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardById.get(p.boardId) ?? { kind: p.boardKind, name: null })} />
+                <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(boardById.get(p.boardId) ?? { kind: p.boardKind, name: p.boardName })} />
               ))}
             </div>
           )}
         </section>
 
+        {/* R5 B1: 나간·내보내진·차단된 사람은 자기 글·댓글·사진을 지울 수 있다 — 들어가는 길 (요청 추가 없음) */}
+        {moimShowsMyContentLink(moim) ? (
+          <Link
+            href={moimRoutes.myContent(moim.id)}
+            className="mx-4 mt-4 flex min-h-[length:var(--sam-tap-min)] items-center justify-between gap-2 text-[13px] font-bold text-sam-fg"
+            data-testid="moim-public-my-content-link"
+          >
+            <span>{t("moim_my_content_title")}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
+          </Link>
+        ) : null}
         <p className={`${moimCls.hint} px-4 pt-4`}>{t("moim_public_members_only_note")}</p>
       </div>
 

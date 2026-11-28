@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dibay-overlay";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { MoimBannedDto, MoimDetailDto, MoimJoinRequestDto, MoimMemberDto } from "@/lib/moim/moim-api-types";
+import { MOIM_LIST_CAP, type MoimBannedDto, type MoimDetailDto, type MoimJoinRequestDto, type MoimMemberDto } from "@/lib/moim/moim-api-types";
 import { moimRoleRank, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
@@ -24,6 +24,7 @@ import { canOpenMoimMembers } from "./MoimManageHub";
 import {
   MoimAvatar,
   MoimListCappedHint,
+  MoimPeopleCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
@@ -31,6 +32,7 @@ import {
   MoimRoleBadge,
   moimManageSheetRadius,
   moimManageSheetTextareaClass,
+  moimCanEditMemberNote,
   moimRoleKey,
   useMoimDateFormat,
   useMoimManageToast,
@@ -122,6 +124,8 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
   const [busy, setBusy] = useState(false);
   const [roleChoice, setRoleChoice] = useState<Exclude<MoimRole, "host">>("member");
   const [noteText, setNoteText] = useState("");
+  /** R5 C13: 같거나 높은 역할·나 자신의 메모는 볼 수만 있다 */
+  const [noteReadOnly, setNoteReadOnly] = useState(false);
   const [banReason, setBanReason] = useState("");
   const [unbanTarget, setUnbanTarget] = useState<MoimBannedDto | null>(null);
 
@@ -137,11 +141,19 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
     onError: (message) => toast.show(message, "error"),
     onOpened: () => setDialog(null),
   });
-  const openNote = useCallback((m: MoimMemberDto) => {
-    setTarget(m);
-    setNoteText(m.note ?? "");
-    setDialog("note");
-  }, []);
+  const canEditNote = useCallback(
+    (m: MoimMemberDto) => moimCanEditMemberNote({ canWriteNote: c.write_note, viewerRole: detail.viewer.role, myId }, m),
+    [c.write_note, detail.viewer.role, myId]
+  );
+  const openNote = useCallback(
+    (m: MoimMemberDto) => {
+      setTarget(m);
+      setNoteText(m.note ?? "");
+      setNoteReadOnly(!canEditNote(m));
+      setDialog("note");
+    },
+    [canEditNote]
+  );
 
   /** 자기 자신에게는 아무 동작도 없다. 같거나 높은 역할에는 운영 동작 없이 「대화하기」만 (설계 §5.2 · 시안 U7) */
   const actionsFor = useCallback(
@@ -258,7 +270,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         {tabs
           .filter((tb) => tb.key === "requests")
           .map((tb) => (
-            <button key={tb.key} type="button" className={tabClass(false)} onClick={() => router.push(moimRoutes.manageRequests(moimId))}>
+            <button key={tb.key} type="button" className={tabClass(false)} onClick={() => router.push(moimRoutes.manageRequests(moimId, "members"))}>
               {tb.count != null ? t(tb.labelKey, { count: tb.count }) : t(tb.labelKey)}
             </button>
           ))}
@@ -272,6 +284,8 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         ) : members.state.data.members.length === 0 ? (
           <MoimManageEmpty textKey="moim_manage_members_empty" />
         ) : (
+          <>
+          <MoimPeopleCappedHint show={members.state.data.capped} />
           <ul className="divide-y divide-sam-border-soft bg-sam-surface">
             {members.state.data.members.map((m) => {
               const actionable = actionsFor(m).length > 0;
@@ -314,6 +328,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
               );
             })}
           </ul>
+          </>
         )
       ) : tab === "notes" ? (
         members.state.status === "loading" ? (
@@ -351,7 +366,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         <MoimManageEmpty textKey="moim_manage_banned_empty" />
       ) : (
         <>
-          <MoimListCappedHint show={banned.state.data.capped} />
+          <MoimPeopleCappedHint show={banned.state.data.capped} cap={MOIM_LIST_CAP} />
           <ul className="divide-y divide-sam-border-soft bg-sam-surface">
             {banned.state.data.banned.map((b) => (
               <li key={b.userId} className="flex items-center gap-3 px-4 py-3">
@@ -359,11 +374,18 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
                 <span className="min-w-0 flex-1">
                   <span className="block break-all text-[15px] font-medium text-sam-fg">{b.nickname}</span>
                   <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
-                  {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
+                  {/* R5 E3: 플랫폼 운영팀 차단 — 사유는 받지 않고, 모임 운영진은 풀 수 없다 */}
+                  {b.byPlatform ? (
+                    <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_banned_by_platform")}</span>
+                  ) : b.reason ? (
+                    <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span>
+                  ) : null}
                 </span>
-                <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
-                  {t("moim_manage_unban_btn")}
-                </button>
+                {b.byPlatform ? null : (
+                  <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
+                    {t("moim_manage_unban_btn")}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -418,30 +440,45 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         title={t("moim_manage_note_sheet_title", { name: target?.nickname ?? "" })}
         footer={
           <DibayOverlayActions
-            actions={[
-              { key: "cancel", label: t("moim_manage_cancel_btn"), roleTone: "secondary", onClick: closeAll },
-              {
-                key: "save",
-                label: t("moim_manage_save_btn"),
-                roleTone: "primary",
-                loading: busy,
-                onClick: () => {
-                  if (!target) return;
-                  void run(() => moimApi.setNote(moimId, target.userId, noteText), "moim_manage_note_saved_toast", members.reload);
-                },
-              },
-            ]}
+            actions={
+              noteReadOnly
+                ? [{ key: "close", label: t("nav_close"), roleTone: "secondary", onClick: closeAll }]
+                : [
+                    { key: "cancel", label: t("moim_manage_cancel_btn"), roleTone: "secondary", onClick: closeAll },
+                    {
+                      key: "save",
+                      label: t("moim_manage_save_btn"),
+                      roleTone: "primary",
+                      loading: busy,
+                      onClick: () => {
+                        if (!target) return;
+                        void run(() => moimApi.setNote(moimId, target.userId, noteText), "moim_manage_note_saved_toast", members.reload);
+                      },
+                    },
+                  ]
+            }
           />
         }
       >
-        <p className="text-[13px] text-sam-muted">{t("moim_manage_note_hint")}</p>
-        <textarea
-          className={`${moimManageSheetTextareaClass} mt-2 min-h-[120px]`}
-          maxLength={1000}
-          value={noteText}
-          placeholder={t("moim_manage_note_placeholder")}
-          onChange={(e) => setNoteText(e.target.value)}
-        />
+        {noteReadOnly ? (
+          <>
+            <p className="text-[13px] text-sam-muted" data-testid="moim-note-readonly-hint">
+              {t("moim_manage_note_readonly_hint")}
+            </p>
+            <p className="mt-2 whitespace-pre-wrap break-words text-[14px] text-sam-fg">{noteText}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] text-sam-muted">{t("moim_manage_note_hint")}</p>
+            <textarea
+              className={`${moimManageSheetTextareaClass} mt-2 min-h-[120px]`}
+              maxLength={1000}
+              value={noteText}
+              placeholder={t("moim_manage_note_placeholder")}
+              onChange={(e) => setNoteText(e.target.value)}
+            />
+          </>
+        )}
       </DibayBottomSheet>
 
       {/* R4 #2 — 내보내기도 차단처럼 사유(선택 · 300자)를 받는다(P6 「사유 선택(선택)」) · 사유는 운영 기록에만 남는다 */}
@@ -477,7 +514,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
           className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[88px]`}
           maxLength={300}
           value={banReason}
-          placeholder={t("moim_manage_ban_reason_placeholder")}
+          placeholder={t("moim_manage_remove_reason_placeholder")}
           onChange={(e) => setBanReason(e.target.value)}
         />
       </DibayBottomSheet>

@@ -175,18 +175,20 @@ describe("§3 정책 저장 라우트 — 새 키 3개", () => {
   });
 
   it("금지 모임 유형: 맞는 줄은 넘기고, 코드 형식·겹침·한국어 이름 없음·20개 초과는 400 moim_policy_invalid", async () => {
-    const ok = [{ code: "commercial", label_ko: " 영리 모임 ", label_en: "Selling" }, { code: "gambling", label_ko: "도박 모임" }];
+    const ok = [{ code: "commercial", label_ko: " 영리 모임 ", label_en: "Selling" }, { code: "gambling", label_ko: "도박 모임", label_en: "Gambling" }];
     expect((await put({ prohibited_types: ok })).status).toBe(200);
     expect(sentPatch()).toEqual({
       prohibited_types: [
         { code: "commercial", label_ko: "영리 모임", label_en: "Selling" },
-        { code: "gambling", label_ko: "도박 모임", label_en: "" },
+        { code: "gambling", label_ko: "도박 모임", label_en: "Gambling" },
       ],
     });
     const bads = [
       [{ code: "Bad", label_ko: "x" }],
       [{ code: "dup", label_ko: "x" }, { code: "dup", label_ko: "y" }],
       [{ code: "nolabel", label_ko: " " }],
+      /** R5 D20: 영어 이름도 필수 */
+      [{ code: "noen", label_ko: "가", label_en: " " }],
       [{ code: "toolong", label_ko: "가".repeat(81) }],
       Array.from({ length: 21 }, (_, i) => ({ code: `t_${String.fromCharCode(97 + (i % 26))}${"a".repeat(Math.floor(i / 26) + 1)}`, label_ko: "x" })),
     ];
@@ -199,11 +201,11 @@ describe("§3 정책 저장 라우트 — 새 키 3개", () => {
 
   it("신고 사유: is_active 가 boolean 이 아니면 400, 맞으면 is_active 까지 넘긴다(없으면 켜짐)", async () => {
     expect((await put({ report_reasons: [{ code: "spam_ads", label_ko: "광고", label_en: "Ads", is_active: "yes" }] })).status).toBe(400);
-    expect((await put({ report_reasons: [{ code: "spam_ads", label_ko: "광고" }, { code: "other", label_ko: "기타", is_active: false }] })).status).toBe(200);
+    expect((await put({ report_reasons: [{ code: "spam_ads", label_ko: "광고", label_en: "Ads" }, { code: "other", label_ko: "기타", label_en: "Other", is_active: false }] })).status).toBe(200);
     expect(sentPatch()).toEqual({
       report_reasons: [
-        { code: "spam_ads", label_ko: "광고", label_en: "", is_active: true },
-        { code: "other", label_ko: "기타", label_en: "", is_active: false },
+        { code: "spam_ads", label_ko: "광고", label_en: "Ads", is_active: true },
+        { code: "other", label_ko: "기타", label_en: "Other", is_active: false },
       ],
     });
   });

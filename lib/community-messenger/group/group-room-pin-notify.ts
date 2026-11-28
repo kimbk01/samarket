@@ -25,15 +25,19 @@ export async function notifyGroupPinMessage(
 
   const { data: participants } = await (sb as any)
     .from("community_messenger_participants")
-    .select("user_id")
+    .select("user_id, is_muted")
     .eq("room_id", roomId)
     .is("left_at", null)
     .is("blocked_hidden_at", null);
-  const recipients = ((participants ?? []) as Array<{ user_id?: string }>)
-    .map((r) => trimText(r.user_id))
-    .filter((id) => id && id !== actorUserId);
+  /**
+   * 방 알림을 끈 사람 = 메시지 알림과 같은 규칙 (모임 R5 A23): 알림함 행은 만들고 푸시·소리는 끈다
+   * (`mutedSnapshot:true` · `muted_room` · 푸시 발송 안 함). 같은 조회에 열만 더해 요청 수는 그대로다.
+   */
+  const recipients = ((participants ?? []) as Array<{ user_id?: string; is_muted?: boolean | null }>)
+    .map((r) => ({ userId: trimText(r.user_id), muted: r.is_muted === true }))
+    .filter((r) => r.userId && r.userId !== actorUserId);
 
-  for (const recipientUserId of recipients) {
+  for (const { userId: recipientUserId, muted } of recipients) {
     const language = await loadNotificationUserLanguage(sb, recipientUserId);
     const title = notifySafeT(language, "notify_group_pin_message_title");
     const body = input.pinned
@@ -50,9 +54,9 @@ export async function notifyGroupPinMessage(
       title,
       body,
       dedupeKey,
-      mutedSnapshot: false,
-      pushSuppressedReason: null,
-      soundSuppressedReason: null,
+      mutedSnapshot: muted,
+      pushSuppressedReason: muted ? "muted_room" : null,
+      soundSuppressedReason: muted ? "muted_room" : null,
       unread: true,
       chatDomain: domain.domain,
       domainIdentityKey: domain.identityKey,
@@ -64,7 +68,7 @@ export async function notifyGroupPinMessage(
         }),
       },
     });
-    if (created.ok && created.row) {
+    if (created.ok && created.row && !muted) {
       await dispatchNotificationPushIfAllowed(sb, created.row).catch(() => {});
     }
   }

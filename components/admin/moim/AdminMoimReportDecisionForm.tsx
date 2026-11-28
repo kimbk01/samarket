@@ -5,14 +5,20 @@
  * 검토 시작(접수 → 검토 중) · 조치/기각 · 콘텐츠 숨김(대상별 문구) · 모임 제재(추천 제외·경고·차단 + 끝나는 날) ·
  * 이용 제한(대상 작성자/모임장 · 글/댓글/전체 · 기간/영구) · 같은 대상 신고 함께 처리 · 사유(필수).
  * 처리 결과(상태·조치·처리자·시각)는 닫힌 신고에 보여 준다. 경고 누적은 표시만 하고 자동 차단하지 않는다(P14).
+ * R5: 검토 시작도 사유 필수(D9) · 삭제된 모임은 이용 제한·기각만(D10) · 실패 안내는 문장만(D12) · 이용 제한 대상 이름은 신고 대상 종류별(D27)
+ *     · 같은 단계 모임 제재가 이미 진행 중이면 그 행을 근거로 연결했다고 알린다(D3).
  */
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
+import { CommunityActionSheet } from "@/components/admin/community/kit/CommunityAdminKit";
 import {
   MOIM_ADMIN_NO_CONTENT_HIDE_TARGETS,
+  MOIM_ADMIN_WHO_TARGET_TYPES,
+  moimAdminAllowedActions,
+  moimSanctionRowView,
   MOIM_ADMIN_REASON_MIN_LENGTH,
   MOIM_ADMIN_RESTRICT_DAY_OPTIONS,
   MOIM_ADMIN_RESTRICTIONS,
@@ -25,11 +31,23 @@ import {
   type MoimAdminRestrictWho,
   type MoimAdminSanctionLevel,
 } from "@/lib/admin/moim/moim-admin-contract";
-import { MOIM_ADMIN_FIELD, MoimAdminNote, MoimAdminPersonCell, MoimAdminTime, moimAdminSend } from "@/components/admin/moim/admin-moim-shared";
+import {
+  MOIM_ADMIN_FIELD,
+  MOIM_ADMIN_REASON,
+  MoimAdminNote,
+  MoimAdminPersonCell,
+  MoimAdminTime,
+  moimAdminSend,
+  moimAdminSendJson,
+} from "@/components/admin/moim/admin-moim-shared";
+import { moimAdminFailureKind } from "@/lib/admin/moim/moim-admin-errors";
 
 export type MoimReportResultAction = {
   id: string;
   target_kind: string;
+  target_id?: string;
+  live_state?: string | null;
+  report_target_type?: string | null;
   level: string;
   reason: string;
   ends_at: string | null;
@@ -49,7 +67,14 @@ export type MoimReportDecisionContext = {
   warnCount: number | null;
   openSameTargetCount: number | null;
   resultActions: MoimReportResultAction[];
+  /** R5 D10: 신고된 모임의 상태 — 삭제된 모임이면 이용 제한·기각만 */
+  moimStatus?: string | null;
 };
+
+/** R5 D27: 이용 제한 「대상」 이름 — 신고 대상 종류마다 (모임 대상은 SQL 이 모임장을 대상으로 잡아 선택지가 「모임장」 하나) */
+export function moimDecideWhoTargetKey(targetType: string): MessageKey | null {
+  return (MOIM_ADMIN_WHO_TARGET_TYPES as readonly string[]).includes(targetType) ? (`admin_moim_decide_who_target_${targetType}` as MessageKey) : null;
+}
 
 const CONTENT_HIDE_LABEL: Partial<Record<MoimAdminReportTargetType, MessageKey>> = {
   post: "admin_moim_decide_hide_content",
@@ -126,7 +151,11 @@ function DecisionResult({ ctx }: { ctx: MoimReportDecisionContext }) {
             <li key={a.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-2 py-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-sam-fg">{t(`admin_moim_level_${a.level}` as MessageKey)}</span>
-                {a.revoked_at ? <AdminToneBadge tone="neutral">{t("admin_moim_sanction_state_revoked")}</AdminToneBadge> : null}
+                {/* R5 D1: 상태는 뷰의 지금 상태(콘텐츠 복구·이용 제한 해제를 따라감) */}
+                {(() => {
+                  const state = moimSanctionRowView({ target_kind: a.target_kind, target_id: a.target_id ?? "", level: a.level, revoked_at: a.revoked_at, ends_at: a.ends_at, live_state: a.live_state, report_target_type: a.report_target_type }, ctx.moimStatus).state;
+                  return state === "active" ? null : <AdminToneBadge tone="neutral">{t(`admin_moim_sanction_state_${state}` as MessageKey)}</AdminToneBadge>;
+                })()}
                 {a.ends_at ? (
                   <span className="text-[12px] text-sam-muted">
                     {t("admin_moim_decide_until")} <MoimAdminTime iso={a.ends_at} />
@@ -158,7 +187,11 @@ function DecisionForm({
 }) {
   const { t } = useI18n();
   const targetType = ctx.targetType as MoimAdminReportTargetType;
-  const canHide = !MOIM_ADMIN_NO_CONTENT_HIDE_TARGETS.includes(targetType) && Boolean(CONTENT_HIDE_LABEL[targetType]);
+  /** R5 D10: 삭제된 모임이면 콘텐츠 숨김·모임 제재 선택지 없음 (서버도 moim_deleted 로 거부) */
+  const allowed = moimAdminAllowedActions(ctx.moimStatus);
+  const canMoimAct = allowed.reportContentOrMoim;
+  const canHide = canMoimAct && !MOIM_ADMIN_NO_CONTENT_HIDE_TARGETS.includes(targetType) && Boolean(CONTENT_HIDE_LABEL[targetType]);
+  const whoTargetKey = moimDecideWhoTargetKey(ctx.targetType);
   const [decision, setDecision] = useState<MoimAdminReportDecision>("actioned");
   const [contentHide, setContentHide] = useState(false);
   const [level, setLevel] = useState<MoimAdminSanctionLevel | "">("");
@@ -170,20 +203,12 @@ function DecisionForm({
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const actioned = decision === "actioned";
   const anyAction = (canHide && contentHide) || level !== "" || who !== "";
   const reasonOk = reason.trim().length >= MOIM_ADMIN_REASON_MIN_LENGTH;
   const ready = reasonOk && (actioned ? anyAction : true) && !busy;
-
-  const runReview = async () => {
-    setBusy(true);
-    setBanner(null);
-    const r = await moimAdminSend(`/api/admin/moim/reports/${encodeURIComponent(ctx.reportId)}/review`, {}, t);
-    setBusy(false);
-    if (!r.ok) setBanner({ ok: false, message: r.status === 409 ? t("admin_moim_stale") : r.code });
-    onChanged();
-  };
 
   const submit = async () => {
     setBusy(true);
@@ -199,20 +224,28 @@ function DecisionForm({
       userRestrict: actioned && who ? { who, restriction, days: days ? Number(days) : null } : null,
       closeSameTarget: closeSame,
     };
-    const r = await moimAdminSend(`/api/admin/moim/reports/${encodeURIComponent(ctx.reportId)}/decision`, body, t);
+    const r = await moimAdminSendJson<{ actions?: { kind: string; created?: boolean }[] }>(
+      `/api/admin/moim/reports/${encodeURIComponent(ctx.reportId)}/decision`,
+      body,
+      t
+    );
     setBusy(false);
     setConfirming(false);
     if (r.ok) {
-      setBanner({ ok: true, message: t("admin_moim_decide_done") });
+      /** R5 D3: 같은 단계 모임 제재가 이미 진행 중이라 새로 만들지 않고 그 행을 근거로 연결함 */
+      const linked = (r.data.actions ?? []).some((a) => a.kind.startsWith("moim_") && a.created === false);
+      setBanner({ ok: true, message: linked ? `${t("admin_moim_decide_done")} · ${t("admin_moim_decide_duplicate_note")}` : t("admin_moim_decide_done") });
       onChanged();
       return;
     }
-    if (r.status === 409 || r.status === 404) {
-      setBanner({ ok: false, message: t(r.status === 409 ? "admin_moim_stale" : "admin_moim_gone") });
+    const kind = moimAdminFailureKind(r);
+    if (kind !== "refused") {
+      setBanner({ ok: false, message: t(kind === "stale" ? "admin_moim_stale" : "admin_moim_gone") });
       onChanged();
       return;
     }
-    setBanner({ ok: false, message: r.code });
+    /** R5 D12: 원래 코드 대신 문장 */
+    setBanner({ ok: false, message: r.message });
   };
 
   const summary: string[] = [t(actioned ? "admin_moim_decide_actioned" : "admin_moim_decide_dismissed")];
@@ -221,7 +254,7 @@ function DecisionForm({
     if (level) summary.push(t(`admin_moim_level_${level}` as MessageKey));
     if (who) {
       summary.push(
-        `${t("admin_moim_level_user_restrict")} · ${t(`admin_moim_decide_who_${who}` as MessageKey)} · ${t(`admin_moim_decide_restriction_${restriction}` as MessageKey)} · ${
+        `${t("admin_moim_level_user_restrict")} · ${t(who === "target" && whoTargetKey ? whoTargetKey : "admin_moim_decide_who_host")} · ${t(`admin_moim_decide_restriction_${restriction}` as MessageKey)} · ${
           days ? t(Number(days) === 1 ? "admin_moim_decide_days_n_one" : "admin_moim_decide_days_n", { n: Number(days) }) : t("admin_moim_decide_days_forever")
         }`
       );
@@ -234,12 +267,30 @@ function DecisionForm({
 
       {ctx.status === "received" ? (
         <div className="flex flex-wrap items-center gap-2">
-          <AdminActionButton size="sm" variant="secondary" disabled={busy} onClick={() => void runReview()}>
+          <AdminActionButton size="sm" variant="secondary" disabled={busy} onClick={() => setReviewing(true)}>
             {t("admin_moim_decide_start_review")}
           </AdminActionButton>
           <span className="text-[12px] text-sam-muted">{t("admin_moim_decide_start_review_hint")}</span>
         </div>
       ) : null}
+      {reviewing ? (
+        /** R5 D9: 검토 시작도 사유 필수 (운영기록에 그 사유) */
+        <CommunityActionSheet
+          title={t("admin_moim_decide_start_review")}
+          rows={[{ label: t("admin_moim_col_status"), value: t("admin_moim_report_status_received") }]}
+          notice={t("admin_moim_review_notice")}
+          reason={MOIM_ADMIN_REASON}
+          confirmLabel={t("admin_moim_decide_start_review")}
+          onSubmit={(reason) => moimAdminSend(`/api/admin/moim/reports/${encodeURIComponent(ctx.reportId)}/review`, { reason }, t)}
+          onClose={() => setReviewing(false)}
+          onSettled={(k) => {
+            setReviewing(false);
+            if (k !== "done") setBanner({ ok: false, message: t(k === "stale" ? "admin_moim_stale" : "admin_moim_gone") });
+            onChanged();
+          }}
+        />
+      ) : null}
+      {!canMoimAct ? <MoimAdminNote>{t("admin_moim_decide_deleted_note")}</MoimAdminNote> : null}
 
       <fieldset className="flex flex-wrap gap-4" disabled={confirming}>
         <legend className="mb-1 text-sam-muted">{t("admin_moim_decide_result")}</legend>
@@ -260,6 +311,7 @@ function DecisionForm({
             </label>
           ) : null}
 
+          {canMoimAct ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
               <span className="text-sam-muted">{t("admin_moim_decide_moim_level")}</span>
@@ -289,14 +341,15 @@ function DecisionForm({
               <p className="self-end text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_none")}</p>
             ) : null}
           </div>
-          {level ? <p className="text-[12px] text-sam-muted">{t(`admin_moim_level_${level}_effect` as MessageKey)}</p> : null}
+          ) : null}
+          {canMoimAct && level ? <p className="text-[12px] text-sam-muted">{t(`admin_moim_level_${level}_effect` as MessageKey)}</p> : null}
 
           <div className="grid gap-2 sm:grid-cols-3">
             <label className="flex flex-col gap-1">
               <span className="text-sam-muted">{t("admin_moim_level_user_restrict")}</span>
               <select className={MOIM_ADMIN_FIELD} value={who} onChange={(e) => setWho(e.target.value as MoimAdminRestrictWho | "")}>
                 <option value="">{t("admin_moim_decide_none")}</option>
-                <option value="target">{t("admin_moim_decide_who_target")}</option>
+                {whoTargetKey ? <option value="target">{t(whoTargetKey)}</option> : null}
                 <option value="host">{t("admin_moim_decide_who_host")}</option>
               </select>
             </label>

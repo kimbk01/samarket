@@ -92,6 +92,8 @@ function sheetInputFor(
     createdAt: row.createdAt,
     cmMessageId: cm ? row.messageId : null,
     cmRoomId: cm && row.roomKind === "cm" ? row.roomId : null,
+    /** R5 D5: 모임 방 신고는 방 정지 선택지를 숨긴다 */
+    cmRoomManagedByMoim: Boolean(row.moimId),
     reportedUserHref: row.reportedUserId ? adminUserDetailHref(row.reportedUserId, returnTo) : null,
   };
 }
