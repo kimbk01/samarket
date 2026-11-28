@@ -3,10 +3,13 @@
  * 서버는 `error`·`code` 에 snake_case 코드만, 값은 `params` 로 보낸다. 서버 문장은 화면에 내보내지 않는다.
  */
 import {
+  pickApiErrorParams,
   resolveApiErrorText,
   type ApiErrorCodeMap,
   type ApiErrorTranslate,
 } from "@/lib/i18n/api-error-text";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 /** 글·댓글 내용 검사 코드 (`content-acceptance.ts`) — 글쓰기·댓글 표가 함께 쓴다 */
@@ -84,8 +87,35 @@ export const COMMUNITY_COMMENT_ERROR_KEYS: ApiErrorCodeMap = {
   community_comment_parent_not_found: "community_comment_err_parent_not_found",
   community_comment_depth_limit: "community_comment_err_depth_limit",
   community_comment_blocked_relation: "community_comment_blocked_relation",
+  community_like_blocked_relation: "community_like_blocked_relation",
   profile_incomplete: "api_err_profile_incomplete",
+  comments_load_failed: "community_comments_load_error",
+  comment_not_likeable: "community_comment_err_not_likeable",
+  like_save_failed: "community_comment_like_failed",
+  comment_pin_not_post_author: "community_comment_err_pin_not_author",
+  comment_not_pinnable: "community_comment_err_not_pinnable",
+  comment_pin_failed: "community_comment_pin_failed",
 };
+
+/**
+ * 커뮤니티 활동 제한(403 `community_restricted`) 문구 — 해제일이 있으면 날짜까지 (감사 L1).
+ * 제한 응답이 아니면 null. 날짜는 화면 언어 형식, 시간대는 앱 기본(PHT).
+ */
+export function communityRestrictionText(
+  json: unknown,
+  t: ApiErrorTranslate,
+  language: AppLanguageCode
+): string | null {
+  const rec = json != null && typeof json === "object" ? (json as Record<string, unknown>) : null;
+  if (!rec || (rec.code !== "community_restricted" && rec.error !== "community_restricted")) return null;
+  const until = pickApiErrorParams(json)?.until;
+  if (typeof until === "string" && !Number.isNaN(new Date(until).getTime())) {
+    return t("community_restricted_until", {
+      date: formatAppDate(until, language, { timeZone: "Asia/Manila", month: "long", day: "numeric" }),
+    });
+  }
+  return t("community_restricted_generic");
+}
 
 /** 동네 피드 목록 (`GET /api/community/neighborhood-feed`) */
 export const COMMUNITY_FEED_ERROR_KEYS: ApiErrorCodeMap = {

@@ -1,6 +1,6 @@
 {
  "note": "docs/i18n-ssot.md §5 — 줄기만 한다. 결함을 고친 단계에서만 npm run check:i18n-quality:baseline 으로 다시 쓴다.",
- "generatedAtPht": "2026-11-27 19:17 PHT",
+ "generatedAtPht": "2026-11-28 12:38 PHT",
  "keyRules": {
   "duplicate-key": [],
   "placeholder-parity": [
@@ -95,7 +95,6 @@
    "components/community-messenger/MessengerChatListItem.tsx": 1,
    "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx": 3,
    "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu.tsx": 4,
-   "components/community/post-detail/CommunityCommentItem.tsx": 4,
    "components/dev/PromotionEventOperationProofClient.tsx": 26,
    "components/mypage/MyPageQuickActions.tsx": 1,
    "components/orders/customer-commerce/CustomerGiftWalletBody.tsx": 2,
@@ -228,7 +227,6 @@
    "lib/community-operator-import/rights.ts": 6,
    "lib/community-points/apply-community-point.ts": 1,
    "lib/community-points/reward-eligibility.ts": 5,
-   "lib/community/community-write-restriction.ts": 3,
    "lib/community/public-source-attribution.ts": 1,
    "lib/delivery/delivery-list-oor-policy.ts": 1,
    "lib/delivery/load-delivery-bottom-nav-items-server.ts": 5,

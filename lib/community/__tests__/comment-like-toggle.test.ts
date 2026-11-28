@@ -5,21 +5,21 @@ import { join } from "node:path";
 const root = join(process.cwd());
 
 describe("comment like toggle contract", () => {
-  it("server toggles via community_comment_likes row existence", () => {
+  it("구조 확인: 댓글 공감 = 원하는 상태 저장, 수 계산은 DB RPC (감사 L6 · CM-P3-04)", () => {
     const src = readFileSync(join(root, "lib/community/comment-mutations.server.ts"), "utf8");
-    expect(src).toContain('from("community_comment_likes")');
-    expect(src).toContain("liked: false");
-    expect(src).toContain("liked: true");
-    expect(src).toMatch(/if \(ex\)[\s\S]*delete/);
-    expect(src).toMatch(/insert\(\{ comment_id: cid, user_id: uid \}\)/);
-    expect(src).toContain('String(insE.code) === "23505"');
+    expect(src).toContain('rpc("community_comment_like_set"');
+    expect(src).toContain("p_liked: liked");
+    expect(src).not.toMatch(/update\(\{ like_count: next[01] \}/);
+    const route = readFileSync(join(root, "app/api/community/posts/[postId]/comments/[commentId]/like/route.ts"), "utf8");
+    expect(route).toContain('typeof liked !== "boolean"');
   });
 
-  it("usePhilifePostComments toggles optimistically and uses server liked flag", () => {
+  it("구조 확인: usePhilifePostComments 낙관 반영 후 서버 값으로 확정", () => {
     const src = readFileSync(join(root, "hooks/use-philife-post-comments.ts"), "utf8");
     expect(src).toContain("likeInflightRef");
     expect(src).toContain("const nextLiked = !node.liked_by_viewer");
     expect(src).toContain("typeof data.liked === \"boolean\"");
+    expect(src).toContain("JSON.stringify({ liked: nextLiked })");
     expect(src).toContain("await reloadComments()");
     expect(src).toContain("setFocusCommentId(createdId)");
   });

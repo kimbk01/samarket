@@ -1,21 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, ThumbsUp } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { MoreVertical, ThumbsUp } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
-import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { communityAuthorNameText } from "@/lib/community/community-display-fallbacks";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
-import {
-  CommunityCommentGrowTextarea,
-  ReplyLGlyph,
-} from "./CommunityCommentComposerForm";
 import {
   CM_AUTHOR_NAME_CLASS,
   CM_BTN_GHOST_CLASS,
@@ -24,33 +19,44 @@ import {
   CM_META_CLASS,
   CM_TEXTAREA_CLASS,
 } from "@/lib/community/community-ui-classes";
-import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
 
+/**
+ * 라운지 댓글 한 줄 — 표시는 서버 `display_state` 만 본다 (설계 §6.2 · 감사 L2: 본문 글자로 상태를 추측하지 않음).
+ * 행 메뉴(⋮)는 목록이 여는 공용 하단 시트 하나 (`CommunityCommentSection` · 감사 L18).
+ */
 type Props = {
   node: NeighborhoodCommentNode;
   depth?: number;
+  /** 바로 위 댓글 작성자 이름 — 답글 앞 「@이름」 */
+  parentAuthorName?: string;
   viewerUserId?: string | null;
-  viewerIsAdmin?: boolean;
-  focusCommentId?: string | null;
+  /** 2초 배경 강조할 댓글 (알림·링크로 연 댓글 · 설계 §6.5 「댓글로 이동」) */
+  highlightCommentId?: string | null;
+  /** 이 id 들의 조상은 답글을 펼친다 (작성 직후·링크로 연 댓글) */
+  revealCommentId?: string | null;
+  replyTargetId?: string | null;
   onLike: (commentId: string) => void | Promise<void>;
   /** 실패 시 오류 문구, 성공 시 null */
   onEdit: (commentId: string, content: string) => Promise<string | null>;
-  onDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
-  onReportComment?: (commentId: string) => void | Promise<void>;
-  /** 댓글 작성자 차단 — 차단 SSOT(`user_social_relations`) */
-  onBlockCommentAuthor?: (authorUserId: string, authorLabel: string) => void | Promise<void>;
-  replyOpenCommentId: string | null;
-  onReplyOpenChange: (id: string | null) => void;
-  /** 성공 여부 — 실패 시 답글 입력 유지 */
-  onSubmitReply: (parentId: string, content: string) => Promise<boolean>;
+  onOpenMenu: (node: NeighborhoodCommentNode, authorLabel: string) => void;
+  onReply: (node: NeighborhoodCommentNode, authorLabel: string) => void;
+  editingCommentId: string | null;
+  onEditingChange: (id: string | null) => void;
+  maxLength: number | null;
   commentBusy: boolean;
 };
 
 const INDENT_PX = 12;
 const MAX_VISUAL_DEPTH = 2;
 const HIT =
-  "inline-flex min-h-12 min-w-12 shrink-0 items-center justify-center rounded-full px-2 -my-1.5";
+  "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full px-2 -my-1.5";
+
+const PLACEHOLDER_KEY: Record<Exclude<NeighborhoodCommentNode["display_state"], "visible">, MessageKey> = {
+  deleted_by_author: "community_comment_state_deleted_by_author",
+  removed_by_admin: "community_comment_state_removed",
+  blocked_author: "community_comment_state_blocked",
+  unavailable: "community_comment_state_unavailable",
+};
 
 function treeHasId(node: NeighborhoodCommentNode, id: string): boolean {
   if (node.id === id) return true;
@@ -60,85 +66,56 @@ function treeHasId(node: NeighborhoodCommentNode, id: string): boolean {
 export function CommunityCommentItem({
   node,
   depth = 0,
+  parentAuthorName = "",
   viewerUserId = null,
-  viewerIsAdmin = false,
-  focusCommentId = null,
+  highlightCommentId = null,
+  revealCommentId = null,
+  replyTargetId = null,
   onLike,
   onEdit,
-  onDelete,
-  onReportComment,
-  onBlockCommentAuthor,
-  replyOpenCommentId,
-  onReplyOpenChange,
-  onSubmitReply,
+  onOpenMenu,
+  onReply,
+  editingCommentId,
+  onEditingChange,
+  maxLength,
   commentBusy,
 }: Props) {
   const { t, language } = useI18n();
-  const pathname = usePathname();
-  const [editing, setEditing] = useState(false);
+  const editing = editingCommentId === node.id;
   const [draft, setDraft] = useState(node.content);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  /** 재감사 S-2 (G-8 마무리): 메뉴가 열려 있으면 팝업 광고를 띄우지 않는다 */
-  useRegisterOpenOverlay(menuOpen);
-  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
-  useOverlayHardwareBack(menuOpen, () => setMenuOpen(false));
-  const [repliesOpen, setRepliesOpen] = useState(() => node.children.length === 0);
-  const [replyDraft, setReplyDraft] = useState("");
-  const replyComposingRef = useRef(false);
+  /** 자리 표시 댓글은 본문이 없으니 답글을 펼쳐 둔다(시안 S1) — 정상 댓글은 「답글 N개 보기」로 접힘 */
+  const [repliesOpen, setRepliesOpen] = useState(
+    () => node.children.length === 0 || node.display_state !== "visible"
+  );
   const me = viewerUserId?.trim() ?? "";
-  const isOwner = me.length > 0 && isSameUserId(node.user_id, me);
-  const isDeleteAllowed = isOwner || viewerIsAdmin;
-  const deletedLabel = t("community_comment_deleted");
-  const normalized = (node.content ?? "").trim();
-  const isDeleted =
-    node.is_removed === true ||
-    normalized === deletedLabel ||
-    normalized === "댓글이 삭제 되었습니다." ||
-    normalized === "댓글이 삭제 되엇습니다." ||
-    normalized === "댓글이 삭제 되었습니다" ||
-    normalized === "댓글이 삭제 되엇습니다";
-  const canReportComment = me.length > 0 && !isOwner && !isDeleted && Boolean(onReportComment);
-  const isReplyOpen = replyOpenCommentId === node.id;
-  /** 서버가 빈 이름을 주면(작성자 없음) 화면 언어 「익명」 — 재감사 2026-11-27 */
-  const authorLabel = node.is_removed
-    ? ""
-    : communityAuthorNameText(communityAuthorDisplayName(node.author_name, node.author_name), t);
-  const authorUserId = String(node.user_id ?? "").trim();
-  const canBlockAuthor =
-    me.length > 0 && !isOwner && !node.is_removed && authorUserId.length > 0 && Boolean(onBlockCommentAuthor);
+  const isVisible = node.display_state === "visible";
+  /** 서버가 빈 이름을 주면 화면 언어 「익명」 */
+  const authorLabel = isVisible ? communityAuthorNameText(node.author_name, t) : "";
   const timeRel = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
     return formatTimeAgo(node.created_at, language);
   }, [node.created_at, language]);
 
   useEffect(() => {
-    if (!isReplyOpen) setReplyDraft((prev) => (prev === "" ? prev : ""));
-  }, [isReplyOpen]);
+    if (!revealCommentId || revealCommentId === node.id) return;
+    if (treeHasId(node, revealCommentId)) setRepliesOpen(true);
+  }, [revealCommentId, node]);
 
   useEffect(() => {
-    if (!focusCommentId) return;
-    if (focusCommentId === node.id) return;
-    if (treeHasId(node, focusCommentId)) setRepliesOpen(true);
-  }, [focusCommentId, node]);
-
-  useLayoutEffect(() => {
-    if (focusCommentId !== node.id) return;
-    if (typeof document === "undefined") return;
-    const el = document.getElementById(`comment-${node.id}`);
-    if (!el) return;
-    try {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    } catch {
-      el.scrollIntoView();
+    if (editing) {
+      setDraft(node.content);
+      setEditError("");
     }
-  }, [focusCommentId, node.id, repliesOpen]);
+    // 편집을 시작할 때만 본문으로 초기화
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
 
   const onSave = useCallback(async () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    setSaving((prev) => (prev ? prev : true));
+    setSaving(true);
     setEditError("");
     try {
       const error = await onEdit(node.id, trimmed);
@@ -147,152 +124,72 @@ export function CommunityCommentItem({
         setEditError(error);
         return;
       }
-      setEditing((prev) => (prev ? false : prev));
+      onEditingChange(null);
     } finally {
-      setSaving((prev) => (prev ? false : prev));
+      setSaving(false);
     }
-  }, [draft, node.id, onEdit]);
-
-  const copyCommentLink = useCallback(async () => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const path = pathname || "";
-    const url = `${origin}${path}#comment-${node.id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* ignore */
-    }
-    setMenuOpen(false);
-  }, [node.id, pathname]);
+  }, [draft, node.id, onEdit, onEditingChange]);
 
   const childCount = node.children.length;
-  const showRepliesFold = childCount > 0;
   const indent = Math.min(depth, MAX_VISUAL_DEPTH) * INDENT_PX;
-  const itemClass = OverlayUi.popoverItem;
-
-  const toggleReply = () => {
-    if (isReplyOpen) onReplyOpenChange(null);
-    else onReplyOpenChange(node.id);
-  };
-
-  const submitInlineReply = async () => {
-    const trimmed = replyDraft.trim();
-    if (!trimmed || commentBusy || replyComposingRef.current) return;
-    const ok = await onSubmitReply(node.id, trimmed);
-    /** 실패하면 답글 입력창·내용을 유지 (CM-P2-03) — 오류는 상단 안내 */
-    if (!ok) return;
-    onReplyOpenChange(null);
-    setReplyDraft("");
-  };
+  const highlighted = highlightCommentId === node.id;
+  const isReplyTarget = replyTargetId === node.id;
+  const canReply = Boolean(me) && isVisible && depth < COMMUNITY_COMMENT_MAX_DEPTH;
+  const overLimit = maxLength != null && draft.trim().length > maxLength;
 
   return (
-    <article id={`comment-${node.id}`} className="min-w-0 scroll-mt-24 py-3" style={{ marginLeft: indent }}>
-      <div className="flex min-w-0 gap-1.5">
-        {depth > 0 ? <ReplyLGlyph /> : null}
+    <article
+      id={`comment-${node.id}`}
+      data-comment-state={node.display_state}
+      className={`min-w-0 scroll-mt-24 py-3 transition-colors duration-700 ${
+        highlighted || isReplyTarget ? "bg-[var(--cm-primary-soft)]" : ""
+      }`}
+      style={{ marginLeft: indent }}
+    >
+      {node.is_pinned && isVisible && depth === 0 ? (
+        <p className="m-0 mb-1 text-[12px] font-bold text-[var(--cm-primary)]">📌 {t("community_comment_pinned_label")}</p>
+      ) : null}
+      <div className="flex min-w-0 gap-2.5">
+        {isVisible ? (
+          <SamarketThumbnail
+            src={node.author_avatar_url}
+            size={32}
+            roundedClassName="rounded-full"
+            className="mt-0.5 shrink-0 bg-[var(--cm-primary-soft)]"
+            fallbackSrc=""
+            fallbackNode={
+              <span className="text-[13px] font-semibold text-[var(--cm-primary)]" aria-hidden>
+                {(authorLabel || "?").slice(0, 1).toUpperCase()}
+              </span>
+            }
+          />
+        ) : (
+          <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-[var(--cm-page-bg)]" aria-hidden />
+        )}
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className={`m-0 min-w-0 flex-1 ${CM_AUTHOR_NAME_CLASS}`}>{authorLabel}</p>
-            <time className={`shrink-0 tabular-nums ${CM_META_CLASS}`} dateTime={node.created_at}>
-              {timeRel}
-              {node.is_edited ? (
-                <span className="text-[var(--cm-text-muted)]">{t("community_comment_edit_mark")}</span>
+          {isVisible ? (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className={`m-0 min-w-0 truncate ${CM_AUTHOR_NAME_CLASS}`}>{authorLabel}</p>
+              {node.is_post_author ? (
+                <span className="shrink-0 rounded-ui-rect bg-[var(--cm-primary-soft)] px-1.5 py-px text-[11px] font-semibold text-[var(--cm-primary)]">
+                  {t("community_comment_author_badge")}
+                </span>
               ) : null}
-            </time>
-            <div className="relative shrink-0">
+              <time className={`shrink-0 tabular-nums ${CM_META_CLASS}`} dateTime={node.created_at}>
+                {timeRel}
+                {node.is_edited ? ` · ${t("community_comment_edit_mark")}` : ""}
+              </time>
+              <span className="min-w-0 flex-1" />
               <button
                 type="button"
                 className={`${HIT} text-[var(--cm-text-muted)] hover:bg-[var(--cm-primary-soft)]`}
                 aria-label={t("community_comment_more_aria")}
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
+                onClick={() => onOpenMenu(node, authorLabel)}
               >
-                <MoreHorizontal className="h-5 w-5" strokeWidth={1.8} />
+                <MoreVertical className="h-5 w-5" strokeWidth={1.8} />
               </button>
-              {menuOpen ? (
-                <>
-                  <button
-                    type="button"
-                    className="fixed inset-0 z-40 cursor-default bg-transparent"
-                    aria-label={t("common_close")}
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <ul
-                    className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden max-w-[min(92vw,280px)] rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] text-[color:var(--overlay-text-primary)] shadow-[var(--overlay-elevation-2)]"
-                    role="menu"
-                  >
-                    <li role="none">
-                      <button type="button" role="menuitem" className={itemClass} onClick={() => void copyCommentLink()}>
-                        {t("community_comment_copy")}
-                      </button>
-                    </li>
-                    {isOwner && !isDeleted ? (
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={itemClass}
-                          onClick={() => {
-                            setDraft(node.content);
-                            setEditing(true);
-                            setMenuOpen(false);
-                          }}
-                        >
-                          {t("common_edit")}
-                        </button>
-                      </li>
-                    ) : null}
-                    {canReportComment ? (
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={itemClass}
-                          onClick={() => {
-                            setMenuOpen(false);
-                            void onReportComment?.(node.id);
-                          }}
-                        >
-                          {t("community_report")}
-                        </button>
-                      </li>
-                    ) : null}
-                    {canBlockAuthor ? (
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={itemClass}
-                          onClick={() => {
-                            setMenuOpen(false);
-                            void onBlockCommentAuthor?.(authorUserId, authorLabel);
-                          }}
-                        >
-                          {t("community_block_neighbor")}
-                        </button>
-                      </li>
-                    ) : null}
-                    {isDeleteAllowed && !isDeleted ? (
-                      <li role="none">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={OverlayUi.popoverItemDanger}
-                          onClick={() => {
-                            setMenuOpen(false);
-                            void onDelete(node.id, {
-                              asAdmin: viewerIsAdmin && !isOwner,
-                            });
-                          }}
-                        >
-                          {t("community_delete")}
-                        </button>
-                      </li>
-                    ) : null}
-                  </ul>
-                </>
-              ) : null}
             </div>
-          </div>
+          ) : null}
 
           {editing ? (
             <div className="mt-1.5 space-y-2">
@@ -302,6 +199,11 @@ export function CommunityCommentItem({
                 rows={3}
                 className={CM_TEXTAREA_CLASS}
               />
+              {maxLength != null && draft.trim().length >= Math.floor(maxLength * 0.8) ? (
+                <p className={`m-0 text-right text-[11px] ${overLimit ? "text-[var(--cm-danger)]" : "text-[var(--cm-text-muted)]"}`}>
+                  {t("community_comment_char_count", { count: draft.trim().length, max: maxLength })}
+                </p>
+              ) : null}
               {editError ? (
                 <p className="m-0 text-[12px] font-medium text-[var(--cm-danger)]" role="alert">
                   {editError}
@@ -310,38 +212,36 @@ export function CommunityCommentItem({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={saving || !draft.trim()}
+                  disabled={saving || !draft.trim() || overLimit}
                   onClick={() => void onSave()}
-                  className={`min-h-12 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
+                  className={`min-h-11 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
                 >
                   {t("community_save")}
                 </button>
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={() => {
-                    setEditing(false);
-                    setEditError("");
-                    setDraft(node.content);
-                  }}
-                  className={`min-h-12 px-4 ${CM_BTN_GHOST_CLASS}`}
+                  onClick={() => onEditingChange(null)}
+                  className={`min-h-11 px-4 ${CM_BTN_GHOST_CLASS}`}
                 >
                   {t("common_cancel")}
                 </button>
               </div>
             </div>
+          ) : isVisible ? (
+            <p data-user-content="" className={`mt-1 break-words [overflow-wrap:anywhere] ${CM_COMMENT_BODY_CLASS}`}>
+              {depth > 0 && parentAuthorName ? (
+                <span className="font-semibold text-[var(--cm-primary)]">@{parentAuthorName} </span>
+              ) : null}
+              {node.content}
+            </p>
           ) : (
-            <p
-              data-user-content=""
-              className={`mt-1 break-words [overflow-wrap:anywhere] ${CM_COMMENT_BODY_CLASS} ${
-                isDeleted ? "text-[var(--cm-text-muted)]" : ""
-              }`}
-            >
-              {isDeleted ? deletedLabel : node.content}
+            <p className={`m-0 mt-1.5 ${CM_COMMENT_BODY_CLASS} text-[var(--cm-text-muted)]`}>
+              {t(PLACEHOLDER_KEY[node.display_state as keyof typeof PLACEHOLDER_KEY])}
             </p>
           )}
 
-          {!editing ? (
+          {isVisible && !editing ? (
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
               <button
                 type="button"
@@ -349,56 +249,25 @@ export function CommunityCommentItem({
                   node.liked_by_viewer ? "text-[var(--cm-primary)]" : "text-[var(--cm-text-secondary)]"
                 } hover:bg-[var(--cm-primary-soft)]`}
                 aria-pressed={node.liked_by_viewer}
-                disabled={isDeleted}
                 onClick={() => void onLike(node.id)}
               >
                 <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.7} fill={node.liked_by_viewer ? "currentColor" : "none"} />
-                {t("community_stat_likes", {
-                  count: formatAppNumber(Math.max(0, node.like_count || 0), language),
-                })}
+                {node.like_count > 0
+                  ? t("community_stat_likes", { count: formatAppNumber(node.like_count, language) })
+                  : t("community_comment_like")}
               </button>
-              {me && !isDeleted && depth < COMMUNITY_COMMENT_MAX_DEPTH ? (
+              {canReply ? (
                 <button
                   type="button"
                   disabled={commentBusy}
                   className={`${HIT} px-2.5 font-semibold ${
-                    isReplyOpen ? "text-[var(--cm-primary)]" : "text-[var(--cm-text-secondary)]"
+                    isReplyTarget ? "text-[var(--cm-primary)]" : "text-[var(--cm-text-secondary)]"
                   } hover:bg-[var(--cm-primary-soft)]`}
-                  onClick={toggleReply}
+                  onClick={() => onReply(node, authorLabel)}
                 >
-                  {isReplyOpen ? t("community_reply_cancel") : t("community_reply_write")}
+                  {t("community_comment_reply")}
                 </button>
               ) : null}
-            </div>
-          ) : null}
-
-          {isReplyOpen && me ? (
-            <div className="mt-1.5 min-w-0">
-              <p className={`mb-1 ${CM_META_CLASS}`}>{t("community_reply_to", { name: authorLabel })}</p>
-              <CommunityCommentGrowTextarea
-                value={replyDraft}
-                onChange={setReplyDraft}
-                placeholder={t("community_reply_placeholder")}
-                disabled={commentBusy}
-                composingRef={replyComposingRef}
-              />
-              <div className="mt-1.5 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  className={`min-h-12 px-4 ${CM_BTN_GHOST_CLASS}`}
-                  onClick={() => onReplyOpenChange(null)}
-                >
-                  {t("common_cancel")}
-                </button>
-                <button
-                  type="button"
-                  disabled={commentBusy || !replyDraft.trim()}
-                  className={`min-h-12 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
-                  onClick={() => void submitInlineReply()}
-                >
-                  {t("community_comment_post")}
-                </button>
-              </div>
             </div>
           ) : null}
         </div>
@@ -406,42 +275,41 @@ export function CommunityCommentItem({
 
       {childCount > 0 ? (
         <div className="mt-1 min-w-0">
-          {showRepliesFold && !repliesOpen ? (
+          {!repliesOpen ? (
             <button
               type="button"
-              className="inline-flex min-h-12 items-center border-0 bg-transparent px-0 text-left text-[13px] font-semibold text-[var(--cm-primary)] underline underline-offset-2"
+              className="ml-[42px] inline-flex min-h-11 items-center border-0 bg-transparent px-0 text-left text-[13px] font-semibold text-[var(--cm-primary)]"
               onClick={() => setRepliesOpen(true)}
             >
               {t("community_replies_expand", { count: childCount })}
             </button>
           ) : (
             <>
-              {showRepliesFold && repliesOpen ? (
-                <button
-                  type="button"
-                  className="mb-1 inline-flex min-h-12 items-center border-0 bg-transparent px-0 text-left text-[12px] text-[var(--cm-text-muted)]"
-                  onClick={() => setRepliesOpen(false)}
-                >
-                  {t("community_replies_collapse")}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="mb-1 ml-[42px] inline-flex min-h-11 items-center border-0 bg-transparent px-0 text-left text-[12px] text-[var(--cm-text-muted)]"
+                onClick={() => setRepliesOpen(false)}
+              >
+                {t("community_replies_collapse")}
+              </button>
               <ul className="m-0 list-none space-y-0 divide-y divide-[var(--cm-border)] pl-0">
                 {node.children.map((c) => (
                   <li key={c.id} className="min-w-0">
                     <CommunityCommentItem
                       node={c}
                       depth={depth + 1}
+                      parentAuthorName={authorLabel}
                       viewerUserId={viewerUserId}
-                      viewerIsAdmin={viewerIsAdmin}
-                      focusCommentId={focusCommentId}
+                      highlightCommentId={highlightCommentId}
+                      revealCommentId={revealCommentId}
+                      replyTargetId={replyTargetId}
                       onLike={onLike}
                       onEdit={onEdit}
-                      onDelete={onDelete}
-                      onReportComment={onReportComment}
-                      onBlockCommentAuthor={onBlockCommentAuthor}
-                      replyOpenCommentId={replyOpenCommentId}
-                      onReplyOpenChange={onReplyOpenChange}
-                      onSubmitReply={onSubmitReply}
+                      onOpenMenu={onOpenMenu}
+                      onReply={onReply}
+                      editingCommentId={editingCommentId}
+                      onEditingChange={onEditingChange}
+                      maxLength={maxLength}
                       commentBusy={commentBusy}
                     />
                   </li>
@@ -453,4 +321,9 @@ export function CommunityCommentItem({
       ) : null}
     </article>
   );
+}
+
+export function isOwnComment(node: NeighborhoodCommentNode, viewerUserId: string | null | undefined): boolean {
+  const me = viewerUserId?.trim() ?? "";
+  return me.length > 0 && node.display_state === "visible" && isSameUserId(node.user_id, me);
 }

@@ -59,3 +59,7 @@ export function philifePostCommentUrl(postId: string, commentId: string): string
 export function philifePostCommentLikeUrl(postId: string, commentId: string): string {
   return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/like`;
 }
+
+export function philifePostCommentPinUrl(postId: string, commentId: string): string {
+  return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/pin`;
+}

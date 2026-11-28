@@ -50,9 +50,12 @@ export function flatCommentsToNeighborhoodTree(flat: CommunityCommentDTO[]): Nei
     updated_at: r.updated_at,
     is_edited: r.is_edited,
     author_name: r.author_name,
+    author_avatar_url: r.author_avatar_url ?? null,
+    is_post_author: r.is_post_author === true,
+    is_pinned: r.is_pinned === true,
     like_count: r.like_count,
     liked_by_viewer: r.liked_by_viewer,
-    ...(r.is_removed ? { is_removed: true } : {}),
+    display_state: r.display_state ?? "visible",
     children: [],
   }));
   const hasAnyReply = nodes.some((n) => n.parent_id);

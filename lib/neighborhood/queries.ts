@@ -1138,6 +1138,6 @@ export async function listNeighborhoodSimilarPosts(
 }
 
 export async function listNeighborhoodComments(postId: string, viewerUserId?: string | null): Promise<NeighborhoodCommentNode[]> {
-  const flat = await listCommunityPostComments(postId, viewerUserId);
-  return flatCommentsToNeighborhoodTree(flat);
+  const { comments } = await listCommunityPostComments(postId, viewerUserId);
+  return flatCommentsToNeighborhoodTree(comments);
 }

@@ -4,7 +4,10 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
-import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
+import {
+  isCommunityReportReasonCode,
+  type CommunityReportReasonCode,
+} from "@/lib/reports/community-report-reasons";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
@@ -38,6 +41,7 @@ export async function POST(req: NextRequest) {
     targetType?: string;
     targetId?: string;
     reasonText?: string;
+    reasonCode?: string;
   };
   try {
     body = await req.json();
@@ -45,8 +49,13 @@ export async function POST(req: NextRequest) {
     return reportError("invalid_json", 400);
   }
 
-  const reasonText = body.reasonText?.trim();
-  if (!reasonText) {
+  /** 사유는 선택 목록 코드(감사 L9) — 「기타」만 설명 필수. 서버 추정(`inferReportReasonCode`)은 쓰지 않는다 */
+  const reasonCode = String(body.reasonCode ?? "").trim();
+  if (!isCommunityReportReasonCode(reasonCode)) {
+    return reportError("report_reason_required", 400);
+  }
+  const reasonText = String(body.reasonText ?? "").trim().slice(0, 1000);
+  if (reasonCode === "other" && !reasonText) {
     return reportError("report_reason_required", 400);
   }
 
@@ -105,7 +114,7 @@ export async function POST(req: NextRequest) {
       return reportError("already_reported_post", 409);
     }
 
-    const ins = await insertReport(sb, "post", postId, auth.userId, reasonText);
+    const ins = await insertReport(sb, "post", postId, auth.userId, reasonCode, reasonText);
     if (!ins.ok) return ins.response;
 
     const { error: countErr } = await sb
@@ -160,7 +169,7 @@ export async function POST(req: NextRequest) {
     return reportError("already_reported_comment", 409);
   }
 
-  const ins = await insertReport(sb, "comment", targetId, auth.userId, reasonText);
+  const ins = await insertReport(sb, "comment", targetId, auth.userId, reasonCode, reasonText);
   if (!ins.ok) return ins.response;
   return NextResponse.json({ ok: true, id: ins.id, postId: parentPostId || null });
 }
@@ -186,10 +195,11 @@ async function insertReport(
   targetType: ReportTargetType,
   targetId: string,
   userId: string,
+  reasonCode: CommunityReportReasonCode,
   reasonText: string
 ): Promise<{ ok: true; id: string } | { ok: false; response: NextResponse }> {
-  const reasonCode = inferReportReasonCode(reasonText) || "etc";
-  const reasonPayload = `${reasonCode}: ${reasonText}`.slice(0, 2000);
+  /** 관리자 화면은 `코드: 설명` 을 나눠 읽는다(`splitCommunityReportReason`) */
+  const reasonPayload = `${reasonCode}: ${reasonText}`.trim().slice(0, 2000);
   const { data: ins, error } = await sb
     .from("community_reports")
     .insert({

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
+import { buildCommunityCommentPath } from "@/lib/community/share/community-share-url";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { notificationCopyMeta } from "@/lib/notifications/notification-stored-copy";
@@ -62,7 +63,8 @@ export async function notifyCommunityPostCommentReceived(
   // B-10: 대체 이름은 받는 사람 언어로(아래 수신자별) — 닉네임만 여기서 읽는다.
   const commenterNick = nickMap.get(commenterId)?.trim() || "";
   const preview = args.commentPreview.slice(0, 200);
-  const linkUrl = POST_HREF(postId);
+  /** 알림 탭 → 그 댓글로 (감사 L8 · 설계 §6.5 「댓글로 이동」) */
+  const linkUrl = buildCommunityCommentPath(postId, commentId);
 
   const recipients = new Set<string>();
   if (postAuthorId && postAuthorId !== commenterId) recipients.add(postAuthorId);

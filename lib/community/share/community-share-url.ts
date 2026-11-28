@@ -22,6 +22,23 @@ export function buildCommunityPostSharePath(postId: string): string {
   return `/community/posts/${encodeURIComponent(id)}`;
 }
 
+/** 댓글 하나로 여는 주소 — 알림·링크 복사 공용 (`?comment=<id>`, 감사 L8 · 설계 §6.5) */
+export const COMMUNITY_COMMENT_QUERY_KEY = "comment";
+
+export function buildCommunityCommentPath(postId: string, commentId: string): string {
+  const base = buildCommunityPostSharePath(postId);
+  const cid = commentId.trim();
+  return cid ? `${base}?${COMMUNITY_COMMENT_QUERY_KEY}=${encodeURIComponent(cid)}` : base;
+}
+
+/** 댓글 링크 복사용 절대 주소 — 글 공유 주소 + `comment` */
+export function buildCommunityCommentCanonicalUrl(postId: string, commentId: string): string {
+  const url = new URL(buildCommunityPostCanonicalUrl(postId));
+  const cid = commentId.trim();
+  if (cid) url.searchParams.set(COMMUNITY_COMMENT_QUERY_KEY, cid);
+  return url.toString();
+}
+
 /** canonical 공유 URL — production absolute + UTM (token·session query 금지) */
 export function buildCommunityPostCanonicalUrl(postId: string): string {
   const origin = resolveCommunityShareSiteOrigin();

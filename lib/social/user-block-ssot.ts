@@ -69,6 +69,36 @@ export async function fetchBlockedAuthorIdsForViewerSb(
   return out;
 }
 
+/**
+ * 보는 사람 기준 차단 방향별 회원 — 같은 SSOT 1회 조회.
+ * `blockedByMe` = 내가 차단한 회원, `blockedMe` = 나를 차단한 회원.
+ * 댓글 자리 표시(라운지 댓글 SSOT §6.2)는 방향에 따라 문구가 달라 합집합 대신 이 함수를 쓴다.
+ */
+export async function fetchBlockDirectionsForViewerSb(
+  sb: SupabaseClient<any>,
+  viewerId: string
+): Promise<{ blockedByMe: Set<string>; blockedMe: Set<string> }> {
+  const blockedByMe = new Set<string>();
+  const blockedMe = new Set<string>();
+  const v = trimId(viewerId);
+  if (!v) return { blockedByMe, blockedMe };
+  const { data: rows } = await sb
+    .from("user_social_relations")
+    .select("owner_user_id, target_user_id")
+    .eq("relation_type", "blocked")
+    .or(`owner_user_id.eq.${v},target_user_id.eq.${v}`)
+    .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY);
+  if (Array.isArray(rows)) {
+    for (const row of rows as Array<{ owner_user_id?: string; target_user_id?: string }>) {
+      const owner = trimId(row.owner_user_id);
+      const target = trimId(row.target_user_id);
+      if (owner === v && target) blockedByMe.add(target);
+      if (target === v && owner) blockedMe.add(owner);
+    }
+  }
+  return { blockedByMe, blockedMe };
+}
+
 /** Opt-in wall split for T5 block-gate isolation (query vs CPU merge). */
 export type FetchBlockedPairTiming = {
   queryMs: number;
