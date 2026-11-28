@@ -167,6 +167,10 @@ export async function listNeighborhoodFeed(options: {
   viewerUserId?: string | null;
   /** true면 로그인 필수 — 관심이웃 + 본인 글만 */
   neighborOnly?: boolean;
+  /** `neighborOnly` 일 때 본인 글 빼기 — 내정보 › 관심이웃 화면(관심이웃이 쓴 글만, 시안 ②) */
+  neighborOnlyExcludeSelf?: boolean;
+  /** `neighborOnly` 일 때 관심이웃 한 명만 — 내 관심이웃이 아니면 빈 결과(남의 글 목록 조회 우회 방지) */
+  neighborOnlyTargetId?: string | null;
   /**
    * 글 정렬(기본 `latest`).
    * - `popular` — `view_count`·`published_at` 내림차순.
@@ -280,7 +284,12 @@ export async function listNeighborhoodFeed(options: {
       ? (async () => {
           const t0 = performance.now();
           try {
-            return await fetchNeighborFollowTargetIds(sb, v);
+            const ids = await fetchNeighborFollowTargetIds(sb, v, {
+              includeSelf: options.neighborOnlyExcludeSelf !== true,
+            });
+            const one = options.neighborOnlyTargetId?.trim();
+            if (one) return ids.has(one) && one !== v ? new Set([one]) : new Set<string>();
+            return ids;
           } finally {
             if (collectPerf) relatedNeighborFilterMs = performance.now() - t0;
           }
@@ -295,6 +304,10 @@ export async function listNeighborhoodFeed(options: {
     neighborP,
   ]);
   socialPreflightMs = performance.now() - tSoc0;
+  /** 관심이웃 0명 — DB 조회 없이 빈 결과 (관심이웃 설계 D) */
+  if (neighborOnlySet && neighborOnlySet.size === 0) {
+    return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
+  }
 
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicNameEnBySlug = buildPhilifeTopicNameEnLookup(topics);
@@ -390,6 +403,11 @@ export async function listNeighborhoodFeed(options: {
       }
     }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
+    /**
+     * 관심이웃 글만 — DB 단계에서 거른다 (관심이웃 설계 D · 감사 E5). 예전에는 가져온 창(21건·추천 200건) 안에서만 걸러
+     * 빈 페이지·누락이 났다. 아래 메모리 거름(`neighborOnlySet`)은 같은 조건이라 결과를 바꾸지 않는다.
+     */
+    if (neighborOnlySet) qq = qq.in("user_id", [...neighborOnlySet]);
     if (onlyPostIds) qq = qq.in("id", onlyPostIds);
     if (hashtag) {
       qq = qq.or(communityHashtagIlikeOrFilter(hashtag));
@@ -1120,6 +1138,6 @@ export async function listNeighborhoodSimilarPosts(
 }
 
 export async function listNeighborhoodComments(postId: string, viewerUserId?: string | null): Promise<NeighborhoodCommentNode[]> {
-  const flat = await listCommunityPostComments(postId, viewerUserId);
-  return flatCommentsToNeighborhoodTree(flat);
+  const { comments } = await listCommunityPostComments(postId, viewerUserId);
+  return flatCommentsToNeighborhoodTree(comments);
 }

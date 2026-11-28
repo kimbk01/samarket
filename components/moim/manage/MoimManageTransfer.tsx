@@ -20,6 +20,11 @@ import {
   useMoimResource,
 } from "./moim-manage-shared";
 
+/** 위임 요청 버튼을 그리지 않는 조건 — 경고 받은 모임 · 위임 권한 없음 · 이미 보냄 (R3 U-16) */
+export function transferButtonHidden(x: { warned: boolean; canTransfer: boolean; sentTo: string | null }): boolean {
+  return x.warned || !x.canTransfer || x.sentTo != null;
+}
+
 function TransferBody({ detail }: { detail: MoimDetailDto }) {
   const { t } = useI18n();
   const toast = useMoimManageToast();
@@ -74,7 +79,7 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
                       type="radio"
                       name="moim-transfer-to"
                       className="h-4 w-4 shrink-0 accent-[color:var(--sam-primary)]"
-                      disabled={warned}
+                      disabled={warned || sentTo != null}
                       checked={selected?.userId === m.userId}
                       onChange={() => setSelected(m)}
                     />
@@ -91,18 +96,21 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
         })()
       ) : null}
 
-      <MoimStickyFooter className="-mx-4 mt-4">
-        <div className={moimCls.column}>
-          <button
-            type="button"
-            disabled={warned || !selected || busy || !detail.can.transfer_host}
-            className={`${moimCls.btnPrimary} w-full`}
-            onClick={() => setConfirmOpen(true)}
-          >
-            {t("moim_manage_transfer_request_btn")}
-          </button>
-        </div>
-      </MoimStickyFooter>
+      {/* R3 U-16 G-dis-03: 경고·권한 없음이면 막힌 버튼 대신 위 안내 줄만 · 보낸 뒤에는 다시 보내지 않게 숨김 (HostRequest `sent` 와 같게) */}
+      {!transferButtonHidden({ warned, canTransfer: detail.can.transfer_host, sentTo }) ? (
+        <MoimStickyFooter className="-mx-4 mt-4">
+          <div className={moimCls.column}>
+            <button
+              type="button"
+              disabled={!selected || busy}
+              className={`${moimCls.btnPrimary} w-full`}
+              onClick={() => setConfirmOpen(true)}
+            >
+              {t("moim_manage_transfer_request_btn")}
+            </button>
+          </div>
+        </MoimStickyFooter>
+      ) : null}
 
       <DibayConfirmDialog
         open={confirmOpen && selected != null}

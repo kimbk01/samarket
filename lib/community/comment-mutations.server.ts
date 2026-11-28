@@ -12,43 +12,38 @@ import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 type Sb = ReturnType<typeof getSupabaseServer>;
 
 /**
- * `community_comment_likes` 삽입/삭제 + `community_comments.like_count` 수동 보정(트리거 없음)
+ * 댓글 공감 = 「원하는 상태」 저장 (토글 아님 · 재시도해도 같은 결과).
+ * 수 계산은 DB RPC `community_comment_like_set` 이 댓글 행을 잠그고 다시 센다 (감사 L6 · CM-P3-04).
  */
-export async function toggleCommentLikeServer(
+export async function setCommentLikeServer(
   postId: string,
   commentId: string,
-  userId: string
+  userId: string,
+  liked: boolean
 ): Promise<{ ok: true; liked: boolean; like_count: number } | { ok: false; error: string; code?: string }> {
   const pid = (await resolveCanonicalCommunityPostId(postId))?.trim() ?? "";
   const cid = commentId?.trim() ?? "";
   const uid = userId?.trim() ?? "";
   if (!pid || !cid || !uid) {
-    return { ok: false, error: "invalid_request" };
+    return { ok: false, error: "invalid_request", code: "invalid_request" };
   }
 
   const sb: Sb = getSupabaseServer();
   const { data: cRow, error: cErr } = await sb
     .from("community_comments")
-    .select("id, post_id, like_count, status, is_hidden, is_deleted, user_id")
+    .select("id, post_id, status, is_hidden, is_deleted, user_id")
     .eq("id", cid)
     .eq("post_id", pid)
     .maybeSingle();
-  const cr = cRow as
-    | {
-        id?: string;
-        like_count?: number;
-        post_id?: string;
-        user_id?: string;
-      }
-    | null;
+  const cr = cRow as { id?: string; user_id?: string } | null;
   if (cErr || !cr?.id) {
-    return { ok: false, error: "comment_not_found" };
+    return { ok: false, error: "comment_not_found", code: "comment_not_found" };
   }
-  if (!isCommunityCommentPubliclyVisible(cRow as never)) {
-    return { ok: false, error: "comment_not_likeable" };
+  if (liked && !isCommunityCommentPubliclyVisible(cRow as never)) {
+    return { ok: false, error: "comment_not_likeable", code: "comment_not_likeable" };
   }
   const authorId = String(cr.user_id ?? "").trim();
-  if (authorId && authorId !== uid && (await isBlockedEitherWay(uid, authorId))) {
+  if (liked && authorId && authorId !== uid && (await isBlockedEitherWay(uid, authorId))) {
     return {
       ok: false,
       error: "community_like_blocked_relation",
@@ -56,51 +51,49 @@ export async function toggleCommentLikeServer(
     };
   }
 
-  const { data: ex } = await sb
-    .from("community_comment_likes")
-    .select("id")
-    .eq("comment_id", cid)
-    .eq("user_id", uid)
-    .maybeSingle();
-  if (ex) {
-    const { data: before } = await sb.from("community_comments").select("like_count").eq("id", cid).maybeSingle();
-    const cur0 = Math.max(0, Number((before as { like_count?: number } | null)?.like_count) || 0);
-    const { error: delE } = await sb.from("community_comment_likes").delete().eq("id", (ex as { id: string }).id);
-    if (delE) {
-      return { ok: false, error: "like_remove_failed" };
-    }
-    const next0 = Math.max(0, cur0 - 1);
-    const { data: after } = await sb
-      .from("community_comments")
-      .update({ like_count: next0 } as never)
-      .eq("id", cid)
-      .select("like_count")
-      .maybeSingle();
-    return { ok: true, liked: false, like_count: Math.max(0, Number((after as { like_count?: number } | null)?.like_count) || next0) };
+  const { data, error } = await sb.rpc("community_comment_like_set", {
+    p_comment_id: cid,
+    p_user_id: uid,
+    p_liked: liked,
+  });
+  const out = (data ?? {}) as { ok?: boolean; error?: string; liked?: boolean; like_count?: number };
+  if (error || out.ok !== true) {
+    if (error) console.error("[comment-mutations] like rpc failed", error.message);
+    const code = out.error && /^[a-z_]+$/.test(out.error) ? out.error : "like_save_failed";
+    return { ok: false, error: code, code };
   }
+  return { ok: true, liked: out.liked === true, like_count: Math.max(0, Number(out.like_count) || 0) };
+}
 
-  const { data: beforeIns } = await sb.from("community_comments").select("like_count").eq("id", cid).maybeSingle();
-  const cur1 = Math.max(0, Number((beforeIns as { like_count?: number } | null)?.like_count) || 0);
-  const { error: insE } = await sb.from("community_comment_likes").insert({ comment_id: cid, user_id: uid });
-  if (insE) {
-    if (String(insE.code) === "23505") {
-      const { data: row } = await sb
-        .from("community_comments")
-        .select("like_count")
-        .eq("id", cid)
-        .maybeSingle();
-      return { ok: true, liked: true, like_count: Math.max(0, Number((row as { like_count?: number } | null)?.like_count) || 0) };
-    }
-    return { ok: false, error: "like_save_failed" };
+/**
+ * 댓글 고정·해제 — 글 작성자만, 글마다 1개 (Owner 결정 1 · DB RPC `community_comment_pin_set`).
+ * 지워지거나 숨겨진 댓글은 DB 트리거가 고정을 푼다.
+ */
+export async function setCommentPinServer(
+  postId: string,
+  commentId: string,
+  userId: string,
+  pinned: boolean
+): Promise<{ ok: true; pinned: boolean } | CommentMutationError> {
+  const pid = (await resolveCanonicalCommunityPostId(postId))?.trim() ?? "";
+  const cid = commentId?.trim() ?? "";
+  const uid = userId?.trim() ?? "";
+  if (!pid || !cid || !uid) return { ok: false, error: "bad_request" };
+  const sb: Sb = getSupabaseServer();
+  const { data: cRow } = await sb.from("community_comments").select("id").eq("id", cid).eq("post_id", pid).maybeSingle();
+  if (!(cRow as { id?: string } | null)?.id) return { ok: false, error: "comment_not_found" };
+  const { data, error } = await sb.rpc("community_comment_pin_set", {
+    p_comment_id: cid,
+    p_actor_id: uid,
+    p_pinned: pinned,
+  });
+  const out = (data ?? {}) as { ok?: boolean; error?: string; pinned?: boolean };
+  if (error || out.ok !== true) {
+    if (error) console.error("[comment-mutations] pin rpc failed", error.message);
+    const code = out.error && /^[a-z_]+$/.test(out.error) ? out.error : "comment_pin_failed";
+    return { ok: false, error: code };
   }
-  const next1 = cur1 + 1;
-  const { data: up } = await sb
-    .from("community_comments")
-    .update({ like_count: next1 } as never)
-    .eq("id", cid)
-    .select("like_count")
-    .maybeSingle();
-  return { ok: true, liked: true, like_count: Math.max(0, Number((up as { like_count?: number } | null)?.like_count) || next1) };
+  return { ok: true, pinned: out.pinned === true };
 }
 
 /**
@@ -151,7 +144,8 @@ export async function updateCommentContentServer(
   }
   const { error: uErr } = await sb
     .from("community_comments")
-    .update({ content: t, updated_at: new Date().toISOString() } as never)
+    /** `edited_at` = 작성자 본문 수정 시각 — 「수정됨」은 이 칸만 본다 (관리자 처리는 `updated_at` 만 · 감사 L5) */
+    .update({ content: t, updated_at: new Date().toISOString(), edited_at: new Date().toISOString() } as never)
     .eq("id", cid);
   if (uErr) {
     console.error("[comment-mutations] update failed", uErr.message);
@@ -188,7 +182,11 @@ export async function deleteCommentForAuthorServer(
   }
   const { data: changed, error: uErr } = await sb
     .from("community_comments")
-    .update({ status: "deleted" } as never)
+    /**
+     * 작성자 삭제 = `moderated_by` 없음 — 앱·콘솔이 「작성자 삭제」로 판정하는 단일 기준 (설계 §6.2·§6.7).
+     * 예전에 관리자가 숨겼다가 복구한 댓글이어도 지금 지운 사람은 작성자다. 관리자 처리 이력은 감사 기록(audit_logs)에 남는다.
+     */
+    .update({ status: "deleted", moderated_by: null, moderated_at: null, moderation_reason: null } as never)
     .eq("id", cid)
     .eq("status", "active")
     .select("id");

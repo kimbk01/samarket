@@ -1,4 +1,5 @@
 import type { CommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
+import type { CommunityCommentDisplayState } from "@/lib/community-feed/types";
 
 export type NeighborhoodFeedPostDTO = {
   id: string;
@@ -71,12 +72,15 @@ export type NeighborhoodCommentNode = {
   content: string;
   created_at: string;
   updated_at: string;
-  /** `updated_at`가 생성 시각과 의미 있게 달릴 때 */
+  /** 작성자가 본문을 고쳤는가 (`edited_at`) */
   is_edited: boolean;
   author_name: string;
+  author_avatar_url: string | null;
+  is_post_author: boolean;
+  is_pinned: boolean;
   like_count: number;
   liked_by_viewer: boolean;
-  /** 삭제·숨김된 부모 자리(답글 보존용) — 본문·작성자 비노출 */
-  is_removed?: boolean;
+  /** 서버 단일 판정 — `CommunityCommentDisplayState` */
+  display_state: CommunityCommentDisplayState;
   children: NeighborhoodCommentNode[];
 };

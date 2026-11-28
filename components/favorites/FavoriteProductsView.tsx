@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Heart } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientViewerCacheKey } from "@/hooks/use-client-membership-state";
 import {
   getFavoritedPostsPage,
   type FavoritedPostPageItem,
@@ -87,11 +86,12 @@ function FavoriteProductsBody({
   const { t } = useI18n();
   /** 거래 H RP-2: 내가 신고한 글은 찜 목록에서도 자리 카드로 가린다(서버 `reports` 기준) */
   const router = useRouter();
-  const [viewerKey, setViewerKey] = useState<string>(() => getCurrentUser()?.id ?? "session");
-  /** 서버 세션 여부 — `getCurrentUser()`보다 늦게 맞춰도 찜 목록은 표시 */
+  /** 보는 사람 키 = 회원 상태 SSOT (`useClientViewerCacheKey` — 확인 중엔 기다리고, 비회원·확인 실패도 불러온다 · 설계 v2 §6) */
+  const viewerKey = useClientViewerCacheKey("favorite-products");
+  /** 서버 세션 여부 — 회원 상태보다 늦게 맞춰도 찜 목록은 표시 */
   const [sessionAuthenticated, setSessionAuthenticated] = useState<boolean | null>(null);
   const [counts, setCountsState] = useState<Record<FavoriteManageTabId, number> | null>(
-    () => favoriteCountsCache.get(viewerKey) ?? null
+    () => (viewerKey ? favoriteCountsCache.get(viewerKey) ?? null : null)
   );
   const viewerKeyRef = useRef(viewerKey);
   viewerKeyRef.current = viewerKey;
@@ -103,7 +103,7 @@ function FavoriteProductsBody({
     ) => {
       setCountsState((prev) => {
         const value = typeof next === "function" ? next(prev) : next;
-        favoriteCountsCache.set(viewerKeyRef.current, value);
+        if (viewerKeyRef.current) favoriteCountsCache.set(viewerKeyRef.current, value);
         return value;
       });
     },
@@ -122,7 +122,7 @@ function FavoriteProductsBody({
   );
 
   const list = useMypageCursorList<FavoritedPostPageItem>({
-    cacheKey: `fav:posts:${viewerKey}:${tab}`,
+    cacheKey: viewerKey ? `fav:posts:${viewerKey}:${tab}` : null,
     fetchPage,
     getId: (p) => String(p.id),
   });
@@ -157,14 +157,7 @@ function FavoriteProductsBody({
     [t]
   );
 
-  useEffect(() => {
-    const onAuth = () => {
-      setViewerKey(getCurrentUser()?.id ?? "session");
-      void reload();
-    };
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
-    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
-  }, [reload]);
+  /** 계정 변경은 회원 상태 SSOT 가 viewerKey 를 바꿔 목록 캐시 키가 바뀌며 다시 읽는다(예전: 로그인 변경 신호를 따로 들음) */
 
   /** 다른 화면(상세·피드)에서 찜이 바뀌면 조용히 첫 페이지만 교체. 이 화면에서 해제·되돌리기한 글은 로컬 상태가 기준. */
   useEffect(() => {

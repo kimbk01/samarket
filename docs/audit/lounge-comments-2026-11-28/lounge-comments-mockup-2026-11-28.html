@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>라운지 댓글 SSOT 시안 (2026-11-28)</title>
+<style>
+  :root{
+    --g:#0B421A; --g-soft:#eef2ea; --bg:#f5f6f4; --card:#fff; --fg:#1d2420; --muted:#6b736e; --meta:#8a918d;
+    --line:#e4e7e3; --danger:#d45252; --warn:#b26a00; --r:4px; --sheet:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:#e9ece8;color:var(--fg)}
+  header.doc{max-width:1320px;margin:0 auto;padding:28px 20px 8px}
+  header.doc h1{font-size:22px;margin:0 0 6px}
+  header.doc p{margin:2px 0;color:var(--muted);font-size:14px;line-height:1.55}
+  .grid{max-width:1320px;margin:0 auto;padding:16px 20px 40px;display:flex;flex-wrap:wrap;gap:28px}
+  .col{width:390px}
+  .cap{font-size:13px;font-weight:700;margin:0 0 4px}
+  .cap small{display:block;font-weight:400;color:var(--muted);margin-top:2px;line-height:1.5}
+  .phone{width:390px;height:760px;background:var(--bg);border:1px solid #cfd5cf;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+  .top{height:52px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--card);border-bottom:1px solid var(--line);margin-top:24px}
+  .top .back{font-size:22px;width:28px}
+  .top h2{flex:1;font-size:17px;margin:0;font-weight:700}
+  .scroll{position:absolute;top:76px;left:0;right:0;bottom:64px;overflow:auto}
+  .scroll.full{bottom:0}
+  .post{background:var(--card);padding:14px 16px;border-bottom:1px solid var(--line)}
+  .post .t{font-weight:700;font-size:16px;margin:0 0 4px}
+  .post .b{font-size:14px;color:var(--muted);margin:0}
+  .sec{background:var(--card);margin-top:8px;padding:12px 16px}
+  .sechead{display:flex;align-items:center;justify-content:space-between}
+  .sechead h3{margin:0;font-size:16px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;font-size:12px}
+  .seg span{padding:4px 10px;border-radius:999px;color:var(--muted)}
+  .seg span.on{background:var(--g);color:#fff}
+  .c{display:flex;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+  .c:first-of-type{border-top:0}
+  .c.r1{padding-left:28px}.c.r2{padding-left:56px}
+  .av{width:32px;height:32px;border-radius:50%;background:#cfd8cc;flex:none;display:grid;place-items:center;font-size:13px;color:var(--g);font-weight:700}
+  .av.none{background:#e9ece8;color:#b3b9b5}
+  .cb{flex:1;min-width:0}
+  .ch{display:flex;align-items:center;gap:6px;font-size:13px}
+  .ch b{font-size:14px}
+  .ch .tm{color:var(--meta);font-size:12px}
+  .ch .more{margin-left:auto;width:44px;height:32px;display:grid;place-items:center;color:var(--meta);font-size:18px}
+  .badge{font-size:11px;padding:1px 5px;border-radius:var(--r);background:var(--g-soft);color:var(--g);font-weight:600}
+  .ct{margin:4px 0 0;font-size:14px;line-height:1.5}
+  .ct.gone{color:var(--meta)}
+  .mention{color:var(--g);font-weight:600}
+  .ca{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);font-weight:600}
+  .ca .on{color:var(--g)}
+  .fold{font-size:13px;color:var(--g);font-weight:600;padding:4px 0 0 42px}
+  .bar{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:8px 12px 10px}
+  .bar .reply{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:0 2px 6px}
+  .bar .reply b{color:var(--g)}
+  .bar .row{display:flex;gap:8px;align-items:flex-end}
+  .inp{flex:1;min-height:40px;border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:14px;color:var(--meta);background:#fafbfa}
+  .inp.typed{color:var(--fg)}
+  .send{height:40px;padding:0 14px;border-radius:999px;background:var(--g);color:#fff;font-size:14px;font-weight:700;display:grid;place-items:center}
+  .send.off{background:#c9d1cb}
+  .cnt{font-size:11px;color:var(--warn);text-align:right;padding:4px 2px 0}
+  .err{font-size:12px;color:var(--danger);padding:0 2px 6px}
+  .dim{position:absolute;inset:0;background:rgba(0,0,0,.38)}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:var(--sheet) var(--sheet) 0 0;padding:8px 0 18px}
+  .grab{width:36px;height:4px;border-radius:999px;background:#d3d8d4;margin:4px auto 8px}
+  .sheet h4{margin:4px 16px 8px;font-size:15px}
+  .sheet .it{min-height:52px;display:flex;align-items:center;padding:0 20px;font-size:15px;border-top:1px solid var(--line)}
+  .sheet .it.d{color:var(--danger)}
+  .sheet .it small{margin-left:auto;color:var(--meta);font-size:12px}
+  .sheet .cancel{margin:10px 16px 0;min-height:48px;border-radius:var(--r);background:#eef0ee;display:grid;place-items:center;font-weight:600}
+  .radio{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 20px;font-size:15px;border-top:1px solid var(--line)}
+  .radio i{width:18px;height:18px;border-radius:50%;border:2px solid #b9c0bb;flex:none}
+  .radio.on i{border:6px solid var(--g)}
+  .ta{margin:8px 16px 0;min-height:70px;border:1px solid var(--line);border-radius:var(--r);padding:10px;font-size:13px;color:var(--meta)}
+  .cta{margin:12px 16px 0;min-height:48px;border-radius:var(--r);background:var(--g);color:#fff;display:grid;place-items:center;font-weight:700}
+  .toast{position:absolute;left:50%;bottom:80px;transform:translateX(-50%);background:#2a312c;color:#fff;font-size:13px;padding:10px 14px;border-radius:999px;white-space:nowrap}
+  .hl{background:#fff8df;margin:0 -16px;padding-left:16px;padding-right:16px}
+  .pin{font-size:12px;color:var(--g);font-weight:700;padding:8px 0 0}
+  .def{position:relative}
+  .mark{display:inline-block;font-size:10px;font-weight:700;background:var(--danger);color:#fff;border-radius:var(--r);padding:1px 4px;margin-left:4px;vertical-align:middle}
+  .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:var(--r);background:#fff4d6;color:#7a5a00;margin-left:6px}
+  .pop{position:absolute;right:16px;top:40px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.12);font-size:14px;min-width:150px}
+  .pop div{padding:11px 14px;border-top:1px solid var(--line)}.pop div:first-child{border-top:0}.pop .d{color:var(--danger)}
+  table.adm{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+  table.adm th,table.adm td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+  table.adm th{color:var(--muted);font-weight:600;background:#fafbfa}
+  .sb{display:inline-block;font-size:11px;padding:1px 6px;border-radius:var(--r);font-weight:600}
+  .sb.a{background:var(--g-soft);color:var(--g)}.sb.u{background:#eef0ee;color:var(--muted)}.sb.m{background:#fdf0f0;color:var(--danger)}.sb.h{background:#fff4d6;color:#7a5a00}
+  .btn{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:var(--r);padding:3px 7px;margin:1px}
+  .btn.x{color:#b3b9b5;border-style:dashed}
+  .wide{width:820px}
+  .note{font-size:12px;color:var(--muted);line-height:1.6;margin:8px 0 0}
+</style>
+</head>
+<body>
+<header class="doc">
+  <h1>라운지 댓글 SSOT 시안 (2026-11-28)</h1>
+  <p>근거: <code>lounge-comments-audit-design.md</code> §6. 기기 390×760(iPhone 세로) 기준. 정적 시안 — API·DB 호출 없음. 시안 PASS ≠ 실기기 PASS.</p>
+  <p><b style="color:#d45252">정정 2026-11-28: 댓글 입력칸은 화면 하단 고정 바가 아니라 댓글 목록 끝에 붙는 일반 칸이다(쓸 때만 키보드 위). 아래 그림의 하단 바는 위치만 이렇게 읽는다.</b></p>
+  <p>빨간 표시(<span class="mark">L1</span>)는 현재 main 결함 번호. <span class="tag">결정 필요</span>는 Owner 결정 전까지 넣지 않는 요소.</p>
+</header>
+
+<div class="grid">
+
+<!-- S0 현재 -->
+<div class="col">
+  <p class="cap">S0 · 현재 main (비교용)<small>입력창이 목록 위 · 사진 없음 · 메뉴는 자체 팝오버 · 삭제 표시는 글자 비교</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll full">
+      <div class="post"><p class="t">마카티 주말 장보기 어디가 좋아요?</p><p class="b">본문 …</p></div>
+      <div class="sec def">
+        <div class="sechead"><h3>💬 댓글 4 <span class="mark">L4</span></h3><div class="seg"><span class="on">등록순</span><span>최신순</span></div></div>
+        <div class="c" style="margin-top:8px"><div class="av" style="display:none"></div><div class="cb">
+          <div style="display:flex;gap:8px"><input disabled style="flex:1;border:1px solid var(--line);border-radius:4px;padding:9px;font-size:13px" placeholder="댓글을 남겨보세요…"><span class="send off">게시</span></div>
+        </div></div>
+        <div class="c"><div class="cb">
+          <div class="ch"><b>민지</b><span class="tm">2시간 전 · 수정</span><span class="mark">L5</span><span class="more">⋯</span></div>
+          <p class="ct">SM 하이퍼마켓 추천해요</p>
+          <div class="ca"><span>👍 공감 2</span><span>답글 쓰기</span></div>
+        </div></div>
+        <div class="c"><div class="cb">
+          <div class="ch"><b>a1b2c3d4</b><span class="mark">L14</span><span class="tm">어제</span><span class="more">⋯</span></div>
+          <p class="ct gone">댓글이 삭제 되었습니다.</p><span class="mark">L2 사용자가 쓴 글자</span>
+          <div class="ca"><span style="opacity:.4">👍 공감 0</span></div>
+        </div></div>
+        <div class="c"><div class="cb">
+          <div class="ch"><b></b><span class="tm">어제</span><span class="more">⋯</span><span class="mark">L18</span></div>
+          <p class="ct gone">댓글이 삭제 되었습니다.</p>
+          <div class="ca"><span style="opacity:.4">👍 공감 0</span></div>
+        </div></div>
+        <p class="fold" style="padding-left:0">답글 1개 펼치기</p>
+        <div class="pop" style="top:268px"><div>링크 복사 <span class="mark">L8</span></div><div>신고</div><div>차단</div></div>
+        <p class="note" style="margin-top:14px"><b style="color:var(--danger)">L1</b> 활동 제한 회원이 「게시」 → 「차단 관계에서는 댓글을 작성할 수 없습니다.」</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- S1 제안 목록 -->
+<div class="col">
+  <p class="cap">S1 · 제안 · 댓글 목록<small>사진(결정 8)·작성자 배지(결정 1)·수정됨 · 자리 표시 3종(서버 판정) · 「댓글 N」 = 보이는 댓글만 · 입력은 하단 고정</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll">
+      <div class="post"><p class="t">마카티 주말 장보기 어디가 좋아요?</p><p class="b">본문 …</p></div>
+      <div class="sec">
+        <div class="sechead"><h3>댓글 3</h3><div class="seg"><span class="on">등록순</span><span>최신순</span></div></div>
+        <div class="pin">📌 작성자가 고정함 <span class="tag">결정 필요 1</span></div>
+        <div class="c"><div class="av">민</div><div class="cb">
+          <div class="ch"><b>민지</b><span class="tm">2시간 전 · 수정됨</span><span class="more">⋮</span></div>
+          <p class="ct">SM 하이퍼마켓 추천해요. 토요일 오전이 한가해요</p>
+          <div class="ca"><span class="on">👍 공감 2</span><span>답글</span></div>
+        </div></div>
+        <p class="fold">답글 2개 보기</p>
+        <div class="c"><div class="av">준</div><div class="cb">
+          <div class="ch"><b>준호</b><span class="badge">작성자</span><span class="tag">결정 1</span><span class="tm">1시간 전</span><span class="more">⋮</span></div>
+          <p class="ct">감사합니다! 주차는 어때요?</p>
+          <div class="ca"><span>👍 공감</span><span>답글</span></div>
+        </div></div>
+        <div class="c"><div class="av none">·</div><div class="cb">
+          <p class="ct gone" style="margin-top:6px">작성자가 삭제한 댓글입니다</p>
+        </div></div>
+        <div class="c r1"><div class="av">수</div><div class="cb">
+          <div class="ch"><b>수아</b><span class="tm">어제</span><span class="more">⋮</span></div>
+          <p class="ct"><span class="mention">@준호</span> 지하 주차장 넓어요</p>
+          <div class="ca"><span>👍 공감</span><span>답글</span></div>
+        </div></div>
+        <div class="c"><div class="av none">·</div><div class="cb">
+          <p class="ct gone" style="margin-top:6px">운영정책에 따라 숨겨진 댓글입니다</p>
+        </div></div>
+        <div class="c r1"><div class="av">하</div><div class="cb">
+          <div class="ch"><b>하늘</b><span class="tm">어제</span><span class="more">⋮</span></div>
+          <p class="ct">저도 궁금했어요</p>
+          <div class="ca"><span>👍 공감 1</span><span>답글</span></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="bar"><div class="row"><div class="av" style="width:28px;height:28px">나</div><div class="inp">댓글을 남겨 보세요</div><span class="send off">게시</span></div></div>
+  </div>
+  <p class="note">자리 표시는 살아 있는 답글이 있을 때만 남고, 이름·사진·버튼이 없다. 답글 없는 삭제 댓글은 삭제 즉시 목록에서 빠진다(새로고침과 같은 화면).</p>
+</div>
+
+<!-- S2 메뉴 타인 -->
+<div class="col">
+  <p class="cap">S2 · 행 메뉴 ⋮ — 다른 사람 댓글<small>공용 하단 시트(모임과 같은 부품). 위험 행동은 빨강, 맨 아래</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll full"><div class="sec"><div class="c"><div class="av">민</div><div class="cb"><div class="ch"><b>민지</b><span class="tm">2시간 전</span></div><p class="ct">SM 하이퍼마켓 추천해요</p></div></div></div></div>
+    <div class="dim"></div>
+    <div class="sheet"><div class="grab"></div>
+      <div class="it">답글 달기</div>
+      <div class="it">링크 복사</div>
+      <div class="it">신고</div>
+      <div class="it d">민지님 차단</div>
+      <div class="cancel">취소</div>
+    </div>
+  </div>
+</div>
+
+<!-- S3 메뉴 본인 / 관리자 -->
+<div class="col">
+  <p class="cap">S3 · 행 메뉴 — 내 댓글 / 관리자<small>왼쪽: 본인 · 오른쪽 위 카드: 관리자(콘솔과 같은 사유·CAS)</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll full">
+      <div class="sec"><p class="cap" style="margin:0 0 8px">관리자로 볼 때(다른 사람 댓글)</p>
+        <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:14px">
+          <div style="padding:12px 16px">답글 달기</div><div style="padding:12px 16px;border-top:1px solid var(--line)">링크 복사</div>
+          <div style="padding:12px 16px;border-top:1px solid var(--line)">신고</div>
+          <div style="padding:12px 16px;border-top:1px solid var(--line);color:var(--danger)">숨기기 (관리자)</div>
+          <div style="padding:12px 16px;border-top:1px solid var(--line);color:var(--danger)">삭제 (관리자)</div>
+        </div>
+        <p class="note">숨기기·삭제 → 사유 입력(2자 이상) → 콘솔과 같은 API. 처리 후 그 자리는 「운영정책에 따라 숨겨진 댓글입니다」.</p>
+      </div>
+    </div>
+    <div class="dim" style="top:330px"></div>
+    <div class="sheet"><div class="grab"></div>
+      <div class="it">답글 달기</div>
+      <div class="it">링크 복사</div>
+      <div class="it">수정</div>
+      <div class="it d">삭제</div>
+      <div class="cancel">취소</div>
+    </div>
+  </div>
+</div>
+
+<!-- S4 답글 작성 -->
+<div class="col">
+  <p class="cap">S4 · 답글 쓰기 · 글자 수<small>바 위 띠에 대상·취소 · 상한 80% 넘으면 남은 글자 · 실패 문구는 바 위(입력 유지)</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll" style="bottom:128px">
+      <div class="sec">
+        <div class="c hl"><div class="av">민</div><div class="cb"><div class="ch"><b>민지</b><span class="tm">2시간 전</span><span class="more">⋮</span></div><p class="ct">SM 하이퍼마켓 추천해요</p><div class="ca"><span>👍 공감 2</span><span class="on">답글</span></div></div></div>
+      </div>
+    </div>
+    <div class="bar">
+      <div class="reply"><span><b>민지</b>님에게 답글</span><span>취소</span></div>
+      <div class="row"><div class="inp typed" style="min-height:64px">토요일 오전 몇 시쯤이 한가한가요? 저번에 갔을 때는 너무 붐벼서 …</div><span class="send">게시</span></div>
+      <div class="cnt">412 / 500</div>
+    </div>
+    <div style="position:absolute;left:0;right:0;bottom:300px;text-align:center;font-size:12px;color:var(--meta)">키보드 영역</div>
+  </div>
+</div>
+
+<!-- S5 신고 -->
+<div class="col">
+  <p class="cap">S5 · 댓글 신고<small>사유 선택 필수, 「기타」만 입력 필수</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="dim"></div>
+    <div class="sheet"><div class="grab"></div>
+      <h4>댓글 신고</h4>
+      <div class="radio on"><i></i>스팸·광고</div>
+      <div class="radio"><i></i>욕설·비하</div>
+      <div class="radio"><i></i>음란·성적인 내용</div>
+      <div class="radio"><i></i>사기·거래 위험</div>
+      <div class="radio"><i></i>개인정보 노출</div>
+      <div class="radio"><i></i>기타</div>
+      <div class="ta">자세한 내용 (선택)</div>
+      <div class="cta">신고하기</div>
+    </div>
+  </div>
+  <p class="note">접수 토스트: 「신고가 접수됐어요」(지금 문구). 글 신고도 같은 시트(제목만 「게시글 신고」).</p>
+</div>
+
+<!-- S6 댓글로 이동 -->
+<div class="col">
+  <p class="cap">S6 · 알림·링크로 댓글 열기<small><code>?comment=&lt;id&gt;</code> → 조상 답글 펼침 · 가운데 스크롤 · 2초 강조</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll">
+      <div class="post"><p class="t">마카티 주말 장보기 어디가 좋아요?</p></div>
+      <div class="sec">
+        <div class="sechead"><h3>댓글 3</h3></div>
+        <div class="c"><div class="av">민</div><div class="cb"><div class="ch"><b>민지</b><span class="tm">2시간 전</span><span class="more">⋮</span></div><p class="ct">SM 하이퍼마켓 추천해요</p></div></div>
+        <p class="fold">답글 숨기기</p>
+        <div class="c r1 hl"><div class="av">준</div><div class="cb"><div class="ch"><b>준호</b><span class="badge">작성자</span><span class="tag">결정 1</span><span class="tm">방금</span><span class="more">⋮</span></div><p class="ct"><span class="mention">@민지</span> 주차는 어때요?</p><div class="ca"><span>👍 공감</span><span>답글</span></div></div></div>
+      </div>
+    </div>
+    <div class="toast" style="bottom:150px">링크를 복사했어요</div>
+    <div class="bar"><div class="row"><div class="av" style="width:28px;height:28px">나</div><div class="inp">댓글을 남겨 보세요</div><span class="send off">게시</span></div></div>
+  </div>
+  <p class="note">대상이 지워졌거나 볼 수 없으면 토스트 「삭제되었거나 볼 수 없는 댓글이에요」 후 댓글 머리로.</p>
+</div>
+
+<!-- S7 제한 -->
+<div class="col">
+  <p class="cap">S7 · 활동 제한 회원<small>원인·해제일을 그대로 · 차단 문구와 분리(L1)</small></p>
+  <div class="phone">
+    <div class="top"><span class="back">‹</span><h2>라운지</h2></div>
+    <div class="scroll" style="bottom:110px"><div class="sec"><div class="sechead"><h3>댓글 3</h3></div></div></div>
+    <div class="bar">
+      <div class="err">커뮤니티 활동이 12월 5일까지 제한되어 댓글을 쓸 수 없어요.</div>
+      <div class="row"><div class="inp typed">좋은 정보네요</div><span class="send">게시</span></div>
+    </div>
+  </div>
+  <p class="note">차단 관계일 때만 「차단한 사용자의 글에는 댓글을 쓸 수 없어요」. 정지 계정은 로그인 정책 문구. 모든 문구는 화면 언어 키.</p>
+</div>
+
+<!-- S8 관리자 -->
+<div class="col wide">
+  <p class="cap">S8 · 관리자 콘솔 · 댓글 관리 행<small>삭제 주체 4종 배지 · 처리자·시각·사유 · 작성자 삭제는 복구 없음 · 신고 대기/전체</small></p>
+  <table class="adm">
+    <tr><th>종류</th><th>댓글</th><th>글</th><th>작성자</th><th>상태</th><th>처리</th><th>신고</th><th>작성</th><th></th></tr>
+    <tr><td>댓글</td><td>SM 하이퍼마켓 추천해요</td><td>마카티 주말 장보기…</td><td>민지</td><td><span class="sb a">정상</span></td><td>—</td><td>0 / 0</td><td>11-28 10:12</td><td><span class="btn">숨김</span><span class="btn">삭제</span><span class="btn">앱에서 보기</span></td></tr>
+    <tr><td>답글</td><td>(내용 보존) 광고 링크…</td><td>마카티 주말 장보기…</td><td>abc</td><td><span class="sb h">숨김</span></td><td>관리자 kim · 11-28 11:02<br><span style="color:var(--muted)">스팸 링크</span></td><td><b style="color:var(--warn)">2</b> / 3</td><td>11-28 09:40</td><td><span class="btn">복구</span><span class="btn">삭제</span><span class="btn">앱에서 보기</span></td></tr>
+    <tr><td>댓글</td><td>(내용 보존) …</td><td>필리핀 은행 계좌…</td><td>준호</td><td><span class="sb u">작성자 삭제</span></td><td>작성자 · 11-27 21:30</td><td>0 / 0</td><td>11-27 20:01</td><td><span class="btn x">복구 없음</span><span class="btn">앱에서 보기</span></td></tr>
+    <tr><td>댓글</td><td>(내용 보존) …</td><td>환전 어디서…</td><td>xyz</td><td><span class="sb m">관리자 삭제</span></td><td>신고 처리 · lee · 11-26 15:00<br><span style="color:var(--muted)">욕설</span></td><td>0 / 4</td><td>11-26 14:10</td><td><span class="btn">복구</span><span class="btn">앱에서 보기</span></td></tr>
+  </table>
+  <p class="note">숨김·복구·삭제는 지금처럼 사유 필수·CAS·감사 기록·작성자 알림. 관리자 처리는 「수정됨」에 영향 없음(edited_at 분리). 시간은 PHT 표시.</p>
+</div>
+
+</div>
+</body>
+</html>

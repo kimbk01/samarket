@@ -2,7 +2,7 @@
  * POST /api/admin/moim/moims/[moimId]/members/[userId] — 어드민 멤버 조치 (설계 moim §8 「멤버」). 권한 키 `moim`.
  * body { action: "role"|"remove"|"ban"|"unban"|"assign_host", role?: "co_host"|"staff"|"member", reason }
  * 알림: 역할 → `moim_role_changed`(대상) · 내보내기/차단(활성 멤버였을 때) → `moim_member_removed`(대상) ·
- *       모임장 지정 → `moim_host_changed`(전체 멤버)
+ *       모임장 지정 → `moim_host_changed`(전체 멤버) · 차단 해제 → `moim_unbanned`(대상, R2 N-04). 발송은 응답 뒤
  */
 import type { NextRequest } from "next/server";
 import { isMoimRole } from "@/lib/moim/moim-permission-contract";
@@ -16,7 +16,7 @@ import {
   moimAdminMemberRole,
   moimAdminMemberUnban,
 } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { MOIM_ROLE_KEY, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,43 +44,66 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const expectedRole = isMoimRole(body?.expectedRole) ? body.expectedRole : null;
     const r = await moimAdminMemberRole(adminId, moimId, userId, role, reason, sb, expectedRole);
     if (r.ok && r.changed) {
-      await notifyMoimMany(sb, [userId], {
-        kind: "moim_role_changed",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: `${moimId}:${role}:${Date.now()}`,
-        vars: { moim: await loadAdminMoimName(sb, moimId) },
-        roleVar: role,
-      });
+      const ref = `${moimId}:${role}:${Date.now()}`;
+      notifyMoimAfterResponse(async () =>
+        notifyMoimMany(sb, [userId], {
+          kind: "moim_role_changed",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: ref,
+          vars: { moim: await loadAdminMoimName(sb, moimId) },
+          keyVars: { role: MOIM_ROLE_KEY[role] },
+        })
+      );
     }
     return moimAdminRpcResponse(r);
   }
   if (action === "remove" || action === "ban") {
     const r = await moimAdminMemberRemove(adminId, moimId, userId, action === "ban", reason, sb);
     if (r.ok && r.was_active) {
-      await notifyMoimMany(sb, [userId], {
-        kind: "moim_member_removed",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: `${moimId}:${Date.now()}`,
-        vars: { moim: await loadAdminMoimName(sb, moimId) },
-      });
+      const ref = `${moimId}:${userId}:${Date.now()}`;
+      notifyMoimAfterResponse(async () =>
+        notifyMoimMany(sb, [userId], {
+          kind: "moim_member_removed",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: ref,
+          vars: { moim: await loadAdminMoimName(sb, moimId) },
+        })
+      );
     }
     return moimAdminRpcResponse(r);
   }
   if (action === "unban") {
-    return moimAdminRpcResponse(await moimAdminMemberUnban(adminId, moimId, userId, reason, sb));
+    const r = await moimAdminMemberUnban(adminId, moimId, userId, reason, sb);
+    if (r.ok) {
+      const ref = `${moimId}:${userId}:${Date.now()}`;
+      notifyMoimAfterResponse(async () =>
+        notifyMoimMany(sb, [userId], {
+          kind: "moim_unbanned",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: ref,
+          vars: { moim: await loadAdminMoimName(sb, moimId) },
+        })
+      );
+    }
+    return moimAdminRpcResponse(r);
   }
   const r = await moimAdminAssignHost(adminId, moimId, userId, reason, sb, moimAdminUuid(body?.expectedHost));
   if (r.ok) {
-    const name = await loadAdminMoimName(sb, moimId);
-    const { data: m } = await sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", userId).maybeSingle();
-    await notifyMoimMany(sb, r.notify_user_ids ?? [], {
-      kind: "moim_host_changed",
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: `${moimId}:${userId}:${Date.now()}`,
-      vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
+    const to = r.notify_user_ids ?? [];
+    const ref = `${moimId}:${userId}:${Date.now()}`;
+    notifyMoimAfterResponse(async () => {
+      const name = await loadAdminMoimName(sb, moimId);
+      const { data: m } = await sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", userId).maybeSingle();
+      await notifyMoimMany(sb, to, {
+        kind: "moim_host_changed",
+        moimId,
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: ref,
+        vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
+      });
     });
   }
   return moimAdminRpcResponse(r);

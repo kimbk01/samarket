@@ -12,13 +12,14 @@ import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-ove
 import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimStaffReportDto } from "@/lib/moim/moim-api-types";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimReportReasonLabel, type MoimPolicyLabelItem } from "@/lib/moim/moim-report-reasons";
 import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
+  moimCountKey,
   moimManageCardClass,
   useMoimDateFormat,
   useMoimManageToast,
@@ -37,14 +38,8 @@ const STATUS_KEY: Record<Exclude<MoimStaffReportDto["status"], "active">, Messag
   missing: "moim_manage_reports_status_missing",
 };
 
-function reasonLabel(t: (k: MessageKey) => string, code: string): string {
-  const key = `moim_report_reason_${code}` as MessageKey;
-  const label = t(key);
-  return label === key ? code : label;
-}
-
-function ReportsBody({ moimId }: { moimId: string }) {
-  const { t } = useI18n();
+function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?: readonly MoimPolicyLabelItem[] | null }) {
+  const { t, language } = useI18n();
   const fmt = useMoimDateFormat();
   const toast = useMoimManageToast();
   const load = useCallback(() => moimApi.staffReports(moimId), [moimId]);
@@ -93,9 +88,11 @@ function ReportsBody({ moimId }: { moimId: string }) {
           return (
             <li key={key} className={`${moimManageCardClass} p-4`}>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t(TYPE_KEY[item.targetType])}</span>
-                <span className={`${Sam.badge.danger} whitespace-nowrap`}>{t("moim_manage_reports_count", { count: item.reportCount })}</span>
-                {status !== "active" ? <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t(STATUS_KEY[status])}</span> : null}
+                <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t(TYPE_KEY[item.targetType])}</span>
+                <span className={`${moimCls.badge} ${moimCls.badgeBad}`}>
+                  {t(moimCountKey(item.reportCount, "moim_manage_reports_count", "moim_manage_reports_count_one"), { count: item.reportCount })}
+                </span>
+                {status !== "active" ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t(STATUS_KEY[status])}</span> : null}
                 <span className="ml-auto text-[12px] text-sam-meta">{fmt(item.latestAt)}</span>
               </div>
               <div className="mt-2 flex gap-3">
@@ -110,7 +107,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
                 </div>
               </div>
               <p className="mt-2 text-[13px] text-sam-muted">
-                {item.reasons.map((r) => `${reasonLabel(t, r.code)} ${r.count}`).join(" · ")}
+                {item.reasons.map((r) => `${moimReportReasonLabel(language, t, r.code, reportReasons)} ${r.count}`).join(" · ")}
               </p>
               <div className="mt-3 flex gap-2">
                 {href ? (
@@ -165,7 +162,7 @@ function ReportsBody({ moimId }: { moimId: string }) {
 export function MoimManageReports({ moimId }: { moimId: string }) {
   return (
     <MoimManageFrame moimId={moimId} titleKey="moim_manage_reports_title" allow={(d) => d.can.hide_post}>
-      {() => <ReportsBody moimId={moimId} />}
+      {({ detail }) => <ReportsBody moimId={moimId} reportReasons={detail.reportReasons} />}
     </MoimManageFrame>
   );
 }

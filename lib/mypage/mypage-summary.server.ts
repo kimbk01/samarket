@@ -7,6 +7,7 @@ import type { Product } from "@/lib/types/product";
 import { loadFavoritePostsServer } from "@/lib/favorites/load-favorite-posts-server";
 import { listPriceOffers } from "@/lib/offers/offers.service";
 import { listCommunityPostsForUserResult } from "@/lib/community-feed/list-community-posts-for-user";
+import { countNeighborFollows } from "@/lib/community/neighbor-follow-list.server";
 import { loadBuyerStoreOrderTabCounts } from "@/lib/delivery/customer/load-buyer-store-order-tab-counts";
 import { readUserPointBalanceResult } from "@/lib/points/user-point-ledger";
 import { loadCustomerCouponWalletCards } from "@/lib/stores/load-customer-coupon-wallet-cards";
@@ -48,6 +49,7 @@ export type MypageSummaryDeps = {
   loadFavoritePosts: typeof loadFavoritePostsServer;
   listPriceOffers: typeof listPriceOffers;
   listCommunityPosts: typeof listCommunityPostsForUserResult;
+  countNeighborFollows: typeof countNeighborFollows;
   loadStoreOrderTabCounts: typeof loadBuyerStoreOrderTabCounts;
   /** 포인트 잔액만 (재감사 P-4 · 이전: 누적 합계용 원장 5천 줄까지 읽던 `loadPointFinancialSummary`) */
   loadPointBalance: typeof readUserPointBalanceResult;
@@ -111,6 +113,7 @@ export const DEFAULT_MYPAGE_SUMMARY_DEPS: MypageSummaryDeps = {
   loadFavoritePosts: loadFavoritePostsServer,
   listPriceOffers,
   listCommunityPosts: listCommunityPostsForUserResult,
+  countNeighborFollows,
   loadStoreOrderTabCounts: loadBuyerStoreOrderTabCounts,
   loadPointBalance: readUserPointBalanceResult,
   loadCouponCards: loadCustomerCouponWalletCards,
@@ -156,6 +159,7 @@ export async function loadMypageSummaryFieldsServer(
     favoritesCount,
     offersReceivedPending,
     communityPostsCount,
+    neighborFollowCount,
     storeOrdersActiveCount,
     pointsBalance,
     couponsAvailableCount,
@@ -186,6 +190,13 @@ export async function loadMypageSummaryFieldsServer(
       const res = await deps.listCommunityPosts(uid);
       if (!res.ok) unavailable(res.error);
       return res.posts.length;
+    }, timeoutMs),
+    // 관심이웃 = 관심이웃 화면 사람 목록과 같은 함수 (관심이웃 설계 B)
+    settleField(async () => {
+      /** 개수만 — head count 1회(예전: 관계·프로필·차단 최대 3조회, 전체 수정 설계 v2 §5-3) */
+      const n = await deps.countNeighborFollows(sb, uid);
+      if (n === null) unavailable("neighbor_count_failed");
+      return n as number;
     }, timeoutMs),
     // 주문 진행중 = `/api/me/store-orders` 탭 개수
     settleField(async () => {
@@ -220,6 +231,7 @@ export async function loadMypageSummaryFieldsServer(
     favoritesCount,
     offersReceivedPending,
     communityPostsCount,
+    neighborFollowCount,
     storeOrdersActiveCount,
     pointsBalance,
     couponsAvailableCount,

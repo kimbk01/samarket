@@ -73,21 +73,20 @@ function restrictionUnavailableResponse(): NextResponse {
   return NextResponse.json({ ok: false, error: "community_restriction_unavailable" }, { status: 503 });
 }
 
-function formatUntilKo(endAt: string | null): string {
-  if (!endAt) return "영구";
-  const d = new Date(endAt);
-  if (Number.isNaN(d.getTime())) return "영구";
-  return `${d.toLocaleString("ko-KR", { timeZone: "Asia/Manila" })}까지`;
-}
-
+/**
+ * 활동 제한 응답 — 코드만 (`docs/i18n-ssot.md` §3-3). 문구는 화면이 고른다.
+ * `params.until` = 해제 시각 ISO(영구 제한이면 없음). 감사 L1: 예전 `messageKo` 한국어 문장은 내보내지 않는다.
+ */
 export function communityRestrictedResponse(r: ActiveCommunityRestriction): NextResponse {
+  const until = r.end_at && !Number.isNaN(new Date(r.end_at).getTime()) ? r.end_at : null;
   return NextResponse.json(
     {
       ok: false,
       error: "community_restricted",
+      code: "community_restricted",
       restriction: r.restriction,
       end_at: r.end_at,
-      messageKo: `커뮤니티 활동이 제한되어 있습니다 (${formatUntilKo(r.end_at)}).`,
+      ...(until ? { params: { until } } : {}),
     },
     { status: 403 }
   );

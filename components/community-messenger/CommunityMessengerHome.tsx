@@ -119,6 +119,7 @@ import {
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { moimRoomOwnerHref, moimRoomOwnerShowsHome, peekMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
 import {
   MessengerFriendActionsProvider,
   type MessengerFriendActionsContextValue,
@@ -3323,6 +3324,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
       if (result.ok) {
         setRoomActionSheet(null);
+      } else if (result.error === "moim_room_membership_managed_by_moim") {
+        /** 모임 방 나가기는 모임에서 — 모임을 알면 「모임 홈」 동작을 단다, 모르면 문구만 (모임 R3 U-14) */
+        /** 삭제된 모임이면 「모임 홈」 동작 없이 문구만 (모임 R4 D-3) */
+        const peeked = peekMoimRoomOwner(roomId);
+        const owner = moimRoomOwnerShowsHome(peeked) ? peeked : null;
+        showMessengerSnackbar(t("moim_err_moim_room_membership_managed_by_moim"), {
+          variant: "error",
+          ...(owner
+            ? {
+                action: {
+                  /** 머리글 버튼과 같은 규칙 — 일정 방은 「일정 보기」(일정 상세로 가므로) */
+                  label: t(owner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_home_btn"),
+                  onPress: () => router.push(moimRoomOwnerHref(owner)),
+                },
+              }
+            : {}),
+        });
+        void refresh(false);
       } else {
         setActionError(getMessengerActionErrorMessage(result.error ?? "leave_failed"));
         void refresh(false);
@@ -3330,7 +3349,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, setData, shadowDispatch]);
+  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, router, setData, shadowDispatch, t]);
 
   const leaveMessengerRoom = useCallback((room: CommunityMessengerRoomSummary) => {
     setLeaveConfirmRoom(room);

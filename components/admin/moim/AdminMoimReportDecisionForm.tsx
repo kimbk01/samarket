@@ -17,6 +17,7 @@ import {
   MOIM_ADMIN_RESTRICT_DAY_OPTIONS,
   MOIM_ADMIN_RESTRICTIONS,
   MOIM_ADMIN_SANCTION_LEVELS,
+  moimAdminLevelAllowsPeriod,
   type MoimAdminPerson,
   type MoimAdminReportDecision,
   type MoimAdminReportTargetType,
@@ -80,7 +81,7 @@ export function MoimReportDecisionPanel({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-semibold text-sam-fg">{t("admin_moim_decide_title")}</h3>
         {ctx.warnCount != null ? (
-          <AdminToneBadge tone={ctx.warnCount > 0 ? "warning" : "neutral"}>{t("admin_moim_warn_count", { n: ctx.warnCount })}</AdminToneBadge>
+          <AdminToneBadge tone={ctx.warnCount > 0 ? "warning" : "neutral"}>{t(ctx.warnCount === 1 ? "admin_moim_warn_count_one" : "admin_moim_warn_count", { n: ctx.warnCount })}</AdminToneBadge>
         ) : null}
       </div>
       {ctx.warnCount != null && ctx.warnCount > 0 ? <MoimAdminNote>{t("admin_moim_decide_warn_note")}</MoimAdminNote> : null}
@@ -193,7 +194,8 @@ function DecisionForm({
       reason: reason.trim(),
       contentHide: actioned && canHide && contentHide,
       moimLevel: actioned && level ? level : null,
-      moimEndsAt: actioned && level && endDate ? `${endDate}T23:59:59+08:00` : null,
+      /** 끝나는 날은 추천 제외만 (R4 D-14) */
+      moimEndsAt: actioned && level && moimAdminLevelAllowsPeriod(level) && endDate ? `${endDate}T23:59:59+08:00` : null,
       userRestrict: actioned && who ? { who, restriction, days: days ? Number(days) : null } : null,
       closeSameTarget: closeSame,
     };
@@ -220,12 +222,12 @@ function DecisionForm({
     if (who) {
       summary.push(
         `${t("admin_moim_level_user_restrict")} · ${t(`admin_moim_decide_who_${who}` as MessageKey)} · ${t(`admin_moim_decide_restriction_${restriction}` as MessageKey)} · ${
-          days ? t("admin_moim_decide_days_n", { n: Number(days) }) : t("admin_moim_decide_days_forever")
+          days ? t(Number(days) === 1 ? "admin_moim_decide_days_n_one" : "admin_moim_decide_days_n", { n: Number(days) }) : t("admin_moim_decide_days_forever")
         }`
       );
     }
   }
-  if (closeSame) summary.push(t("admin_moim_decide_close_same", { n: ctx.openSameTargetCount ?? 0 }));
+  if (closeSame) summary.push(t((ctx.openSameTargetCount ?? 0) === 1 ? "admin_moim_decide_close_same_one" : "admin_moim_decide_close_same", { n: ctx.openSameTargetCount ?? 0 }));
 
   return (
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]">
@@ -261,7 +263,14 @@ function DecisionForm({
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
               <span className="text-sam-muted">{t("admin_moim_decide_moim_level")}</span>
-              <select className={MOIM_ADMIN_FIELD} value={level} onChange={(e) => setLevel(e.target.value as MoimAdminSanctionLevel | "")}>
+              <select
+                className={MOIM_ADMIN_FIELD}
+                value={level}
+                onChange={(e) => {
+                  setLevel(e.target.value as MoimAdminSanctionLevel | "");
+                  setEndDate("");
+                }}
+              >
                 <option value="">{t("admin_moim_decide_none")}</option>
                 {MOIM_ADMIN_SANCTION_LEVELS.map((l) => (
                   <option key={l} value={l}>
@@ -270,12 +279,14 @@ function DecisionForm({
                 ))}
               </select>
             </label>
-            {level ? (
+            {level && moimAdminLevelAllowsPeriod(level) ? (
               <label className="flex flex-col gap-1">
                 <span className="text-sam-muted">{t("admin_moim_field_ends_at")}</span>
                 <input type="date" className={MOIM_ADMIN_FIELD} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 <span className="text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_hint")}</span>
               </label>
+            ) : level ? (
+              <p className="self-end text-[12px] text-sam-muted">{t("admin_moim_field_ends_at_none")}</p>
             ) : null}
           </div>
           {level ? <p className="text-[12px] text-sam-muted">{t(`admin_moim_level_${level}_effect` as MessageKey)}</p> : null}
@@ -306,7 +317,7 @@ function DecisionForm({
                   <select className={MOIM_ADMIN_FIELD} value={days} onChange={(e) => setDays(e.target.value)}>
                     {MOIM_ADMIN_RESTRICT_DAY_OPTIONS.map((n) => (
                       <option key={n} value={String(n)}>
-                        {t("admin_moim_decide_days_n", { n })}
+                        {t(n === 1 ? "admin_moim_decide_days_n_one" : "admin_moim_decide_days_n", { n })}
                       </option>
                     ))}
                     <option value="">{t("admin_moim_decide_days_forever")}</option>
@@ -329,7 +340,7 @@ function DecisionForm({
       {ctx.openSameTargetCount ? (
         <label className="flex items-center gap-1.5">
           <input type="checkbox" checked={closeSame} disabled={confirming} onChange={(e) => setCloseSame(e.target.checked)} />
-          <span>{t("admin_moim_decide_close_same", { n: ctx.openSameTargetCount })}</span>
+          <span>{t(ctx.openSameTargetCount === 1 ? "admin_moim_decide_close_same_one" : "admin_moim_decide_close_same", { n: ctx.openSameTargetCount })}</span>
         </label>
       ) : null}
 

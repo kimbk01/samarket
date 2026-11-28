@@ -7,6 +7,11 @@ import {
   type CmRoomAdminAction,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { runCmRoomActionCas } from "@/lib/admin-community-messenger/admin-chat-moderation-cas";
+import {
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY,
+} from "@/lib/admin-community-messenger/moim-room-admin-guard";
+import { adminServerText } from "@/lib/i18n/admin-server-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +57,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     reason,
   });
   if (!result.ok) {
+    /** 모임 방 읽기 전용 = 모임 어드민에서 (모임 R4 §5(c)) — 코드 + 요청 언어 안내 */
+    if (result.error === MOIM_ROOM_READONLY_MANAGED_BY_MOIM) {
+      return NextResponse.json(
+        { ok: false, error: result.error, message: await adminServerText(MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY) },
+        { status: result.status }
+      );
+    }
     return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
   }
   return NextResponse.json({ ok: true });

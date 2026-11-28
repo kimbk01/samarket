@@ -13,6 +13,7 @@ import type { MoimAction } from "@/lib/moim/moim-permission-contract";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { MoimMemberView } from "@/components/moim/MoimMemberView";
 import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { MoimPublicView } from "@/components/moim/MoimPublicView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
@@ -31,6 +32,11 @@ const MANAGE_ACTIONS: readonly MoimAction[] = [
   "transfer_host",
   "close",
 ];
+
+/** R4 #15: 모임 머리글 ⋮ — 로그인했을 때만 (메뉴 항목이 모두 로그인 뒤에만 생긴다) */
+export function moimDetailMenuVisible(moim: Pick<MoimDetailDto, "viewer">): boolean {
+  return moim.viewer.loggedIn;
+}
 
 /** 모임 상세 — 화면끼리 공유(60초·쓰기 성공 시 비움, 감사 E2). reload() = 저장값 무시하고 다시 */
 export function useMoimDetail(moimId: string) {
@@ -58,6 +64,17 @@ function HostTransferBanner({ transferId, onDone, onToast }: { transferId: strin
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const respond = async (accept: boolean) => {
+    /** R3 W4·G-dng-01: 거절은 위험 동작 — 확인 후 */
+    if (!accept) {
+      const ok = await dibayConfirm({
+        title: t("moim_transfer_decline_confirm_title"),
+        description: t("moim_transfer_decline_confirm_body"),
+        confirmLabel: t("common_reject"),
+        cancelLabel: t("common_cancel"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     const r = await moimApi.respondHostTransfer(transferId, accept);
     setBusy(false);
@@ -74,10 +91,10 @@ function HostTransferBanner({ transferId, onDone, onToast }: { transferId: strin
     <div className={`${moimCls.noticeInfo} mx-4 mt-3 grid gap-2`}>
       <p className="text-[13px] font-bold">{t("moim_transfer_banner")}</p>
       <div className="flex gap-2">
-        <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} flex-1`} onClick={() => respond(false)}>
+        <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} flex-1`} onClick={() => void respond(false)}>
           {t("common_reject")}
         </button>
-        <button type="button" disabled={busy} className={`${moimCls.btnPrimary} ${moimCls.btnSm} flex-1`} onClick={() => respond(true)}>
+        <button type="button" disabled={busy} className={`${moimCls.btnPrimary} ${moimCls.btnSm} flex-1`} onClick={() => void respond(true)}>
           {t("common_accept")}
         </button>
       </div>
@@ -92,6 +109,8 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
   const toast = useMoimToast();
   const showToast = toast.show;
   const { moim, error, reload } = useMoimDetail(moimId);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}`, !!moim);
   const [menuOpen, setMenuOpen] = useState(false);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
 
@@ -126,16 +145,27 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
               <Search className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
             </button>
           ) : null}
-          <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
-            <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
-          </button>
+          {/* R4 #15: 로그아웃 방문자에게는 메뉴 항목이 없다(신고·멤버 메뉴 모두 로그인 필요) → ⋮ 를 그리지 않는다 */}
+          {moimDetailMenuVisible(moim) ? (
+            <button type="button" className={SAM_TIER1_HEADER_ACTION_BTN_CLASS} aria-label={t("moim_menu_aria")} onClick={() => setMenuOpen(true)}>
+              <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
         </div>
       ) : null,
     [moim, t, canShareInvite, shareInvite, isMember, router]
   );
+  /**
+   * R3 U3-hdr-title: 비회원 공개 페이지는 머리글 제목을 비운다(이름은 본문 <h1>) — 시안 U3.
+   * 빈 글자는 머리글이 「내용 없음」으로 바꾸므로, 화면에 안 보이는 이름(읽어 주기용)을 넣는다.
+   */
+  const publicPage = !!moim && !isMember;
   const header = useMemo(
-    () => ({ titleText: moim?.name ?? t("moim_tab"), backHref: moimRoutes.tab, rightSlot }),
-    [moim?.name, rightSlot, t]
+    () =>
+      publicPage && moim
+        ? { title: <span className="sr-only">{moim.name}</span>, backHref: moimRoutes.tab, rightSlot }
+        : { titleText: moim?.name ?? t("moim_tab"), backHref: moimRoutes.tab, rightSlot },
+    [publicPage, moim, rightSlot, t]
   );
   useRegisterMainTier1Header(header);
 
@@ -184,15 +214,16 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
     items.push({ key: "notifications", label: t("moim_menu_notifications"), onClick: () => router.push(moimRoutes.notificationSettings(moim.id)) });
   }
   if (isMember && canManage) items.push({ key: "manage", label: t("moim_menu_manage"), onClick: () => router.push(moimRoutes.manage(moim.id)) });
-  if (moim.viewer.loggedIn) items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "moim", id: moim.id }) });
   /**
    * 모임장은 위임 전에는 나갈 수 없다(설계 P5 · 감사 D5) — 「나가기」 대신 위임·종료로 안내.
-   * 다른 역할은 그대로 「모임 나가기」.
+   * 다른 역할은 그대로 「모임 나가기」. 메뉴 순서: 일반(위임하기 포함) → 신고 → 위험 (R3 1-1)
    */
-  if (isMember && moim.viewer.role === "host") {
-    if (canOpenMoimTransfer(moim)) {
-      items.push({ key: "transfer", label: t("moim_manage_transfer_title"), onClick: () => router.push(moimRoutes.manageTransfer(moim.id)) });
-    }
+  const hostMenu = isMember && moim.viewer.role === "host";
+  if (hostMenu && canOpenMoimTransfer(moim)) {
+    items.push({ key: "transfer", label: t("moim_manage_transfer_title"), onClick: () => router.push(moimRoutes.manageTransfer(moim.id)) });
+  }
+  if (moim.viewer.loggedIn) items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "moim", id: moim.id }) });
+  if (hostMenu) {
     if (moim.can.close) {
       items.push({ key: "close", label: t("moim_manage_close_title"), danger: true, onClick: () => router.push(moimRoutes.manageClose(moim.id)) });
     }
@@ -208,7 +239,12 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
         </div>
       ) : null}
       {isMember ? (
-        <MoimMemberView moim={moim} onReport={setReport} onToast={toast.show} />
+        <MoimMemberView
+          moim={moim}
+          onReport={setReport}
+          onToast={toast.show}
+          primaryCtaTaken={!!moim.viewer.incomingHostTransferId}
+        />
       ) : (
         <MoimPublicView moim={moim} inviteToken={inviteToken} onChanged={reload} onToast={toast.show} />
       )}
@@ -220,7 +256,7 @@ export function MoimDetailScreen({ moimId, inviteToken }: { moimId: string; invi
         notice={items.length === 0 ? t("moim_menu_empty") : undefined}
       />
       {shareSheet}
-      <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      <MoimReportSheet moimId={moim.id} reasons={moim.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </>
   );

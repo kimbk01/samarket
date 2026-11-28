@@ -87,6 +87,8 @@ export const adminCommunityMessengerMessages = {
     admin_cm_stat_total_rooms_helper: "1:1 + 비공개 + 공개",
     admin_cm_stat_active_rooms_helper: "정상 운영 중",
     admin_cm_stat_private_groups: "비공개 그룹",
+    /** 모임 방 읽기 전용은 모임이 정한다 — 메신저 어드민 조치 거부 안내 (모임 R4 §5(c)) */
+    admin_cm_moim_room_readonly_managed_by_moim: "모임 채팅방의 읽기 전용은 모임 어드민에서 바꿔 주세요.",
     admin_cm_stat_private_groups_helper: "friend invite",
     admin_cm_stat_active_calls: "활성 통화 세션",
     admin_cm_stat_active_group_calls: "활성 그룹 통화",
@@ -326,6 +328,7 @@ export const adminCommunityMessengerMessages = {
     admin_cm_stat_total_rooms_helper: "Direct + private + open",
     admin_cm_stat_active_rooms_helper: "Operating normally",
     admin_cm_stat_private_groups: "Private groups",
+    admin_cm_moim_room_readonly_managed_by_moim: "Change read-only for group chats in Groups admin.",
     admin_cm_stat_private_groups_helper: "friend invite",
     admin_cm_stat_active_calls: "Active call sessions",
     admin_cm_stat_active_group_calls: "Active group calls",

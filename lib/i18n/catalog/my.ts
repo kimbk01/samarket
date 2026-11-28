@@ -5,7 +5,6 @@ export const myMessages = {
   ko: {
     settings_global_subtitle: "앱 전역 설정",
     settings_section_misc: "기타",
-    settings_following_users: "모아보는 사용자",
     settings_blocked_users: "차단한 사용자",
     settings_hidden_users: "숨긴 사용자",
     settings_video_autoplay: "동영상 자동 재생",
@@ -477,7 +476,6 @@ export const myMessages = {
   en: {
     settings_global_subtitle: "App-wide settings",
     settings_section_misc: "Misc",
-    settings_following_users: "Favorite users",
     settings_blocked_users: "Blocked users",
     settings_hidden_users: "Hidden users",
     settings_video_autoplay: "Video autoplay",

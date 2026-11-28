@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { buildMypageGuestLoginHref, isMypageGuestPublicPath } from "@/lib/mypage/mypage-ia";
 
 /**
@@ -17,7 +16,7 @@ export function MypageGuestGate({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const membership = useClientMembershipState("mypage-guest-gate");
-  const sessionMember = Boolean(getCurrentUser()?.id) || membership.status === "member";
+  const sessionMember = membership.status === "member"; /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   const memberOnly = !sessionMember && !isMypageGuestPublicPath(pathname);
   const blocked = memberOnly && membership.status === "guest";
   const search = searchParams.toString();

@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin-community/member-identity";
 import { communityAdminStartOfTodayIso } from "@/lib/admin-community/home-summary";
 import { resolveCommunityCommentRowKind } from "@/lib/community-feed/community-report-display-target";
+import { resolveCommunityCommentModerationKind } from "@/lib/community-feed/comment-display";
 import {
   COMMENT_STATUSES,
   isCommunityListUuid,
@@ -31,7 +32,7 @@ export const dynamic = "force-dynamic";
  */
 const COMMENTS_PAGE_RPC = "admin_community_comments_page";
 const COMMENT_ROW_SELECT =
-  "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at";
+  "id, post_id, parent_id, user_id, content, status, like_count, is_hidden, is_deleted, created_at, updated_at, edited_at, pinned_at, moderated_by, moderated_at, moderation_reason";
 
 export async function GET(req: NextRequest) {
   const admin = await requireCommunityAdmin("content");
@@ -158,6 +159,8 @@ export async function GET(req: NextRequest) {
   }
 
   const reportCountByComment = new Map<string, number>();
+  /** 「대기 n / 전체 m」 — 대기 = open·reviewing (신고 대기 탭과 같은 기준 · 감사 L16) */
+  const openReportCountByComment = new Map<string, number>();
   if (commentIds.length) {
     const { data: reportRows } = await sb
       .from("community_reports")
@@ -168,13 +171,17 @@ export async function GET(req: NextRequest) {
       const tid = String((rr as { target_id?: string }).target_id ?? "").trim();
       if (!tid) continue;
       reportCountByComment.set(tid, (reportCountByComment.get(tid) ?? 0) + 1);
+      const st = String((rr as { status?: string }).status ?? "");
+      if (st === "open" || st === "reviewing") {
+        openReportCountByComment.set(tid, (openReportCountByComment.get(tid) ?? 0) + 1);
+      }
     }
   }
 
-  const identityMap = await loadAdminMemberIdentityMap(
-    sb,
-    rows.map((r) => String(r.user_id ?? ""))
-  );
+  const identityMap = await loadAdminMemberIdentityMap(sb, [
+    ...rows.map((r) => String(r.user_id ?? "")),
+    ...rows.map((r) => String(r.moderated_by ?? "")).filter(Boolean),
+  ]);
 
   const comments = rows.map((r) => {
     const pid = String(r.post_id ?? "");
@@ -186,6 +193,8 @@ export async function GET(req: NextRequest) {
     const parent = parentId ? parentMeta.get(parentId) : undefined;
     const cid = String(r.id ?? "");
     const reportCount = reportCountByComment.get(cid) ?? 0;
+    const moderatorId = String(r.moderated_by ?? "").trim();
+    const moderator = moderatorId ? identityMap.get(moderatorId) : undefined;
     return {
       ...r,
       parent_id: parentId,
@@ -197,7 +206,11 @@ export async function GET(req: NextRequest) {
       author_label: formatAdminMemberLabel(identity ?? null),
       parent_content_preview: parent?.content ?? null,
       report_count: reportCount,
+      open_report_count: openReportCountByComment.get(cid) ?? 0,
       reported: reportCount > 0,
+      /** 작성자 삭제·관리자 삭제·숨김·정상 — 앱 `display_state` 와 같은 판정 (설계 §6.7) */
+      moderation_kind: resolveCommunityCommentModerationKind(r),
+      moderator_label: moderator ? formatAdminMemberLabel(moderator) : null,
     };
   });
 

@@ -8,14 +8,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ inviteId: string }> };
 
-/** 초대 수락·거절 — body { accept, nickname?, avatarUrl?, bio? } */
+/** 초대 수락·거절 — body { accept, nickname?, avatarUrl?, bio?, answers? } (answers: R3 U-13 가입 질문 답 · 수락만) */
 export async function POST(req: NextRequest, { params }: Ctx) {
   const inviteId = requireUuid((await params).inviteId);
   if (!inviteId) return moimNotFound();
   const g = await guardMoimWrite(req, { rateKey: "invite_respond", limit: 20, writeKind: "none", phone: true });
   if (!g.ok) return g.response;
-  const body = await readMoimJson<{ accept?: unknown; nickname?: unknown; avatarUrl?: unknown; bio?: unknown }>(req);
+  const body = await readMoimJson<{ accept?: unknown; nickname?: unknown; avatarUrl?: unknown; bio?: unknown; answers?: unknown }>(req);
   if (typeof body?.accept !== "boolean") return moimBadRequest();
+  const answers = body.accept === true ? readInviteAnswers(body.answers) : undefined;
   /** 섞인 경로(설계 2026-11-21 §4 C) — 새 행동 분기만 가입(전화 + 대표 주소) 확인, 거절·해제는 가입 없이 */
   if (body.accept === true) {
     const registrationGate = await requireRegistrationForAction(g.userId);
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       nickname: typeof body.nickname === "string" ? body.nickname : undefined,
       avatarUrl: typeof body.avatarUrl === "string" ? body.avatarUrl : undefined,
       bio: typeof body.bio === "string" ? body.bio : undefined,
+      ...(answers !== undefined ? { answers } : {}),
     },
     g.sb
   );
@@ -41,10 +43,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const name = typeof body.nickname === "string" ? body.nickname.trim() : "";
     if (result.status === "pending" && typeof result.request_id === "string") {
       const requestId = result.request_id;
-      notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, name));
+      const requestName = (typeof result.nickname === "string" ? result.nickname : name).trim();
+      notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, requestName, g.userId));
     } else if (result.status === "active") {
       notifyMoimAfterResponse(() => notifyMoimMemberJoined(g.sb, moimId, g.userId, name));
     }
   }
   return moimRpcResponse(result);
+}
+
+/** 가입 질문 답 — 보내지 않았으면 undefined. 가입 버튼(`/api/moim/[moimId]/join`)과 같게 글자만·1,000자·3개까지 자른다(최종 검사는 DB `moim_join`) */
+function readInviteAnswers(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return v.map((a) => (typeof a === "string" ? a.slice(0, 1000) : "")).slice(0, 3);
 }

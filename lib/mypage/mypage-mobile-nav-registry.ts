@@ -78,7 +78,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     items: [
       navItem("account", "profile"),
       navItem("account", "account-info"),
-      navItem("account", "favorite-users"),
       navItem("account", "blocked-users"),
       navItem("account", "hidden-users"),
     ],
@@ -102,6 +101,8 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("community", "liked-posts"),
       navItem("community", "favorite-posts"),
       navItem("community", "community-friends"),
+      /** 관심이웃 관리 — 분류 메뉴 행 없음(관심이웃 화면 [관리]로만 진입) */
+      navItem("community", "community-friends-manage", false),
       navItem("community", "reports"),
     ],
   },

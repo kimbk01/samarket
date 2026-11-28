@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimInviteSend } from "@/lib/moim/server/moim-rpc.server";
 import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { MOIM_ROLE_KEY, moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { isMoimRole } from "@/lib/moim/moim-permission-contract";
 import { isBlockedByOther } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
@@ -22,13 +23,21 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (await isBlockedByOther(g.userId, invitee)) return moimRpcResponse({ ok: false, error: "moim_invite_not_allowed" });
   const result = await moimInviteSend(g.userId, moimId, invitee, g.sb);
   if (result.ok) {
-    const { data: me } = await g.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", g.userId).maybeSingle();
-    await notifyMoimMany(g.sb, [invitee], {
-      kind: "moim_invited",
-      moimId,
-      linkUrl: moimPaths.invites(),
-      dedupeRef: result.invite_target_id,
-      vars: { moim: await loadMoimName(g.sb, moimId), name: ((me as { nickname?: string } | null)?.nickname ?? "").trim() },
+    const inviteTargetId = result.invite_target_id;
+    /** 발송은 응답 뒤 (W5 — 3번 E1 약속) · 시안 U9 「운영진 소희님이 초대했어요」 = 보낸 사람 역할 (R2 U9-03a) */
+    notifyMoimAfterResponse(async () => {
+      const { data: me } = await g.sb.from("moim_members").select("nickname, role").eq("moim_id", moimId).eq("user_id", g.userId).maybeSingle();
+      const row = (me ?? null) as { nickname?: string; role?: unknown } | null;
+      const role = isMoimRole(row?.role) ? row.role : "member";
+      await notifyMoimMany(g.sb, [invitee], {
+        kind: "moim_invited",
+        moimId,
+        linkUrl: moimPaths.invites(),
+        dedupeRef: inviteTargetId,
+        vars: { moim: await loadMoimName(g.sb, moimId), name: (row?.nickname ?? "").trim() },
+        keyVars: { role: MOIM_ROLE_KEY[role] },
+        actorId: g.userId,
+      });
     });
   }
   return moimRpcResponse(result);

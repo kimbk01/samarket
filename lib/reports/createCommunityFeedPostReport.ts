@@ -6,6 +6,7 @@ import {
   reportClientFailureFromResponse,
   type ReportClientFailure,
 } from "@/lib/reports/report-block-error-text";
+import type { CommunityReportReasonCode } from "@/lib/reports/community-report-reasons";
 
 /** 실패는 코드만 — 문구는 화면이 `reportErrorText` 로 고른다 (재감사 2026-11-27) */
 export type CreateCommunityFeedPostReportResult = { ok: true; id: string } | ReportClientFailure;
@@ -13,19 +14,20 @@ export type CreateCommunityFeedPostReportResult = { ok: true; id: string } | Rep
 /** 피드 글 신고 — community_reports */
 export async function createCommunityFeedPostReport(
   postId: string,
-  reason: string
+  reasonCode: CommunityReportReasonCode,
+  reasonText: string
 ): Promise<CreateCommunityFeedPostReportResult> {
   const user = getCurrentUser();
   if (!user?.id) return reportClientFailure("login_required");
 
-  const text = reason?.trim();
-  if (!text) return reportClientFailure("report_reason_required");
+  const text = reasonText?.trim() ?? "";
+  if (reasonCode === "other" && !text) return reportClientFailure("report_reason_required");
 
   try {
     const res = await fetch("/api/community/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postId: postId.trim(), reasonText: text }),
+      body: JSON.stringify({ postId: postId.trim(), reasonCode, reasonText: text }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string };
     if (!res.ok || !json.ok) {

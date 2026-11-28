@@ -30,6 +30,10 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   regionLabel?: string | null;
   category?: string;
   neighborOnly?: boolean;
+  /** `neighborOnly` 일 때 본인 글 빼기 (내정보 › 관심이웃) */
+  neighborExcludeSelf?: boolean;
+  /** `neighborOnly` 일 때 관심이웃 한 명만 (내정보 › 관심이웃 사진 줄) */
+  neighborTargetId?: string | null;
   /** 내 글 목록 등 */
   authorUserId?: string;
   offset?: number;
@@ -66,7 +70,12 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   }
   if (input.category) p.set("category", input.category);
   if (input.sort) p.set("sort", input.sort);
-  if (input.neighborOnly) p.set("neighborOnly", "1");
+  if (input.neighborOnly) {
+    p.set("neighborOnly", "1");
+    if (input.neighborExcludeSelf) p.set("neighborSelf", "0");
+    const nt = input.neighborTargetId?.trim();
+    if (nt) p.set("neighborTarget", nt);
+  }
   const aid = input.authorUserId?.trim();
   if (aid) p.set("authorId", aid);
   const tag = (input.tag ?? "").trim().replace(/^#+/, "");

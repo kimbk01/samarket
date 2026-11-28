@@ -25,6 +25,7 @@ const okDeps = (): MypageSummaryDeps => ({
     value: [{ status: "pending" }, { status: "accepted" }, { status: "pending" }] as never,
   })) as never,
   listCommunityPosts: vi.fn(async () => ({ ok: true as const, posts: [{ id: "c1" }] as never })),
+  countNeighborFollows: vi.fn(async () => 2),
   loadStoreOrderTabCounts: vi.fn(async () => ({
     ok: true as const,
     counts: { all: 9, active: 3, completed: 5, cancelled: 1 } as never,
@@ -57,6 +58,9 @@ describe("mypage-summary.server — every field = destination screen function", 
     expect(fields.offersReceivedPending).toEqual({ status: "ok", value: 2 });
     expect(deps.listPriceOffers).toHaveBeenCalledWith(sb, { userId: "u1", role: "seller" });
     expect(fields.communityPostsCount).toEqual({ status: "ok", value: 1 });
+    // 관심이웃 = 관심이웃 화면 사람 목록과 같은 함수(탈퇴·차단 제외)
+    expect(fields.neighborFollowCount).toEqual({ status: "ok", value: 2 });
+    expect(deps.countNeighborFollows).toHaveBeenCalledWith(sb, "u1");
     expect(fields.storeOrdersActiveCount).toEqual({ status: "ok", value: 3 });
     // 포인트 = 금액 → 음수 그대로
     expect(fields.pointsBalance).toEqual({ status: "ok", value: -120 });

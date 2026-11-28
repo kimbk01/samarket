@@ -1,20 +1,21 @@
 "use client";
 
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-overlay";
 import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimJoinRequestDto } from "@/lib/moim/moim-api-types";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimAvatar,
+  MoimListCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
   moimManageCardClass,
-  moimManageTextareaClass,
+  moimManageSheetTextareaClass,
   useMoimDateFormat,
   useMoimManageToast,
   useMoimResource,
@@ -26,6 +27,8 @@ function RequestsBody({ moimId }: { moimId: string }) {
   const toast = useMoimManageToast();
   const load = useCallback(() => moimApi.joinRequests(moimId), [moimId]);
   const { state, reload } = useMoimResource(load);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/manage/requests`, state.status !== "loading");
   const [done, setDone] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<MoimJoinRequestDto | null>(null);
@@ -55,16 +58,17 @@ function RequestsBody({ moimId }: { moimId: string }) {
   return (
     <>
       {list.length === 0 ? <MoimManageEmpty textKey="moim_manage_requests_empty" /> : null}
+      <MoimListCappedHint show={state.data.capped} />
       <ul className="flex flex-col gap-3 px-4 pt-4">
         {list.map((req) => (
           <li key={req.id} className={`${moimManageCardClass} p-4`}>
             <div className="flex items-start gap-3">
-              <MoimAvatar url={req.avatarUrl} name={req.nickname} />
+              <MoimAvatar url={req.avatarUrl} name={req.nickname} size={40} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="break-all text-[15px] font-semibold text-sam-fg">{req.nickname}</span>
                   {req.rejoinCount > 0 ? (
-                    <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t("moim_manage_rejoin_badge", { count: req.rejoinCount })}</span>
+                    <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_rejoin_badge", { count: req.rejoinCount })}</span>
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-[12px] text-sam-meta">{t("moim_manage_requested_at", { date: fmt(req.createdAt) })}</p>
@@ -96,7 +100,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
               <button
                 type="button"
                 disabled={busyId === req.id}
-                className={`${moimCls.btnPrimary} flex-1`}
+                className={`${moimCls.btnSecondary} flex-1`}
                 onClick={() => void decide(req, true)}
               >
                 {t("moim_manage_approve_btn")}
@@ -136,7 +140,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
         </label>
         <textarea
           id="moim-reject-reason"
-          className={`${moimManageTextareaClass} mt-1.5 min-h-[96px]`}
+          className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[96px]`}
           maxLength={300}
           value={reason}
           placeholder={t("moim_manage_reject_reason_placeholder")}

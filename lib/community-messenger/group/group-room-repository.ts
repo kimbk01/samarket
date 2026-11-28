@@ -266,6 +266,18 @@ export async function markParticipantLeft(
     .is("left_at", null);
   if (error) {
     if (isMissingTableError(error)) {
+      /**
+       * 참여 행 DELETE 대체 경로 — 모임 방이면 거부 (모임 R4 §5(a) · D-44 TS 경로에서 막기).
+       * 정상 운영(left_at 있음)에서는 닿지 않는 경로라 조회 1회는 이때만 든다.
+       */
+      const { data: ownerRow } = await sb
+        .from("community_messenger_rooms")
+        .select("owner_domain")
+        .eq("id", rid)
+        .maybeSingle();
+      if (trimText((ownerRow as { owner_domain?: string | null } | null)?.owner_domain) === "moim") {
+        return { ok: false, error: "moim_room_membership_managed_by_moim" };
+      }
       const { error: delErr } = await (sb as any)
         .from("community_messenger_participants")
         .delete()

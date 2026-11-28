@@ -38,6 +38,8 @@ const RATE_LIMIT_CODES = [
 ] as const;
 
 export const COMMON_API_ERROR_CODE_MAP: ApiErrorCodeMap = {
+  /** 커뮤니티 활동 제한 — 글·댓글·신고·모임 공통 (라운지 댓글 감사 L1). 해제일 표시는 `communityRestrictionText` */
+  community_restricted: "community_restricted_generic",
   unauthorized: "common_login_required",
   login_required: "common_login_required",
   profile_not_found: "api_err_profile_not_found",

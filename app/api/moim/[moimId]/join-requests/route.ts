@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { guardMoimRead, moimNotFound, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { listMoimJoinRequests, loadMoimAccess } from "@/lib/moim/server/moim-queries.server";
+import { moimListCapped } from "@/lib/moim/moim-api-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,5 +17,6 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!access) return moimNotFound();
   const requests = await listMoimJoinRequests(g.sb, access);
   if (!requests) return NextResponse.json({ ok: false, error: "moim_forbidden" }, { status: 403 });
-  return NextResponse.json({ ok: true, requests });
+  /** R4 #6: 상한 500 에 닿으면 `capped` */
+  return NextResponse.json({ ok: true, requests, capped: moimListCapped(requests.length) });
 }

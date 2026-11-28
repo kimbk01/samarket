@@ -7,6 +7,7 @@ import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-com
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+  getCommunityCommentMaxLengthCached,
   getCommunityFeedOps,
   getLatestCommentTimeForUser,
 } from "@/lib/community-feed/community-ops-settings";
@@ -18,6 +19,8 @@ import {
   getNeighborhoodDevSamplePost,
 } from "@/lib/neighborhood/dev-sample-data";
 import { fetchBlockedAuthorIdsForViewer } from "@/lib/neighborhood/social-filter";
+import { fetchBlockDirectionsForViewerSb } from "@/lib/social/user-block-ssot";
+import { tagSupabaseCallRequest } from "@/lib/perf/supabase-call-counter";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -41,6 +44,7 @@ import {
 } from "@/lib/community-engine/visibility";
 import { COMMUNITY_COMMENT_MAX_DEPTH } from "@/lib/community/community-comment-limits";
 import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
+import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +58,8 @@ function commentError(code: string, status: number, params?: Record<string, numb
 }
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+  /** 요청 예산 — 목록 읽기(GET)와 쓰기(POST)를 따로 센다. 셈만 · 동작 무관 (값은 7일 실측 뒤) */
+  tagSupabaseCallRequest("get");
   const startedAt = Date.now();
   const { postId } = await ctx.params;
   const raw = postId?.trim();
@@ -81,10 +87,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
   }
   const { data: postRow } = await sb
     .from("community_posts")
-    .select("id, user_id, status, is_deleted, is_hidden")
+    .select("id, user_id, status, is_deleted, is_hidden, origin_kind")
     .eq("id", id)
     .maybeSingle();
   const row = postRow as {
+    origin_kind?: string | null;
     id?: string;
     user_id?: string;
     status?: string;
@@ -98,23 +105,39 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
   if (!row?.id || (!isOwner && !isCommunityPostPubliclyVisible(row))) {
     return jsonError("not_found", 404);
   }
-  if (viewer.length > 0) {
-    const blocked = await fetchBlockedAuthorIdsForViewer(sb, viewer);
-    if (blocked.has(ownerId)) {
-      return jsonError("not_found", 404);
-    }
+  /**
+   * 차단 방향을 이 요청에서 한 번 새로 읽어 글 작성자 차단 확인과 댓글 자리 표시가 같이 쓴다 (후속 C3).
+   * 캐시하지 않는다 — 차단 직후 다시 읽을 때 바로 자리 표시가 바뀌어야 한다(재감사 2026-11-28).
+   */
+  const blockDirs = viewer.length > 0 ? await fetchBlockDirectionsForViewerSb(sb, viewer) : null;
+  if (blockDirs && (blockDirs.blockedByMe.has(ownerId) || blockDirs.blockedMe.has(ownerId))) {
+    return jsonError("not_found", 404);
   }
-  const list = await listCommunityPostComments(id, viewerUserId);
+  let list: Awaited<ReturnType<typeof listCommunityPostComments>>;
+  try {
+    /** 가져온 글의 `user_id` 는 가져오기 계정 — 「작성자」 배지를 붙이지 않는다 */
+    const postAuthorUserId = isCommunityImportedOrigin(row.origin_kind) ? null : ownerId;
+    list = await listCommunityPostComments(id, viewerUserId, {
+      postAuthorUserId,
+      ...(blockDirs ? { blocks: blockDirs } : {}),
+    });
+  } catch (error) {
+    /** 조회 실패를 빈 목록으로 감추지 않는다 — 화면이 재시도 버튼을 보인다 (감사 L12) */
+    console.error("[community-comments GET] list failed", safeErrorMessage(error, "unexpected"));
+    return commentError("comments_load_failed", 500);
+  }
+  const maxLength = await getCommunityCommentMaxLengthCached();
   logServerPerf("community-comments.get", {
     postId: id,
     branch: "db",
-    count: list.length,
+    count: list.comments.length,
     elapsedMs: Date.now() - startedAt,
   });
-  return jsonOk({ comments: list });
+  return jsonOk({ comments: list.comments, count: list.count, max_length: maxLength });
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
+  tagSupabaseCallRequest("post");
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);

@@ -1,6 +1,6 @@
 "use client";
 
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { addInterestTagLocal } from "./post-detail-utils";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
@@ -10,8 +10,6 @@ type Props = { tags: string[] };
 export function CommunityRelatedAlertTags({ tags }: Props) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const me = getHydrationSafeCurrentUser();
-
   if (tags.length === 0) return null;
 
   return (
@@ -28,7 +26,8 @@ export function CommunityRelatedAlertTags({ tags }: Props) {
                 type="button"
                 className="inline-flex min-h-9 items-center rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-1.5 text-[11px] font-medium text-[#6B7280] active:bg-[#F3F4F6]"
                 onClick={() => {
-                  if (!me?.id) {
+                  /** 그리는 데 쓰지 않으므로 누른 순간 회원을 읽는다(설계 v2 §5-1) */
+                  if (!getCurrentUser()?.id) {
                     const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/philife";
                     void requireAction("content_hide", () => addInterestTagLocal(t), { next });
                     return;

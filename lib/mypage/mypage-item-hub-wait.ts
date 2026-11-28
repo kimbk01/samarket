@@ -22,7 +22,9 @@ const NO_HUB_WAIT_ITEMS: Readonly<Record<string, ReadonlySet<string>>> = {
     "terms",
     "consent-history",
   ]),
-  account: new Set(["favorite-users", "blocked-users", "hidden-users"]),
+  account: new Set(["blocked-users", "hidden-users"]),
+  /** 관심이웃 — 화면이 사람·글을 스스로 조회 (관심이웃 설계 B) */
+  community: new Set(["community-friends", "community-friends-manage"]),
 };
 
 export function isMypageItemWithoutHubWait(section: string, item: string): boolean {

@@ -20,6 +20,7 @@ import { MyPolicyHub } from "@/components/mypage/settings/MyPolicyHub";
 import { MyConsentHistory } from "@/components/mypage/settings/MyConsentHistory";
 import { AccountUserListSection } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
+import { NeighborFollowScreen } from "@/components/mypage/community/NeighborFollowScreen";
 import { StoreTab } from "@/components/mypage/tabs/StoreTab";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -30,8 +31,9 @@ import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
  * 해당 없으면 null. `MyPageItemScreen` 도 같은 매핑을 쓴다(분기 1곳).
  */
 export function MyPageItemStaticContent({ section, item }: { section: string; item: string }) {
+  if (section === "community" && item === "community-friends") return <NeighborFollowScreen mode="view" />;
+  if (section === "community" && item === "community-friends-manage") return <NeighborFollowScreen mode="manage" />;
   if (section === "account") {
-    if (item === "favorite-users") return <AccountUserListSection kind="favorite-users" />;
     if (item === "blocked-users") return <AccountUserListSection kind="blocked-users" />;
     if (item === "hidden-users") return <AccountUserListSection kind="hidden-users" />;
     return null;
@@ -91,9 +93,7 @@ export function MyPageItemScreen(
         ? "favorites"
         : item === "liked-posts"
           ? "liked"
-          : item === "community-friends"
-            ? "users"
-            : item === "reports"
+          : item === "reports"
               ? "reports"
               : null;
     if (communitySection) return <CommunityTab section={communitySection} />;

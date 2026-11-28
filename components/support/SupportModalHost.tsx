@@ -25,6 +25,7 @@ import {
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import {
   SUPPORT_CONTEXT_SESSION_KEY,
   buildGenericSupportTriageContext,
@@ -487,7 +488,10 @@ export function SupportModalHost() {
     [pathname, closeAndNavigate]
   );
 
-  const viewerName = getCurrentUser()?.nickname || getCurrentUser()?.display_name || "";
+  /** 이름 표시 = 회원 상태 SSOT 프로필(관심이웃 설계 v2 §6 — main 병합) */
+  const supportMembership = useClientMembershipState("support-modal");
+  const viewerProfile = supportMembership.status === "member" ? supportMembership.profile : null;
+  const viewerName = viewerProfile?.nickname || viewerProfile?.display_name || "";
   const ariaLabel = t("support_ticket_title");
 
   const renderView = (v: SupportModalStackView, index: number): ReactNode => {

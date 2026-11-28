@@ -26,7 +26,6 @@ export type MyPageConsoleProps = {
   addressDefaults: AddressDefaultsFlags;
   neighborhoodFromLife: LifeDefaultLocationSummary | null;
   overviewCounts: MyPageOverviewCounts;
-  favoriteBadge: string | null;
   notificationBadge: string | null;
   storeAttentionSummary: string | null;
 };

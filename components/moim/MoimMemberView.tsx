@@ -9,18 +9,21 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { DibaySecondaryTabRow } from "@/components/ui/DibaySecondaryTabRow";
 import { dibaySecondaryTabClass } from "@/lib/ui/dibay-secondary-tabs";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
-import type { MoimBoardDto, MoimDetailDto, MoimMemberDto, MoimPostDto } from "@/lib/moim/moim-api-types";
+import type { DibayActionSheetItem } from "@/components/ui/dibay-overlay";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { MoimBoardDto, MoimDetailDto, MoimMemberDto, MoimPostDto, MoimScheduleDto } from "@/lib/moim/moim-api-types";
 import { moimRoleRank } from "@/lib/moim/moim-permission-contract";
 import { MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS, MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { MoimPostRow } from "@/components/moim/MoimPostRow";
-import { MoimHeadBlock, MoimStateNotice } from "@/components/moim/MoimPublicView";
+import { MoimNoticeLine, MoimPostRow } from "@/components/moim/MoimPostRow";
+import { MoimStateNotice } from "@/components/moim/MoimPublicView";
+import { useMoimDirectMessage } from "@/components/moim/use-moim-direct-message";
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimAlbumTab, MoimPinnedAlbumSection } from "@/components/moim/MoimAlbum";
-import { MoimScheduleCard, useMoimSchedules } from "@/components/moim/moim-schedule-ui";
+import { MoimScheduleCard } from "@/components/moim/moim-schedule-ui";
 import {
   MoimAvatar,
   MoimEmptyState,
@@ -54,10 +57,13 @@ export function MoimMemberView({
   moim,
   onReport,
   onToast,
+  primaryCtaTaken = false,
 }: {
   moim: MoimDetailDto;
   onReport: (target: MoimReportTarget) => void;
   onToast: MoimToast;
+  /** 위에 위임 배너(수락 = 기본 버튼)가 떠 있으면 true — 탭 안 「일정 만들기·글쓰기」는 보조로 (R3 U-02 · D-31 한 화면 기본 1개) */
+  primaryCtaTaken?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -112,15 +118,17 @@ export function MoimMemberView({
             onToast={onToast}
           />
         ) : null}
-        {tab === "schedules" ? <MoimSchedulesTab moim={moim} /> : null}
-        {tab === "board" ? <MoimBoardTab moim={moim} boardId={boardParam} onBoard={(b) => go("board", b)} /> : null}
+        {tab === "schedules" ? <MoimSchedulesTab moim={moim} primaryCtaTaken={primaryCtaTaken} /> : null}
+        {tab === "board" ? (
+          <MoimBoardTab moim={moim} boardId={boardParam} onBoard={(b) => go("board", b)} primaryCtaTaken={primaryCtaTaken} />
+        ) : null}
         {tab === "album" ? <MoimAlbumTab moim={moim} onReport={onReport} onToast={onToast} /> : null}
-        {tab === "members" ? <MoimMembersTab moim={moim} onReport={onReport} /> : null}
+        {tab === "members" ? <MoimMembersTab moim={moim} onReport={onReport} onToast={onToast} /> : null}
       </div>
       {moim.viewer.roomId ? (
         <Link
           href={buildGroupRoomWebPath(moim.viewer.roomId)}
-          className={`fixed right-4 ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} inline-flex items-center gap-1.5 rounded-full bg-sam-primary px-4 py-2.5 text-[14px] font-bold text-sam-on-primary shadow-lg active:bg-sam-primary-hover`}
+          className={`fixed right-4 ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} inline-flex min-h-[length:var(--sam-tap-min)] items-center gap-1.5 rounded-full bg-sam-primary px-4 py-2.5 text-[14px] font-bold text-sam-on-primary shadow-lg active:bg-sam-primary-hover`}
         >
           <MessageCircle className="h-4 w-4" strokeWidth={2.4} aria-hidden />
           {t("moim_home_chat_cta")}
@@ -128,6 +136,55 @@ export function MoimMemberView({
       ) : null}
     </div>
   );
+}
+
+/** 멤버 홈의 다가오는 일정 수 (R4 #7·8 — 서버에서 3개만 받는다) */
+export const MOIM_HOME_UPCOMING_LIMIT = 3;
+
+/**
+ * 일정 목록 쪽 (R4 #4·5): 첫 쪽 + 「더 보기」(지난 일정 시각 커서). 이미 받은 일정은 다시 붙이지 않는다.
+ * `limit` 을 주면 그만큼만 받는다(멤버 홈 = 3 · R4 #7·8).
+ */
+export function mergeMoimSchedulePage(prev: MoimScheduleDto[] | null, next: MoimScheduleDto[]): MoimScheduleDto[] {
+  const list = prev ?? [];
+  const seen = new Set(list.map((s) => s.id));
+  return [...list, ...next.filter((s) => !seen.has(s.id))];
+}
+
+function useMoimSchedulePage(moimId: string, scope: "upcoming" | "past", limit?: number) {
+  const [items, setItems] = useState<MoimScheduleDto[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [nextBefore, setNextBefore] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
+  const [key, setKey] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    setItems(null);
+    setFailed(false);
+    setNextBefore(null);
+    void moimApi.schedules(moimId, scope, { limit }).then((r) => {
+      if (!alive) return;
+      if (!r.ok) {
+        setFailed(true);
+        return;
+      }
+      setItems(r.items);
+      setNextBefore(r.nextBefore ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [moimId, scope, limit, key]);
+  const loadMore = async () => {
+    if (!nextBefore || more) return;
+    setMore(true);
+    const r = await moimApi.schedules(moimId, scope, { limit, before: nextBefore });
+    setMore(false);
+    if (!r.ok) return;
+    setItems((prev) => mergeMoimSchedulePage(prev, r.items));
+    setNextBefore(r.nextBefore ?? null);
+  };
+  return { items, failed, nextBefore, more, loadMore, retry: () => setKey((k) => k + 1) };
 }
 
 function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }) {
@@ -145,13 +202,14 @@ function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }
 /** 홈 — 다가오는 일정 (앞의 3개) */
 function MoimHomeUpcoming({ moim, onSeeAll }: { moim: MoimDetailDto; onSeeAll: () => void }) {
   const { t } = useI18n();
-  const { items, failed, retry } = useMoimSchedules(moim.id, "upcoming");
+  const { items, failed, retry } = useMoimSchedulePage(moim.id, "upcoming", MOIM_HOME_UPCOMING_LIMIT);
   return (
     <section>
       <div className={moimCls.sectionHead}>
         <h2 className={moimCls.sectionTitle}>{t("moim_home_upcoming_title")}</h2>
-        <button type="button" className={moimCls.sectionLink} onClick={onSeeAll}>
-          {t("moim_home_see_all")}
+        {/* 시안 U4 「달력」 — 달력 화면이 없어 일정 탭 이름으로 (D-29) */}
+        <button type="button" className={moimCls.sectionLinkBtn} onClick={onSeeAll}>
+          {t("moim_home_schedules_tab")}
         </button>
       </div>
       {failed ? (
@@ -162,7 +220,7 @@ function MoimHomeUpcoming({ moim, onSeeAll }: { moim: MoimDetailDto; onSeeAll: (
         <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_upcoming_empty")}</p>
       ) : (
         <div className="grid gap-2 px-4">
-          {items.slice(0, 3).map((s) => (
+          {items.slice(0, MOIM_HOME_UPCOMING_LIMIT).map((s) => (
             <MoimScheduleCard key={s.id} schedule={s} />
           ))}
         </div>
@@ -185,35 +243,28 @@ function MoimHomeTab({
   onToast: MoimToast;
 }) {
   const { t } = useI18n();
-  const notice = moim.boards.find((b) => b.kind === "notice");
   return (
     <div>
-      <MoimHeadBlock moim={moim} />
+      {/* 시안 U4: 멤버 홈은 표지·머리 블록 없이 탭 바로 아래 내용 (공개 페이지에는 남김 · R3 U4-x-head) */}
       <MoimStateNotice moim={moim} />
       {moim.platformState === "warned" && moimRoleRank(moim.viewer.role) >= moimRoleRank("staff") ? (
         <p className={`${moimCls.noticeWarn} mx-4 mt-3`}>{t("moim_home_warned_notice")}</p>
       ) : null}
-      <section>
-        <div className={moimCls.sectionHead}>
-          <h2 className={moimCls.sectionTitle}>{t("moim_home_notices_title")}</h2>
-          {notice ? (
-            <button type="button" className={moimCls.sectionLink} onClick={() => onOpenBoard(notice.id)}>
-              {t("moim_home_see_all")}
-            </button>
-          ) : null}
+      {/* 시안 U4 공지 = 한 줄 카드(「공지」 warn 배지 + 제목). 섹션 제목·「공지 없음」 글 없음 (R3 U4-notice-card) */}
+      {moim.pinnedNotices.length > 0 ? (
+        <div className="grid gap-2 px-4 pt-3">
+          {moim.pinnedNotices.map((p) => (
+            <MoimNoticeLine key={p.id} post={p} />
+          ))}
         </div>
-        {moim.pinnedNotices.length === 0 ? (
-          <p className="px-4 text-[13px] text-sam-muted">{t("moim_home_no_notices")}</p>
-        ) : (
-          <PostList moim={moim} posts={moim.pinnedNotices} />
-        )}
-      </section>
+      ) : null}
       <MoimHomeUpcoming moim={moim} onSeeAll={() => onOpenTab("schedules")} />
       <section>
         <div className={moimCls.sectionHead}>
           <h2 className={moimCls.sectionTitle}>{t("moim_home_recent_title")}</h2>
-          <button type="button" className={moimCls.sectionLink} onClick={() => onOpenBoard(null)}>
-            {t("moim_home_see_all")}
+          {/* 시안 U4 「게시판」 (R3 U4-recent-head) */}
+          <button type="button" className={moimCls.sectionLinkBtn} onClick={() => onOpenBoard(null)}>
+            {t("moim_home_board_tab")}
           </button>
         </div>
         {moim.recentPosts.length === 0 ? (
@@ -228,10 +279,10 @@ function MoimHomeTab({
 }
 
 /** 일정 탭 — 다가오는 일정 / 지난 일정 · 일정 만들기 */
-function MoimSchedulesTab({ moim }: { moim: MoimDetailDto }) {
+function MoimSchedulesTab({ moim, primaryCtaTaken }: { moim: MoimDetailDto; primaryCtaTaken: boolean }) {
   const { t } = useI18n();
   const [scope, setScope] = useState<"upcoming" | "past">("upcoming");
-  const { items, failed, retry } = useMoimSchedules(moim.id, scope);
+  const { items, failed, retry, nextBefore, more, loadMore } = useMoimSchedulePage(moim.id, scope);
   const canCreate = moim.can.create_schedule;
   return (
     <div>
@@ -245,7 +296,10 @@ function MoimSchedulesTab({ moim }: { moim: MoimDetailDto }) {
       </div>
       {canCreate ? (
         <div className="px-4 pt-3">
-          <Link href={moimRoutes.scheduleNew(moim.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>
+          <Link
+            href={moimRoutes.scheduleNew(moim.id)}
+            className={`${primaryCtaTaken ? moimCls.btnSecondary : moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}
+          >
             <CalendarPlus className="h-4 w-4" aria-hidden />
             {t("moim_schedule_create_btn")}
           </Link>
@@ -259,18 +313,38 @@ function MoimSchedulesTab({ moim }: { moim: MoimDetailDto }) {
         ) : items.length === 0 ? (
           <MoimEmptyState>{scope === "upcoming" ? t("moim_schedule_upcoming_empty") : t("moim_schedule_past_empty")}</MoimEmptyState>
         ) : (
-          <div className="grid gap-2 px-4">
-            {items.map((s) => (
-              <MoimScheduleCard key={s.id} schedule={s} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-2 px-4">
+              {items.map((s) => (
+                <MoimScheduleCard key={s.id} schedule={s} />
+              ))}
+            </div>
+            {/* R4 #4·5: 지난 일정 「더 보기」 (글 목록과 같은 시각 커서) */}
+            {nextBefore ? (
+              <div className="px-4 pt-2">
+                <button type="button" disabled={more} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => void loadMore()}>
+                  {more ? <DibaySpinner size="sm" tone="current" label={t("common_loading")} /> : t("moim_home_more_btn")}
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function MoimBoardTab({ moim, boardId, onBoard }: { moim: MoimDetailDto; boardId: string | null; onBoard: (b: string | null) => void }) {
+function MoimBoardTab({
+  moim,
+  boardId,
+  onBoard,
+  primaryCtaTaken,
+}: {
+  moim: MoimDetailDto;
+  boardId: string | null;
+  onBoard: (b: string | null) => void;
+  primaryCtaTaken: boolean;
+}) {
   const { t } = useI18n();
   const boardLabel = useMoimBoardLabel();
   const boards = useMemo(() => activeMoimBoards(moim), [moim]);
@@ -325,7 +399,10 @@ function MoimBoardTab({ moim, boardId, onBoard }: { moim: MoimDetailDto; boardId
       </div>
       {writeBoard ? (
         <div className="px-4 pt-3">
-          <Link href={moimRoutes.write(moim.id, writeBoard.id)} className={`${moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}>
+          <Link
+            href={moimRoutes.write(moim.id, writeBoard.id)}
+            className={`${primaryCtaTaken ? moimCls.btnSecondary : moimCls.btnPrimary} ${moimCls.btnSm} w-full gap-1.5`}
+          >
             <PenSquare className="h-4 w-4" aria-hidden />
             {t("moim_board_write_btn")}
           </Link>
@@ -355,15 +432,41 @@ function MoimBoardTab({ moim, boardId, onBoard }: { moim: MoimDetailDto; boardId
   );
 }
 
-function MoimMembersTab({ moim, onReport }: { moim: MoimDetailDto; onReport: (target: MoimReportTarget) => void }) {
+/**
+ * 멤버 탭 시트 줄 — 「대화하기」(일반) → 「신고」(일반) (R3 U-04 ① · G-dng-08: 신고는 다른 신고 메뉴와 같은 일반 줄).
+ * 「대화하기」는 권한 start_dm 이 있을 때만 — 모임장이 「운영진만 1:1」로 바꾸면 운영진 이상만 (계약 P11 · R3 Q2)
+ */
+export function moimMemberSheetItems(
+  target: Pick<MoimMemberDto, "userId">,
+  actions: {
+    t: (key: MessageKey) => string;
+    onMessage: (userId: string) => void;
+    onReport: (userId: string) => void;
+    messaging?: boolean;
+    canMessage?: boolean;
+  }
+): DibayActionSheetItem[] {
+  const items: DibayActionSheetItem[] = [];
+  if (actions.canMessage !== false) {
+    items.push({ key: "message", label: actions.t("moim_manage_action_message"), disabled: actions.messaging, onClick: () => actions.onMessage(target.userId) });
+  }
+  items.push({ key: "report", label: actions.t("moim_menu_report"), onClick: () => actions.onReport(target.userId) });
+  return items;
+}
+
+function MoimMembersTab({ moim, onReport, onToast }: { moim: MoimDetailDto; onReport: (target: MoimReportTarget) => void; onToast: MoimToast }) {
   const { t, language } = useI18n();
   const [members, setMembers] = useState<MoimMemberDto[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [target, setTarget] = useState<MoimMemberDto | null>(null);
-  const [myId, setMyId] = useState<string | null>(null);
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-member-view");
+  const { openMessage, messaging } = useMoimDirectMessage({
+    onError: (m) => onToast(m, "error"),
+    onOpened: () => setTarget(null),
+  });
 
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
 
   useEffect(() => {
     let alive = true;
@@ -416,14 +519,13 @@ function MoimMembersTab({ moim, onReport }: { moim: MoimDetailDto; onReport: (ta
         cancelLabel={t("common_cancel")}
         items={
           target
-            ? [
-                {
-                  key: "report",
-                  label: t("moim_menu_report"),
-                  danger: true,
-                  onClick: () => onReport({ type: "member", id: target.userId }),
-                },
-              ]
+            ? moimMemberSheetItems(target, {
+                t,
+                messaging,
+                canMessage: moim.can.start_dm,
+                onMessage: (id) => void openMessage(id),
+                onReport: (id) => onReport({ type: "member", id }),
+              })
             : []
         }
       />

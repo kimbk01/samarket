@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { guardMoimWrite, moimBadRequest, moimNotFound, moimRpcResponse, readMoimJson, requireUuid } from "@/lib/moim/server/moim-route-guard.server";
 import { moimJoinDecide } from "@/lib/moim/server/moim-rpc.server";
 import { loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,15 +18,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!g.ok) return g.response;
   const body = await readMoimJson<{ approve?: unknown; reason?: unknown }>(req);
   if (typeof body?.approve !== "boolean") return moimBadRequest();
-  const result = await moimJoinDecide(g.userId, requestId, body.approve, typeof body.reason === "string" ? body.reason : null, g.sb);
+  const reason = typeof body.reason === "string" ? body.reason : null;
+  const result = await moimJoinDecide(g.userId, requestId, body.approve, reason, g.sb);
   if (result.ok && result.moim_id === moimId) {
-    await notifyMoimMany(g.sb, [result.user_id], {
-      kind: body.approve ? "moim_join_approved" : "moim_join_rejected",
-      moimId,
-      linkUrl: moimPaths.home(moimId),
-      dedupeRef: requestId,
-      vars: { moim: await loadMoimName(g.sb, moimId) },
-    });
+    const approve = body.approve;
+    const userId = result.user_id;
+    /** P3 「거절 … (사유 선택)」 — 사유가 있으면 알림에 넣는다 (R2) · 발송은 응답 뒤 (R-e) */
+    const shownReason = !approve && reason ? reason.trim().slice(0, 100) : "";
+    notifyMoimAfterResponse(async () =>
+      notifyMoimMany(g.sb, [userId], {
+        kind: approve ? "moim_join_approved" : "moim_join_rejected",
+        ...(shownReason ? { variant: "with_reason" } : {}),
+        moimId,
+        linkUrl: moimPaths.home(moimId),
+        dedupeRef: requestId,
+        vars: { moim: await loadMoimName(g.sb, moimId), ...(shownReason ? { reason: shownReason } : {}) },
+      })
+    );
   }
   return moimRpcResponse(result);
 }

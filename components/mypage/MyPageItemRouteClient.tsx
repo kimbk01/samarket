@@ -9,6 +9,7 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen, MyPageItemStaticContent } from "@/components/mypage/MyPageItemScreen";
 import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyStateView } from "@/components/mypage/ds/MyStateView";
+import { NeighborFollowHeaderAction } from "@/components/mypage/community/NeighborFollowHeaderAction";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isMypageGuestPublicItem, resolveMypageIaParentHref } from "@/lib/mypage/mypage-ia";
 import { resolveCustomerCenterBackHref, CUSTOMER_CENTER_HREF } from "@/lib/mypage/customer-center-paths";
@@ -17,7 +18,6 @@ import {
   useClientMembershipRecoveryFailed,
   useClientMembershipState,
 } from "@/hooks/use-client-membership-state";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   isMypageItemWithoutHubWait,
   mypageItemScreenTemplate,
@@ -45,11 +45,13 @@ export function MyPageItemRouteClient({
   const membership = useClientMembershipState("mypage-item-route");
   const membershipRecoveryFailed = useClientMembershipRecoveryFailed();
   // 세션 사용자 있으면 member 취급 (terminal checking 에서 "…" 고착 방지 — MyContent 와 동일)
-  const sessionUser = getCurrentUser();
-  const sessionMember = Boolean(sessionUser?.id) || membership.status === "member";
+  const sessionMember = membership.status === "member"; /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   const noHubWait = isMypageItemWithoutHubWait(section, item);
   const hubEnabled = sessionMember && !noHubWait;
   const template = mypageItemScreenTemplate(section, item);
+  /** 관심이웃 — 머리줄 [관리](보기 화면) · [완료](관리 화면). 제목은 경로별 분류 제목(시안 ②「관심이웃」·③「관심이웃 관리」) */
+  const isNeighborFollow =
+    section === "community" && (item === "community-friends" || item === "community-friends-manage");
   const itemLabel = t(itemLabelKey);
   /** 뒤로(직접 진입) = 분류(IA) 부모 — 예: 판매 글 동네 일괄 변경 → 거래, 결제정보·기기 권한 → 계정·보안 */
   const defaultBack =
@@ -71,7 +73,6 @@ export function MyPageItemRouteClient({
     load,
   } = useMypageHubModel(initialMyPageData ?? undefined, { enabled: hubEnabled });
   /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
-  const favoriteBadge = null;
   const notificationBadge = null;
 
   const shell = (body: ReactNode) => (
@@ -80,6 +81,11 @@ export function MyPageItemRouteClient({
       backHref={backHref}
       fixedBackHistory={settleToCustomerCenter ? "settle" : undefined}
       template={template}
+      headerRight={
+        isNeighborFollow && sessionMember ? (
+          <NeighborFollowHeaderAction mode={item === "community-friends-manage" ? "manage" : "view"} />
+        ) : undefined
+      }
     >
       {body}
     </MyScreen>
@@ -151,7 +157,6 @@ export function MyPageItemRouteClient({
       addressDefaults={addressDefaults}
       neighborhoodFromLife={neighborhoodFromLife}
       overviewCounts={overviewCounts}
-      favoriteBadge={favoriteBadge}
       notificationBadge={notificationBadge}
       storeAttentionSummary={storeAttentionSummary}
     />,

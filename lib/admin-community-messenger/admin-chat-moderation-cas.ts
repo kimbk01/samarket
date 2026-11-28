@@ -21,11 +21,17 @@ import {
   type CmRoomAdminAction,
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
+import {
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_STATUS,
+  rejectsMoimRoomReadonlyAction,
+} from "@/lib/admin-community-messenger/moim-room-admin-guard";
 
 export type CasResult = { ok: true } | { ok: false; error: string; status: number };
 
 type RoomRow = {
   id: string;
+  owner_domain?: string | null;
   room_status?: string | null;
   is_readonly?: boolean | null;
   admin_note?: string | null;
@@ -58,12 +64,16 @@ export async function runCmRoomActionCas(
 ): Promise<CasResult> {
   const { data: beforeData, error: readErr } = await sb
     .from("community_messenger_rooms")
-    .select("id, room_status, is_readonly, admin_note, moderated_by, moderated_at")
+    .select("id, owner_domain, room_status, is_readonly, admin_note, moderated_by, moderated_at")
     .eq("id", input.roomId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message, status: 500 };
   const before = beforeData as RoomRow | null;
   if (!before) return { ok: false, error: "room_not_found", status: 404 };
+  /** 모임 방 읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · DB 트리거도 막는다) */
+  if (rejectsMoimRoomReadonlyAction(before, input.action)) {
+    return { ok: false, error: MOIM_ROOM_READONLY_MANAGED_BY_MOIM, status: MOIM_ROOM_READONLY_MANAGED_BY_MOIM_STATUS };
+  }
   if (cmRoomActionAlreadyApplied(before, input.action)) {
     return { ok: false, error: "stale_state", status: 409 };
   }

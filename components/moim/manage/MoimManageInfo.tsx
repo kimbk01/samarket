@@ -8,11 +8,11 @@ import { moimApi } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { MOIM_TEXT_LIMITS_FALLBACK } from "@/lib/moim/moim-api-types";
 import { MOIM_TOPIC_MAX, MOIM_TOPIC_MIN, MoimCategoryField, normalizeMoimTopic } from "@/components/moim/MoimCategoryField";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls, moimTextWithin } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import {
   MoimManageFrame,
+  moimCountKey,
   moimManageCardClass,
   moimManageInputClass,
   moimManageTextareaClass,
@@ -213,7 +213,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
           placeholder={t("moim_manage_info_capacity_placeholder")}
           onChange={(e) => setCapacity(e.target.value.replace(/[^\d]/g, "").slice(0, 5))}
         />
-        <p className={hint}>{t("moim_manage_info_capacity_hint", { count: detail.memberCount })}</p>
+        <p className={hint}>{t(moimCountKey(detail.memberCount, "moim_manage_info_capacity_hint", "moim_manage_info_capacity_hint_one"), { count: detail.memberCount })}</p>
       </section>
 
       <section>
@@ -233,7 +233,7 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
 
       <section>
         <span className={label}>{t("moim_manage_info_questions_label")}</span>
-        <p className={`${Sam.badge.warning} mt-2 block whitespace-normal rounded-ui-rect px-3 py-2 text-[12px]`}>{t("moim_manage_info_questions_warning")}</p>
+        <p className={`${moimCls.noticeWarn} mt-2`}>{t("moim_manage_info_questions_warning")}</p>
         <div className="mt-2 flex flex-col gap-2">
           {questions.map((q, i) => (
             <div key={i} className="flex items-center gap-2">

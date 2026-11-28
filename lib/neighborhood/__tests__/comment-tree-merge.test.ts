@@ -16,6 +16,10 @@ describe("flatCommentsToNeighborhoodTree", () => {
         author_name: "A",
         like_count: 0,
         liked_by_viewer: false,
+        author_avatar_url: null,
+        is_post_author: false,
+        is_pinned: false,
+        display_state: "visible",
       },
       {
         id: "c1",
@@ -29,6 +33,10 @@ describe("flatCommentsToNeighborhoodTree", () => {
         author_name: "B",
         like_count: 1,
         liked_by_viewer: true,
+        author_avatar_url: null,
+        is_post_author: false,
+        is_pinned: false,
+        display_state: "visible",
       },
     ]);
     expect(tree).toHaveLength(1);

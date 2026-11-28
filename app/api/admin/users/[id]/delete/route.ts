@@ -232,6 +232,11 @@ export async function POST(
     }
   }
 
+  /**
+   * 관심이웃 맺은·받은 관계 삭제는 DB 트리거가 한다 — 탈퇴(status·deleted_at 변경)·영구 삭제(profiles 삭제) 모두
+   * (`supabase/migrations/20271128250000_neighbor_follow_invariants.sql` · 전체 수정 설계 v2 §5-3: 같은 규칙 두 벌 금지).
+   */
+
   await sb
     .from("account_deletion_requests")
     .update({

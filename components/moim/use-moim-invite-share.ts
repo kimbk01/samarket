@@ -7,6 +7,13 @@ import { buildShareUrl } from "@/lib/share/share-url";
 import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 
+/** R4 #16: 머리글 공유가 만드는 초대 링크 만료 — 운영 › 초대 링크 화면 기본값(7일)과 같다 */
+export const MOIM_HEADER_INVITE_EXPIRY_DAYS = 7;
+
+export function moimHeaderInviteExpiresAt(nowMs: number): string {
+  return new Date(nowMs + MOIM_HEADER_INVITE_EXPIRY_DAYS * 86_400_000).toISOString();
+}
+
 /**
  * 모임 머리글 공유 = 초대 링크 (Owner 2026-11-14 §N-3 · G-7: 모임·일정은 비회원 비공개라 밖으로 보낼 수 있는 것은 초대 링크뿐).
  * 초대 링크 권한(manage_invite_link)이 있는 멤버에게만 공유를 그린다. 화면에 머무는 동안 만든 링크 1개를 다시 쓴다.
@@ -30,7 +37,7 @@ export function useMoimInviteShare(
     try {
       let url = inviteUrlRef.current;
       if (!url) {
-        const r = await moimApi.createInviteLink(moim.id, null);
+        const r = await moimApi.createInviteLink(moim.id, moimHeaderInviteExpiresAt(Date.now()));
         if (!r.ok) {
           showToast(t(moimErrorKey(r.error)), "error");
           return;

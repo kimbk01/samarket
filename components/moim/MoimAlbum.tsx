@@ -85,7 +85,7 @@ function useMoimAlbumAdd(moimId: string, scheduleId: string | null, onAdded: () 
       onToast(t(moimErrorKey(res.error)), "error");
       return;
     }
-    onToast(t("moim_album_added_toast", { count: res.added }), "success");
+    onToast(t(res.added === 1 ? "moim_album_added_toast_one" : "moim_album_added_toast", { count: res.added }), "success");
     onAdded();
   };
 
@@ -204,7 +204,7 @@ function MoimAlbumViewer({
   const canRemove = item.viewerIsUploader || moim.can.hide_post;
   const canReport = !item.viewerIsUploader && moim.viewer.loggedIn;
   /** 감사 F2 — 고정·신고 = 보조, 삭제·숨기기 = 위험 (버튼 역할 3종 · moimCls) */
-  const actionBtnLayout = "min-h-[40px] flex-1 px-3 text-[13px] font-bold";
+  const actionBtnLayout = "min-h-[length:var(--sam-tap-min)] flex-1 px-3 text-[13px] font-bold";
   /** 사진 위 겹침이라 반투명 바탕 유지 (설계 F2) — 보조 = 흰 테두리, 위험 = 빨강 반투명 */
   const overlaySecondary = "border-white/40 bg-white/10 text-white";
   const overlayDanger = "border-transparent bg-sam-danger/80 text-white";
@@ -228,24 +228,24 @@ function MoimAlbumViewer({
       }}
     >
       <div className="flex items-center justify-between gap-2 px-2 pt-[calc(8px+var(--safe-top,0px))] text-white">
-        <button type="button" className="grid h-10 w-10 place-items-center" aria-label={t("common_close")} onClick={onClose}>
+        <button type="button" className="grid h-11 w-11 place-items-center" aria-label={t("common_close")} onClick={onClose}>
           <X className="h-6 w-6" aria-hidden />
         </button>
         <span className="text-[13px]">
           {safe + 1} / {items.length}
         </span>
-        <span className="h-10 w-10" aria-hidden />
+        <span className="h-11 w-11" aria-hidden />
       </div>
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.url} alt="" className="max-h-full max-w-full object-contain" />
         {safe > 0 ? (
-          <button type="button" className="absolute left-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_prev_aria")} onClick={() => go(-1)}>
+          <button type="button" className="absolute left-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_prev_aria")} onClick={() => go(-1)}>
             <ChevronLeft className="h-7 w-7" aria-hidden />
           </button>
         ) : null}
         {safe < items.length - 1 ? (
-          <button type="button" className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_next_aria")} onClick={() => go(1)}>
+          <button type="button" className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_next_aria")} onClick={() => go(1)}>
             <ChevronRight className="h-7 w-7" aria-hidden />
           </button>
         ) : null}
@@ -398,7 +398,7 @@ export function MoimPinnedAlbumSection({
     <section>
       <div className={moimCls.sectionHead}>
         <h2 className={moimCls.sectionTitle}>{t("moim_album_pinned_title")}</h2>
-        <button type="button" className={moimCls.sectionLink} onClick={onSeeAll}>
+        <button type="button" className={moimCls.sectionLinkBtn} onClick={onSeeAll}>
           {t("moim_home_see_all")}
         </button>
       </div>

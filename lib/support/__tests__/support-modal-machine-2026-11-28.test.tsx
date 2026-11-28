@@ -43,6 +43,8 @@ vi.mock("@/lib/auth/dibay-session-manager", () => ({
     session.listeners.add(l);
     return () => session.listeners.delete(l);
   },
+  // main 병합: 창 이름 표시가 회원 상태 SSOT(useClientMembershipState)를 쓴다 — 그 훅이 구독하는 인증 사건
+  subscribeDibayAuthStateChange: () => () => undefined,
 }));
 const ownerLite = vi.hoisted(() => ({
   snap: { ownerStores: [] as { id: string; store_name: string; approval_status: string }[] },

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
-import { MoreVertical } from "lucide-react";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
+import { Ban, LogOut, MessageCircle, MoreVertical, PenLine, Star, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DibayActionSheet,
@@ -12,29 +13,82 @@ import {
   DibayOverlayActions,
   type DibayActionSheetItem,
 } from "@/components/ui/dibay-overlay";
-import { moimApi } from "@/lib/moim/moim-client-api";
-import type { MoimBannedDto, MoimDetailDto, MoimMemberDto } from "@/lib/moim/moim-api-types";
+import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { MoimBannedDto, MoimDetailDto, MoimJoinRequestDto, MoimMemberDto } from "@/lib/moim/moim-api-types";
 import { moimRoleRank, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
+import { useMoimDirectMessage } from "@/components/moim/use-moim-direct-message";
 import { canOpenMoimMembers } from "./MoimManageHub";
 import {
   MoimAvatar,
+  MoimListCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
   MoimRoleBadge,
-  moimManageTextareaClass,
+  moimManageSheetRadius,
+  moimManageSheetTextareaClass,
   moimRoleKey,
   useMoimDateFormat,
   useMoimManageToast,
   useMoimResource,
 } from "./moim-manage-shared";
 
-type Tab = "members" | "banned";
+export type MoimManageMembersTab = "members" | "requests" | "banned" | "notes";
+type Tab = MoimManageMembersTab;
 type Dialog = "actions" | "role" | "note" | "remove" | "ban" | null;
 const ASSIGNABLE_ROLES: Exclude<MoimRole, "host">[] = ["co_host", "staff", "member"];
+
+export type MoimManageMemberTab = { key: Tab; labelKey: MessageKey; count: number | null };
+
+/**
+ * 멤버 관리 탭 (시안 U7 · R3 U7-tab-requests·banned·memo): 멤버 N · 가입 신청 N(승인 권한) · 차단 N(차단 권한) · 메모(메모 권한).
+ * 수는 이미 받은 목록에서만 센다 — 아직 못 받았으면 수 없이 이름만.
+ */
+export function moimManageMemberTabs(x: {
+  can: Pick<MoimDetailDto["can"], "decide_join" | "ban_member" | "write_note">;
+  members: MoimMemberDto[] | null;
+  requests: MoimJoinRequestDto[] | null;
+  banned: MoimBannedDto[] | null;
+}): MoimManageMemberTab[] {
+  const tabs: MoimManageMemberTab[] = [
+    x.members
+      ? { key: "members", labelKey: "moim_manage_members_count_tab", count: x.members.length }
+      : { key: "members", labelKey: "moim_manage_members_tab", count: null },
+  ];
+  if (x.can.decide_join)
+    tabs.push(
+      x.requests
+        ? { key: "requests", labelKey: "moim_manage_requests_count_tab", count: x.requests.length }
+        : { key: "requests", labelKey: "moim_manage_requests_title", count: null }
+    );
+  if (x.can.ban_member)
+    tabs.push(
+      x.banned
+        ? { key: "banned", labelKey: "moim_manage_banned_count_tab", count: x.banned.length }
+        : { key: "banned", labelKey: "moim_manage_banned_tab", count: null }
+    );
+  if (x.can.write_note) tabs.push({ key: "notes", labelKey: "moim_manage_notes_tab", count: null });
+  return tabs;
+}
+
+/** 메모 탭 — 메모가 있는 멤버만 */
+export function moimMembersWithNote(members: MoimMemberDto[]): MoimMemberDto[] {
+  return members.filter((m) => (m.note ?? "").trim().length > 0);
+}
+
+/** 시트 줄 앞 아이콘 (시안 U7) — 일반 줄은 초록, 위험 줄은 글자색(빨강)을 따른다 */
+function sheetLabel(Icon: LucideIcon, text: ReactNode, danger = false): ReactNode {
+  return (
+    <span className="flex w-full items-center gap-3">
+      <Icon aria-hidden className={`h-5 w-5 shrink-0 ${danger ? "text-current" : "text-sam-primary"}`} />
+      {text}
+    </span>
+  );
+}
 
 function MembersBody({ detail }: { detail: MoimDetailDto }) {
   const { t } = useI18n();
@@ -47,12 +101,21 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
 
   const loadMembers = useCallback(() => moimApi.members(moimId), [moimId]);
   const members = useMoimResource(loadMembers);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/manage/members`, members.state.status !== "loading");
   const canBan = c.ban_member;
   const loadBanned = useCallback(
     () => (canBan ? moimApi.banned(moimId) : Promise.resolve({ ok: true as const, banned: [] as MoimBannedDto[] })),
     [canBan, moimId]
   );
   const banned = useMoimResource(loadBanned);
+  /** 가입 신청 수 — 승인 권한자에게만 기존 목록 API 1회 (설계 §4 요청량) */
+  const canDecide = c.decide_join;
+  const loadRequests = useCallback(
+    () => (canDecide ? moimApi.joinRequests(moimId) : Promise.resolve({ ok: true as const, requests: [] as MoimJoinRequestDto[] })),
+    [canDecide, moimId]
+  );
+  const requests = useMoimResource(loadRequests);
 
   const [target, setTarget] = useState<MoimMemberDto | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -67,46 +130,36 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
   }, []);
 
   const router = useRouter();
-  const [myId, setMyId] = useState<string | null>(null);
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
-  const [messaging, setMessaging] = useState(false);
-  /** 시안 U7 「✉ 대화하기」 (감사 F11) — 메신저 1:1 시작(연락처 시트와 같은 API). 가입 미완료는 전역 창이 안내한다 */
-  const openMessage = useCallback(
-    async (m: MoimMemberDto) => {
-      if (messaging) return;
-      setMessaging(true);
-      try {
-        const res = await fetch("/api/community-messenger/direct/start", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId: m.userId }),
-        });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; code?: string };
-        if (!res.ok || !j.ok || !j.roomId) {
-          if (j.code !== "signup_incomplete") toast.show(t("moim_manage_action_message_failed"), "error");
-          return;
-        }
-        setDialog(null);
-        router.push(`/community-messenger/rooms/${encodeURIComponent(j.roomId)}`);
-      } finally {
-        setMessaging(false);
-      }
-    },
-    [messaging, router, t, toast]
-  );
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-manage-members");
+  /** 시안 U7 「✉ 대화하기」 (감사 F11) — 모임 공용 1:1 시작 훅 (R3 U-04 ①) */
+  const { openMessage } = useMoimDirectMessage({
+    onError: (message) => toast.show(message, "error"),
+    onOpened: () => setDialog(null),
+  });
+  const openNote = useCallback((m: MoimMemberDto) => {
+    setTarget(m);
+    setNoteText(m.note ?? "");
+    setDialog("note");
+  }, []);
 
   /** 자기 자신에게는 아무 동작도 없다. 같거나 높은 역할에는 운영 동작 없이 「대화하기」만 (설계 §5.2 · 시안 U7) */
   const actionsFor = useCallback(
     (m: MoimMemberDto): DibayActionSheetItem[] => {
       if (myId && m.userId === myId) return [];
-      const message: DibayActionSheetItem = { key: "message", label: t("moim_manage_action_message"), onClick: () => void openMessage(m) };
-      if (moimRoleRank(m.role) >= viewerRank) return myId ? [message] : [];
+      const message: DibayActionSheetItem = {
+        key: "message",
+        label: sheetLabel(MessageCircle, t("moim_manage_action_message")),
+        onClick: () => void openMessage(m.userId),
+      };
+      /** 「대화하기」도 권한 start_dm 을 따른다(계약 P11 · R3 Q2) — 운영 화면에 들어온 사람은 보통 운영진 이상이라 대개 보인다 */
+      const messageItems = c.start_dm ? [message] : [];
+      if (moimRoleRank(m.role) >= viewerRank) return myId ? messageItems : [];
       const items: DibayActionSheetItem[] = [];
       if (c.set_role)
         items.push({
           key: "role",
-          label: t("moim_manage_action_role"),
+          label: sheetLabel(Star, t("moim_manage_action_role")),
           onClick: () => {
             setRoleChoice(m.role === "host" ? "member" : m.role);
             setDialog("role");
@@ -115,34 +168,38 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
       if (c.write_note)
         items.push({
           key: "note",
-          label: t("moim_manage_action_note"),
-          onClick: () => {
-            setNoteText(m.note ?? "");
-            setDialog("note");
-          },
+          label: sheetLabel(PenLine, t("moim_manage_action_note")),
+          onClick: () => openNote(m),
         });
-      if (myId) items.push(message);
+      if (myId && c.start_dm) items.push(message);
       if (c.remove_member)
         items.push({
           key: "remove",
           danger: true,
-          label: (
-            <span className="flex w-full items-center justify-between gap-2">
+          label: sheetLabel(
+            LogOut,
+            <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
               <span>{t("moim_manage_action_remove")}</span>
               <span className="text-[12px] font-normal text-sam-meta">{t("moim_manage_action_remove_hint")}</span>
-            </span>
+            </span>,
+            true
           ),
-          onClick: () => setDialog("remove"),
+          onClick: () => {
+            setBanReason("");
+            setDialog("remove");
+          },
         });
       if (c.ban_member)
         items.push({
           key: "ban",
           danger: true,
-          label: (
-            <span className="flex w-full items-center justify-between gap-2">
+          label: sheetLabel(
+            Ban,
+            <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
               <span>{t("moim_manage_action_ban")}</span>
               <span className="text-[12px] font-normal text-sam-meta">{t("moim_manage_action_ban_hint")}</span>
-            </span>
+            </span>,
+            true
           ),
           onClick: () => {
             setBanReason("");
@@ -151,7 +208,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         });
       return items;
     },
-    [c.ban_member, c.remove_member, c.set_role, c.write_note, t, viewerRank, myId, openMessage]
+    [c.ban_member, c.remove_member, c.set_role, c.write_note, c.start_dm, t, viewerRank, myId, openMessage, openNote]
   );
 
   const run = useCallback(
@@ -171,19 +228,40 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
   );
 
   const tabClass = (on: boolean) => `${on ? Sam.tabs.tabActive : Sam.tabs.tab} shrink-0 whitespace-nowrap px-4`;
-  const memberCount = members.state.status === "ready" ? members.state.data.members.length : null;
+  const tabs = moimManageMemberTabs({
+    can: c,
+    members: members.state.status === "ready" ? members.state.data.members : null,
+    requests: requests.state.status === "ready" ? requests.state.data.requests : null,
+    banned: banned.state.status === "ready" ? banned.state.data.banned : null,
+  });
 
   return (
     <>
-      <div className={`${Sam.tabs.barScroll} border-b border-sam-border bg-sam-surface`} role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "members"} className={tabClass(tab === "members")} onClick={() => setTab("members")}>
-          {memberCount != null ? t("moim_manage_members_count_tab", { count: memberCount }) : t("moim_manage_members_tab")}
-        </button>
-        {c.ban_member ? (
-          <button type="button" role="tab" aria-selected={tab === "banned"} className={tabClass(tab === "banned")} onClick={() => setTab("banned")}>
-            {t("moim_manage_banned_tab")}
-          </button>
-        ) : null}
+      {/* 탭 줄 = 진짜 탭만 tablist 안 · 「가입 신청 N」은 다른 화면으로 가는 링크라 tablist 밖 형제 (R3 재감사 P3 · ARIA) */}
+      <div className={`${Sam.tabs.barScroll} border-b border-sam-border bg-sam-surface`}>
+        <div className="flex" role="tablist">
+          {tabs
+            .filter((tb) => tb.key !== "requests")
+            .map((tb) => (
+              <button
+                key={tb.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === tb.key}
+                className={tabClass(tab === tb.key)}
+                onClick={() => setTab(tb.key)}
+              >
+                {tb.count != null ? t(tb.labelKey, { count: tb.count }) : t(tb.labelKey)}
+              </button>
+            ))}
+        </div>
+        {tabs
+          .filter((tb) => tb.key === "requests")
+          .map((tb) => (
+            <button key={tb.key} type="button" className={tabClass(false)} onClick={() => router.push(moimRoutes.manageRequests(moimId))}>
+              {tb.count != null ? t(tb.labelKey, { count: tb.count }) : t(tb.labelKey)}
+            </button>
+          ))}
       </div>
 
       {tab === "members" ? (
@@ -199,13 +277,13 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
               const actionable = actionsFor(m).length > 0;
               const body = (
                 <>
-                  <MoimAvatar url={m.avatarUrl} name={m.nickname} />
+                  <MoimAvatar url={m.avatarUrl} name={m.nickname} size={40} />
                   <span className="min-w-0 flex-1 text-left">
                     <span className="flex flex-wrap items-center gap-1.5">
                       <span className="break-all text-[15px] font-medium text-sam-fg">{m.nickname}</span>
                       <MoimRoleBadge role={m.role} />
                       {m.rejoinCount ? (
-                        <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t("moim_manage_rejoin_badge", { count: m.rejoinCount })}</span>
+                        <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_rejoin_badge", { count: m.rejoinCount })}</span>
                       ) : null}
                     </span>
                     <span className="mt-0.5 block text-[12px] text-sam-meta">
@@ -237,6 +315,34 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
             })}
           </ul>
         )
+      ) : tab === "notes" ? (
+        members.state.status === "loading" ? (
+          <MoimManageLoading />
+        ) : members.state.status === "error" ? (
+          <MoimManageError errorKey={members.state.errorKey} onRetry={members.reload} />
+        ) : moimMembersWithNote(members.state.data.members).length === 0 ? (
+          <MoimManageEmpty textKey="moim_manage_notes_empty" />
+        ) : (
+          <>
+            <MoimListCappedHint show={members.state.data.notesCapped} />
+            <ul className="divide-y divide-sam-border-soft bg-sam-surface">
+              {moimMembersWithNote(members.state.data.members).map((m) => (
+                <li key={m.userId}>
+                  <button type="button" className={`${Sam.listRow.interactive} flex w-full items-start gap-3 px-4 py-3 text-left`} onClick={() => openNote(m)}>
+                    <MoimAvatar url={m.avatarUrl} name={m.nickname} size={40} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="break-all text-[15px] font-medium text-sam-fg">{m.nickname}</span>
+                        <MoimRoleBadge role={m.role} />
+                      </span>
+                      <span className="mt-0.5 block whitespace-pre-wrap break-words text-[13px] text-sam-muted">{m.note}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
       ) : banned.state.status === "loading" ? (
         <MoimManageLoading />
       ) : banned.state.status === "error" ? (
@@ -244,21 +350,24 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
       ) : banned.state.data.banned.length === 0 ? (
         <MoimManageEmpty textKey="moim_manage_banned_empty" />
       ) : (
-        <ul className="divide-y divide-sam-border-soft bg-sam-surface">
-          {banned.state.data.banned.map((b) => (
-            <li key={b.userId} className="flex items-center gap-3 px-4 py-3">
-              <MoimAvatar url={b.avatarUrl} name={b.nickname} />
-              <span className="min-w-0 flex-1">
-                <span className="block break-all text-[15px] font-medium text-sam-fg">{b.nickname}</span>
-                <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
-                {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
-              </span>
-              <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
-                {t("moim_manage_unban_btn")}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <MoimListCappedHint show={banned.state.data.capped} />
+          <ul className="divide-y divide-sam-border-soft bg-sam-surface">
+            {banned.state.data.banned.map((b) => (
+              <li key={b.userId} className="flex items-center gap-3 px-4 py-3">
+                <MoimAvatar url={b.avatarUrl} name={b.nickname} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-all text-[15px] font-medium text-sam-fg">{b.nickname}</span>
+                  <span className="mt-0.5 block text-[12px] text-sam-meta">{t("moim_manage_banned_at", { date: fmt(b.createdAt) })}</span>
+                  {b.reason ? <span className="mt-0.5 block break-words text-[13px] text-sam-muted">{t("moim_manage_ban_reason_line", { reason: b.reason })}</span> : null}
+                </span>
+                <button type="button" className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => setUnbanTarget(b)}>
+                  {t("moim_manage_unban_btn")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       <DibayActionSheet
@@ -294,7 +403,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
       >
         <div role="radiogroup" className="flex flex-col gap-2">
           {ASSIGNABLE_ROLES.map((role) => (
-            <label key={role} className={`flex min-h-[48px] cursor-pointer items-center gap-3 rounded-ui-rect border px-3 ${roleChoice === role ? "border-sam-primary bg-sam-primary-soft" : "border-sam-border bg-sam-surface"}`}>
+            <label key={role} className={`flex min-h-[48px] cursor-pointer items-center gap-3 ${moimManageSheetRadius} border px-3 ${roleChoice === role ? "border-sam-primary bg-sam-primary-soft" : "border-sam-border bg-sam-surface"}`}>
               <input type="radio" name="moim-role" className="accent-[color:var(--sam-primary)]" checked={roleChoice === role} onChange={() => setRoleChoice(role)} />
               <span className="text-[15px] text-sam-fg">{t(moimRoleKey(role))}</span>
               {target?.role === role ? <span className="ml-auto text-[12px] text-sam-meta">{t("moim_manage_current_role")}</span> : null}
@@ -327,7 +436,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
       >
         <p className="text-[13px] text-sam-muted">{t("moim_manage_note_hint")}</p>
         <textarea
-          className={`${moimManageTextareaClass} mt-2 min-h-[120px]`}
+          className={`${moimManageSheetTextareaClass} mt-2 min-h-[120px]`}
           maxLength={1000}
           value={noteText}
           placeholder={t("moim_manage_note_placeholder")}
@@ -335,20 +444,43 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         />
       </DibayBottomSheet>
 
-      <DibayConfirmDialog
+      {/* R4 #2 — 내보내기도 차단처럼 사유(선택 · 300자)를 받는다(P6 「사유 선택(선택)」) · 사유는 운영 기록에만 남는다 */}
+      <DibayBottomSheet
         open={dialog === "remove" && target != null}
+        onClose={closeAll}
         title={t("moim_manage_remove_confirm_title", { name: target?.nickname ?? "" })}
-        description={t("moim_manage_remove_confirm_body")}
-        cancelLabel={t("moim_manage_cancel_btn")}
-        confirmLabel={t("moim_manage_remove_btn")}
-        confirmTone="destructive"
-        busy={busy}
-        onCancel={closeAll}
-        onConfirm={() => {
-          if (!target) return;
-          void run(() => moimApi.removeMember(moimId, target.userId, false), "moim_manage_removed_toast", members.reload);
-        }}
-      />
+        footer={
+          <DibayOverlayActions
+            actions={[
+              { key: "cancel", label: t("moim_manage_cancel_btn"), roleTone: "secondary", onClick: closeAll },
+              {
+                key: "remove",
+                label: t("moim_manage_remove_btn"),
+                roleTone: "destructive",
+                loading: busy,
+                onClick: () => {
+                  if (!target) return;
+                  const why = banReason.trim();
+                  void run(() => moimApi.removeMember(moimId, target.userId, false, why || null), "moim_manage_removed_toast", members.reload);
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <p className="text-[14px] text-sam-fg">{t("moim_manage_remove_confirm_body")}</p>
+        <label className="mt-3 block text-[13px] font-medium text-sam-muted" htmlFor="moim-remove-reason">
+          {t("moim_manage_reason_optional_label")}
+        </label>
+        <textarea
+          id="moim-remove-reason"
+          className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[88px]`}
+          maxLength={300}
+          value={banReason}
+          placeholder={t("moim_manage_ban_reason_placeholder")}
+          onChange={(e) => setBanReason(e.target.value)}
+        />
+      </DibayBottomSheet>
 
       <DibayBottomSheet
         open={dialog === "ban" && target != null}
@@ -382,7 +514,7 @@ function MembersBody({ detail }: { detail: MoimDetailDto }) {
         </label>
         <textarea
           id="moim-ban-reason"
-          className={`${moimManageTextareaClass} mt-1.5 min-h-[88px]`}
+          className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[88px]`}
           maxLength={300}
           value={banReason}
           placeholder={t("moim_manage_ban_reason_placeholder")}

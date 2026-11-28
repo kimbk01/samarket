@@ -46,12 +46,18 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/me/notification-settings": 3.5,
   "/api/platform-popup/resolve": 2.4,
   "/api/me/settings": 1.9,
+  /**
+   * 운영 측정값. 2026-11-28 모임 R4 #7·8: 비공개 기준일(inactive_unlist_days)을 5분 캐시로 읽는다 — 줄어드는 양은 인스턴스별 캐시 적중률에
+   * 달려(못 맞으면 0) 미리 정할 수 없다. 2.6 유지, 7일 측정 뒤 내리기만.
+   */
   "/api/moim": 2.6,
   /**
    * 2026-11-28 모임 3번 묶음 E3·E6(설계 승인값) — 모임 상세. 코드 계산(멤버): 접근 3 + 병렬 9 + 글 작성자·다가오는 일정 병렬 2 = 14
    * (모임장 +1 · 인증 확인 0~1 은 경보 여유 ×1.2 안). E3 전 15~18: 게시판 재조회 2회·작성자 1회 제거. 운영 측정 전 — 7일 뒤 Vercel 값으로 내리기만.
+   * 2026-11-28 모임 R4 #7·8: 멤버는 신청·차단·일정 미리보기 3회를 읽지 않는다(멤버 11 · 비멤버 14 그대로). 예산은 평균이라
+   * 12.0 으로 내린다 — 비멤버만 오는 날(14)도 경보 여유 ×1.2(14.4) 안. 7일 측정 뒤 내리기만.
    */
-  "/api/moim/[moimId]": 14.0,
+  "/api/moim/[moimId]": 12.0,
   /** 2026-11-28 모임 E6 — 카테고리 1 + 만들기 화면만 대표 주소 1(`?withArea=1`). 6번 묶음 B11 글자 수 정책은 5분 캐시(평균 +0). 코드 계산, 7일 뒤 내리기만 */
   "/api/moim/categories": 2.0,
   /**
@@ -90,6 +96,12 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
    * 할 일 없음 = 1. 후기·리마인드 알림이 있을 때만 받는 사람 수에 비례(언어 일괄 2 + 받는 사람당 저장). 하루 144회 중 대부분이 0건 → 4.0. 7일 뒤 실측으로 내리기만
    */
   "/api/cron/moim-schedules": 4.0,
+  /**
+   * 2026-11-28 모임 R2 N-06 — 모임 알림 목적지 화면 읽음이 이 라우트를 쓰게 되어 등록(코드 계산값, 7일 뒤 실측으로 내리기만).
+   * 로그인 1 + 읽음 갱신 1 + 배지 기준 다시 계산(`issueDomainBadgeAuthorityForAck` — 배지 숫자 라우트와 같은 계산, 그 예산 5.2) ≈ 7. 모임 종류는 표적 정리가 없다.
+   * 화면은 커뮤니티 활동 안 읽은 알림이 0 이면 부르지 않는다(`use-moim-notification-read.ts`).
+   */
+  "/api/me/notifications/read-thread": 8.0,
   "/api/admin/inbox": 4.5,
   "/api/me/address-defaults": 1.1,
   /**
@@ -133,6 +145,16 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/me/signup-status": 1.9,
   /** 2026-11-24 채팅 영상 고아 정리(하루 1회) — 후보 RPC 1 + 삭제 1 + 감사 1(삭제 있을 때만). 실측 전 계산값 */
   "/api/cron/messenger-video-orphan-gc": 3.0,
+  /**
+   * 2026-11-28 관심이웃 전체 수정 설계 v2 §5-2 — 관심이웃·차단 관계 조회를 한 요청으로(예전 GET 2개). 실측 전 코드 계산 최대값:
+   * 회원 확인 0~1(getClaims 로컬 우선) + 세션 확인(프로필 1 + 세션 등록 0~2) + 관심이웃 1 + 차단 1 = 최대 6. 7일 뒤 Vercel 값으로 내린다.
+   */
+  "/api/community/user-relation": 6.0,
+  /**
+   * 2026-11-28 같은 설계 — 관심이웃 추가·해제(POST 만 남음). 예전 조회 4개(기존 행·프로필·차단·개수) → DB 함수 1.
+   * 회원 확인 0~1 + 가입 확인(추가만, 쓰기 게이트 스냅샷 1~2) + RPC 1 = 최대 4. 7일 뒤 Vercel 값으로 내린다.
+   */
+  "/api/community/neighbor-relations": 4.0,
 };
 
 /**

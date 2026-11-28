@@ -1,18 +1,22 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { toggleCommentLikeServer } from "@/lib/community/comment-mutations.server";
+import { setCommentLikeServer } from "@/lib/community/comment-mutations.server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
-import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import { requireRegistrationForAction } from "@/lib/auth/require-registration-for-action.server";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * POST /…/comments/:commentId/like  body `{ liked: boolean }`
+ * 「원하는 상태」 저장 — 토글이 아니라 재시도해도 같은 결과 (감사 L6·L17 · 설계 §6.4).
+ * 공감 추가만 가입 확인(설계 2026-11-21 §4 C), 해제는 가입 없이.
+ */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ postId: string; commentId: string }> }
 ) {
   const startedAt = Date.now();
@@ -23,26 +27,30 @@ export async function POST(
   const rawC = commentId?.trim() ?? "";
   if (!rawP || !rawC) return jsonError("invalid_request", { status: 400, code: "invalid_request" });
 
+  const parsed = await parseJsonBody<{ liked?: unknown }>(req, "invalid_json");
+  if (!parsed.ok) return parsed.response;
+  const liked = parsed.value.liked;
+  if (typeof liked !== "boolean") return jsonError("invalid_request", { status: 400, code: "invalid_request" });
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-comment:like:${getRateLimitKey(req, auth.userId)}`,
+    limit: 60,
+    windowMs: 60_000,
+    message: "community_comment_rate_limited",
+    code: "community_comment_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
+
   if (process.env.NODE_ENV !== "production" && getNeighborhoodDevSamplePost(rawP)) {
-    return jsonOk({ liked: true, like_count: 0, fallback: "dev_samples" });
+    return jsonOk({ liked, like_count: 0, fallback: "dev_samples" });
   }
   const id = await resolveCanonicalCommunityPostId(rawP);
-  if (!id) return jsonError("not_found", 404);
-  /** 섞인 경로(설계 2026-11-21 §4 C, 재감사3 #2) — 추가만 가입 확인, 해제는 가입 없이 */
-  const likeSb = tryCreateSupabaseServiceClient();
-  if (!likeSb) return jsonError("supabase_unconfigured", 503);
-  const { data: existingLike, error: existingLikeErr } = await likeSb
-    .from("community_comment_likes")
-    .select("id")
-    .eq("comment_id", rawC)
-    .eq("user_id", auth.userId)
-    .maybeSingle();
-  if (existingLikeErr) return jsonError("like_failed", 500);
-  if (!existingLike) {
+  if (!id) return jsonError("not_found", { status: 404, code: "not_found" });
+  if (liked) {
     const registrationGate = await requireRegistrationForAction(auth.userId);
     if (registrationGate) return registrationGate;
   }
-  const out = await toggleCommentLikeServer(id, rawC, auth.userId);
+  const out = await setCommentLikeServer(id, rawC, auth.userId, liked);
   logServerPerf("community-comment-like.post", {
     postId: id,
     commentId: rawC,
@@ -50,10 +58,10 @@ export async function POST(
     elapsedMs: Date.now() - startedAt,
   });
   if (!out.ok) {
-    const status = out.code === "community_like_blocked_relation" ? 403 : 400;
-    return jsonError(safeErrorMessage({ message: out.error }, out.error), status, {
-      code: out.code,
-    });
+    const code = out.code ?? out.error;
+    const status =
+      code === "community_like_blocked_relation" ? 403 : code === "comment_not_found" ? 404 : code === "like_save_failed" ? 500 : 400;
+    return jsonError(code, { status, code });
   }
   return jsonOk({ liked: out.liked, like_count: out.like_count });
 }

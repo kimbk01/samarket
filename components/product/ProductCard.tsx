@@ -6,7 +6,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { isPostEligibleForPromotionBoost } from "@/lib/promotion/trade-promotion-overlay";
 import type { Product } from "@/lib/types/product";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
@@ -44,7 +44,9 @@ export function ProductCard({ product, highlightQuery }: ProductCardProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
-  const viewerId = mounted ? getCurrentUser()?.id ?? null : null;
+  /** 회원 id = 회원 상태 SSOT(설계 v2 §6) — 하이드레이션 차이가 없게 마운트 뒤에만 쓴다 */
+  const memberId = useClientMemberId("product-card");
+  const viewerId = mounted ? memberId : null;
   const showOwnerAdEntry =
     Boolean(viewerId) &&
     (product.sellerId ?? "") === viewerId &&

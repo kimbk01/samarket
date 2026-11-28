@@ -17,7 +17,7 @@ describe("mypage section legacy redirect", () => {
 
   it("이전 무한 루프 3곳은 정해진 화면으로 1회 이동", () => {
     expect(resolveMypageSectionLegacyHubRedirect("store", "order-chat")).toBe("/mypage/store-orders");
-    expect(resolveMypageSectionLegacyHubRedirect("messenger", "friends")).toBe("/mypage/section/account/favorite-users");
+    expect(resolveMypageSectionLegacyHubRedirect("messenger", "friends")).toBe("/mypage/section/community/community-friends");
     expect(resolveMypageSectionLegacyHubRedirect("messenger", "chat-alerts")).toBe("/mypage/section/settings/notifications");
   });
 });

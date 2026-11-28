@@ -113,7 +113,7 @@ export function AdminMoimHostRequestsPage() {
                     <>
                       <MoimAdminTime iso={r.host.lastLoginAt} />
                       {days != null ? (
-                        <div className={`text-[12px] ${days < 7 ? "text-sam-danger" : "text-sam-muted"}`}>{t("admin_moim_days_ago", { n: days })}</div>
+                        <div className={`text-[12px] ${days < 7 ? "text-sam-danger" : "text-sam-muted"}`}>{t(days === 1 ? "admin_moim_days_ago_one" : "admin_moim_days_ago", { n: days })}</div>
                       ) : null}
                     </>
                   ) : (

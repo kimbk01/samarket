@@ -31,7 +31,9 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const name = typeof body.nickname === "string" ? body.nickname.trim() : "";
   if (result.ok && result.status === "pending" && result.request_id) {
     const requestId = result.request_id;
-    notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, name));
+    /** R2 N-08c: 이름 = DB 가 정한 닉네임(프로필 대체 포함) */
+    const requestName = (result.nickname ?? name).trim();
+    notifyMoimAfterResponse(() => notifyMoimJoinRequested(g.sb, moimId, requestId, requestName, g.userId));
   }
   /** 바로 가입 → 모임장에게 벨만 (설계 §7 moim_member_joined · 감사 B2) */
   if (result.ok && result.status === "active") {

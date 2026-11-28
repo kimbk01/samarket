@@ -8,6 +8,7 @@
  * - 구매 내역 행 없음(마켓 UI-6 HARD LOCK). 주소는 항상 `/mypage/addresses`(주소 HARD LOCK).
  */
 import type { MessageKey } from "@/lib/i18n/messages";
+import { NEIGHBOR_FOLLOW_MANAGE_HREF, NEIGHBOR_FOLLOW_MYPAGE_HREF } from "@/lib/community/neighbor-follow-contract";
 import type {
   MypageHomeLinkMenuItem,
   MypageHomeMenuIconId,
@@ -135,7 +136,9 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
         rows: [
           link("/mypage/section/community/liked-posts", "mypage_mnav_community_liked_posts", "heart"),
           link("/mypage/section/community/favorite-posts", "mypage_mnav_community_favorite_posts", "star"),
-          link("/mypage/section/community/community-friends", "mypage_mnav_community_community_friends", "users"),
+          link(NEIGHBOR_FOLLOW_MYPAGE_HREF, "mypage_mnav_community_community_friends", "users", {
+            valueSource: { kind: "summary-count", field: "neighborFollowCount", format: "people" },
+          }),
         ],
       },
     ],
@@ -214,7 +217,6 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
         titleKey: "mypage_ia_grp_security_people",
         rows: [
           link(MYPAGE_DEVICE_PERMISSIONS_HREF, "mypage_ia_device_permissions", "shield"),
-          link("/mypage/section/account/favorite-users", "settings_following_users", "users"),
           link("/mypage/section/account/blocked-users", "settings_blocked_users", "user-block"),
           link("/mypage/section/account/hidden-users", "settings_hidden_users", "eye-off"),
           link("/mypage/trust", "mypage_trust_title", "star"),
@@ -378,6 +380,12 @@ const L2_ROUTE_META: Map<string, MypageIaRouteMeta> = (() => {
   m.set(MYPAGE_CUSTOMER_CENTER_HREF, {
     titleKey: "mypage_ia_cat_support",
     parentHref: "/mypage",
+  });
+  /** 관심이웃 관리 — 분류 행은 없고 관심이웃 화면 [관리]로만 들어간다. 제목 「관심이웃 관리」, 뒤로 = 관심이웃 */
+  m.set(NEIGHBOR_FOLLOW_MANAGE_HREF, {
+    /** 레지스트리 항목 라벨과 같은 키 하나 — 첫 프레임(tier1)·머리줄 제목이 갈라지지 않게 */
+    titleKey: "mypage_mnav_community_community_friends_manage",
+    parentHref: NEIGHBOR_FOLLOW_MYPAGE_HREF,
   });
   m.set("/mypage/required/dibay-id", { titleKey: null, parentHref: "/mypage" });
   m.set("/mypage/required/phone", { titleKey: null, parentHref: "/mypage" });

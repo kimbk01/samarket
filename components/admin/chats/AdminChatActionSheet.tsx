@@ -16,6 +16,10 @@ import { AdminForbiddenState, isAdminForbiddenCode } from "@/components/admin/ui
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
+  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY,
+} from "@/lib/admin-community-messenger/moim-room-admin-guard";
 
 export type AdminChatSheetResult = { ok: true } | { ok: false; status: number; code: string };
 export type AdminChatSheetSettle = "done" | "stale" | "gone";
@@ -110,7 +114,9 @@ export function AdminChatActionSheet({
   };
 
   const errorText = error
-    ? error.status === 400
+    ? error.code === MOIM_ROOM_READONLY_MANAGED_BY_MOIM
+      ? t(MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY)
+      : error.status === 400
       ? t("admin_chat_sheet_err_input", { code: error.code })
       : t("admin_chat_sheet_err_failed", { code: error.code })
     : null;

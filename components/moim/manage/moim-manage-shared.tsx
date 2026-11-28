@@ -11,13 +11,54 @@ import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
-import type { MoimApiResult, MoimDetailDto } from "@/lib/moim/moim-api-types";
-import type { MoimRole } from "@/lib/moim/moim-permission-contract";
+import { MOIM_LIST_CAP, type MoimApiResult, type MoimDetailDto } from "@/lib/moim/moim-api-types";
 
 /**
  * 모임 운영 화면 공통 — 상세 불러오기·머리글·로딩/오류/권한 없음·토스트·사람 행.
  * 사람은 모임 닉네임·사진만 보여 준다 (설계 §4).
  */
+
+/** 모임장 위임 화면 — 권한이 있거나, 모임장인데 경고 때문에 막힌 경우(이유를 보여 주기 위해) */
+export function canOpenMoimTransfer(detail: MoimDetailDto): boolean {
+  return detail.can.transfer_host || (detail.viewer.role === "host" && detail.status === "active" && detail.platformState === "warned");
+}
+
+/** P8 미접속 모임장 변경 요청 — 부모임장·운영진, 운영 중인 모임 (모임장 30일 미접속 판정은 서버) */
+export function canRequestMoimHostChange(detail: MoimDetailDto): boolean {
+  return (detail.viewer.role === "co_host" || detail.viewer.role === "staff") && detail.status === "active";
+}
+
+export function canOpenMoimMembers(detail: MoimDetailDto): boolean {
+  const c = detail.can;
+  return c.remove_member || c.ban_member || c.set_role || c.write_note;
+}
+
+/**
+ * 운영 허브(`/moim/[id]/manage`)에 들어갈 항목이 하나라도 있는가 — 허브 항목 조건과 같다(없으면 허브는 「권한 없음」).
+ * R4 #17: 바로 연 운영 화면의 뒤로는 이 값이 false 면 허브 대신 모임 홈으로.
+ */
+export function canOpenMoimManageHub(detail: MoimDetailDto): boolean {
+  const c = detail.can;
+  return (
+    c.decide_join ||
+    canOpenMoimMembers(detail) ||
+    c.edit_info ||
+    c.manage_invite_link ||
+    c.send_invite ||
+    c.manage_boards ||
+    c.hide_post ||
+    canOpenMoimTransfer(detail) ||
+    canRequestMoimHostChange(detail) ||
+    c.close
+  );
+}
+
+/** R4 #17: 운영 화면 뒤로 — 지정값 > (상세를 받았고 허브 권한이 없으면) 모임 홈 > 운영 허브 */
+export function moimManageBackHref(moimId: string, backHref: string | undefined, detail: MoimDetailDto | null): string {
+  if (backHref) return backHref;
+  if (detail && !canOpenMoimManageHub(detail)) return moimRoutes.home(moimId);
+  return moimRoutes.manage(moimId);
+}
 
 type ResourceState<T> = { status: "loading" } | { status: "error"; errorKey: MessageKey } | { status: "ready"; data: T };
 
@@ -59,11 +100,6 @@ export function MoimManageFrame({
   /** 본문 끝에 MoimStickyFooter(하단 고정 저장 줄)가 있으면 아래 여백을 두지 않는다 — 줄이 화면 아래에 붙게 (감사 F9) */
   stickyFooter?: boolean;
 }) {
-  const tier1 = useMemo<MainTier1Partial>(
-    () => ({ titleText: titleKey, backHref: backHref ?? moimRoutes.manage(moimId) }),
-    [backHref, moimId, titleKey]
-  );
-  useRegisterMainTier1Header(tier1);
   /** 처음 열 때는 화면 간 공유 상세를 쓰고, 다시 불러오기(재시도·충돌 뒤)는 저장값을 무시한다 (감사 E2 · 재감사 M2) */
   const loadedOnce = useRef(false);
   const load = useCallback(() => {
@@ -72,6 +108,10 @@ export function MoimManageFrame({
     return moimApi.detail(moimId, { force });
   }, [moimId]);
   const { state, reload } = useMoimResource(load);
+  const loadedDetail = state.status === "ready" ? state.data.moim : null;
+  const resolvedBack = moimManageBackHref(moimId, backHref, loadedDetail);
+  const tier1 = useMemo<MainTier1Partial>(() => ({ titleText: titleKey, backHref: resolvedBack }), [resolvedBack, titleKey]);
+  useRegisterMainTier1Header(tier1);
 
   return (
     <div className={`min-h-[60vh] bg-sam-app ${stickyFooter ? "" : "pb-24"}`}>
@@ -122,6 +162,13 @@ export function MoimManageForbidden({ moimId }: { moimId: string }) {
   );
 }
 
+/** R4 #6: 목록이 상한(500)에 닿았을 때 한 줄 안내 */
+export function MoimListCappedHint({ show }: { show: boolean | undefined }) {
+  const { t } = useI18n();
+  if (!show) return null;
+  return <p className="px-4 pt-2 text-[12px] text-sam-meta">{t("moim_list_capped_hint", { count: MOIM_LIST_CAP })}</p>;
+}
+
 export function MoimManageEmpty({ textKey }: { textKey: MessageKey }) {
   const { t } = useI18n();
   return <p className="px-4 py-12 text-center text-[14px] text-sam-muted">{t(textKey)}</p>;
@@ -148,48 +195,12 @@ export function useMoimManageToast() {
   return { node, show, showError };
 }
 
-export function MoimAvatar({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
-  const initial = (name.trim()[0] ?? "").toUpperCase();
-  if (url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- 모임 프로필 사진(외부 저장소 URL)
-      <img
-        src={url}
-        alt=""
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full border border-sam-border-soft bg-sam-surface-muted object-cover"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[15px] font-semibold text-sam-primary"
-      style={{ width: size, height: size }}
-    >
-      {initial}
-    </span>
-  );
-}
+/** 역할 배지·아바타·역할 키는 모임 공용 부품 하나 (D-8 · R3 U-08) — 운영 화면은 여기서 다시 내보낸다 */
+export { MoimAvatar, MoimRoleBadge, moimRoleKey } from "@/components/moim/moim-ui";
 
-const ROLE_BADGE_CLASS: Record<MoimRole, string | null> = {
-  host: Sam.badge.primary,
-  co_host: Sam.badge.info,
-  staff: Sam.badge.info,
-  member: null,
-};
-
-export function MoimRoleBadge({ role }: { role: MoimRole }) {
-  const { t } = useI18n();
-  const cls = ROLE_BADGE_CLASS[role];
-  if (!cls) return null;
-  return <span className={`${cls} shrink-0 whitespace-nowrap`}>{t(`moim_role_${role}` as MessageKey)}</span>;
-}
-
-export function moimRoleKey(role: MoimRole): MessageKey {
-  return `moim_role_${role}` as MessageKey;
+/** 영어 단수 — 수가 1이면 `_one` 키 (모임 선례 `formatMoimCount` 와 같은 방식 · R3 U-09) */
+export function moimCountKey(count: number, other: MessageKey, one: MessageKey): MessageKey {
+  return count === 1 ? one : other;
 }
 
 /** 날짜만 (필리핀 시간 기준) */
@@ -209,4 +220,8 @@ export function useMoimDateFormat() {
 export const moimManageCardClass = "rounded-ui-rect border border-sam-border bg-sam-surface";
 export const moimManageInputClass = `${Sam.input.base} w-full rounded-ui-rect`;
 export const moimManageTextareaClass = `${Sam.input.textarea} w-full rounded-ui-rect`;
+/** 시트·다이얼로그 안 입력·선택 카드 — 12px (LOCKED `04-DESIGN-SYSTEM.md` 「시트·다이얼로그 안 버튼·카드·입력」 · R3 U-07) */
+export const moimManageSheetRadius = "rounded-[length:var(--overlay-radius-md)]";
+export const moimManageSheetInputClass = `${Sam.input.base} w-full ${moimManageSheetRadius}`;
+export const moimManageSheetTextareaClass = `${Sam.input.textarea} w-full ${moimManageSheetRadius}`;
 export const moimManageSectionTitleClass = "px-4 pb-2 pt-5 text-[13px] font-semibold text-sam-muted";

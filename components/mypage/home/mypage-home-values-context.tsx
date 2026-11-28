@@ -110,7 +110,9 @@ export function useMypageHomeRowValue(source: MypageHomeRowValueSource | undefin
                 ? "mypage_home_value_orders_active"
                 : source.format === "sheets"
                   ? "mypage_home_value_sheets"
-                  : "mypage_home_value_count";
+                  : source.format === "people"
+                    ? "mypage_home_value_people"
+                    : "mypage_home_value_count";
         return mypageHomeCountRowProps(v, (count) => t(key, { count }));
       }
       case "summary-points": {

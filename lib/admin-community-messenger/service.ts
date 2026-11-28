@@ -4,6 +4,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
+import { MOIM_ROOM_READONLY_MANAGED_BY_MOIM, rejectsMoimRoomReadonlyAction } from "@/lib/admin-community-messenger/moim-room-admin-guard";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   ADMIN_FORCE_END_REASON_PREFIX,
@@ -1063,9 +1064,13 @@ export async function runAdminCommunityMessengerRoomAction(input: {
 
   const { data: beforeData } = await client
     .from("community_messenger_rooms")
-    .select("id, room_status, is_readonly, admin_note, moderated_by, moderated_at")
+    .select("id, owner_domain, room_status, is_readonly, admin_note, moderated_by, moderated_at")
     .eq("id", input.roomId)
     .maybeSingle();
+  /** 모임 방 읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · DB 트리거도 막는다) */
+  if (rejectsMoimRoomReadonlyAction(beforeData as { owner_domain?: unknown } | null, input.action)) {
+    return { ok: false, error: MOIM_ROOM_READONLY_MANAGED_BY_MOIM };
+  }
 
   const { error } = await client
     .from("community_messenger_rooms")

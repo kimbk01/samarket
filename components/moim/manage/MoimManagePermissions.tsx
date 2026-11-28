@@ -78,7 +78,7 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
                       type="button"
                       role="radio"
                       aria-checked={on}
-                      className={`${on ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} shrink-0 whitespace-nowrap rounded-ui-rect`}
+                      className={`${on ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
                       onClick={() => setDraft((d) => ({ ...d, [action]: role }))}
                     >
                       {t("moim_manage_perm_role_or_above_chip", { role: t(moimRoleKey(role)) })}

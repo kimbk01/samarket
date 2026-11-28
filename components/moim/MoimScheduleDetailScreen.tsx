@@ -4,16 +4,18 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { MessageCircle, MoreVertical, PenSquare } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayActionSheet, DibaySheetHeader, DibayUsableAreaSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
+import { DibayActionSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
 import { useRouter } from "next/navigation";
 import { DibayHeaderShareButton } from "@/components/share/DibayHeaderShareButton";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS, samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { useMoimInviteShare } from "@/components/moim/use-moim-invite-share";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
-import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto, MoimScheduleDto, MoimScheduleParticipantDto } from "@/lib/moim/moim-api-types";
+import { MOIM_LIST_CAP } from "@/lib/moim/moim-api-types";
+import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { canWriteMoimBoard } from "@/components/moim/MoimMemberView";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
@@ -23,6 +25,7 @@ import {
   MoimScheduleStatusBadge,
   formatMoimScheduleCount,
   formatMoimScheduleWhen,
+  moimScheduleDisplayStatus,
   moimScheduleStarted,
 } from "@/components/moim/moim-schedule-ui";
 import { MoimAvatar, MoimEmptyState, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimToast } from "@/components/moim/moim-ui";
@@ -34,7 +37,7 @@ const MOTIVATION_MAX = 500;
 type Toast = (message: string, tone?: "default" | "success" | "error") => void;
 
 function useMoimSchedule(scheduleId: string) {
-  const [data, setData] = useState<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[] } | null>(null);
+  const [data, setData] = useState<{ schedule: MoimScheduleDto; participants: MoimScheduleParticipantDto[]; participantsCapped?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [key, setKey] = useState(0);
   useEffect(() => {
@@ -42,7 +45,7 @@ function useMoimSchedule(scheduleId: string) {
     setError(null);
     void moimApi.schedule(scheduleId).then((r) => {
       if (!alive) return;
-      if (r.ok) setData({ schedule: r.schedule, participants: r.participants });
+      if (r.ok) setData({ schedule: r.schedule, participants: r.participants, participantsCapped: r.participantsCapped === true });
       else setError(r.error);
     });
     return () => {
@@ -63,59 +66,28 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-/** 지원 동기 시트 (8자 이상) */
-function MotivationSheet({ open, onClose, onSubmit }: { open: boolean; onClose: () => void; onSubmit: (text: string) => Promise<string | null> }) {
+/** 지원 동기 입력칸 — 시안 U5 처럼 본문 CTA 바로 위 (8자 이상 · R3 U5-motivation). 화면 요소라 4px */
+function MotivationField({ value, onChange, error }: { value: string; onChange: (v: string) => void; error: string | null }) {
   const { t } = useI18n();
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (open) {
-      setText("");
-      setError(null);
-    }
-  }, [open]);
-  const len = [...text.trim()].length;
-  const submit = async () => {
-    if (busy) return;
-    if (len < MOTIVATION_MIN) {
-      setError(t(moimErrorKey("moim_schedule_motivation_required")));
-      return;
-    }
-    setBusy(true);
-    const e = await onSubmit(text.trim());
-    setBusy(false);
-    if (e) setError(e);
-  };
+  const len = [...value.trim()].length;
   return (
-    <DibayUsableAreaSheet
-      open={open}
-      onClose={onClose}
-      preferredHeightRatio={null}
-      header={<DibaySheetHeader title={t("moim_schedule_motivation_title")} onClose={onClose} closeLabel={t("common_close")} />}
-      footer={
-        <div className="px-4 pb-3 pt-2">
-          <button type="button" className={`${moimCls.btnPrimary} w-full`} disabled={busy || len === 0} onClick={submit}>
-            {t("moim_schedule_request_btn")}
-          </button>
-        </div>
-      }
-    >
-      <div className="grid gap-2 px-4 pb-2">
-        <p className={moimCls.hint}>{t("moim_schedule_motivation_lead", { min: MOTIVATION_MIN })}</p>
-        <textarea
-          className={`${moimCls.textarea} min-h-[110px]`}
-          value={text}
-          maxLength={MOTIVATION_MAX}
-          placeholder={t("moim_schedule_motivation_placeholder")}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <span className={`${moimCls.hint} text-right`}>
-          {len}/{MOTIVATION_MAX}
-        </span>
-        {error ? <p className={moimCls.noticeBad}>{error}</p> : null}
-      </div>
-    </DibayUsableAreaSheet>
+    <div className="grid gap-1.5">
+      <label className={moimCls.label} htmlFor="moim-schedule-motivation">
+        {t("moim_schedule_motivation_title")} <span className={moimCls.hint}>{t("moim_schedule_motivation_lead", { min: MOTIVATION_MIN })}</span>
+      </label>
+      <textarea
+        id="moim-schedule-motivation"
+        className={`${moimCls.textarea} min-h-[96px]`}
+        value={value}
+        maxLength={MOTIVATION_MAX}
+        placeholder={t("moim_schedule_motivation_placeholder")}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <span className={`${moimCls.hint} text-right`}>
+        {len}/{MOTIVATION_MAX}
+      </span>
+      {error ? <p className={moimCls.noticeBad}>{error}</p> : null}
+    </div>
   );
 }
 
@@ -125,6 +97,8 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
   const toast = useMoimToast();
   const { moim, error: moimError, reload: reloadMoim } = useMoimDetail(moimId);
   const { data, setData, error, reload } = useMoimSchedule(scheduleId);
+  /** R2 N-06: 이 화면으로 가는 모임 알림 읽음 (정책 §2) */
+  useMoimNotificationRead(`/moim/${moimId}/schedules/${scheduleId}`, !!moim && !!data);
   const [report, setReport] = useState<MoimReportTarget | null>(null);
   /** 시안 U5 머리글 ⤴ · ⋮ (감사 F11) — 일정·권한을 아는 본문이 정해 올려 준다 */
   const [rightSlot, setRightSlot] = useState<ReactNode>(null);
@@ -174,13 +148,14 @@ export function MoimScheduleDetailScreen({ moimId, scheduleId }: { moimId: strin
         moim={moim}
         schedule={data.schedule}
         participants={data.participants}
+        participantsCapped={data.participantsCapped === true}
         onReload={reload}
         onParticipants={(participants) => setData((d) => (d ? { ...d, participants } : d))}
         onReport={setReport}
         onToast={toast.show}
         onHeaderRight={setRightSlot}
       />
-      <MoimReportSheet moimId={moim.id} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
+      <MoimReportSheet moimId={moim.id} reasons={moim.reportReasons} target={report} onClose={() => setReport(null)} onDone={(m) => toast.show(m, "success")} />
       {toast.node}
     </>
   );
@@ -190,6 +165,7 @@ function ScheduleBody({
   moim,
   schedule: s,
   participants,
+  participantsCapped,
   onReload,
   onParticipants,
   onReport,
@@ -199,6 +175,8 @@ function ScheduleBody({
   moim: MoimDetailDto;
   schedule: MoimScheduleDto;
   participants: MoimScheduleParticipantDto[];
+  /** R4 #6: 참여자 조회 상한(500)에 닿음 */
+  participantsCapped: boolean;
   onReload: () => void;
   onParticipants: (p: MoimScheduleParticipantDto[]) => void;
   onReport: (target: MoimReportTarget) => void;
@@ -207,10 +185,11 @@ function ScheduleBody({
 }) {
   const { t, language } = useI18n();
   const [busy, setBusy] = useState(false);
-  const [motivationOpen, setMotivationOpen] = useState(false);
-  const [myId, setMyId] = useState<string | null>(null);
+  const [motivation, setMotivation] = useState("");
+  const [motivationError, setMotivationError] = useState<string | null>(null);
+  /** 내 id = 회원 상태 SSOT — 캐시가 늦게 차도 다시 그린다(예전: 마운트 때 한 번 읽어 늦게 찬 회원을 놓침 · 관심이웃 설계 v2 §7) */
+  const myId = useClientMemberId("moim-schedule-detail");
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => setMyId(getHydrationSafeCurrentUser()?.id ?? null), []);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
@@ -239,27 +218,25 @@ function ScheduleBody({
     return true;
   };
 
+  const askMotivation = s.joinMode === "approval" && s.askMotivation;
   const join = async () => {
-    if (s.joinMode === "approval" && s.askMotivation) {
-      setMotivationOpen(true);
+    if (busy) return;
+    const text = motivation.trim();
+    if (askMotivation && [...text].length < MOTIVATION_MIN) {
+      setMotivationError(t(moimErrorKey("moim_schedule_motivation_required")));
       return;
     }
-    if (busy) return;
+    setMotivationError(null);
     setBusy(true);
-    const r = await moimApi.joinSchedule(s.id, null);
+    const r = await moimApi.joinSchedule(s.id, askMotivation ? text : null);
     setBusy(false);
-    if (!r.ok) return onToast(t(moimErrorKey(r.error)), "error");
+    if (!r.ok) {
+      if (askMotivation) setMotivationError(t(moimErrorKey(r.error)));
+      return onToast(t(moimErrorKey(r.error)), "error");
+    }
+    setMotivation("");
     onToast(r.status === "confirmed" ? t("moim_schedule_joined_toast") : t("moim_schedule_requested_toast"), "success");
     onReload();
-  };
-
-  const submitMotivation = async (text: string) => {
-    const r = await moimApi.joinSchedule(s.id, text);
-    if (!r.ok) return t(moimErrorKey(r.error));
-    setMotivationOpen(false);
-    onToast(r.status === "confirmed" ? t("moim_schedule_joined_toast") : t("moim_schedule_requested_toast"), "success");
-    onReload();
-    return null;
   };
 
   const leave = async () => {
@@ -292,6 +269,16 @@ function ScheduleBody({
   };
 
   const decide = async (p: MoimScheduleParticipantDto, action: "approve" | "reject") => {
+    /** R3 G-dng-02: 거절은 위험 동작 — 확인 후 (6-B 위험 = 거절) */
+    if (action === "reject") {
+      const ok = await dibayConfirm({
+        title: t("moim_schedule_reject_confirm_title", { name: p.nickname }),
+        confirmLabel: t("common_reject"),
+        cancelLabel: t("common_cancel"),
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    }
     await run(
       () => moimApi.decideScheduleParticipant(s.id, p.userId, action),
       action === "approve" ? t("moim_schedule_approved_toast") : t("moim_schedule_rejected_toast")
@@ -369,7 +356,9 @@ function ScheduleBody({
     } else {
       cta = (
         <div className="grid gap-2">
-          <p className="text-center text-[12px] text-sam-muted">{t("moim_schedule_room_note")}</p>
+          {askMotivation ? <MotivationField value={motivation} onChange={setMotivation} error={motivationError} /> : null}
+          {/* 시안 U5 초록 안내 상자 (R3 U5-infobox) */}
+          <p className={moimCls.noticeInfo}>{t("moim_schedule_room_note")}</p>
           <button type="button" disabled={busy} className={`${moimCls.btnPrimary} w-full`} onClick={join}>
             {s.joinMode === "approval" ? t("moim_schedule_request_btn") : t("moim_schedule_join_btn")}
           </button>
@@ -391,7 +380,9 @@ function ScheduleBody({
   const [menuOpen, setMenuOpen] = useState(false);
   const canEditMenu = manage && !started;
   const canCancelMenu = manage && (!s.viewer.isHost || my !== "confirmed");
-  const hasMenu = canEditMenu || canClose || canCancelMenu;
+  /** R3 W6·W7: 일정 신고 (계약 P13 「일정 … 각 화면의 ⋮」) — 일정을 연 사람(호스트)이 아니면 누구나 */
+  const canReport = moim.viewer.loggedIn && !s.viewer.isHost;
+  const hasMenu = canEditMenu || canClose || canCancelMenu || canReport;
   const menuItems: DibayActionSheetItem[] = [];
   if (canEditMenu) {
     menuItems.push({ key: "edit", label: t("moim_schedule_edit_btn"), disabled: busy, onClick: () => router.push(moimRoutes.scheduleEdit(moim.id, s.id)) });
@@ -405,6 +396,10 @@ function ScheduleBody({
         if (!busy) void toggleClosed();
       },
     });
+  }
+  /** 순서: 일반(수정·마감) → 신고 → 위험(취소) */
+  if (canReport) {
+    menuItems.push({ key: "report", label: t("moim_menu_report"), onClick: () => onReport({ type: "schedule", id: s.id }) });
   }
   if (canCancelMenu) {
     menuItems.push({
@@ -434,7 +429,7 @@ function ScheduleBody({
             <button
               type="button"
               className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
-              aria-label={t("moim_schedule_manage_title")}
+              aria-label={manage ? t("moim_schedule_manage_title") : t("moim_menu_aria")}
               onClick={() => setMenuOpen(true)}
             >
               <MoreVertical className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={2} aria-hidden />
@@ -442,7 +437,7 @@ function ScheduleBody({
           ) : null}
         </div>
       ) : null,
-    [canShareInvite, hasMenu, shareInvite, t, setMenuOpen]
+    [canShareInvite, hasMenu, shareInvite, t, setMenuOpen, manage]
   );
   useEffect(() => {
     onHeaderRight(headerRight);
@@ -454,7 +449,7 @@ function ScheduleBody({
       <div className={`${moimCls.column} flex-1 pb-6`}>
         <div className="border-b border-sam-border bg-sam-surface px-4 py-3">
           <div className="flex flex-wrap items-center gap-1.5">
-            <MoimScheduleStatusBadge status={s.status} />
+            <MoimScheduleStatusBadge status={moimScheduleDisplayStatus(s, now)} />
             <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>
               {s.joinMode === "approval" ? t("moim_schedule_approval_badge") : t("moim_schedule_first_come_badge")}
             </span>
@@ -525,10 +520,10 @@ function ScheduleBody({
                     <p className="whitespace-pre-wrap break-words rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[13px] text-sam-fg">{p.motivation}</p>
                   ) : null}
                   <div className="flex gap-2">
-                    <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} flex-1`} onClick={() => decide(p, "reject")}>
+                    <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} flex-1`} onClick={() => void decide(p, "reject")}>
                       {t("common_reject")}
                     </button>
-                    <button type="button" disabled={busy} className={`${moimCls.btnPrimary} ${moimCls.btnSm} flex-1`} onClick={() => decide(p, "approve")}>
+                    <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} flex-1`} onClick={() => void decide(p, "approve")}>
                       {t("moim_schedule_approve_btn")}
                     </button>
                   </div>
@@ -542,6 +537,7 @@ function ScheduleBody({
           <div className={moimCls.sectionHead}>
             <h2 className={moimCls.sectionTitle}>{t("moim_schedule_confirmed_title", { count: confirmed.length })}</h2>
           </div>
+          {participantsCapped ? <p className="px-4 pb-2 text-[12px] text-sam-meta">{t("moim_list_capped_hint", { count: MOIM_LIST_CAP })}</p> : null}
           {confirmed.length === 0 ? (
             <p className="px-4 text-[13px] text-sam-muted">{t("moim_schedule_confirmed_empty")}</p>
           ) : (
@@ -560,7 +556,8 @@ function ScheduleBody({
                       <MoimAvatar url={p.avatarUrl} name={p.nickname} size={32} />
                       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                         <b className="break-words text-[14px] text-sam-fg">{p.nickname}</b>
-                        {isHost ? <span className={`${moimCls.badge} ${moimCls.badgeGreen}`}>{t("moim_schedule_host_badge")}</span> : <MoimRoleBadge role={p.role} />}
+                        {/* 일정 호스트 = gray (모임장 배지와 구분 · D-30) */}
+                        {isHost ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_schedule_host_badge")}</span> : <MoimRoleBadge role={p.role} />}
                         {self ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_members_me_badge")}</span> : null}
                       </span>
                       {showAttendance ? (
@@ -570,7 +567,7 @@ function ScheduleBody({
                               key={v}
                               type="button"
                               aria-pressed={p.attendance === v}
-                              className={`px-2.5 py-1 text-[12px] ${
+                              className={`inline-flex min-h-[length:var(--sam-tap-min)] items-center px-3 text-[12px] ${
                                 p.attendance === v
                                   ? v === "present"
                                     ? "bg-sam-primary font-bold text-sam-on-primary"
@@ -585,7 +582,7 @@ function ScheduleBody({
                         </span>
                       ) : null}
                       {manage && !started && !isHost && !self ? (
-                        <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} shrink-0`} onClick={() => removeParticipant(p)}>
+                        <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${moimCls.btnSm} shrink-0`} onClick={() => removeParticipant(p)}>
                           {t("moim_schedule_remove_btn")}
                         </button>
                       ) : null}
@@ -617,7 +614,6 @@ function ScheduleBody({
         </MoimStickyFooter>
       ) : null}
 
-      <MotivationSheet open={motivationOpen} onClose={() => setMotivationOpen(false)} onSubmit={submitMotivation} />
     </div>
   );
 }

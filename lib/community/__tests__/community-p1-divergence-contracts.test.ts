@@ -35,12 +35,13 @@ describe("community P1 divergence contracts", () => {
     expect(detail).not.toContain("createCommunityCommentReport(");
   });
 
-  it("admin comment delete uses engine comments path when asAdmin", () => {
+  it("구조 확인: 상세 화면 관리자 숨김·삭제 = 콘솔과 같은 engine comments 경로 (설계 §6.7)", () => {
     const hook = read("hooks/use-philife-post-comments.ts");
-    expect(hook).toContain("asAdmin");
+    expect(hook).toContain("moderateCommentAsAdmin");
     expect(hook).toContain("/api/admin/community/engine/comments/");
-    const item = read("components/community/post-detail/CommunityCommentItem.tsx");
-    expect(item).toContain("asAdmin: viewerIsAdmin && !isOwner");
+    const section = read("components/community/post-detail/CommunityCommentSection.tsx");
+    expect(section).toContain('onCommentAdminModerate(node.id, "hidden")');
+    expect(section).toContain('onCommentAdminModerate(node.id, "deleted")');
   });
 
   it("feed cache invalidate wired on member delete and admin hide/deleted", () => {

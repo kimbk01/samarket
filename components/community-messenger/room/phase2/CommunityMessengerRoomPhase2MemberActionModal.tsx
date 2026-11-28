@@ -16,6 +16,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { moimRoomMemberRoleKey } from "@/lib/moim/use-moim-room-owner";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -62,6 +63,11 @@ const MessengerCallChoiceSheetLazy = lazy(
 export function CommunityMessengerRoomPhase2MemberActionModal() {
   const vm = useMessengerRoomPhase2SheetsView();
   const memberActionTarget = vm.memberActionTarget;
+  /** 모임 방 = 메신저 역할(방장·부방장) 대신 모임 역할 (모임 R4 #18 · 이미 받은 /api/moim/rooms 응답 · 추가 요청 0) */
+  const moimOwner = vm.isMoimRoom ? vm.moimRoomOwner : null;
+  const moimRoleKey = memberActionTarget ? moimRoomMemberRoleKey(moimOwner, memberActionTarget.id) : null;
+  /** 모임 방 [1:1 대화]는 모임 권한 start_dm 을 따른다 (모임 R4 §5(b)③ · D-45). [통화]는 통화 규정 대상이라 그대로 */
+  const showStartDirectChat = !moimOwner || moimOwner.canStartDm !== false;
   /** 멤버에게 1:1 통화 — 통화 시트 (발신 창 통일 3판) */
   const [callSheetOpen, setCallSheetOpen] = useState(false);
   useEffect(() => {
@@ -73,11 +79,13 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
         <DibayBottomSheet
           open
           onClose={() => vm.setMemberActionTarget(null)}
-          title={memberActionTarget.label}
+          title={moimRoleKey ? `${memberActionTarget.label} · ${vm.t(moimRoleKey)}` : memberActionTarget.label}
         >
             <p className={OverlayUi.caption}>{vm.t("cm_ui_member_actions")}</p>
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-              {memberActionTarget.memberRole === "admin"
+              {moimOwner
+                ? vm.t(moimRoleKey ?? "moim_role_member")
+                : memberActionTarget.memberRole === "admin"
                 ? vm.t("nav_messenger_admin")
                 : vm.snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)
                   ? vm.t("nav_messenger_owner")
@@ -102,17 +110,20 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
             ) : null}
             <div className="mt-4 grid gap-2">
               <div className={`border-b border-[color:var(--overlay-border)] pb-1 font-semibold ${OverlayUi.caption}`}>{vm.t("cm_ui_conversation")}</div>
-              <button
-                type="button"
-                onClick={() => void vm.startDirectChatWithMember(memberActionTarget.id)}
-                disabled={vm.busy === `member-chat:${memberActionTarget.id}`}
-                className={OverlayUi.actionSheetItem}
-              >
-                <div>
-                  <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_start_direct_chat")}</p>
-                  <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_open_separate_chat_with_member")}</p>
-                </div>
-              </button>
+              {showStartDirectChat ? (
+                <button
+                  type="button"
+                  onClick={() => void vm.startDirectChatWithMember(memberActionTarget.id)}
+                  disabled={vm.busy === `member-chat:${memberActionTarget.id}`}
+                  className={OverlayUi.actionSheetItem}
+                  data-cm-member-direct-chat=""
+                >
+                  <div>
+                    <p className="text-[length:var(--overlay-body-1-size)] font-semibold leading-[1.4] text-[color:var(--overlay-text-primary)]">{vm.t("cm_ui_start_direct_chat")}</p>
+                    <p className={`mt-1 ${OverlayUi.caption}`}>{vm.t("cm_ui_open_separate_chat_with_member")}</p>
+                  </div>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setCallSheetOpen(true)}

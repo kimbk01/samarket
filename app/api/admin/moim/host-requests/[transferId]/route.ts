@@ -8,7 +8,7 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { loadAdminMoimName } from "@/lib/admin/moim/moim-admin-queries.server";
 import { moimAdminBad, moimAdminJson, moimAdminReason, moimAdminRpcResponse, moimAdminUuid } from "@/lib/admin/moim/moim-admin-route.server";
 import { moimAdminHostRequestDecide } from "@/lib/moim/server/moim-rpc.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { moimPaths, notifyMoimAfterResponse, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,27 +26,30 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const r = await moimAdminHostRequestDecide(gate.actor.userId, transferId, body.approve, reason, gate.sb);
   if (r.ok && r.moim_id) {
     const moimId = r.moim_id;
-    const name = await loadAdminMoimName(gate.sb, moimId);
-    if (r.approved && r.to_user_id) {
-      const { data: m } = await gate.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", r.to_user_id).maybeSingle();
-      await notifyMoimMany(gate.sb, r.notify_user_ids ?? [], {
-        kind: "moim_host_changed",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: transferId,
-        vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
-      });
-    }
-    if (r.requester_id) {
-      await notifyMoimMany(gate.sb, [r.requester_id], {
-        kind: "moim_host_request_result",
-        variant: r.approved ? "approved" : "declined",
-        moimId,
-        linkUrl: moimPaths.home(moimId),
-        dedupeRef: transferId,
-        vars: { moim: name },
-      });
-    }
+    /** 발송은 응답 뒤 (R2 R-e) */
+    notifyMoimAfterResponse(async () => {
+      const name = await loadAdminMoimName(gate.sb, moimId);
+      if (r.approved && r.to_user_id) {
+        const { data: m } = await gate.sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", r.to_user_id).maybeSingle();
+        await notifyMoimMany(gate.sb, r.notify_user_ids ?? [], {
+          kind: "moim_host_changed",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: transferId,
+          vars: { moim: name, name: (m as { nickname?: string } | null)?.nickname ?? "" },
+        });
+      }
+      if (r.requester_id) {
+        await notifyMoimMany(gate.sb, [r.requester_id], {
+          kind: "moim_host_request_result",
+          variant: r.approved ? "approved" : "declined",
+          moimId,
+          linkUrl: moimPaths.home(moimId),
+          dedupeRef: transferId,
+          vars: { moim: name },
+        });
+      }
+    });
   }
   return moimAdminRpcResponse(r);
 }

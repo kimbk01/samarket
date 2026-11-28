@@ -119,10 +119,12 @@ describe("I-5 · G-8 · G-10 남은 곳", () => {
       ["components/home/HomeTradeHubFloatingBar.tsx", "menuOpen"],
       ["components/community/ui/CommunityMoreMenu.tsx", "open"],
       ["components/community/ui/CommunityOwnPostMoreMenu.tsx", "open"],
-      ["components/community/post-detail/CommunityCommentItem.tsx", "menuOpen"],
     ] as const) {
       expect(read(f), f).toContain(`useRegisterOpenOverlay(${v});`);
     }
+    /** 라운지 댓글 행 메뉴는 공용 하단 시트 — `DibayOverlayRoot` 가 열린 동안 등록한다 (라운지 댓글 SSOT 감사 L18) */
+    expect(read("components/community/post-detail/CommunityCommentSection.tsx")).toContain("<DibayActionSheet");
+    expect(read("components/ui/dibay-overlay/DibayOverlayRoot.tsx")).toContain("registerOpenOverlay({ ad: adLayer })");
   });
   it("G-10: 직접 팝업 만들기·공통 화면 기간 변경 = PHT 도우미", () => {
     expect(read("components/admin/ads/AdminAdsDirectPopupCreateView.tsx")).not.toMatch(/new Date\((startAt|endAt)\)\.toISOString\(\)/);

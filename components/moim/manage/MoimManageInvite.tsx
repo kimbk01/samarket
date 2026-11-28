@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -14,10 +15,12 @@ import { moimCls } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import {
   MoimAvatar,
+  MoimListCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
+  moimCountKey,
   moimManageCardClass,
   moimManageInputClass,
   moimManageSectionTitleClass,
@@ -35,6 +38,39 @@ const EXPIRY_OPTIONS: { days: number | null; key: MessageKey }[] = [
 
 type Toast = ReturnType<typeof useMoimManageToast>;
 
+/** D-39 (시안 U6 QR): 초대 링크 카드의 QR — 브랜드 그린 · 오류 정정 M · 240px */
+export const MOIM_INVITE_QR_OPTIONS = {
+  errorCorrectionLevel: "M",
+  margin: 1,
+  width: 240,
+  color: { dark: "#0B421A", light: "#FFFFFF" },
+} as const;
+
+/** 링크 QR 이미지 — 만들지 못하면 아무 것도 그리지 않는다(링크 복사·공유는 그대로) */
+function MoimInviteQr({ url, alt }: { url: string; alt: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setSrc(null);
+    if (!url) return;
+    QRCode.toDataURL(url, MOIM_INVITE_QR_OPTIONS)
+      .then((d) => {
+        if (alive) setSrc(d);
+      })
+      .catch(() => {
+        if (alive) setSrc(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  if (!src) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} width={240} height={240} className="mt-3 h-[240px] w-[240px] max-w-full rounded-ui-rect border border-sam-border bg-white" />
+  );
+}
+
 /** 초대 링크 = 운영 주소 `/moim/i/{token}` (통합 공유 S1 — window.location 미사용) */
 function inviteUrl(token: string): string {
   return buildShareUrl({ kind: "moim_invite", token }) ?? "";
@@ -48,6 +84,8 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
   const [expiryDays, setExpiryDays] = useState<number | null>(7);
   const [busy, setBusy] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<MoimInviteLinkDto | null>(null);
+  /** D-39: QR 을 펼친 링크 (한 번에 하나) */
+  const [qrLinkId, setQrLinkId] = useState<string | null>(null);
   const [now, setNow] = useState(0);
   const [canShare, setCanShare] = useState(false);
 
@@ -114,7 +152,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
               type="button"
               role="radio"
               aria-checked={expiryDays === o.days}
-              className={`${expiryDays === o.days ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} shrink-0 whitespace-nowrap rounded-ui-rect`}
+              className={`${expiryDays === o.days ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
               onClick={() => setExpiryDays(o.days)}
             >
               {t(o.key)}
@@ -135,6 +173,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
       {state.status === "loading" ? <MoimManageLoading /> : null}
       {state.status === "error" ? <MoimManageError errorKey={state.errorKey} onRetry={reload} /> : null}
       {state.status === "ready" && state.data.links.length === 0 ? <MoimManageEmpty textKey="moim_manage_invite_links_empty" /> : null}
+      {state.status === "ready" ? <MoimListCappedHint show={state.data.capped} /> : null}
       {state.status === "ready" && state.data.links.length > 0 ? (
         <ul className="mt-3 flex flex-col gap-2 px-4">
           {state.data.links.map((link) => {
@@ -148,7 +187,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
                   <span>
                     {link.expiresAt ? t("moim_manage_invite_expires_at", { date: fmt(link.expiresAt) }) : t("moim_manage_invite_expiry_none_chip")}
                   </span>
-                  {expired ? <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t("moim_manage_invite_expired_badge")}</span> : null}
+                  {expired ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_invite_expired_badge")}</span> : null}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {!expired ? (
@@ -161,12 +200,21 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
                           {t("moim_manage_invite_share_btn")}
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        aria-expanded={qrLinkId === link.id}
+                        className={`${moimCls.btnSecondary} ${moimCls.btnSm}`}
+                        onClick={() => setQrLinkId((cur) => (cur === link.id ? null : link.id))}
+                      >
+                        {qrLinkId === link.id ? t("moim_manage_invite_qr_hide_btn") : t("moim_manage_invite_qr_btn")}
+                      </button>
                     </>
                   ) : null}
                   <button type="button" className={`${moimCls.btnDanger} ${moimCls.btnSm}`} onClick={() => setRevokeTarget(link)}>
                     {t("moim_manage_invite_revoke_btn")}
                   </button>
                 </div>
+                {!expired && qrLinkId === link.id ? <MoimInviteQr url={inviteUrl(link.token)} alt={t("moim_manage_invite_qr_alt", { name: detail.name })} /> : null}
               </li>
             );
           })}
@@ -242,7 +290,7 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
     }
     setSending(false);
     setSelected(new Set());
-    if (okCount > 0) toast.show(t("moim_manage_invite_sent_toast", { count: okCount }), "success");
+    if (okCount > 0) toast.show(t(moimCountKey(okCount, "moim_manage_invite_sent_toast", "moim_manage_invite_sent_toast_one"), { count: okCount }), "success");
   };
 
   return (

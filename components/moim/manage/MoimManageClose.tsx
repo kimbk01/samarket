@@ -8,7 +8,7 @@ import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { moimCls } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
-import { MoimManageFrame, moimManageCardClass, moimManageInputClass, useMoimManageToast } from "./moim-manage-shared";
+import { MoimManageFrame, moimCountKey, moimManageCardClass, moimManageInputClass, useMoimManageToast } from "./moim-manage-shared";
 
 const POINTS: MessageKey[] = [
   "moim_manage_close_point_rooms",
@@ -21,7 +21,7 @@ const POINTS: MessageKey[] = [
 /** 「기록은 멤버만 N일」 — N 은 운영 정책값(어드민에서 바꾸면 그대로 따라감), 정책이 비어 있으면 기간 없는 문구 */
 function pointText(t: ReturnType<typeof useI18n>["t"], k: MessageKey, days: number | null): string {
   if (k !== "moim_manage_close_point_records") return t(k);
-  return days ? t(k, { days }) : t("moim_manage_close_point_records_nolimit");
+  return days ? t(moimCountKey(days, k, "moim_manage_close_point_records_one"), { days }) : t("moim_manage_close_point_records_nolimit");
 }
 
 function CloseBody({ detail }: { detail: MoimDetailDto }) {

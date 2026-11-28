@@ -5,7 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { UserBlockButton } from "@/components/community/UserBlockButton";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { DibayToast } from "@/components/ui/dibay-overlay";
-import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 
@@ -19,14 +20,11 @@ export function PublicProfileSafetyActions({
 }) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  const [mounted, setMounted] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  /** 지금 보는 회원 = 회원 상태 SSOT — 확인 중에는 숨김(내 프로필에서 신고·차단이 잠깐 보이던 결함 D2) */
+  const membership = useClientMembershipState("public-profile-safety");
+  const me = membership.status === "member" ? membership.profile : null;
 
   useEffect(() => {
     if (!toast) return;
@@ -34,7 +32,7 @@ export function PublicProfileSafetyActions({
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  if (!targetUserId || me?.id === targetUserId) return null;
+  if (!targetUserId || membership.status === "checking" || me?.id === targetUserId) return null;
 
   const openReport = async () => {
     if (!getCurrentUser()?.id) {

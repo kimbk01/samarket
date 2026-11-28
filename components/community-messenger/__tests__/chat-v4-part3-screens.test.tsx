@@ -9,8 +9,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
+const routerPush = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/community-messenger",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -225,15 +226,28 @@ describe("「7. 채팅 설정」", () => {
     expect(props.onOpenPage).toHaveBeenNthCalledWith(2, "meeting");
   });
 
-  it("상세: 통화(수신 벨·화면 안내·기기) · 모임(찾기·만들기) · 친구(연락처 동기화 진입·즐겨찾기·친구 관리)", () => {
+  it("상세: 통화(수신 벨·화면 안내·기기) · 모임·오픈채팅(4줄) · 친구(연락처 동기화 진입·즐겨찾기·친구 관리)", () => {
     const call = baseProps({ page: "call" });
     render(<MessengerSettingsScreen {...call} />);
     expect(document.querySelector("[data-device-settings]")).not.toBeNull();
     click(document.querySelector('[role="switch"][aria-label="수신 통화 화면 안내"]'));
     expect(call.onIncomingCallBannerChange).toHaveBeenCalledWith(true);
 
+    // 「모임·오픈채팅」 4줄 (모임 R4 D-42): 모임 찾기·만들기 = 모임 탭 · 오픈채팅 찾기·만들기 = 메신저 오픈채팅
     const meeting = baseProps({ page: "meeting" });
     render(<MessengerSettingsScreen {...meeting} />);
+    expect(
+      [...document.querySelectorAll("[data-cm-settings-nav]")].map((el) => el.getAttribute("data-cm-settings-nav"))
+    ).toEqual(["moim-find", "moim-create", "meeting-find", "meeting-create"]);
+    expect(document.body.textContent).toContain("모임·오픈채팅");
+    routerPush.mockClear();
+    click(document.querySelector('[data-cm-settings-nav="moim-find"]'));
+    click(document.querySelector('[data-cm-settings-nav="moim-create"]'));
+    expect(routerPush.mock.calls.map((c) => c[0])).toEqual(["/moim", "/moim/new"]);
+    expect(meeting.onOpenOpenChatDiscovery).not.toHaveBeenCalled();
+    expect(meeting.onOpenOpenGroupCreate).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-cm-settings-nav="meeting-find"]')?.textContent).toContain("오픈채팅 찾기");
+    expect(document.querySelector('[data-cm-settings-nav="meeting-create"]')?.textContent).toContain("오픈채팅 만들기");
     click(document.querySelector('[data-cm-settings-nav="meeting-find"]'));
     click(document.querySelector('[data-cm-settings-nav="meeting-create"]'));
     expect(meeting.onOpenOpenChatDiscovery).toHaveBeenCalledTimes(1);

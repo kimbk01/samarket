@@ -11,6 +11,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  resolveCommunityCommentModerationKind,
+  type CommunityCommentModerationKind,
+} from "@/lib/community-feed/comment-display";
+import { buildCommunityCommentPath } from "@/lib/community/share/community-share-url";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import {
   AdminManagementSelectionCheckbox,
@@ -28,7 +33,6 @@ import {
   CommunityListPagination,
   CommunityListShell,
   CommunitySelect,
-  CommunityStatusBadge,
   CommunityTable,
   CommunityTabs,
   CommunityTimeCell,
@@ -73,8 +77,25 @@ type CommunityCommentRow = {
   kind?: "comment" | "reply" | null;
   parent_content_preview?: string | null;
   report_count?: number | null;
+  open_report_count?: number | null;
   reported?: boolean | null;
+  moderation_kind?: CommunityCommentModerationKind | null;
+  moderator_label?: string | null;
+  moderated_at?: string | null;
+  moderation_reason?: string | null;
 };
+
+/** 상태 배지 4종 (설계 §6.7) */
+const MODERATION_BADGE: Record<CommunityCommentModerationKind, { key: MessageKey; tone: "success" | "neutral" | "danger" | "warning" }> = {
+  active: { key: "admin_community_comments_state_active", tone: "success" },
+  deleted_by_author: { key: "admin_community_comments_state_deleted_by_author", tone: "neutral" },
+  deleted_by_admin: { key: "admin_community_comments_state_deleted_by_admin", tone: "danger" },
+  hidden: { key: "admin_community_comments_state_hidden", tone: "warning" },
+};
+
+function moderationKindOf(r: CommunityCommentRow): CommunityCommentModerationKind {
+  return r.moderation_kind ?? resolveCommunityCommentModerationKind(r);
+}
 
 type Action = { kind: "hide" | "restore" | "delete"; ids: string[] };
 
@@ -217,7 +238,11 @@ export function AdminCommunityCommentsPage() {
   const runAction = useCallback(
     async (a: Action, reason: string) => {
       const status = NEXT_STATUS[a.kind];
-      const targets = rows.filter((r) => a.ids.includes(r.id));
+      const picked = rows.filter((r) => a.ids.includes(r.id));
+      /** 작성자가 지운 댓글은 복구하지 않는다 (감사 L16) — 묶음 처리에서 빼고 몇 건 뺐는지 알린다 */
+      const targets =
+        a.kind === "restore" ? picked.filter((r) => moderationKindOf(r) !== "deleted_by_author") : picked;
+      const skippedAuthorDeleted = picked.length - targets.length;
       let okCount = 0;
       let stale = 0;
       const fails: string[] = [];
@@ -233,10 +258,11 @@ export function AdminCommunityCommentsPage() {
       // 한 건 처리에서 충돌이면 시트가 「다른 관리자가 먼저」로 정리한다
       if (targets.length === 1 && stale === 1) return { ok: false as const, status: 409, code: "conflict" };
       const label = tr(ACTION_LABEL[a.kind]);
-      if (okCount === targets.length) {
+      if (okCount === targets.length && skippedAuthorDeleted === 0) {
         setBanner({ ok: true, message: tr("admin_community_comments_bulk_done", { n: targets.length, label }) });
       } else {
         const parts = [
+          skippedAuthorDeleted ? tr("admin_community_comments_bulk_author_deleted_skipped", { n: skippedAuthorDeleted }) : "",
           stale ? tr("admin_community_comments_bulk_stale", { n: stale }) : "",
           fails.length ? tr("admin_community_comments_bulk_failed", { n: fails.length, list: [...new Set(fails)].join(", ") }) : "",
         ].filter(Boolean);
@@ -294,6 +320,8 @@ export function AdminCommunityCommentsPage() {
 
   const rowButtons = (r: CommunityCommentRow) => {
     const status = String(r.status ?? "active");
+    const kind = moderationKindOf(r);
+    const pid = String(r.post_id ?? "");
     return (
       <span className="flex flex-wrap gap-1">
         {status === "active" ? (
@@ -306,6 +334,9 @@ export function AdminCommunityCommentsPage() {
           >
             {tr("admin_community_comments_row_hide")}
           </AdminActionButton>
+        ) : kind === "deleted_by_author" ? (
+          // 작성자가 지운 댓글은 되살리지 않는다 (감사 L16)
+          <AdminToneBadge tone="neutral">{tr("admin_community_comments_no_restore")}</AdminToneBadge>
         ) : (
           <AdminActionButton
             variant="secondary"
@@ -329,6 +360,16 @@ export function AdminCommunityCommentsPage() {
           >
             {tr("admin_community_comments_row_delete")}
           </AdminActionButton>
+        ) : null}
+        {pid ? (
+          <a
+            href={buildCommunityCommentPath(pid, r.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-ui-rect border border-sam-border px-2 py-1 text-[12px] text-sam-info hover:underline"
+          >
+            {tr("admin_community_comments_open_in_app")}
+          </a>
         ) : null}
       </span>
     );
@@ -415,7 +456,18 @@ export function AdminCommunityCommentsPage() {
                 <CommunityAuthorCell userId={r.user_id} nickname={r.author_nickname ?? r.author_label} handle={r.author_username} />
               </td>
               <td className={COMMUNITY_TD}>
-                <CommunityStatusBadge domain="content_status" value={r.status ?? "active"} ko={ko} />
+                <AdminToneBadge tone={MODERATION_BADGE[moderationKindOf(r)].tone}>
+                  {tr(MODERATION_BADGE[moderationKindOf(r)].key)}
+                </AdminToneBadge>
+                {moderationKindOf(r) === "deleted_by_author" ? (
+                  <span className="mt-1 block text-[12px] text-sam-muted">{tr("admin_community_comments_handled_by_author")}</span>
+                ) : moderationKindOf(r) !== "active" || r.moderator_label ? (
+                  <span className="mt-1 block text-[12px] text-sam-muted">
+                    {r.moderator_label ? tr("admin_community_comments_handled_by", { name: r.moderator_label }) : null}
+                    {r.moderated_at ? <> · <CommunityTimeCell iso={r.moderated_at} /></> : null}
+                    {r.moderation_reason ? <span className="block">{r.moderation_reason}</span> : null}
+                  </span>
+                ) : null}
               </td>
               <td className={`${COMMUNITY_TD} tabular-nums`}>
                 {reportCount > 0 ? (
@@ -423,7 +475,10 @@ export function AdminCommunityCommentsPage() {
                     href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
                     className="font-semibold text-sam-warning hover:underline"
                   >
-                    {reportCount}
+                    {tr("admin_community_comments_reports_open_total", {
+                      open: Number(r.open_report_count ?? 0),
+                      total: reportCount,
+                    })}
                   </Link>
                 ) : (
                   <span className="text-sam-muted">0</span>

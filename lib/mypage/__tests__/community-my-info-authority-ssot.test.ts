@@ -18,24 +18,20 @@ describe("CUT1 Community My Info authority SSOT", () => {
       "liked-posts",
       "favorite-posts",
       "community-friends",
+      "community-friends-manage",
       "reports",
     ]);
   });
 
-  it("My 관심이웃 reads neighbor_follow and does not use user_favorites", () => {
+  it("My 관심이웃 reads neighbor_follow via the shared list function; user_favorites is gone (구조 확인)", () => {
     const relations = read("app/api/me/relations/[type]/route.ts");
     expect(relations).toContain('type === "neighbor"');
-    expect(relations).toContain("neighbor_follow");
+    expect(relations).toContain("listNeighborFollowRows");
     expect(relations).toContain('source: "user_relationships.neighbor_follow"');
-    const neighborBlock = relations.slice(
-      relations.indexOf('if (type === "neighbor")'),
-      relations.indexOf('const { table, column } = LEGACY_RELATION_CONFIG.favorite')
-    );
-    expect(neighborBlock).toContain("user_relationships");
-    expect(neighborBlock).not.toContain("user_favorites");
+    expect(relations).not.toContain("user_favorites");
 
     const communityTab = read("components/mypage/tabs/CommunityTab.tsx");
-    expect(communityTab).toContain('type="neighbor"');
+    expect(communityTab).toContain("NeighborFollowScreen");
     expect(communityTab).not.toContain('type="favorite"');
   });
 
@@ -67,20 +63,14 @@ describe("CUT1 Community My Info authority SSOT", () => {
     expect(tab).toContain("unlikePost");
   });
 
-  it("neighbor remove uses the same user_relationships authority as detail CTA", () => {
+  it("neighbor add/remove = one state-set POST (detail·profile·My 관리 공통), no DELETE path (구조 확인)", () => {
     const relations = read("app/api/me/relations/[type]/route.ts");
     const detail = read("app/api/community/neighbor-relations/route.ts");
-    expect(detail).toContain('from("user_relationships")');
-    expect(detail).toContain("neighbor_follow");
-    expect(relations).toContain('from("user_relationships")');
-    expect(relations).toMatch(/type === "neighbor"[\s\S]*\.delete\(\)/);
-  });
-
-  it("user_favorites remains only for legacy favorite relation type", () => {
-    const relations = read("app/api/me/relations/[type]/route.ts");
-    expect(relations).toContain('favorite: { table: "user_favorites"');
-    expect(relations).toMatch(/LEGACY_RELATION_CONFIG[\s\S]*user_favorites/);
-    const communityTab = read("components/mypage/tabs/CommunityTab.tsx");
-    expect(communityTab).not.toContain("user_favorites");
+    /** 추가·해제 = DB 함수 한 번(상한·차단·탈퇴를 한 트랜잭션 — 전체 수정 설계 v2 §5-2) */
+    expect(detail).toContain('rpc("neighbor_follow_set_for"');
+    expect(detail).toContain("following_required");
+    expect(relations).not.toMatch(/type === "neighbor"[\s\S]*\.delete\(\)/);
+    const store = read("lib/community/neighbor-follow-store.ts");
+    expect(store).toContain("JSON.stringify({ targetUserId: k, following })");
   });
 });

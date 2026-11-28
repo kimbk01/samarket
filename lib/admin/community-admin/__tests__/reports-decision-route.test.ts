@@ -172,10 +172,13 @@ describe("community write gate", () => {
         : { data: null, error: null };
     const res = await assertCommunityWriteAllowed("u1", "comment");
     expect(res?.status).toBe(403);
-    const j = (await res!.json()) as { error: string; restriction: string; messageKo: string };
+    const j = (await res!.json()) as { error: string; code?: string; restriction: string; messageKo?: string; params?: { until?: string } };
     expect(j.error).toBe("community_restricted");
     expect(j.restriction).toBe("all");
-    expect(j.messageKo).toContain("커뮤니티 활동이 제한되어 있습니다");
+    /** 문장 대신 코드만 — 라운지 댓글 감사 L1 (i18n SSOT §3-3) */
+    expect(j.code).toBe("community_restricted");
+    expect(j.messageKo).toBeUndefined();
+    expect(j.params?.until).toBe("2026-10-26T00:00:00Z");
     const call = fake.calls.find((c) => c.table === "sanctions")!;
     expect(call.filters).toContainEqual(["in", "restriction", ["comment", "all"]]);
   });

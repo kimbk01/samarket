@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { listNeighborFollowRows } from "@/lib/community/neighbor-follow-list.server";
 import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -18,14 +19,14 @@ import { internalErrorResponse } from "@/lib/security/internal-error-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type RelationType = "favorite" | "hidden" | "blocked" | "neighbor";
-
-const LEGACY_RELATION_CONFIG: Record<"favorite", { table: string; column: string }> = {
-  favorite: { table: "user_favorites", column: "favorite_user_id" },
-};
+/**
+ * 내정보 관계 목록 — 차단·숨김(조회·해제) · 관심이웃(조회만; 추가·해제는 `POST /api/community/neighbor-relations` 상태 지정).
+ * 옛 「모아보는 사용자」(`favorite`, 운영에 없는 표를 읽던 목록)는 삭제 (관심이웃 설계 B · Owner 「시안대로 결정」 2026-11-28).
+ */
+type RelationType = "hidden" | "blocked" | "neighbor";
 
 function getRelationType(raw: string): RelationType | null {
-  if (raw === "favorite" || raw === "hidden" || raw === "blocked" || raw === "neighbor") return raw;
+  if (raw === "hidden" || raw === "blocked" || raw === "neighbor") return raw;
   return null;
 }
 
@@ -167,55 +168,21 @@ export async function GET(
   }
 
   if (type === "neighbor") {
-    const { data, error } = await (sb.from("user_relationships") as any)
-      .select("id, target_user_id, created_at")
-      .eq("user_id", auth.userId)
-      .or("relation_type.eq.neighbor_follow,type.eq.neighbor_follow")
-      .order("created_at", { ascending: false });
-    if (error) {
-      if (isMissingTableError(error.message ?? "", "user_relationships")) {
+    /** 관심이웃 = 저장 행(탈퇴·차단 상대 행은 DB 트리거가 지움 — 전체 수정 설계 v2 §5-3). 프로필은 아래 신원 조회 1회만 */
+    const visible = await listNeighborFollowRows(sb, auth.userId);
+    if (!visible.ok) {
+      if (isMissingTableError(visible.error, "user_relationships")) {
         return NextResponse.json({ ok: true, items: [], source: "missing_table" });
       }
-      return internalErrorResponse("neighbor_fetch_failed", "[me/relations GET neighbor]", error);
+      return internalErrorResponse("neighbor_fetch_failed", "[me/relations GET neighbor]", new Error(visible.error));
     }
-    const relationRows = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
-      .map((row) => ({
-        id: String(row.id ?? "").trim(),
-        targetId: String(row.target_user_id ?? "").trim(),
-        createdAt: String(row.created_at ?? ""),
-      }))
-      .filter((row) => row.id && row.targetId);
-    const targetIds = relationRows.map((row) => row.targetId);
+    const targetIds = visible.rows.map((row) => row.targetId);
     const profileMap = await fetchProfileMap(sb, targetIds);
-    const items = mapProfilesToRelationItems(relationRows, profileMap);
+    const items = mapProfilesToRelationItems(visible.rows, profileMap);
     return NextResponse.json({ ok: true, items, source: "user_relationships.neighbor_follow" });
   }
 
-  const { table, column } = LEGACY_RELATION_CONFIG.favorite;
-  const { data, error } = await (sb.from(table) as any)
-    .select(`id, ${column}, created_at`)
-    .eq("user_id", auth.userId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    if (isMissingTableError(error.message ?? "", table)) {
-      return NextResponse.json({ ok: true, items: [], source: "missing_table" });
-    }
-    return internalErrorResponse("relation_fetch_failed", "[me/relations GET]", error);
-  }
-
-  const relationRows = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
-    .map((row) => ({
-      id: String(row.id ?? "").trim(),
-      targetId: String(row[column] ?? "").trim(),
-      createdAt: String(row.created_at ?? ""),
-    }))
-    .filter((row) => row.id && row.targetId);
-  const targetIds = relationRows.map((row) => row.targetId);
-  const profileMap = await fetchProfileMap(sb, targetIds);
-  const items = mapProfilesToRelationItems(relationRows, profileMap);
-
-  return NextResponse.json({ ok: true, items, source: "db" });
+  return NextResponse.json({ ok: false, error: "invalid_relation_type" }, { status: 400 });
 }
 
 export async function DELETE(
@@ -259,50 +226,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   }
 
-  if (type === "neighbor") {
-    if (!relationId) {
-      return NextResponse.json({ ok: false, error: "missing_relation_id" }, { status: 400 });
-    }
-    const sbNeighbor = tryCreateSupabaseServiceClient();
-    if (!sbNeighbor) {
-      return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-    }
-    const { data: row } = await (sbNeighbor.from("user_relationships") as any)
-      .select("id, user_id, type, relation_type")
-      .eq("id", relationId)
-      .eq("user_id", auth.userId)
-      .maybeSingle();
-    const rel = row as { id?: string; type?: string; relation_type?: string } | null;
-    const isNeighbor =
-      rel &&
-      (String(rel.relation_type ?? "") === "neighbor_follow" || String(rel.type ?? "") === "neighbor_follow");
-    if (!isNeighbor) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
-    const { error } = await sbNeighbor.from("user_relationships").delete().eq("id", relationId).eq("user_id", auth.userId);
-    if (error) {
-      return internalErrorResponse("neighbor_remove_failed", "[me/relations DELETE neighbor]", error);
-    }
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!relationId) {
-    return NextResponse.json({ ok: false, error: "missing_relation_id" }, { status: 400 });
-  }
-
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-
-  const { table } = LEGACY_RELATION_CONFIG.favorite;
-  const { error } = await sb.from(table).delete().eq("id", relationId).eq("user_id", auth.userId);
-  if (error) {
-    if (isMissingTableError(error.message ?? "", table)) {
-      return NextResponse.json({ ok: true });
-    }
-    return internalErrorResponse("relation_delete_failed", "[me/relations DELETE]", error);
-  }
-
-  return NextResponse.json({ ok: true });
+  /** 관심이웃 해제는 상태 지정 POST 한 곳 (관심이웃 설계 A) */
+  return NextResponse.json({ ok: false, error: "invalid_relation_type" }, { status: 400 });
 }

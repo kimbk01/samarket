@@ -529,16 +529,11 @@ describe("S14 관심·차단·숨김 — 해제 확인", () => {
     expect(q("user-relation-release")).toBeNull();
   });
 
-  it("관심·숨김 문구", async () => {
+  it("숨김 문구 (옛 「모아보는 사용자」 favorite 목록은 관심이웃으로 합쳐 삭제)", async () => {
     setup();
     mount(<UserListContent type="hidden" emptyMessage="없음" />);
     await flush(6);
     expect(q("user-relation-release")?.textContent).toBe("숨김 해제");
-    act(() => root!.unmount());
-    root = createRoot(host!);
-    mount(<UserListContent type="favorite" emptyMessage="없음" />);
-    await flush(6);
-    expect(q("user-relation-release")?.textContent).toBe("관심 해제");
   });
 });
 

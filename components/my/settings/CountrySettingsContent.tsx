@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -15,8 +15,12 @@ import {
 type CountryOption = { code: string; name: string };
 
 export function CountrySettingsContent() {
+  return <SettingsMemberGate source="settings-country">{(userId) => <CountrySettingsContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function CountrySettingsContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
   const fallbackCountries = useMemo(
     (): CountryOption[] => [
       { code: "PH", name: t("settings_country_ph") },

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { PublicProfileNeighborFollow } from "@/components/users/PublicProfileNeighborFollow";
 import Link from "next/link";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
@@ -34,6 +35,10 @@ export function PublicUserProfileView({
             ) : null}
           </div>
         </div>
+        <PublicProfileNeighborFollow
+          targetUserId={profile.id}
+          name={profile.nickname ?? t("profile_no_nickname")}
+        />
       </div>
 
       <section className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface">

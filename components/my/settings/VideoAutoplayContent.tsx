@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -14,8 +14,12 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { VideoAutoplayMode } from "@/lib/types/settings-db";
 
 export function VideoAutoplayContent() {
+  return <SettingsMemberGate source="settings-video-autoplay">{(userId) => <VideoAutoplayContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function VideoAutoplayContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
   const [mode, setMode] = useState<VideoAutoplayMode>("wifi_only");
 
   const options = useMemo(

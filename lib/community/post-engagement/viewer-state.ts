@@ -109,7 +109,7 @@ export async function fetchCommunityPostViewerStatesBatch(
           .from("user_relationships")
           .select("target_user_id")
           .eq("user_id", uid)
-          .or("relation_type.eq.neighbor_follow,type.eq.neighbor_follow")
+          .eq("type", "neighbor_follow")
           .in(
             "target_user_id",
             [...new Set([...authorIdByPostId.values()].filter(Boolean))]

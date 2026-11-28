@@ -302,6 +302,35 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
   return [...ids];
 }
 
+/**
+ * 행위자와 어느 쪽이든 활성 차단인 사람만 골라낸다(여러 명 알림 발송 — 받는 사람마다 따로 묻지 않음, 모임 R2 N-08a).
+ * 판정은 `listBlockedByMeIds` 와 같은 SSOT(`user_social_relations` 활성 차단)이고, 50명씩 1회 조회한다(주소 길이).
+ * 조회 오류면 null — 호출부가 정한다.
+ */
+export async function listBlockedEitherWayAmong(actorUserId: string, candidateIds: string[]): Promise<Set<string> | null> {
+  const actor = trimText(actorUserId);
+  const ids = [...new Set(candidateIds.map(trimText).filter((id) => id && id !== actor))];
+  const out = new Set<string>();
+  if (!actor || !ids.length) return out;
+  const sb = getSupabaseOrNull();
+  if (!sb) return null;
+  for (let i = 0; i < ids.length; i += 50) {
+    const part = ids.slice(i, i + 50).join(",");
+    const { data, error } = await (sb as any)
+      .from("user_social_relations")
+      .select("owner_user_id, target_user_id, is_active, relation_type")
+      .eq("relation_type", "blocked")
+      .or(`and(owner_user_id.eq.${actor},target_user_id.in.(${part})),and(owner_user_id.in.(${part}),target_user_id.eq.${actor})`);
+    if (error) return null;
+    for (const row of (data ?? []) as Array<{ owner_user_id?: string; target_user_id?: string; is_active?: boolean | null; relation_type?: string }>) {
+      if (!isActiveSocialBlockRow(row)) continue;
+      const other = trimText(row.owner_user_id) === actor ? trimText(row.target_user_id) : trimText(row.owner_user_id);
+      if (other) out.add(other);
+    }
+  }
+  return out;
+}
+
 export type HiddenUserRelationshipRow = {
   id: string;
   targetUserId: string;
@@ -796,6 +825,12 @@ export async function blockUserSocial(
   if (error) return { ok: false, error: String(error.message ?? "block_failed") };
 
   await syncLegacyBlockRow(sb, owner, target, true);
+
+  /**
+   * 관심이웃(neighbor_follow) 양방향 삭제는 DB 트리거가 한다 — 이 함수가 쓰는 `user_social_relations` 차단 행
+   * (`trg_usr_blocked_clears_neighbor_follow`, `supabase/migrations/20271128250000_neighbor_follow_invariants.sql`).
+   * 예전 이 자리의 삭제 사본은 규칙 두 벌이었다(감사 R1 · 전체 수정 설계 v2 §5-3).
+   */
 
   /** F-3 — 본인이 상대를 즐겨찾기한 행만 삭제. 상대→나 즐겨찾기는 보존. */
   const { error: favErr } = await (sb as any)

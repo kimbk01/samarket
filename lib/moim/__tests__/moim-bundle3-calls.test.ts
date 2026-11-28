@@ -108,8 +108,13 @@ describe("E3 상세 API 조회 수 (멤버 · 글 있음 · 활성 모임)", () 
     expect(d?.recentPosts).toHaveLength(2);
     expect(d?.recentPosts[0]?.boardKind).toBe("free");
     expect(sb.calls.filter((t) => t === "moim_boards")).toHaveLength(1);
-    // 접근 3 + 병렬 9 + 작성자·일정 2 = 14 (이전: 게시판 3번·작성자 2번 = 16)
-    expect(sb.calls).toHaveLength(14);
+    // 접근 3 + 병렬 7 + 작성자 1 = 11 (이전: 게시판 3번·작성자 2번 = 16 → E3 14)
+    // R4 #7·8: 멤버는 가입 신청 대기·차단 여부·다가오는 일정 미리보기를 읽지 않는다(14 → 11)
+    // 정책 1행(moim_policies)은 프로세스 공유 캐시라 첫 요청에만 읽는다 — 요청마다 세는 수에서 뺀다
+    expect(sb.calls.filter((t) => t !== "moim_policies")).toHaveLength(11);
+    expect(sb.calls).not.toContain("moim_join_requests");
+    expect(sb.calls).not.toContain("moim_bans");
+    expect(sb.calls).not.toContain("moim_schedules");
   });
 });
 
