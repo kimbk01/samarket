@@ -111,8 +111,8 @@
 
 ## 7. 실시간 · 요청 예산
 - 고객: 문의 표 실시간 구독 없음(서버 API 만). FAB·「내 문의」는 4절 신호로만 다시 읽음(support_* 알림 행일 때만 — 다른 알림 읽음으로는 안 읽음).
-- 어드민: 공통 구독(Provider) **1곳**만 support 권한일 때 `support_messages` INSERT·`support_cases` INSERT/UPDATE/DELETE·내 `admin_notifications` 를 받는다(`admin_notifications` 실시간 등록 = 마이그레이션 `20271129100000`). 콘솔은 자기 구독 없이 공통 구독의 창 이벤트로 받는다. 다시 읽기는 목록에 있는 문의면 보이는 값(상태·담당·마지막 글·우선순위·어드민 미읽음)이 바뀔 때만. 목록 밖 문의는 새 상태가 지금 탭에 속하면 바로(실시간 이전 값이 없어 탭에 새로 들어온 것인지 알 수 없음 — 「전체」 탭은 늘 바로), 아니면 30초에 1번(탭 숫자 맞춤). 내 작업 메아리: 문의 행은 보내는 동안만, 내가 쓴 글은 보낸 뒤 3초까지 건너뜀. 공통 구독은 글 INSERT 마다 숫자를 1번 다시 읽는다(300ms 묶음). 읽음 처리는 값이 바뀔 때만 UPDATE. 콘솔 목록은 가장 최근 요청 응답만 그리고, 열린 문의의 상태·담당이 다른 곳에서 바뀌거나 `case_updated`·`case_closed`·`status_conflict`·`invalid_transition` 이면 상세를 다시 읽는다.
-- 요청 예산(`lib/perf/request-budget.ts` · `docs/request-budget-ssot.md`): `/api/support/cases` 3 · `/api/support/cases/[caseId]` 7 · `/api/support/cases/open` 7 · `/api/admin/support/cases` 12 · `/api/admin/support/cases/[caseId]` 13 (답변 1회는 16~20 — 열람이 더 잦아 평균 아래라는 계산, 7일 뒤 Vercel 값으로 확인).
+- 어드민: 공통 구독(Provider) **1곳**만 support 권한일 때 `support_messages` INSERT·`support_cases` INSERT/UPDATE/DELETE·내 `admin_notifications` 를 받는다(`admin_notifications` 실시간 등록 = 마이그레이션 `20271129100000`). 콘솔은 자기 구독 없이 공통 구독의 창 이벤트로 받는다. 다시 읽기는 목록에 있는 문의면 보이는 값(상태·담당·마지막 글·우선순위·어드민 미읽음)이 바뀔 때만. 목록 밖 문의는 새 상태가 지금 탭에 속하면 바로(실시간 이전 값이 없어 탭에 새로 들어온 것인지 알 수 없음 — 「전체」 탭은 늘 바로), 아니면 30초에 1번(탭 숫자 맞춤). 내 작업 메아리: 문의 행은 보내는 동안만, 내가 쓴 글은 보낸 뒤 3초까지 건너뜀. 공통 구독은 글 INSERT 마다 숫자를 1번 다시 읽는다(300ms 묶음). 읽음 처리는 값이 바뀔 때만 UPDATE. 콘솔 목록은 가장 최근 요청 응답만 그리고, 열린 문의의 상태·담당이 다른 곳에서 바뀌거나 `case_updated`·`case_closed`·`status_conflict`·`invalid_transition`·`invalid_seen_last_message_at` 이면 상세를 다시 읽는다.
+- 요청 예산(`lib/perf/request-budget.ts` · `docs/request-budget-ssot.md`): `/api/support/cases` 3 · `/api/support/cases/[caseId]` 7 · `/api/support/cases/open` 7 · `/api/admin/support/cases` 12 · `/api/admin/support/cases/[caseId]` 13 (답변 1회는 15~19 · 사장님 「내 문의」 첫 페이지는 4~5 로 1회 기준 넘음 — 열람이 더 잦아 평균 아래라는 계산, 7일 뒤 Vercel 값으로 확인).
 
 ## 8. 보관 · 정리
 - `support_cases`·`support_messages`·`support_case_events`(본 시각·수정 원문 포함) = 업무 기록, **정리하지 않는다**(문의 삭제 시 함께 삭제).

@@ -37,23 +37,44 @@ type RequestSpec = {
 /** 요청 id — 단일 정의 `support-request-id.ts` (고객 창·어드민 같은 함수) */
 export { newSupportRequestId } from "@/lib/support/support-request-id";
 
-async function fetchWithTimeout(spec: RequestSpec, timeoutMs: number): Promise<Response> {
+/** 한 요청 작업(보내기 + 본문 읽기 + 401 세션 살리기 + 다시 보내기) 전체의 마감 — 넘으면 끊고 network_error */
+class SupportOpDeadline extends Error {}
+
+function startDeadline(timeoutMs: number) {
   const abort = new AbortController();
   const host = typeof window !== "undefined" ? window : globalThis;
-  const timer = host.setTimeout(() => abort.abort(), timeoutMs);
-  try {
-    return await fetch(spec.url, {
-      method: spec.method ?? "GET",
-      credentials: "include",
-      ...(spec.cache ? { cache: spec.cache } : {}),
-      ...(spec.body !== undefined
-        ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(spec.body) }
-        : {}),
-      signal: abort.signal,
-    });
-  } finally {
-    host.clearTimeout(timer);
-  }
+  let fire: () => void = () => undefined;
+  const expired = new Promise<never>((_, reject) => {
+    fire = () => reject(new SupportOpDeadline("deadline"));
+  });
+  // 마감이 오기 전에 끝나면 이 promise 는 아무도 기다리지 않는다 — 처리 안 된 거절 경고 방지
+  expired.catch(() => undefined);
+  const timer = host.setTimeout(() => {
+    abort.abort();
+    fire();
+  }, timeoutMs);
+  return {
+    signal: abort.signal,
+    /** 어느 단계든 마감과 경주 — 마감이 먼저면 거절 */
+    race<V>(p: Promise<V>): Promise<V> {
+      return Promise.race([p, expired]);
+    },
+    done() {
+      host.clearTimeout(timer);
+    },
+  };
+}
+
+function send(spec: RequestSpec, signal: AbortSignal): Promise<Response> {
+  return fetch(spec.url, {
+    method: spec.method ?? "GET",
+    credentials: "include",
+    ...(spec.cache ? { cache: spec.cache } : {}),
+    ...(spec.body !== undefined
+      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(spec.body) }
+      : {}),
+    signal,
+  });
 }
 
 async function ensureSessionOnce(reason: string): Promise<void> {
@@ -72,18 +93,25 @@ async function execute<T>(
   fallbackError: string
 ): Promise<SupportOpResult<T>> {
   const current = () => (token ? isSupportModalViewCurrent(token) : true);
+  // 재감사: 마감은 헤더 도착까지가 아니라 작업 전체 — 본문 읽기·세션 살리기가 멈춰도 busy 가 풀린다
+  const deadline = startDeadline(timeoutMs);
   try {
-    let res = await fetchWithTimeout(spec, timeoutMs);
+    let res = await deadline.race(send(spec, deadline.signal));
     if (res.status === 401) {
-      await ensureSessionOnce("support_modal_request");
-      res = await fetchWithTimeout(spec, timeoutMs);
+      await deadline.race(ensureSessionOnce("support_modal_request"));
+      res = await deadline.race(send(spec, deadline.signal));
     }
     if (res.status === 401) {
       // 한 규칙: 로그인 화면 — 그 화면이 아직 이 창에 있을 때만
       if (token && current()) dispatchSupportModalIntent({ type: "auth_out" });
       return { ok: false, status: 401, error: "unauthorized", json: {}, current: current() };
     }
-    const json = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
+    const json = (await deadline.race(
+      res.json().catch((e: unknown) => {
+        if (deadline.signal.aborted) throw e;
+        return {};
+      })
+    )) as T & { ok?: boolean; error?: string };
     if (!res.ok || !json.ok) {
       const error =
         json.error ?? (res.status === 429 ? "rate_limited" : res.status === 403 || res.status === 404 ? "forbidden" : fallbackError);
@@ -92,6 +120,8 @@ async function execute<T>(
     return { ok: true, status: res.status, json, current: current() };
   } catch {
     return { ok: false, status: 0, error: "network_error", json: {}, current: current() };
+  } finally {
+    deadline.done();
   }
 }
 

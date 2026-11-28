@@ -28,7 +28,17 @@ import {
   buildGenericSupportTriageContext,
   isSupportContextEnabled,
 } from "@/lib/support/support-context";
-import { deliverSupportOpen, flushSupportOpenAfterRoute } from "@/lib/support/deliver-support-open";
+import {
+  consumeSupportEntryReplace,
+  deliverSupportOpen,
+  deliverSupportOpenAfterRouteLeaves,
+  flushSupportOpenAfterRoute,
+} from "@/lib/support/deliver-support-open";
+import {
+  consumeSupportLoginReturn,
+  hasSupportLoginReturn,
+  stashSupportLoginReturn,
+} from "@/lib/support/support-modal-restore-stash";
 import {
   clearPendingSupportContext,
   consumeSupportModalRestoreCaseId,
@@ -37,6 +47,7 @@ import {
 } from "@/lib/support/open-support-center";
 import {
   dispatchSupportModalIntent,
+  getSupportModalLoginReturn,
   getSupportModalMachineState,
   getSupportModalState,
   newSupportModalSubmittedView,
@@ -91,6 +102,31 @@ type OpenCaseJson = {
   error?: string;
 };
 
+/** 로그인 화면 경로 — 여기서는 「로그인 뒤 다시 열기」를 하지 않는다 */
+function isSupportAuthPath(pathname: string): boolean {
+  return /^\/(login|signup|auth)(\/|$)/.test(pathname);
+}
+
+/**
+ * 로그인 안내 → 로그인·가입 → 돌아온 화면에서 **같은 창**을 다시 연다 (재감사: 로그인 전 맥락이 사라지던 것).
+ * 로그인이 확인되고 로그인 화면이 아닐 때 1번만(표시 소비). 문의 상세였으면 그 문의, 아니면 저장한 쓰기 맥락.
+ */
+function openSupportLoginReturn(pathname: string): void {
+  if (!hasSupportLoginReturn() || isSupportAuthPath(pathname)) return;
+  if (!getCurrentUser()?.id) return;
+  if (getSupportModalMachineState().phase === "open") return;
+  const ret = consumeSupportLoginReturn();
+  if (!ret) return;
+  if (ret.caseId) {
+    clearPendingSupportContext();
+    deliverSupportOpen({ caseId: ret.caseId, source: "restore" });
+    return;
+  }
+  const pending = readPendingSupportContext();
+  clearPendingSupportContext();
+  if (pending) deliverSupportOpen({ context: pending, source: "enter" });
+}
+
 export function SupportModalHost() {
   const { t } = useI18n();
   const labels = useSupportCategoryLabels();
@@ -118,11 +154,23 @@ export function SupportModalHost() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (getSupportModalMachineState().phase === "open") return;
-    const restoreId = consumeSupportModalRestoreCaseId();
-    if (restoreId) {
-      deliverSupportOpen({ caseId: restoreId, source: "restore" });
+    // 로그인 안내에서 나갔다 돌아옴 — 로그인이 확인된 화면에서만 연다(아래 경로 effect 와 같은 함수)
+    if (hasSupportLoginReturn()) {
+      openSupportLoginReturn(window.location.pathname);
       return;
     }
+    const restoreId = consumeSupportModalRestoreCaseId();
+    if (restoreId) {
+      // 진입 주소 위면 그 화면이 주소를 정리한 뒤 연다(정리 replace 로 바로 닫히거나 ◁ 로 다시 열리지 않게)
+      if (window.location.pathname.startsWith("/support/")) {
+        deliverSupportOpenAfterRouteLeaves(window.location.pathname, { caseId: restoreId, source: "restore" });
+      } else {
+        deliverSupportOpen({ caseId: restoreId, source: "restore" });
+      }
+      return;
+    }
+    // 진입 주소(`/support/enter`)의 저장 맥락은 그 화면이 읽고 주소를 정리한 뒤 연다 — 여기서 먼저 꺼내지 않는다
+    if (window.location.pathname.startsWith("/support/")) return;
     const pending = readPendingSupportContext();
     if (pending) {
       deliverSupportOpen({ context: pending, source: "enter" });
@@ -133,10 +181,17 @@ export function SupportModalHost() {
   // C-21: 진입 주소 화면이 주소를 정리한 뒤(경로가 바뀐 뒤) 보관한 열기를 실행한다
   // C-20: 창이 열린 채 창 아래에서 경로가 바뀌면 닫는다 — 넣은 기록 항목은 그 이동이 소비한 것으로 본다(되돌리지 않음)
   useEffect(() => {
+    // 고객센터 흐름 자신이 한 주소 정리(진입 주소 화면·푸시 고객센터 갈래) — 창을 닫지 않고 창의 경로만 바꾼다
+    const ownReplace = consumeSupportEntryReplace(pathname);
     flushSupportOpenAfterRoute(pathname);
+    if (pathname) openSupportLoginReturn(pathname);
     const st = getSupportModalMachineState();
     if (st.phase !== "open" || openPathRef.current == null) return;
     if (pathname && pathname !== openPathRef.current) {
+      if (ownReplace) {
+        openPathRef.current = pathname;
+        return;
+      }
       historyPushed.current = false;
       openPathRef.current = null;
       dispatchSupportModalIntent({ type: "route_changed" });
@@ -294,13 +349,15 @@ export function SupportModalHost() {
             stashSupportModalRestoreCaseId(opened.id);
             // 고객 문의 SSOT §6 (F4): 같은 분야 진행 중 문의에 붙었으면(created=false) 그 문의의 분야·세부·접수 시각
             const merged = res.json.created === false;
-            const shownCategory = merged ? (opened.category ?? state.category) : state.category;
-            const shownIssue = merged ? (opened.issue_type ?? null) : state.issueType;
+            // 붙인 접수·다시 보낸 요청(replayed)은 서버 문의의 분야·세부를 보인다 — 화면 상태가 아니라 실제 접수된 것
+            const fromServer = merged || res.json.replayed === true;
+            const shownCategory = fromServer ? (opened.category ?? state.category) : state.category;
+            const shownIssue = fromServer ? (opened.issue_type ?? null) : state.issueType;
             const info: SupportTicketSubmittedInfo = {
               caseNo: opened.public_case_no ?? "",
               categoryLabel: labels.categoryLabel(state.audience, shownCategory),
               issueLabel: labels.issueLabel(state.audience, shownCategory, shownIssue),
-              createdAt: (merged || res.json.replayed) && opened.created_at ? opened.created_at : new Date().toISOString(),
+              createdAt: fromServer && opened.created_at ? opened.created_at : new Date().toISOString(),
               audience: state.audience,
               storeId: state.storeId ?? null,
               merged,
@@ -341,7 +398,9 @@ export function SupportModalHost() {
 
   const goAuth = useCallback(
     (path: "/login" | "/signup") => {
-      const ctx = getSupportModalState().context;
+      // 로그인 안내가 지닌 로그인 전 창(쓰기 맥락 · 맨 위 상세) — 로그인 뒤 같은 창을 다시 연다
+      const ret = getSupportModalLoginReturn();
+      const ctx = ret?.context ?? getSupportModalState().context;
       try {
         if (ctx && isSupportContextEnabled(ctx)) {
           window.sessionStorage.setItem(SUPPORT_CONTEXT_SESSION_KEY, JSON.stringify(ctx));
@@ -349,6 +408,7 @@ export function SupportModalHost() {
       } catch {
         /* 저장 실패 — 로그인 후 버튼을 다시 누르면 된다 */
       }
+      if ((ctx && isSupportContextEnabled(ctx)) || ret?.caseId) stashSupportLoginReturn({ caseId: ret?.caseId ?? null });
       const next = pathname || "/";
       closeAndNavigate(`${path}?next=${encodeURIComponent(next)}`);
     },

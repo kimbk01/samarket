@@ -9,6 +9,11 @@ import {
 import { toSupportRequesterCaseView } from "@/lib/support/support-requester-view";
 import { parseSupportCaseHistoryTab } from "@/lib/support/support-status-label";
 import { parseMypageListCursor, parseMypageListLimit } from "@/lib/mypage/mypage-list-cursor";
+import { sortActiveSupportTickets } from "@/lib/support/support-ticket-form";
+import { supportErrorHttpStatus } from "@/lib/support/support-display-labels";
+
+/** 쓰기 창 진행 중 목록이 정렬 전에 읽는 최근 문의 수 상한 (재감사 4) */
+const COMPOSE_ACTIVE_SCAN_MAX = 100;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,9 +66,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_cursor" }, { status: 400 });
   }
   const limit = parseMypageListLimit(sp.get("limit"));
-  const paged = Boolean(status || cursor || limit != null);
-
   const scope = { userId: auth.userId, audience, storeId: audience === "OWNER" ? storeId : null };
+
+  // 재감사 4 (2026-11-29): 쓰기 창 「진행 중인 문의」 = `limit` 만 있고 `status`·`cursor` 없음(계약 유지 · 고객 창은 limit=5).
+  //   개수는 세지 않는다. 진행 중 문의를 작은 고정 상한(최근 순 100)까지 읽어 화면과 **같은 정렬**(sortActiveSupportTickets:
+  //   답변 완료·안 읽은 답 먼저, 그다음 최근)으로 앞 limit 개만 — 6번째 이후 답변 완료 문의가 빠지지 않게.
+  if (limit != null && !status && !cursor) {
+    const all = await listSupportCasesForRequester(sb, { ...scope, status: "active", limit: COMPOSE_ACTIVE_SCAN_MAX });
+    if (!all.ok) {
+      return NextResponse.json({ ok: false, error: all.error }, { status: supportErrorHttpStatus(all.error) });
+    }
+    const top = sortActiveSupportTickets(all.cases).slice(0, limit);
+    return NextResponse.json({ ok: true, cases: top.map(toSupportRequesterCaseView) });
+  }
+
+  const paged = Boolean(status || cursor || limit != null);
   const [res, activeCount] = await Promise.all([
     listSupportCasesForRequester(sb, {
       ...scope,

@@ -241,6 +241,23 @@ export function readSupportTicketDraft(key: string): SupportTicketDraft | null {
 }
 
 /**
+ * 요청 id 가 묶인 「같은 접수」인가 — 본문 · 분야 · 세부 · 대상 · 매장이 모두 같을 때만(하나라도 바뀌면 새 id).
+ * 본문만 비교하면 끊긴 뒤 분야를 바꿔 다시 보낼 때 서버가 처음 문의를 돌려주는데 화면은 새 분야를 보였다(재감사).
+ */
+export function isSameSupportTicketRequest(
+  prev: Pick<SupportTicketDraft, "body" | "category" | "issueType" | "audience" | "storeId">,
+  state: Pick<SupportTicketFormState, "body" | "category" | "issueType" | "audience" | "storeId">
+): boolean {
+  return (
+    prev.body === state.body &&
+    (prev.category ?? null) === (state.category ?? null) &&
+    (prev.issueType ?? null) === (state.issueType ?? null) &&
+    prev.audience === state.audience &&
+    (prev.storeId?.trim() || "") === (state.storeId?.trim() || "")
+  );
+}
+
+/**
  * 쓰는 글 저장. **빈 내용으로는 옛 초안을 지우지 않는다**(계약 §5 — 지우기는 카드 「지우기」 확인·접수 성공 때만).
  * 본문이 저장본과 같으면 그 본문에 묶인 요청 id 를 그대로 둔다.
  */
@@ -256,7 +273,7 @@ export function writeSupportTicketDraft(key: string, state: SupportTicketFormSta
       issueType: state.issueType,
       body: state.body,
       savedAt: new Date().toISOString(),
-      ...(prev?.requestId && prev.body === state.body ? { requestId: prev.requestId } : {}),
+      ...(prev?.requestId && isSameSupportTicketRequest(prev, state) ? { requestId: prev.requestId } : {}),
     };
     window.sessionStorage.setItem(key, JSON.stringify(draft));
   } catch {
@@ -274,7 +291,7 @@ export function bindSupportTicketDraftRequestId(
   newId: () => string
 ): string {
   const prev = readSupportTicketDraft(key);
-  const requestId = prev?.requestId && prev.body === state.body ? prev.requestId : newId();
+  const requestId = prev?.requestId && isSameSupportTicketRequest(prev, state) ? prev.requestId : newId();
   if (typeof window !== "undefined") {
     try {
       const draft: SupportTicketDraft = {

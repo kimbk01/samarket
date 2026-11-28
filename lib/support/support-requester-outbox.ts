@@ -52,25 +52,60 @@ export async function enqueueSupportRequesterNotification(
   return true;
 }
 
-/** 작업자가 꺼낸 고객 알림 1건 다시 만들기 */
+/**
+ * 저장에 실패했던 고객 알림을 다시 만드는 **단일 함수** — 응답 뒤 빠른 길(원장)과 5분 대기열 작업자가 같이 쓴다(재감사 2).
+ * 저장해 둔 사건 본문을 그대로 쓰지 않고 만들기 직전에 다시 읽는다:
+ *  - 그 고객의 같은 키 알림이 이미 있다 → 만들지 않음(빠른 길·작업자 중 먼저 끝난 쪽 · 중복 없음)
+ *  - 답변 알림: 답변이 지워졌다 → 만들지 않음 / 고쳐졌다 → 지금 본문으로
+ *  - 답변 알림: 고객이 이미 봤다(그 문의 고객 미읽음 = 0) → 안 읽은 행을 만들지 않음
+ * 돌려준 값 ok=true = 처리 끝(만들었거나 만들 필요 없음) · ok=false = 다시 시도.
+ */
+export async function recreateSupportRequesterNotification(
+  sb: SupabaseClient,
+  payload: Omit<SupportRequesterOutboxPayload, "kind">
+): Promise<{ ok: true; created: boolean } | { ok: false; error: string }> {
+  const ev = payload.event;
+  const uid = payload.requesterUserId;
+  const existing = await sb
+    .from("notification_events")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("dedupe_key", ev.dedupeKey)
+    .maybeSingle();
+  if (existing.error) return { ok: false, error: "notification_read_failed" };
+  if (existing.data) return { ok: true, created: false };
+  let body = typeof ev.body === "string" ? ev.body : "";
+  if (payload.replyMessageId) {
+    const { data: m, error } = await sb
+      .from("support_messages")
+      .select("deleted_at, body, case_id")
+      .eq("id", payload.replyMessageId)
+      .maybeSingle();
+    if (error) return { ok: false, error: "reply_read_failed" };
+    const msg = m as { deleted_at?: unknown; body?: unknown; case_id?: unknown } | null;
+    if (!msg || msg.deleted_at) return { ok: true, created: false };
+    body = String(msg.body ?? "").slice(0, 500);
+    const caseId = String(msg.case_id ?? (ev.displayPayload as { supportCaseId?: unknown } | undefined)?.supportCaseId ?? "");
+    if (caseId) {
+      const { data: c, error: cErr } = await sb.from("support_cases").select("requester_unread_count").eq("id", caseId).maybeSingle();
+      if (cErr) return { ok: false, error: "case_read_failed" };
+      if (!c || !(Number((c as { requester_unread_count?: unknown }).requester_unread_count ?? 0) > 0)) return { ok: true, created: false };
+    }
+  }
+  const r = await createAndDispatchNotificationEvent(sb, { ...ev, body } as never).catch((e: unknown) => ({
+    ok: false as const,
+    error: (e as Error)?.message ?? "notification_failed",
+  }));
+  if (r.ok) return { ok: true, created: true };
+  if ((r as { duplicate?: boolean }).duplicate) return { ok: true, created: false };
+  return { ok: false, error: String((r as { error?: string }).error ?? "notification_failed") };
+}
+
+/** 작업자가 꺼낸 고객 알림 1건 다시 만들기 — `recreateSupportRequesterNotification` 하나로 */
 export async function replaySupportRequesterNotification(
   sb: SupabaseClient,
   payload: SupportRequesterOutboxPayload
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (payload.replyMessageId) {
-    const { data: m, error } = await sb
-      .from("support_messages")
-      .select("deleted_at")
-      .eq("id", payload.replyMessageId)
-      .maybeSingle();
-    if (error) return { ok: false, error: "reply_read_failed" };
-    // 그사이 답변이 지워졌다 — 알림을 만들지 않고 처리됨으로 닫는다(지운 원문이 알림함에 남지 않음)
-    if ((m as { deleted_at?: unknown } | null)?.deleted_at) return { ok: true };
-  }
-  const r = await createAndDispatchNotificationEvent(sb, payload.event as never).catch((e: unknown) => ({
-    ok: false as const,
-    error: (e as Error)?.message ?? "notification_failed",
-  }));
-  if (r.ok || (r as { duplicate?: boolean }).duplicate) return { ok: true };
-  return { ok: false, error: String((r as { error?: string }).error ?? "notification_failed") };
+  const r = await recreateSupportRequesterNotification(sb, payload);
+  return r.ok ? { ok: true } : r;
 }

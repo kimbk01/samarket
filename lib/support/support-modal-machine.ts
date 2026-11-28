@@ -37,7 +37,11 @@ export type SupportModalStackView =
   | { kind: "compose"; id: string; context: SupportContext }
   | { kind: "detail"; id: string; caseId: string; reloadTick: number }
   | { kind: "submitted"; id: string; info: SupportTicketSubmittedInfo }
-  | { kind: "login"; id: string };
+  /**
+   * 로그인 안내 — 로그인 뒤 같은 창을 다시 열 수 있게 **로그인 전 창의 맥락**(쓰기 화면 맥락 · 맨 위 상세 문의 id)을 지닌다.
+   * (재감사: auth_out 이 stack 을 통째로 바꿔 맥락이 사라지던 것)
+   */
+  | { kind: "login"; id: string; context: SupportContext | null; caseId: string | null };
 
 export type SupportModalWriteKind = "submit" | "follow_up" | "confirm";
 
@@ -115,7 +119,7 @@ function deriveCompat(s: SupportModalMachineState, restoreCaseId: string | null)
   let context: SupportContext | null = null;
   for (let i = s.stack.length - 1; i >= 0; i -= 1) {
     const v = s.stack[i]!;
-    if (v.kind === "compose") {
+    if (v.kind === "compose" || (v.kind === "login" && v.context)) {
       context = v.context;
       break;
     }
@@ -304,10 +308,15 @@ function apply(intent: SupportModalIntent, opts: { fromPop?: boolean } = {}): vo
       clearSupportModalRestoreCaseId();
       commit(closedState(s, { kind: "route" }));
       return;
-    case "auth_out":
+    case "auth_out": {
       if (s.phase !== "open") return;
-      commit({ ...s, stack: [{ kind: "login", id: nextViewId("login") }] });
+      const top = s.stack[s.stack.length - 1];
+      if (top?.kind === "login") return;
+      const context = deriveCompat(s, null).context;
+      const caseId = top?.kind === "detail" ? top.caseId : null;
+      commit({ ...s, stack: [{ kind: "login", id: nextViewId("login"), context, caseId }] });
       return;
+    }
   }
 }
 
@@ -348,6 +357,14 @@ export function isSupportModalViewCurrent(token: SupportModalOpToken): boolean {
   if (!v) return false;
   if (token.caseId != null) return v.kind === "detail" && v.caseId === token.caseId;
   return true;
+}
+
+/** 지금 로그인 안내가 지닌 「로그인 뒤 다시 열 것」 */
+export function getSupportModalLoginReturn(): { context: SupportContext | null; caseId: string | null } | null {
+  if (machine.phase !== "open") return null;
+  const top = machine.stack[machine.stack.length - 1];
+  if (top?.kind !== "login") return null;
+  return { context: top.context, caseId: top.caseId };
 }
 
 export function isSupportModalViewTop(viewId: string): boolean {

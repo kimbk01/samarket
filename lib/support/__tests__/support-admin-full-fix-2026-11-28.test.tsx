@@ -329,21 +329,35 @@ describe("A-1 — 읽음은 화면이 보일 때만 (동작)", () => {
 });
 
 describe("A-2 — 고객센터 알림 생성·읽음 뒤 헤더 받은 알림 숫자 다시 읽기 신호 (동작)", () => {
-  it("읽음(seen) 성공 → 바로 신호", async () => {
-    await mount();
+  it("재감사 2: 읽음(seen)·답변·우선순위 저장 성공은 따로 신호를 보내지 않는다 — 신호는 내 알림 행 실시간 하나", async () => {
+    await mount(true);
     await click(q('[data-admin-support-row="A"]'));
     expect(seenPatches()).toHaveLength(1);
-    expect(inboxEvents).toBeGreaterThanOrEqual(1);
-  });
-
-  it("답변 성공 → 신호", async () => {
-    await mount();
-    await click(q('[data-admin-support-row="A"]'));
-    const before = inboxEvents;
     await typeDraft("hello");
     await click(q("[data-admin-support-send]"));
     expect(replyPatches()).toHaveLength(1);
-    expect(inboxEvents).toBeGreaterThan(before);
+    const sel = q<HTMLSelectElement>("[data-admin-support-priority]");
+    expect(sel).toBeTruthy();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(sel, "HIGH");
+      sel!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect(calls.some((c) => c.method === "PATCH" && c.body?.action === "priority")).toBe(true);
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    await flush();
+    expect(inboxEvents).toBe(0);
+    // 서버가 내 알림 행을 읽음으로 바꾼 실시간 → 1번
+    await emitRealtime("admin_notifications", "UPDATE", {
+      new: { id: "n-old", recipient_admin_id: "admin-1", read_at: "2026-11-28T05:00:00Z", archived_at: null },
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    await flush();
+    expect(inboxEvents).toBe(1);
   });
 
   it("내 알림 행(admin_notifications) 생성·읽음 → 1초 안에 1번 · 고객 글 INSERT 만으로는 추측 신호 없음", async () => {
@@ -484,5 +498,73 @@ describe("§7 — 옛 문의 보관함 문구는 화면 언어 번역기(t)로�
     // 시험의 t 는 키를 그대로 돌려준다 — 화면 번역기를 거치면 키가, 우회하면 번역 문장이 보인다
     expect(text).toContain("admin_support_awaiting_reply");
     expect(text).toContain("admin_support_member_started");
+  });
+});
+
+describe("재감사 1 — 내 알림 행의 푸시 결과만 바뀐 UPDATE 는 헤더를 다시 읽지 않는다 (동작)", () => {
+  it("INSERT → 1번 · push_status 만 바뀐 UPDATE → 0번 · read_at 채워짐 → 1번 · 되살림(read_at 비움) → 1번 · archived_at → 1번", async () => {
+    await mount(true);
+    const tick = async () => {
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+      await flush();
+    };
+    const row = { id: "n1", recipient_admin_id: "admin-1", read_at: null, archived_at: null, push_status: "none" };
+    await emitRealtime("admin_notifications", "INSERT", { new: row });
+    await tick();
+    expect(inboxEvents).toBe(1);
+    await emitRealtime("admin_notifications", "UPDATE", { new: { ...row, push_status: "sent", push_attempted_at: "2026-11-28T05:00:00Z" } });
+    await tick();
+    expect(inboxEvents).toBe(1);
+    await emitRealtime("admin_notifications", "UPDATE", { new: { ...row, push_status: "sent", read_at: "2026-11-28T05:01:00Z" } });
+    await tick();
+    expect(inboxEvents).toBe(2);
+    await emitRealtime("admin_notifications", "UPDATE", { new: { ...row, push_status: "failed", read_at: "2026-11-28T05:01:00Z" } });
+    await tick();
+    expect(inboxEvents).toBe(2);
+    await emitRealtime("admin_notifications", "UPDATE", { new: { ...row, push_status: "sent", read_at: null } });
+    await tick();
+    expect(inboxEvents).toBe(3);
+    await emitRealtime("admin_notifications", "UPDATE", { new: { ...row, archived_at: "2026-11-28T05:02:00Z" } });
+    await tick();
+    expect(inboxEvents).toBe(4);
+  });
+});
+
+describe("재감사 3 — 읽음 뒤에 생긴 열린 문의 알림 행 → 읽음을 다시 보낸다 (동작)", () => {
+  const alertRow = (caseId: string, id = `n-${caseId}`) => ({
+    new: { id, recipient_admin_id: "admin-1", work_ref_table: "support_cases", work_ref_id: caseId, read_at: null, archived_at: null },
+  });
+
+  it("보이는 탭: 열린 문의 A 의 알림 INSERT → 같은 상세로 seen 1번 더 · 다른 문의 B 알림 → 없음 · 그냥 다시 보여도 없음", async () => {
+    await mount(true);
+    await click(q('[data-admin-support-row="A"]'));
+    expect(seenPatches()).toHaveLength(1);
+    await emitRealtime("admin_notifications", "INSERT", alertRow("A"));
+    expect(seenPatches()).toHaveLength(2);
+    expect(seenPatches()[1].url).toBe("/api/admin/support/cases/A");
+    expect(seenPatches()[1].body).toEqual(seenPatches()[0].body);
+    await emitRealtime("admin_notifications", "INSERT", alertRow("B"));
+    await emitRealtime("admin_notifications", "INSERT", {
+      new: { id: "n-x", recipient_admin_id: "admin-1", work_ref_table: "store_point_charge_requests", work_ref_id: "A", read_at: null, archived_at: null },
+    });
+    await setVisibility("hidden");
+    await setVisibility("visible");
+    expect(seenPatches()).toHaveLength(2);
+  });
+
+  it("숨은 탭: 알림 INSERT 때는 보내지 않고 → 보이면 1번 · 그 뒤 다시 보여도 더 없음", async () => {
+    await mount(true);
+    await click(q('[data-admin-support-row="A"]'));
+    expect(seenPatches()).toHaveLength(1);
+    visibility = "hidden";
+    await emitRealtime("admin_notifications", "INSERT", alertRow("A"));
+    expect(seenPatches()).toHaveLength(1);
+    await setVisibility("visible");
+    expect(seenPatches()).toHaveLength(2);
+    await setVisibility("hidden");
+    await setVisibility("visible");
+    expect(seenPatches()).toHaveLength(2);
   });
 });

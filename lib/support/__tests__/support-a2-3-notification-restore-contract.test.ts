@@ -36,7 +36,7 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(resolveSafeNotificationInternalRoute("//evil.example/x")).toBeNull();
   });
 
-  it("customer support events write display_route + buildSupportCaseRoute", () => {
+  it("(구조 확인) customer support events write display_route + buildSupportCaseRoute", () => {
     const svc = read("lib/support/support-case-service.ts");
     expect(svc).toContain('type: "support_admin_replied"');
     expect(svc).toContain('type: "support_case_resolved"');
@@ -45,7 +45,7 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(svc).not.toContain("/mypage/inbox");
   });
 
-  it("bootstrap alias delivers modal then replaces full-page", () => {
+  it("(구조 확인) bootstrap alias delivers modal then replaces full-page", () => {
     const boot = read("components/support/SupportCaseBootstrapClient.tsx");
     expect(boot).toContain("ensureSessionHealthy");
     expect(boot).toContain("deliverSupportOpen");
@@ -56,7 +56,7 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(boot).not.toContain("revoke");
   });
 
-  it("push tap delivers Support Modal without /support/cases router bounce", () => {
+  it("(구조 확인) push tap delivers Support Modal without /support/cases router bounce", () => {
     const entry = read("lib/support/support-push-modal-entry.ts");
     expect(entry).toContain("parseSupportCaseIdFromPushPath");
     const listener = read("components/push/PushRouteListener.tsx");
@@ -66,20 +66,20 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(listener).not.toContain('router.push(`/support/cases');
   });
 
-  it("inbox activation uses deliverSupportOpen for support cases", () => {
+  it("(구조 확인) inbox activation uses deliverSupportOpen for support cases", () => {
     const nav = read("lib/notifications/navigate-notification-destination.ts");
     expect(nav).toContain("deliverSupportOpen");
     expect(nav).toContain("parseSupportCaseIdFromPushPath");
     expect(nav).toContain('source: "inbox"');
   });
 
-  it("support push notification_type is notification not chat", () => {
+  it("(구조 확인) support push notification_type is notification not chat", () => {
     const dispatcher = read("lib/notifications/pipeline/notify-push-dispatcher.ts");
     expect(dispatcher).toContain('row.type.startsWith("support_")');
     expect(dispatcher).toContain('? "notification"');
   });
 
-  it("sheet close button does not use full-width overlay text btn (title crush)", () => {
+  it("(구조 확인) sheet close button does not use full-width overlay text btn (title crush)", () => {
     const page = read("components/support/SupportTicketViews.tsx");
     /** 접수형 머리글 48px 격자 [48 뒤로 | 제목 1줄 | 48 닫기] — 닫기는 아이콘 버튼, 제목은 1줄 말줄임 */
     expect(page).toContain("grid-cols-[48px_minmax(0,1fr)_48px]");
@@ -87,7 +87,7 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(page).toContain("truncate text-center");
   });
 
-  it("modal case load fail-closes without legacy fallback", () => {
+  it("(구조 확인) modal case load fail-closes without legacy fallback", () => {
     const page = read("components/support/SupportModalHost.tsx") + read("components/support/SupportTicketViews.tsx");
     // 계약 §5: 401 = 세션 살리기 1번 뒤 로그인 화면 — 규칙은 요청 실행기 한 곳
     expect(read("lib/support/support-modal-ops.ts")).toContain("ensureSessionHealthy");
@@ -96,7 +96,7 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(page).not.toContain("/community-messenger");
   });
 
-  it("canonical waiting status remains WAITING_USER (not WAITING_CUSTOMER)", () => {
+  it("(구조 확인) canonical waiting status remains WAITING_USER (not WAITING_CUSTOMER)", () => {
     const types = read("lib/support/support-case-types.ts");
     expect(types).toContain("WAITING_USER");
     expect(types).not.toContain("WAITING_CUSTOMER");

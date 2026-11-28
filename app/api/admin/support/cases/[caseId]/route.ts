@@ -12,7 +12,6 @@ import {
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
   adminSeenSupportCase,
-  findSupportMessageReplay,
   getSupportCaseForAdmin,
   listSupportFollowupIssueSelections,
   listSupportMessages,
@@ -133,14 +132,8 @@ export async function PATCH(
     const seenLastMessageAt = seenParsed.value;
     const requestId = parseSupportRequestId(body.requestId);
     if (requestId === "invalid") return fail("invalid_request_id");
-    // 계약 §1: 같은 요청 id 의 답변이 이미 있으면 처음 결과(답변·고객 푸시·미읽음 증가·감사 기록 없음)
-    if (requestId) {
-      const replay = await findSupportMessageReplay(sb, { requestId, caseId, senderAdminId: auth.userId });
-      if ("conflict" in replay) return fail("request_id_conflict");
-      if ("found" in replay && replay.found) {
-        return NextResponse.json({ ok: true, message: replay.message, unseenCustomerMessages: 0, replayed: true });
-      }
-    }
+    // 계약 §1: 같은 요청 id 재전송 판정은 저장 DB 함수가 잠금 안에서 한다(처음 결과 · 답변·고객 푸시·미읽음 증가·감사 기록 없음).
+    //   어드민 답변에는 속도 제한이 없어 미리 확인할 이유가 없다 — 요청 예산(답변 경로 조회 1회 줄임).
     const res = await adminReplySupportCase(sb, {
       adminUserId: auth.userId,
       caseId,

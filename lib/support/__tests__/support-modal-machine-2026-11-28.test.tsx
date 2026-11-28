@@ -26,9 +26,10 @@ vi.mock("@/components/support/SupportSheetShell", () => ({
   SupportSheetShell: ({ open, children }: { open: boolean; children: unknown }) =>
     open ? <div data-test-sheet="1">{children as never}</div> : null,
 }));
+const authUser = vi.hoisted(() => ({ id: "u1" as string | null }));
 vi.mock("@/lib/auth/get-current-user", () => ({
-  getCurrentUser: () => ({ id: "u1", nickname: "Kim" }),
-  getCurrentUserIdForDb: async () => "u1",
+  getCurrentUser: () => (authUser.id ? { id: authUser.id, nickname: "Kim" } : null),
+  getCurrentUserIdForDb: async () => authUser.id,
 }));
 const session = vi.hoisted(() => ({ ensure: vi.fn(async () => undefined), phase: "authenticated" }));
 vi.mock("@/lib/auth/dibay-session-manager", () => ({
@@ -56,7 +57,11 @@ import { SupportCasesHistoryList } from "@/components/support/SupportCasesHistor
 import { SupportFab } from "@/components/support/SupportFab";
 import { NotificationsBadgeRealtimeBridge } from "@/components/notifications/NotificationsBadgeRealtimeBridge";
 import { closeSupportModal, getSupportModalState, openSupportModal } from "@/lib/support/support-modal-controller";
-import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
+import * as deliverMod from "@/lib/support/deliver-support-open";
+import { SupportCenterEnterClient } from "@/components/support/SupportCenterEnterClient";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { SUPPORT_CONTEXT_SESSION_KEY } from "@/lib/support/support-context";
+import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { buildGenericSupportTriageContext, type SupportContext } from "@/lib/support/support-context";
 import {
   initSupportTicketForm,
@@ -124,6 +129,8 @@ async function resetModal() {
   act(() => {
     if (mod?.__resetSupportModalMachineForTests) mod.__resetSupportModalMachineForTests();
     else closeSupportModal();
+    // 진입 주소 보관·표시(새 트리에만 있음)
+    (deliverMod as { __resetSupportEntryRoutingForTests?: () => void }).__resetSupportEntryRoutingForTests?.();
   });
 }
 
@@ -135,7 +142,10 @@ beforeEach(async () => {
   nav.pathname = "/mypage/customer-center";
   nav.replace.mockClear();
   nav.push.mockClear();
-  session.ensure.mockClear();
+  session.ensure.mockReset();
+  session.ensure.mockImplementation(async () => undefined);
+  authUser.id = "u1";
+  window.history.replaceState(null, "", "/mypage/customer-center");
   session.phase = "authenticated";
   ownerLite.snap = { ownerStores: [] };
   Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
@@ -271,7 +281,7 @@ describe("R1 쓰기 요청 중 = 모든 버튼 같은 busy (C-1·C-2·C-3·C-4·
     if (chat && !chat.disabled) click(chat);
     await flush();
     act(() => {
-      deliverSupportOpen({ context: storeOrderCtx(), source: "cta" });
+      deliverMod.deliverSupportOpen({ context: storeOrderCtx(), source: "cta" });
     });
     await flush();
     const body = q<HTMLTextAreaElement>('[data-support-ticket-body="1"]');
@@ -332,7 +342,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
     await flush();
     typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "쓰던 글");
     act(() => {
-      deliverSupportOpen({ caseId: "c2", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c2", source: "push" });
     });
     await flush();
     expect(visibleView()?.getAttribute("data-support-ticket-view")).toBe("detail");
@@ -347,7 +357,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
       url.startsWith("/api/support/cases/c2") ? { ok: true, case: caseRow({ id: "c2" }), messages: [answerMsg()] } : { ok: false }
     );
     act(() => {
-      deliverSupportOpen({ caseId: "c2", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c2", source: "push" });
     });
     await flush();
     await act(async () => holder.release({ ok: false, error: "open_failed" }));
@@ -365,7 +375,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
       url.startsWith("/api/support/cases/c2") ? { ok: true, case: caseRow({ id: "c2" }), messages: [answerMsg()] } : { ok: false }
     );
     act(() => {
-      deliverSupportOpen({ caseId: "c2", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c2", source: "push" });
     });
     await flush();
     await act(async () => holder.release({ ok: true, case: { id: "c-new", public_case_no: "SC-2" }, created: true }));
@@ -383,7 +393,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
         : { ok: false }
     );
     act(() => {
-      deliverSupportOpen({ caseId: "cz", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "cz", source: "push" });
     });
     await flush();
     // 고치기 전: 종료 문의가 바로 열려 「문의하기」를 누를 수 있었다
@@ -423,7 +433,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
     click(q('[data-support-ticket-confirm="1"]'));
     await flush(2);
     act(() => {
-      deliverSupportOpen({ caseId: "cB", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "cB", source: "push" });
     });
     await flush();
     await act(async () => h.release({ ok: true }));
@@ -497,7 +507,7 @@ describe("R2 결과는 (창 회차·화면·문의) 가 맞을 때만 (C-6·C-9�
       openSupportModal({ caseId: "c1" });
     });
     act(() => {
-      deliverSupportOpen({ caseId: "c2", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c2", source: "push" });
     });
     await flush();
     const seenFor = (id: string) =>
@@ -523,7 +533,7 @@ describe("R3 열기 요청은 덮어쓰지 않고 쌓는다 (C-10·C-11·C-22)",
     await flush(3);
     expect(q('[data-support-ticket-view="submitted"]')).not.toBeNull();
     act(() => {
-      deliverSupportOpen({ caseId: "c3", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c3", source: "push" });
     });
     await flush();
     expect(visibleView()?.getAttribute("data-support-ticket-view")).toBe("detail");
@@ -545,7 +555,7 @@ describe("R3 열기 요청은 덮어쓰지 않고 쌓는다 (C-10·C-11·C-22)",
     const gets = () => calls.filter((c) => c.url.startsWith("/api/support/cases/c1") && c.method === "GET").length;
     expect(gets()).toBe(1);
     act(() => {
-      deliverSupportOpen({ caseId: "c1", source: "push" });
+      deliverMod.deliverSupportOpen({ caseId: "c1", source: "push" });
     });
     await flush();
     expect(gets()).toBe(2);
@@ -560,7 +570,7 @@ describe("R3 열기 요청은 덮어쓰지 않고 쌓는다 (C-10·C-11·C-22)",
     await flush();
     expect(q('[data-support-ticket-who="MEMBER"]')).not.toBeNull();
     act(() => {
-      deliverSupportOpen({ context: ownerCtx(), source: "fab" });
+      deliverMod.deliverSupportOpen({ context: ownerCtx(), source: "fab" });
     });
     await flush();
     expect(q('[data-support-ticket-who="OWNER"]')).not.toBeNull();
@@ -1015,5 +1025,278 @@ describe("고객 숫자 신호 — 알림 행 INSERT·UPDATE 둘 다 (A-3·A-11)
     await new Promise((r) => setTimeout(r, 600));
     await flush();
     expect(lists()).toBeGreaterThan(before);
+  });
+});
+
+/* ───────────── 재감사 (HEAD e249d41d3) 결함 1~4 ───────────── */
+
+describe("재감사 1 — 비로그인 「로그인」 뒤 같은 창", () => {
+  it("FAB → 로그인 안내 → 「로그인」 = 맥락 저장 → 로그인하고 돌아오면 같은 쓰기 창", async () => {
+    authUser.id = null;
+    route = (url) => (url.startsWith("/api/support/cases?") ? { ok: true, cases: [] } : { ok: false });
+    await act(async () => root.render(<SupportModalHost />));
+    const ctx = ownerCtx();
+    act(() => {
+      navigateToSupportCenter(ctx);
+    });
+    await flush();
+    expect(q('[data-support-ticket-view="login"]')).not.toBeNull();
+    click(q('[data-support-ticket-login="1"]'));
+    await flush();
+    const saved = JSON.parse(window.sessionStorage.getItem(SUPPORT_CONTEXT_SESSION_KEY) ?? "null");
+    // 고치기 전(HEAD): 로그인 화면이 stack 을 통째로 바꿔 맥락이 null → 아무것도 저장하지 않았다
+    expect(saved?.audience).toBe("OWNER");
+    expect(saved?.storeId).toBe("s1");
+    const target = [...nav.replace.mock.calls, ...nav.push.mock.calls].map((c) => String(c[0]));
+    expect(target.some((h) => h.startsWith("/login?next="))).toBe(true);
+    expect(getSupportModalState().phase).toBe("closed");
+
+    // 로그인 화면 → 로그인 완료 → 원래 화면(같은 앱 셸 — 호스트는 다시 마운트되지 않는다)
+    nav.pathname = "/login";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+    authUser.id = "u1";
+    nav.pathname = "/mypage/customer-center";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(q('[data-support-ticket-who="OWNER"]')).not.toBeNull();
+    expect(getSupportModalState().context?.storeId).toBe("s1");
+  });
+});
+
+/** 기준·고치기 전 트리의 푸시 고객센터 갈래(PushRouteListener 옛 코드) — 새 트리는 `deliverSupportPushOpen` 하나 */
+function pushSupportOpen(caseId: string) {
+  const helper = (deliverMod as {
+    deliverSupportPushOpen?: (i: { caseId: string; source: "push" }, r: { replace: (h: string) => void }) => unknown;
+  }).deliverSupportPushOpen;
+  if (helper) {
+    helper({ caseId, source: "push" }, { replace: nav.replace });
+    return;
+  }
+  deliverMod.deliverSupportOpen({ caseId, source: "push" });
+  if (window.location.pathname.startsWith("/support/")) nav.replace("/");
+}
+
+describe("재감사 2 — 고객센터 흐름 자신의 주소 정리는 「경로 바뀜」이 아님", () => {
+  const detailRoute: Route = (url, init) => {
+    const m = /\/api\/support\/cases\/(c[XY])/.exec(url);
+    if (!m) return url.startsWith("/api/support/cases?") ? { ok: true, cases: [] } : { ok: false };
+    if (init?.method === "POST") return { ok: true };
+    return { ok: true, case: caseRow({ id: m[1] }), messages: [answerMsg({ id: `${m[1]}-a` })] };
+  };
+
+  it("A: /support/cases/X 위에서 푸시(Y) → 주소 정리(replace \"/\") 뒤에도 창 유지 · Y 상세", async () => {
+    route = detailRoute;
+    nav.pathname = "/support/cases/cX";
+    window.history.replaceState(null, "", "/support/cases/cX");
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => pushSupportOpen("cY"));
+    await flush();
+    expect(nav.replace).toHaveBeenCalledWith("/");
+    nav.pathname = "/";
+    window.history.replaceState(null, "", "/");
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(getSupportModalState().caseId).toBe("cY");
+  });
+
+  it("B: 복원(새로고침) + /support/cases/X 진입 화면의 replace → 창이 닫히지 않음", async () => {
+    route = detailRoute;
+    window.sessionStorage.setItem("dibay_support_modal_restore_case_id", "cX");
+    nav.pathname = "/support/cases/cX";
+    window.history.replaceState(null, "", "/support/cases/cX");
+    const page = document.createElement("div");
+    document.body.appendChild(page);
+    const pageRoot = createRoot(page);
+    await act(async () => root.render(<SupportModalHost />));
+    await act(async () => pageRoot.render(<SupportCaseBootstrapClient caseId="cX" />));
+    await flush();
+    expect(nav.replace).toHaveBeenCalledWith("/");
+    act(() => pageRoot.unmount());
+    page.remove();
+    nav.pathname = "/";
+    window.history.replaceState(null, "", "/");
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(getSupportModalState().caseId).toBe("cX");
+  });
+
+  it("B: 새로고침 뒤 /support/enter(저장 맥락) — 진입 화면이 맥락을 읽고 주소를 정리한 뒤 그 맥락의 창(닫히지 않음)", async () => {
+    route = detailRoute;
+    window.sessionStorage.setItem(SUPPORT_CONTEXT_SESSION_KEY, JSON.stringify(ownerCtx()));
+    nav.pathname = "/support/enter";
+    window.history.replaceState(null, "", "/support/enter");
+    const page = document.createElement("div");
+    document.body.appendChild(page);
+    const pageRoot = createRoot(page);
+    await act(async () => root.render(<SupportModalHost />));
+    await act(async () => pageRoot.render(<SupportCenterEnterClient />));
+    await flush();
+    // 고치기 전: 호스트가 먼저 저장 맥락을 꺼내 진입 화면은 「맥락 없음」 오류 · 주소 정리 없음
+    expect(page.querySelector("[data-support-enter-error]")).toBeNull();
+    expect(nav.replace).toHaveBeenCalledWith("/");
+    act(() => pageRoot.unmount());
+    page.remove();
+    nav.pathname = "/";
+    window.history.replaceState(null, "", "/");
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(q('[data-support-ticket-who="OWNER"]')).not.toBeNull();
+  });
+
+  it("(대조) 고객센터 흐름이 아닌 이동은 여전히 창을 닫는다", async () => {
+    route = detailRoute;
+    await act(async () => root.render(<SupportModalHost />));
+    act(() => {
+      openSupportModal({ caseId: "cX" });
+    });
+    await flush();
+    nav.pathname = "/chats";
+    await act(async () => root.render(<SupportModalHost />));
+    await flush();
+    expect(getSupportModalState().phase).toBe("closed");
+  });
+});
+
+describe("재감사 3 — 요청 id = 본문·분야·세부·대상·매장 묶음 · replay 는 서버 문의를 보임", () => {
+  it("끊긴 뒤 같은 글로 분야·세부만 바꿔 다시 보내면 새 requestId", async () => {
+    const timers = captureLongTimers();
+    try {
+      await composeAndSubmit("같은 글");
+      timers.limits.find((l) => l.ms === 20_000)?.fire();
+      await flush(3);
+      const cats = Array.from(container.querySelectorAll('[data-testid^="support-ticket-cat-"]'));
+      void cats;
+      click(q('[data-testid="support-ticket-field-category"]'));
+      const all = Array.from(container.querySelectorAll<HTMLElement>('[data-testid^="support-ticket-cat-"]'));
+      expect(all.length).toBeGreaterThan(1);
+      click(all[1]!);
+      click(q('[data-testid^="support-ticket-issue-"]'));
+      await flush();
+      click(q('[data-support-ticket-submit="1"]'));
+      await flush(2);
+      const opens = calls.filter((c) => c.url.startsWith("/api/support/cases/open"));
+      expect(opens).toHaveLength(2);
+      expect(typeof opens[1]!.body?.requestId).toBe("string");
+      expect(opens[1]!.body?.requestId).not.toBe(opens[0]!.body?.requestId);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  it("replay 응답(created=true)이면 접수 완료 카드 = 서버 문의의 분야(화면 상태 아님)", async () => {
+    const { holder } = await composeAndSubmit("다시 보낸 글");
+    const sentCategory = String(
+      (calls.find((c) => c.url.startsWith("/api/support/cases/open"))!.body?.context as { category?: string })?.category
+    );
+    const serverCategory = sentCategory === "ACCOUNT" ? "TECHNICAL" : "ACCOUNT";
+    const serverLabel = getSupportCategoryDefinition(serverCategory)?.labelKey;
+    const sentLabel = getSupportCategoryDefinition(sentCategory)?.labelKey;
+    expect(serverLabel).toBeTruthy();
+    await act(async () =>
+      holder.release({
+        ok: true,
+        created: true,
+        replayed: true,
+        case: {
+          id: "c-first",
+          public_case_no: "SC-FIRST",
+          category: serverCategory,
+          issue_type: null,
+          created_at: "2026-11-28T00:00:00Z",
+        },
+      })
+    );
+    await flush(3);
+    const card = q('[data-support-ticket-view="submitted"]');
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain(String(serverLabel));
+    expect(card!.textContent).not.toContain(String(sentLabel));
+  });
+});
+
+/** 헤더는 왔는데 본문이 끝나지 않는 응답 */
+const hangingBody = () => new Response(new ReadableStream({ start() {} }), { status: 200 });
+
+describe("재감사 4 — 마감 = 작업 전체(본문 읽기·401 세션 살리기 포함)", () => {
+  it("접수: 헤더 뒤 본문이 안 오면 20초에 「연결 오류」 · 창 다시 사용", async () => {
+    const timers = captureLongTimers();
+    try {
+      route = (url) => {
+        if (url.startsWith("/api/support/cases?")) return { ok: true, cases: [] };
+        if (url.startsWith("/api/support/cases/open")) return hangingBody();
+        return { ok: false };
+      };
+      await act(async () => root.render(<SupportModalHost />));
+      act(() => {
+        openSupportModal({ context: memberCtx() });
+      });
+      await flush();
+      click(q('[data-testid="support-ticket-field-category"]'));
+      click(q('[data-testid^="support-ticket-cat-"]'));
+      click(q('[data-testid^="support-ticket-issue-"]'));
+      typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "본문이 멈춘 글");
+      click(q('[data-support-ticket-submit="1"]'));
+      await flush(3);
+      for (const l of timers.limits.filter((x) => x.ms === 20_000)) l.fire();
+      await flush(4);
+      expect(q('[role="alert"]')?.textContent).toBe("common_network_error");
+      expect(q<HTMLButtonElement>('[data-support-modal-close="1"]')!.disabled).toBe(false);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  it("추가 문의: 401 뒤 세션 살리기가 멈춰도 20초에 「연결 오류」 · busy 풀림", async () => {
+    const timers = captureLongTimers();
+    try {
+      session.ensure.mockImplementation(() => new Promise(() => undefined));
+      route = (url, init) => {
+        if (url.startsWith("/api/support/cases/c1")) {
+          const body = init?.body ? JSON.parse(String(init.body)) : null;
+          if (body?.body) return new Response("{}", { status: 401 });
+          if (init?.method === "POST") return { ok: true };
+          return { ok: true, case: caseRow(), messages: [answerMsg()] };
+        }
+        return { ok: false };
+      };
+      await act(async () => root.render(<SupportModalHost />));
+      act(() => {
+        openSupportModal({ caseId: "c1" });
+      });
+      await flush();
+      click(q('[data-support-ticket-followup-open="1"]'));
+      typeInto(q<HTMLTextAreaElement>('[data-support-ticket-followup="1"]')!, "세션이 멈춘 글");
+      click(q('[data-support-ticket-followup-send="1"]'));
+      await flush(3);
+      for (const l of timers.limits.filter((x) => x.ms === 20_000)) l.fire();
+      await flush(4);
+      expect(q('[role="alert"]')?.textContent).toBe("common_network_error");
+      expect(q<HTMLTextAreaElement>('[data-support-ticket-followup="1"]')!.readOnly).toBe(false);
+    } finally {
+      timers.restore();
+    }
+  });
+
+  it("상세 읽기: 헤더 뒤 본문이 안 오면 15초에 끊고 다시 시도", async () => {
+    const timers = captureLongTimers();
+    try {
+      route = (url) => (url.startsWith("/api/support/cases/c1") ? hangingBody() : { ok: false });
+      await act(async () => root.render(<SupportModalHost />));
+      act(() => {
+        openSupportModal({ caseId: "c1" });
+      });
+      await flush(3);
+      for (const l of timers.limits.filter((x) => x.ms === 15_000)) l.fire();
+      await flush(4);
+      expect(q('[data-support-ticket-detail-retry="1"]')).not.toBeNull();
+    } finally {
+      timers.restore();
+    }
   });
 });

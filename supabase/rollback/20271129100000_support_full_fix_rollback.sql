@@ -5,6 +5,24 @@
 
 BEGIN;
 
+-- 0) 고객 알림 재시도 대기열 행 (kind 'support_requester_notification', source_key 'requester:<dedupe>') 처리
+--    되돌린 옛 웹 작업자는 이 payload(어드민 알림 모양이 아님)를 못 읽어 invalid_payload 로 8회 재시도 뒤 dead 로 쌓는다.
+--    선택: 지우지 않고 「처리됨(delivered)」으로 닫는다 — payload 가 표에 그대로 남아 필요하면 손으로 다시 보낼 수 있고,
+--    30일 뒤 고객센터 대기열 정리(purgeDeliveredSupportOutbox, kind like 'support%')가 지운다. last_error 에 되돌림 표시.
+--    실행 전 백업(결과를 보관):
+--      SELECT id, source_key, status, attempts, last_error, payload, created_at
+--        FROM public.admin_notification_outbox
+--       WHERE kind = 'support_requester_notification' AND status IN ('pending', 'processing', 'dead');
+UPDATE public.admin_notification_outbox
+   SET status = 'delivered',
+       delivered_at = now(),
+       claim_token = NULL,
+       last_error = left(coalesce(last_error || ' | ', '') || 'rollback_20271129100000: closed (old worker cannot replay)', 1000),
+       updated_at = now()
+ WHERE kind = 'support_requester_notification'
+   -- dead 포함: 웹을 먼저 되돌린 뒤 이 파일을 돌리기 전 사이에 옛 작업자가 dead 로 만든 행(어드민 「대기열 dead」 경보 방지)
+   AND status IN ('pending', 'processing', 'dead');
+
 -- 4)·3) 새 함수 삭제
 DROP FUNCTION IF EXISTS public.support_transition_case(uuid, text, uuid, timestamptz, uuid, uuid, text);
 DROP FUNCTION IF EXISTS public.support_open_case(uuid, text, uuid, text, text, text, text, text, text, text, text, integer, text, text, boolean, text, jsonb, uuid);
@@ -75,6 +93,9 @@ $$;
 REVOKE ALL ON FUNCTION public.support_append_message(uuid, text, uuid, uuid, text, text, boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.support_append_message(uuid, text, uuid, uuid, text, text, boolean) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.support_append_message(uuid, text, uuid, uuid, text, text, boolean) TO service_role;
+-- 20270415120000 의 함수 설명 그대로 (새 함수를 지우면 설명도 함께 사라졌다)
+COMMENT ON FUNCTION public.support_append_message(uuid, text, uuid, uuid, text, text, boolean) IS
+  'Support audit DEF-05: atomic message insert + case status/unread/first-response update.';
 
 -- 1) 요청 id 열·인덱스
 DROP INDEX IF EXISTS public.uq_support_messages_client_request_id;

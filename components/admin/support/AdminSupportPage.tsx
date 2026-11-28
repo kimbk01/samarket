@@ -65,8 +65,8 @@ import {
   ADMIN_SUPPORT_OFF_LIST_REFRESH_MS,
   isOffListSupportCaseUpdate,
   isAdminSupportOwnWriteEcho,
-  dispatchAdminInboxChanged,
   shouldRefetchSupportListForCaseChange,
+  subscribeAdminSupportAlertCreated,
   subscribeAdminSupportCaseChange,
   subscribeAdminSupportMessageInsert,
   type AdminSupportOwnWrite,
@@ -339,6 +339,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const lastPatchErrorRef = useRef<string | null>(null);
   /** 계약 §3 A-1: 이미 읽음 요청을 보낸 상세(문의·보여 준 글) — 같은 화면에 2번 보내지 않는다 */
   const seenSentKeyRef = useRef<string | null>(null);
+  /**
+   * 재감사 3: 열린 문의에 내 알림 행이 읽음(seen) 뒤에 새로 생김 — 같은 상세라도 읽음을 1번 더 보낸다.
+   * 값 = 그 문의 id (탭이 숨어 있으면 보일 때까지 기다린다). 이 경우에만 같은 상세 재전송을 허용한다.
+   */
+  const seenResendCaseRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selfAdminId = getCurrentUser()?.id?.trim() || "";
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -459,6 +464,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   useEffect(() => {
     // 점검 H1: 다른 문의를 누르면 이전 상세·오류·진행 중 요청을 즉시 버린다
     activeIdRef.current = activeId;
+    // 재감사 3: 다른 문의로 바꾸면 이전 문의의 「읽음 다시 보내기」 예약은 버린다
+    if (seenResendCaseRef.current !== activeId) seenResendCaseRef.current = null;
     setEditingId(null);
     setDraft("");
     setError(null);
@@ -592,7 +599,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     if (!shown || !open || shown.caseId !== open || shown.case.id !== open) return;
     const payload = buildAdminSupportSeenPayload(shown.messages, shown.case.last_message_at);
     const key = adminSupportSeenKey(open, payload);
-    if (seenSentKeyRef.current === key) return;
+    const resend = seenResendCaseRef.current === open;
+    if (seenSentKeyRef.current === key && !resend) return;
+    seenResendCaseRef.current = null;
     seenSentKeyRef.current = key;
     const forget = () => {
       // 실패하면 다음 상세·다시 보일 때 다시 보낸다(반복 재시도 없음)
@@ -607,11 +616,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
           body: JSON.stringify(payload),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && json.ok) {
-          // A-2: 내 받은 알림이 읽음으로 바뀌었다 — 헤더 숫자를 바로 다시 읽게
-          dispatchAdminInboxChanged();
-          return;
-        }
+        // 헤더 받은 알림 숫자는 내 알림 행 실시간(공통 구독) 하나로만 바뀐다 — 여기서 따로 신호를 보내지 않는다
+        if (res.ok && json.ok) return;
         forget();
       } catch {
         forget();
@@ -624,7 +630,16 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   useEffect(() => {
     const onVisibility = () => sendSeenIfVisible();
     document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // 재감사 3: 알림 행이 읽음보다 늦게 생김(응답 뒤·outbox) — 열린 문의면 지금 그려진 상세로 읽음을 다시 보낸다(숨어 있으면 보일 때)
+    const unsubscribeAlerts = subscribeAdminSupportAlertCreated(({ caseId }) => {
+      if (!caseId || caseId !== activeIdRef.current) return;
+      seenResendCaseRef.current = caseId;
+      sendSeenIfVisible();
+    });
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      unsubscribeAlerts();
+    };
   }, [sendSeenIfVisible]);
 
   /**
@@ -668,8 +683,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         if (stillOpen) setError(code);
         return false;
       }
-      // A-2: 답변·종료·담당 등은 서버가 내 받은 알림을 읽음으로 바꿀 수 있다 — 헤더 숫자를 바로 다시 읽게
-      dispatchAdminInboxChanged();
       if (stillOpen) await loadDetail(writeCaseId);
       // 재감사(PR #687) 1: 누를 때의 옛 조건이 아니라 지금 탭·조건으로 다시 읽는다
       await loadListRef.current();

@@ -762,3 +762,104 @@ describe("정리·오류 코드 (D-1·D-2·E-1·S-8)", () => {
     expect(replay).toMatch(/if r\.assignee_ok then[\s\S]*else\s*v_payload := v_payload \|\| jsonb_build_object\('broadcastPermission', 'support'\)/);
   });
 });
+
+describe("재감사 2026-11-29 (신호·다시 만들기)", () => {
+  it("재감사 1: 숫자 신호는 그 문의의 **읽은** 최근 알림 행을 건드린다(안 읽은 행 UPDATE 는 다른 기기 실시간 필터가 버린다)", async () => {
+    const { db, sb, updates } = makeDb();
+    current.sb = sb;
+    const a = await open(sb, "첫 글");
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답1" });
+    await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답2" });
+    await flush();
+    const rows = db.notification_events.filter((n) => n.type === "support_admin_replied");
+    expect(rows).toHaveLength(2);
+    const [older, newer] = rows;
+    Object.assign(older, { unread: false, read_at: "2026-12-01T00:00:00.000Z", opened_at: null });
+    updates.length = 0;
+    const route = await import("@/app/api/support/cases/[caseId]/route");
+    const res = await route.POST(
+      jsonReq(`http://x/api/support/cases/${a.case.id}`, "POST", {
+        action: "seen",
+        shownMessageIds: [],
+        seenLastMessageAt: db.support_cases[0].last_message_at,
+      }),
+      params(a.case.id)
+    );
+    expect(res.status).toBe(200);
+    expect(db.support_cases[0].requester_unread_count).toBe(0);
+    // 읽음 처리 UPDATE(보여 준 답변 없음 = 0행)와 구분: 신호는 unread 를 바꾸지 않는 UPDATE
+    const signal = updates.filter((u) => u.table === "notification_events" && !("unread" in u.patch));
+    expect(signal).toHaveLength(1);
+    // 읽은 행을 같은 read_at 으로 · opened_at 채움 → 클라이언트 필터(read_at 있음) 통과
+    expect(signal[0].patch.read_at).toBe("2026-12-01T00:00:00.000Z");
+    expect(older.opened_at).toBeTruthy();
+    expect(newer.unread).toBe(true);
+    expect(newer.read_at ?? null).toBeNull();
+  });
+
+  it("재감사 2: 응답 전 저장이 두 번 실패한 뒤 응답 뒤 다시 만들 때 — 그사이 고친 답변이면 지금 본문으로", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    notifyFail.remaining = 2;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "옛 답" });
+    if (!r.ok) throw new Error(r.error);
+    await adminEditSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id, body: "고친 답" });
+    await settle();
+    const rows = db.notification_events.filter((n) => n.dedupe_key === `support_admin_replied:${r.message.id}`);
+    expect(rows.map((n) => n.body)).toEqual(["고친 답"]);
+  });
+
+  it("재감사 2: 다시 만들기 전에 답변이 지워졌으면 만들지 않는다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    notifyFail.remaining = 2;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "지울 답" });
+    if (!r.ok) throw new Error(r.error);
+    await adminDeleteSupportMessage(sb, { adminUserId: ADMIN, caseId: a.case.id, messageId: r.message.id });
+    // 대조: 지우지 않은 다른 답변은 같은 길(저장 2회 실패 → 응답 뒤 다시 만들기)로 만들어진다
+    notifyFail.remaining = 2;
+    const keep = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "남길 답" });
+    if (!keep.ok) throw new Error(keep.error);
+    await settle();
+    expect(db.notification_events.filter((n) => n.dedupe_key === `support_admin_replied:${r.message.id}`)).toHaveLength(0);
+    expect(db.notification_events.filter((n) => n.dedupe_key === `support_admin_replied:${keep.message.id}`)).toHaveLength(1);
+  });
+
+  it("재감사 2: 다시 만들기 전에 고객이 이미 봤으면(미읽음 0) 안 읽은 알림 행을 만들지 않는다", async () => {
+    const { db, sb } = makeDb();
+    const a = await open(sb, "첫 글");
+    notifyFail.remaining = 2;
+    const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답" });
+    if (!r.ok) throw new Error(r.error);
+    db.support_cases[0].requester_unread_count = 0; // 고객이 상세를 보고 seen 을 보냈다
+    await settle();
+    expect(db.notification_events.filter((n) => n.dedupe_key === `support_admin_replied:${r.message.id}` && n.unread === true)).toHaveLength(0);
+    // 대조: 아직 안 본 다음 답변은 같은 길로 만들어진다
+    notifyFail.remaining = 2;
+    const next = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "다음 답" });
+    if (!next.ok) throw new Error(next.error);
+    await settle();
+    expect(db.notification_events.filter((n) => n.dedupe_key === `support_admin_replied:${next.message.id}` && n.unread === true)).toHaveLength(1);
+  });
+});
+
+describe("재감사 4 — 쓰기 창 진행 중 목록 (GET /api/support/cases?limit=5)", () => {
+  it("개수를 세지 않고, 화면 정렬(답변 완료 먼저 → 최근)로 앞 5개 — 6번째 이후의 답변 완료 문의도 들어온다", async () => {
+    const rows: Row[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      rows.push({ id: `open${i}`, requester_user_id: U, audience: "MEMBER", owner_store_id: null, status: "OPEN", requester_unread_count: 0, last_message_at: `2026-12-01T00:00:1${i}.000Z` });
+    }
+    rows.push({ id: "answered", requester_user_id: U, audience: "MEMBER", owner_store_id: null, status: "WAITING_USER", requester_unread_count: 1, last_message_at: "2026-12-01T00:00:00.000Z" });
+    const { sb } = makeDb({ support_cases: rows });
+    const base = sb as unknown as { from: (t: string) => unknown; rpc: unknown };
+    let caseQueries = 0;
+    current.sb = { ...base, from: (t: string) => ((t === "support_cases" ? (caseQueries += 1) : 0), base.from(t)) };
+    const { GET } = await import("@/app/api/support/cases/route");
+    const res = await GET(jsonReq("http://x/api/support/cases?audience=MEMBER&limit=5", "GET"));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.cases.map((c: { id: string }) => c.id)).toEqual(["answered", "open5", "open4", "open3", "open2"]);
+    expect(json.counts).toBeUndefined();
+    expect(caseQueries).toBe(1);
+  });
+});

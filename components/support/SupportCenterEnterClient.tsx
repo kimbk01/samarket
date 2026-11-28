@@ -8,7 +8,7 @@ import {
   clearPendingSupportContext,
   readPendingSupportContext,
 } from "@/lib/support/open-support-center";
-import { canDeliverSupportOpen, deliverSupportOpenAfterRouteLeaves } from "@/lib/support/deliver-support-open";
+import { canDeliverSupportOpen, deliverSupportOpenAfterRouteLeaves, markSupportEntryReplace } from "@/lib/support/deliver-support-open";
 import { supportContextFromEnterQuery } from "@/lib/support/support-enter-href";
 import { DibayPendingSpinner } from "@/components/ui/DibaySpinner";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -45,6 +45,8 @@ export function SupportCenterEnterClient() {
     }
     // C-21: 주소를 먼저 정리하고, 정리된 주소에서 호스트가 창을 연다(◁ 가 이 주소로 돌아와 다시 열리는 반복 방지)
     deliverSupportOpenAfterRouteLeaves(window.location.pathname, { context, source: "enter" });
+    // 고객센터 흐름의 주소 정리 — 호스트가 「경로 바뀜」으로 창을 닫지 않게 표시하고 replace
+    markSupportEntryReplace();
     router.replace("/");
   }, [router]);
 

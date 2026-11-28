@@ -9,7 +9,7 @@ function read(rel: string): string {
 }
 
 describe("A2-2 admin support IA / badge SSOT", () => {
-  it("menu exposes Support Center + archive; store-inquiries not primary (ARO-OPS-UX-002-B7)", () => {
+  it("(구조 확인) menu exposes Support Center + archive; store-inquiries not primary (ARO-OPS-UX-002-B7)", () => {
     // CUT J: Support is top-level workspace (not nested cp-support under Customer Platform).
     // B7: legacy /admin/store-inquiries route KEEP, primary nav HIDE.
     const support = requireAdminMenuByKey(adminMenu, "support");
@@ -36,7 +36,7 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     expect(registry).not.toContain('"cp-member-inquiry"');
   });
 
-  it("AdminSupportPage wires assign and priority UI", () => {
+  it("(구조 확인) AdminSupportPage wires assign and priority UI", () => {
     const page = read("components/admin/support/AdminSupportPage.tsx");
     expect(page).toContain('action: "assign"');
     expect(page).toContain('action: "priority"');
@@ -54,7 +54,7 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     expect(page).toContain("lg:grid-cols-[320px_minmax(0,1fr)_300px]");
   });
 
-  it("legacy admin writers return 410", () => {
+  it("(구조 확인) legacy admin writers return 410", () => {
     expect(read("app/api/admin/member-notes/route.ts")).toContain("legacy_writer_disabled");
     expect(read("app/api/admin/member-notes/[threadId]/route.ts")).toContain(
       "legacy_writer_disabled"
@@ -64,7 +64,7 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     );
   });
 
-  it("action queue counts support_actionable not legacy Care/platform", () => {
+  it("(구조 확인) action queue counts support_actionable not legacy Care/platform", () => {
     // R8: 고객지원 화면과 같은 탭 필터(applySupportCaseTabFilter "ACTIONABLE" = OPEN·WAITING_ADMIN)
     const q = read("lib/admin/admin-action-queue.ts");
     const types = read("lib/support/support-case-types.ts");

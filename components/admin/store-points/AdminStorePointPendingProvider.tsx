@@ -90,6 +90,10 @@ import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import {
   adminMeCanReceiveSupportRealtime,
   createAdminInboxRefreshScheduler,
+  createAdminInboxRowStateCache,
+  dispatchAdminSupportAlertCreated,
+  shouldRefreshAdminInboxForNotificationChange,
+  supportCaseIdFromAdminNotificationRow,
   createSupportCaseCountCache,
   dispatchAdminSupportCaseChange,
   dispatchAdminSupportMessageInsert,
@@ -1109,6 +1113,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       // 전체 수정 계약 §4 A-2: 내 알림 행(admin_notifications) 생성·읽음 → 헤더 받은 알림 숫자를 바로(1번으로 묶어) 다시 읽는다
       supportInboxRefreshRef.current ??= createAdminInboxRefreshScheduler();
       const inboxRefresh = supportInboxRefreshRef.current;
+      const inboxRowState = createAdminInboxRowStateCache();
 
       const opsChannel = sb
         .channel("admin-ops-realtime-bridge", messengerPrivateBroadcastChannelOptions())
@@ -1424,7 +1429,19 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               // 전체 수정 계약 §4 A-2: 받은 알림 숫자 신호 = 서버가 쓴 내 알림 행 그 자체(생성·읽음).
               //   추측 대기 시간 없이, 알림 행이 생기거나 읽힌 순간 헤더 숫자를 다시 읽는다(짧게 1번으로 묶음).
               { event: "*", schema: "public", table: "admin_notifications", filter: `recipient_admin_id=eq.${me?.userId ?? ""}` },
-              () => inboxRefresh.schedule()
+              // 재감사 1: 푸시 결과만 바뀐 UPDATE(push_status·push_attempted_at)는 숫자가 그대로라 다시 읽지 않는다
+              (payload) => {
+                const eventType = String(payload.eventType ?? "");
+                const newRow = rowAsRecord(payload.new);
+                if (shouldRefreshAdminInboxForNotificationChange(inboxRowState, eventType, newRow, rowAsRecord(payload.old))) {
+                  inboxRefresh.schedule();
+                }
+                // 재감사 3: 고객센터 문의 알림이 새로 생김 → 그 문의를 보고 있는 콘솔이 읽음을 다시 보낸다
+                if (eventType === "INSERT") {
+                  const caseId = supportCaseIdFromAdminNotificationRow(newRow);
+                  if (caseId) dispatchAdminSupportAlertCreated({ caseId });
+                }
+              }
             )
             .on(
               "postgres_changes",

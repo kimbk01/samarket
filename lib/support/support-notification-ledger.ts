@@ -12,8 +12,10 @@ import { loadNotificationUserLanguage } from "@/lib/notifications/notification-u
 import { notificationCopyMeta, type NotificationCopyMetaInput } from "@/lib/notifications/notification-stored-copy";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { after } from "next/server";
-import { keepAliveAfterResponse } from "@/lib/push/keep-alive-after-response";
-import { enqueueSupportRequesterNotification } from "@/lib/support/support-requester-outbox";
+import {
+  enqueueSupportRequesterNotification,
+  recreateSupportRequesterNotification,
+} from "@/lib/support/support-requester-outbox";
 import { buildSupportCaseRoute, type SupportCaseRow } from "@/lib/support/support-case-types";
 import { isSupportTicketClosedStatus } from "@/lib/support/support-ticket-form";
 
@@ -213,8 +215,10 @@ export async function requesterSupportCaseNeedsSeen(
 }
 
 /**
- * 계약 §4 신호 — 고객 미읽음 숫자가 바뀌었는데 같은 요청에서 바뀐 알림 행이 없을 때, 그 문의의 가장 최근 support_* 알림 행을
- * 같은 값으로 한 번 UPDATE 한다(값은 그대로 · 실시간 UPDATE 1건 = FAB·「내 문의」 다시 읽기). 행이 없으면 아무것도 안 한다.
+ * 계약 §4 신호 — 고객 미읽음 숫자가 바뀌었는데 같은 요청에서 바뀐 알림 행이 없을 때, 그 문의의 **이미 읽은**(read_at 있음) 가장 최근
+ * support_* 알림 행을 한 번 UPDATE 한다(read_at 그대로 · opened_at 이 비었으면 지금). 실시간 UPDATE 1건 = 다른 기기·탭의 FAB 다시 읽기.
+ * 읽은 행만 고르는 까닭: 클라이언트 실시간 필터(`isNotificationEventReadOrDismissUpdate`)는 안 읽은 행의 UPDATE 를 버린다(재감사 1).
+ * 읽은 행이 없으면 아무것도 안 한다 — 같은 기기는 seen 응답 뒤 스스로 다시 읽는다.
  */
 export async function signalRequesterSupportCounts(
   sb: SupabaseClient,
@@ -224,17 +228,18 @@ export async function signalRequesterSupportCounts(
   if (!uid || !input.caseId) return false;
   const { data, error } = await sb
     .from("notification_events")
-    .select("id, read_at")
+    .select("id, read_at, opened_at")
     .eq("user_id", uid)
     .eq("display_payload->>supportCaseId", input.caseId)
     .like("type", "support_%")
+    .not("read_at", "is", null)
     .order("created_at", { ascending: false })
     .limit(1);
-  const row = ((data ?? []) as { id?: unknown; read_at?: unknown }[])[0];
-  if (error || !row?.id) return false;
+  const row = ((data ?? []) as { id?: unknown; read_at?: unknown; opened_at?: unknown }[])[0];
+  if (error || !row?.id || !row.read_at) return false;
   const { error: upErr } = await sb
     .from("notification_events")
-    .update({ read_at: (row.read_at as string | null | undefined) ?? null })
+    .update({ read_at: String(row.read_at), opened_at: (row.opened_at as string | null | undefined) || new Date().toISOString() })
     .eq("id", String(row.id))
     .eq("user_id", uid);
   if (upErr) {
@@ -561,13 +566,16 @@ export async function recordRequesterSupportNotification(
     },
     saveError
   );
-  // 빠른 길: 응답 뒤 한 번 더(성공하면 작업자는 같은 키를 중복으로 보고 닫는다)
-  keepAliveAfterResponse(
-    createAndDispatchNotificationEvent(sb, event as never)
+  // 빠른 길: 응답 뒤 한 번 더 — 대기열 작업자와 **같은 함수**(다시 읽기: 지운 답 건너뜀 · 고친 본문 · 이미 본 답 건너뜀)
+  // 응답을 보낸 **뒤에** 시작(after(fn)) — 응답 직후의 답변 수정·삭제·열람이 다시 읽기에 반영된다
+  runAfterResponse(() =>
+    recreateSupportRequesterNotification(sb, {
+      event: event as unknown as Record<string, unknown> & { dedupeKey: string },
+      requesterUserId: opts.requesterUserId,
+      replyMessageId: opts.replyMessageId ?? null,
+    })
       .then((r) => {
-        if (!r.ok && !(r as { duplicate?: boolean }).duplicate) {
-          console.error("[support] notification_failed_final", { caseId: event.displayPayload.supportCaseId, type: event.type });
-        }
+        if (!r.ok) console.error("[support] notification_failed_final", { caseId: event.displayPayload.supportCaseId, type: event.type });
       })
       .catch((err: unknown) => console.error("[support] notification_failed_final", { caseId: event.displayPayload.supportCaseId, err }))
   );

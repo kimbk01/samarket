@@ -1,7 +1,7 @@
 -- 고객센터 문의 전체 수정 (2026-11-29) — 공통 계약 docs/audit/customer-support-full-fix-contract-2026-11-28.md §1·§2·§6
 -- 결함: S-1·S-2·S-3(요청 id 멱등) · S-4·S-5(접수 한 트랜잭션) · S-15·S-16·S-17(상태 전이 표 한 트랜잭션) · B-4(dedupe 인덱스) · S-8(재생 SQL 권한 판정)
 -- 운영 적용 = Owner 별도 승인. 순서 고정: 「이 파일 운영 적용 → 웹 병합」 (웹은 새 함수가 있어야 동작).
--- 되돌리기 = 같은 폴더 20271129100000_support_full_fix_rollback.sql (웹을 먼저 되돌린 뒤).
+-- 되돌리기 = supabase/rollback/20271129100000_support_full_fix_rollback.sql (웹을 먼저 되돌린 뒤).
 -- 기준 정의(저장소 최신):
 --   support_append_message = 20271127250000 (잠금 뒤 clock_timestamp)
 --   admin_notification_replay_support_replies = 20271127240000
@@ -437,6 +437,14 @@ BEGIN
     IF v_active THEN
       RETURN jsonb_build_object('ok', true, 'changed', false, 'case', to_jsonb(v_case), 'previous_status', v_prev_status);
     END IF;
+    -- 재감사 2 (2026-11-29): 접수(support_open_case)와 같은 진행 중 키 잠금 — 접수와 재오픈이 겹치면 차례로 처리한다.
+    --   접수가 먼저면 새 문의가 진행 중이 되어 아래 UPDATE 가 active_case_exists, 재오픈이 먼저면 접수가 그 문의에 붙는다
+    --   (잠금 없으면 접수 INSERT 가 유일 키에 걸려 고객이 409 를 받았다). 잠금 순서: 문의 행 → 키 잠금, 접수는 키 잠금 뒤 진행 중 행만.
+    PERFORM pg_advisory_xact_lock(hashtextextended(
+      'support_open|' || v_case.requester_user_id::text || '|' || v_case.audience || '|' || v_case.category || '|'
+        || COALESCE(v_case.owner_store_id::text, '') || '|' || COALESCE(v_case.reference_type, '') || '|' || COALESCE(v_case.reference_id, ''),
+      0
+    ));
     BEGIN
       UPDATE public.support_cases
          SET status = 'OPEN', resolved_at = NULL, archived_at = NULL, updated_at = v_now, last_message_at = v_now
@@ -519,6 +527,9 @@ GRANT EXECUTE ON FUNCTION public.support_transition_case(uuid, text, uuid, times
 -- ---------------------------------------------------------------------------
 -- 5) B-4 — dedupe 키 단독 조회 (재생 SQL not exists · 답변 정리 · 알림 되살림)
 -- ---------------------------------------------------------------------------
+-- 주의: CONCURRENTLY 가 아니다(이 파일은 BEGIN…COMMIT 한 트랜잭션이라 쓸 수 없다) — 인덱스를 만드는 동안 admin_notifications 에
+--   쓰기 잠금(SHARE)이 걸려 어드민 알림 저장·읽음 처리가 그 시간만큼 기다린다. 적용 전 행 수를 읽기 전용으로 확인하고,
+--   많으면 이 문장을 빼고 트랜잭션 밖에서 CREATE INDEX CONCURRENTLY 로 따로 만든다.
 CREATE INDEX IF NOT EXISTS idx_admin_notifications_dedupe_key
   ON public.admin_notifications (dedupe_key);
 

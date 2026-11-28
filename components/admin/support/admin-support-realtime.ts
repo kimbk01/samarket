@@ -149,6 +149,81 @@ export function createAdminInboxRefreshScheduler(delayMs: number = ADMIN_SUPPORT
   };
 }
 
+/**
+ * 재감사(HEAD e249d41d3) 1: 내 알림 행(admin_notifications) 변경 → 헤더 받은 알림 숫자를 다시 읽을지.
+ * 헤더 숫자 = `read_at IS NULL AND archived_at IS NULL` 행 수 — 이 상태(「안 읽은 알림」인가)가 바뀔 때만 읽는다.
+ *  - INSERT: 읽는다(새 알림) · 상태를 표에 적는다
+ *  - UPDATE: 본 적 있는 행이면 「안 읽음」 상태가 바뀐 때만(읽음·보관·되살림). 푸시 결과(push_status·push_attempted_at)만 바뀐 UPDATE 는 무시.
+ *    처음 보는 행(이 화면을 연 뒤 생기지 않은 행)은 직전 상태를 몰라(실시간 old = id 만) 1번 읽는다.
+ *  - 페이로드에 read_at·archived_at 이 없으면(부분 행) INSERT 만 읽는다.
+ *  - DELETE: 읽는다(안 읽은 행이었을 수 있다)
+ * 표는 최대 SUPPORT_CASE_COUNT_CACHE_MAX 건.
+ */
+export type AdminInboxRowStateCache = Map<string, boolean>;
+
+export function createAdminInboxRowStateCache(): AdminInboxRowStateCache {
+  return new Map();
+}
+
+export function shouldRefreshAdminInboxForNotificationChange(
+  cache: AdminInboxRowStateCache,
+  eventType: string | null | undefined,
+  newRow: Record<string, unknown> | null | undefined,
+  oldRow?: Record<string, unknown> | null | undefined
+): boolean {
+  const ev = norm(eventType).toUpperCase();
+  const id = norm(newRow?.id ?? oldRow?.id).trim();
+  if (ev === "DELETE") {
+    if (id) cache.delete(id);
+    return true;
+  }
+  if (!id || !newRow) return false;
+  if (!("read_at" in newRow) || !("archived_at" in newRow)) return ev === "INSERT";
+  const unread = newRow.read_at == null && newRow.archived_at == null;
+  const prev = cache.get(id);
+  cache.delete(id);
+  cache.set(id, unread);
+  while (cache.size > SUPPORT_CASE_COUNT_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+  if (ev === "INSERT") return true;
+  if (ev !== "UPDATE") return false;
+  return prev === undefined || prev !== unread;
+}
+
+/**
+ * 재감사(HEAD e249d41d3) 3: 고객센터 문의에 내 알림 행이 새로 생겼다(INSERT) — 콘솔이 그 문의를 열어 보고 있으면
+ * 이미 보낸 읽음(seen)이 알림 행보다 먼저 갔을 수 있어 다시 보낸다. 공통 구독(Provider) → 창 이벤트 → 콘솔.
+ */
+export const ADMIN_SUPPORT_ALERT_CREATED_EVENT = "samarket:admin-support-alert-created";
+
+export type AdminSupportAlertCreatedDetail = { caseId: string };
+
+/** admin_notifications 행 → 고객센터 문의 id (아니면 null) */
+export function supportCaseIdFromAdminNotificationRow(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  if (norm(row.work_ref_table).trim() !== "support_cases") return null;
+  const id = norm(row.work_ref_id).trim();
+  return id || null;
+}
+
+export function dispatchAdminSupportAlertCreated(detail: AdminSupportAlertCreatedDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<AdminSupportAlertCreatedDetail>(ADMIN_SUPPORT_ALERT_CREATED_EVENT, { detail }));
+}
+
+export function subscribeAdminSupportAlertCreated(handler: (detail: AdminSupportAlertCreatedDetail) => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<AdminSupportAlertCreatedDetail>).detail;
+    if (d && typeof d.caseId === "string") handler(d);
+  };
+  window.addEventListener(ADMIN_SUPPORT_ALERT_CREATED_EVENT, listener);
+  return () => window.removeEventListener(ADMIN_SUPPORT_ALERT_CREATED_EVENT, listener);
+}
+
 type CaseLike = { id: string } & Partial<Record<(typeof LIST_RELEVANT_FIELDS)[number], unknown>>;
 
 function norm(v: unknown): string {

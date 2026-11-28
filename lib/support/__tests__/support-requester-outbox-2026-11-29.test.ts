@@ -11,10 +11,10 @@ vi.mock("next/server", () => ({
   },
 }));
 vi.mock("@/lib/push/keep-alive-after-response", () => ({ keepAliveAfterResponse: () => undefined }));
-const notify = vi.hoisted(() => ({ fail: 0, calls: [] as { dedupeKey: string }[] }));
+const notify = vi.hoisted(() => ({ fail: 0, calls: [] as { dedupeKey: string; body?: string }[] }));
 vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
-  createAndDispatchNotificationEvent: vi.fn(async (_sb: unknown, ev: { dedupeKey: string }) => {
-    notify.calls.push({ dedupeKey: ev.dedupeKey });
+  createAndDispatchNotificationEvent: vi.fn(async (_sb: unknown, ev: { dedupeKey: string; body?: string }) => {
+    notify.calls.push({ dedupeKey: ev.dedupeKey, body: ev.body });
     if (notify.fail > 0) {
       notify.fail -= 1;
       return { ok: false, error: "insert_failed" };
@@ -29,7 +29,9 @@ vi.mock("@/lib/notifications/notification-user-language", () => ({
 
 type RpcCall = { name: string; args: Record<string, unknown> };
 
-function fakeSb(opts: { deletedReply?: boolean; outbox?: unknown[] } = {}) {
+function fakeSb(
+  opts: { deletedReply?: boolean; outbox?: unknown[]; replyBody?: string; existingNotification?: boolean; caseUnread?: number } = {}
+) {
   const rpcCalls: RpcCall[] = [];
   const sb = {
     rpc: async (name: string, args: Record<string, unknown> = {}) => {
@@ -50,8 +52,19 @@ function fakeSb(opts: { deletedReply?: boolean; outbox?: unknown[] } = {}) {
         delete: () => chain,
         maybeSingle: async () =>
           table === "support_messages"
-            ? { data: { deleted_at: opts.deletedReply ? "2026-12-01T00:00:00Z" : null }, error: null }
-            : { data: null, error: null },
+            ? {
+                data: {
+                  deleted_at: opts.deletedReply ? "2026-12-01T00:00:00Z" : null,
+                  body: opts.replyBody ?? "답",
+                  ...(opts.caseUnread != null ? { case_id: "c1" } : {}),
+                },
+                error: null,
+              }
+            : table === "notification_events"
+              ? { data: opts.existingNotification ? { id: "ne-old" } : null, error: null }
+              : table === "support_cases"
+                ? { data: { requester_unread_count: opts.caseUnread ?? 1 }, error: null }
+                : { data: null, error: null },
         then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok),
       };
       return chain;
@@ -120,5 +133,39 @@ describe("S-6 고객 알림 영구 재시도 (동작)", () => {
     await runAdminNotificationDeliveryWorker(sb);
     expect(notify.calls).toHaveLength(0);
     expect(rpcCalls.find((c) => c.name === "admin_notification_outbox_finish")?.args.p_ok).toBe(true);
+  });
+});
+
+describe("재감사 2 — 대기열 다시 만들기는 만들기 직전 다시 읽는다 (동작)", () => {
+  const payloadOf = (kind: string) => ({
+    kind,
+    event: { userId: "u1", type: "support_admin_replied", dedupeKey: "support_admin_replied:m1", title: "t", body: "옛 답" },
+    requesterUserId: "u1",
+    replyMessageId: "m1",
+  });
+  const run = async (opts: Parameters<typeof fakeSb>[0]) => {
+    const { runAdminNotificationDeliveryWorker } = await import("@/lib/admin/notifications/admin-notification-service");
+    const { SUPPORT_REQUESTER_OUTBOX_KIND } = await import("@/lib/support/support-requester-outbox");
+    const { sb, rpcCalls } = fakeSb({
+      ...opts,
+      outbox: [{ id: "o1", claim_token: "k", source_key: "requester:x", payload: payloadOf(SUPPORT_REQUESTER_OUTBOX_KIND) }],
+    });
+    await runAdminNotificationDeliveryWorker(sb);
+    return rpcCalls.find((c) => c.name === "admin_notification_outbox_finish")?.args.p_ok;
+  };
+
+  it("고친 답변이면 저장해 둔 옛 본문이 아니라 지금 본문으로 만든다", async () => {
+    expect(await run({ replyBody: "고친 답" })).toBe(true);
+    expect(notify.calls.map((c) => c.body)).toEqual(["고친 답"]);
+  });
+
+  it("그 고객의 같은 키 알림이 이미 있으면 만들지 않고 처리됨", async () => {
+    expect(await run({ existingNotification: true })).toBe(true);
+    expect(notify.calls).toHaveLength(0);
+  });
+
+  it("고객이 이미 봤으면(그 문의 고객 미읽음 0) 안 읽은 행을 만들지 않고 처리됨", async () => {
+    expect(await run({ caseUnread: 0 })).toBe(true);
+    expect(notify.calls).toHaveLength(0);
   });
 });
