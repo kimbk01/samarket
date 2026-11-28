@@ -21,83 +21,22 @@ import {
 } from "@/lib/community-messenger/realtime/messenger-realtime-supervisor";
 import {
   MESSENGER_RESYNC_ALL_LIVE_MAX_WAIT_MS,
+  flushDeferredMessengerResync,
+  messengerRealtimeResyncDeferred,
   messengerRealtimeResyncPending,
   onMessengerRealtimeResynced,
 } from "@/lib/community-messenger/realtime/messenger-realtime-resync";
+import { appHiddenNow, lastHiddenSpanMs } from "@/lib/community-messenger/realtime/messenger-app-visibility";
 
 /** realtime-js 2.99.2 `CONNECTION_TIMEOUTS.HEARTBEAT_INTERVAL` 과 같은 값 */
 export const RESUME_RESYNC_SKIP_MAX_HIDDEN_MS = 25_000;
-/**
- * 「방금 다시 열림」으로 보는 창. 보임이 된 지 이보다 오래면 지금 신호(창 포커스 등)는 새 다시 열기가 아니다 —
- * 그 사이 숨김이 없었으므로 숨김 시간 0으로 본다(옛 숨김 시간으로 매 포커스마다 조회하지 않게).
- */
-export const RESUME_SIGNAL_WINDOW_MS = 5_000;
-
-let hiddenAt: number | null = null;
-let visibleAt: number | null = null;
-let installed = false;
-
-/**
- * 숨김·보임 시각 기록을 단다(1번만). 다시 열기 조회를 쓰는 쪽이 시작할 때 부른다 — 모듈을 불러오는 것만으로는 달지 않는다.
- * 기록을 달기 전 숨김은 모르므로 0으로 본다(그 전 다시 열기는 앱 시작 직후뿐이다).
- */
-export function ensureResumeVisibilityClock(): void {
-  if (installed) return;
-  if (typeof document === "undefined" || typeof document.addEventListener !== "function") return;
-  if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
-  installed = true;
-  if (document.visibilityState === "hidden") hiddenAt = Date.now();
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") markHidden();
-    else visibleAt = Date.now();
-  });
-  window.addEventListener("pagehide", markHidden);
-  /** 네이티브 앱 상태 — WebView 숨김 이벤트가 늦거나 빠져도 백그라운드 시작 시각을 남긴다 */
-  void import("@capacitor/core")
-    .then(({ Capacitor }) => {
-      if (!Capacitor.isNativePlatform()) return;
-      return import("@capacitor/app").then(({ App }) =>
-        App.addListener("appStateChange", ({ isActive }) => {
-          if (!isActive) markHidden();
-          else if (hiddenAt != null && (visibleAt == null || visibleAt < hiddenAt)) visibleAt = Date.now();
-        })
-      );
-    })
-    .catch(() => {
-      /* 웹 이벤트만 쓴다 */
-    });
-}
-
-/** 숨김 시작 — 이미 숨김 중이면(보임 이후 첫 숨김 신호가 아니면) 처음 시각을 유지한다 */
-function markHidden(): void {
-  const now = Date.now();
-  if (hiddenAt != null && (visibleAt == null || hiddenAt > visibleAt)) return;
-  hiddenAt = now;
-}
-
-/** 순수 계산 — 가장 최근 숨김 시간(ms). 기록을 달지 못했으면 모름 = 무한(→ 조회한다), 숨긴 적이 없으면 0 */
-export function hiddenSpanFrom(input: {
-  installed: boolean;
-  hiddenAt: number | null;
-  visibleAt: number | null;
-  now: number;
-}): number {
-  const { installed: on, hiddenAt: h, visibleAt: v, now } = input;
-  if (!on) return Number.POSITIVE_INFINITY;
-  if (h == null) return 0;
-  if (v != null && v >= h) {
-    /** 보임이 된 지 오래 — 이번 신호는 새 다시 열기가 아니다(데스크톱 창 포커스 등) */
-    if (now - v > RESUME_SIGNAL_WINDOW_MS) return 0;
-    return v - h;
-  }
-  /** 아직 보임 시각이 안 찍혔다(네이티브 appStateChange 가 visibilitychange 보다 먼저 옴) — 숨김 시작부터 지금까지 */
-  return Math.max(0, now - h);
-}
-
-/** 가장 최근에 숨겨져 있던 시간(ms) */
-export function lastHiddenSpanMs(now: number = Date.now()): number {
-  return hiddenSpanFrom({ installed, hiddenAt, visibleAt, now });
-}
+/** 숨김·보임 시계는 `messenger-app-visibility.ts` 로 옮김(2026-11-28) — 예전 이름으로도 쓰게 다시 내보낸다 */
+export {
+  RESUME_SIGNAL_WINDOW_MS,
+  ensureResumeVisibilityClock,
+  hiddenSpanFrom,
+  lastHiddenSpanMs,
+} from "@/lib/community-messenger/realtime/messenger-app-visibility";
 
 export type ResumeResyncInputs = {
   allChannelsLive: boolean;
@@ -135,7 +74,14 @@ export type ResumeRefetchPlan = "skip" | "now" | "wait_resync";
  * - wait_resync: 연결이 끊겼거나 채널이 다시 붙는 중이고 감독이 가입을 허용 — 곧 올 재동기화로 대신, 안 오면 조회
  *   (Samsung 실기: 백그라운드 약 2초 뒤 소켓 1006 종료 → 다시 열 때마다 재연결)
  */
-export function resumeRefetchPlan(inputs: ResumeResyncInputs & { reconnectExpected: boolean }): ResumeRefetchPlan {
+export function resumeRefetchPlan(
+  inputs: ResumeResyncInputs & { reconnectExpected: boolean; resyncDeferred?: boolean }
+): ResumeRefetchPlan {
+  /**
+   * 숨김 중 재연결로 밀린 재동기화 묶음이 있으면 그 묶음(보일 때 1번)이 받는다 — 연결·감독 상태와 무관하게 기다린다
+   * (2026-11-28 설계 hidden-reconnect-resync-design §3-3 · 독립 검토: 이 조건이 없으면 받는 쪽마다 2번 조회).
+   */
+  if (inputs.resyncDeferred) return "wait_resync";
   const connected = inputs.allChannelsLive && inputs.socketConnected;
   if (connected) return inputs.hiddenSpanMs >= RESUME_RESYNC_SKIP_MAX_HIDDEN_MS ? "now" : "skip";
   return inputs.reconnectExpected ? "wait_resync" : "now";
@@ -146,6 +92,10 @@ export type ResumeRefetchSchedulerDeps = {
   onResynced: (cb: () => void) => () => void;
   /** 실행을 기다리는 재동기화 묶음이 있는가 */
   resyncPending: () => boolean;
+  /** 숨김 중 밀린 묶음을 (다음 차례에) 실행시킨다 — 기다리기 시작한 뒤·기다림 끝에 부른다 */
+  flushDeferred?: () => void;
+  /** 지금 앱이 숨겨져 있는가 — 기다림 끝 실행을 숨김 중에 하지 않게 */
+  isHidden?: () => boolean;
   setTimer: (fn: () => void, ms: number) => unknown;
   clearTimer: (t: unknown) => void;
 };
@@ -180,10 +130,17 @@ export function createResumeRefetchScheduler(deps: ResumeRefetchSchedulerDeps) {
     timer = deps.setTimer(() => {
       timer = null;
       if (done) return;
-      if (deps.resyncPending()) return; // 묶음이 실행되면 onResynced 가 finish 한다
+      if (deps.resyncPending()) {
+        /** 묶음이 실행되면 onResynced 가 finish 한다 — 숨김으로 밀린 채면 지금 실행시킨다(보임 알림을 놓친 경우 안전망) */
+        /** 그 사이 다시 숨겨졌으면 보일 때까지 둔다 */
+        if (!(deps.isHidden?.() ?? false)) deps.flushDeferred?.();
+        return;
+      }
       finish();
       refetch();
     }, RESUME_REFETCH_WAIT_FOR_RESYNC_MS);
+    /** 다시 열기 신호 자체가 「보임」이다 — 보임 알림을 놓쳤어도 밀린 묶음을 실행시킨다(다음 차례 실행이라 위 기다림이 먼저 걸린다) */
+    deps.flushDeferred?.();
     return () => {
       if (!done) finish();
     };
@@ -197,9 +154,12 @@ const scheduleResumeRefetchDefault = createResumeRefetchScheduler({
       socketConnected: realtimeSocketConnected(),
       hiddenSpanMs: lastHiddenSpanMs(),
       reconnectExpected: messengerRealtimeReconnectExpected(),
+      resyncDeferred: messengerRealtimeResyncDeferred(),
     }),
   onResynced: onMessengerRealtimeResynced,
   resyncPending: messengerRealtimeResyncPending,
+  flushDeferred: flushDeferredMessengerResync,
+  isHidden: appHiddenNow,
   setTimer: (fn, ms) => setTimeout(fn, ms),
   clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
 });
@@ -211,6 +171,8 @@ export function scheduleResumeRefetch(refetch: () => void): () => void {
 
 /** 지금 다시 열기 조회가 필요한가 (판정만 — 기다림 없이 쓰는 곳용) */
 export function shouldRefetchOnAppResume(): boolean {
+  /** 밀린 재동기화 묶음이 있으면 예약(`scheduleResumeRefetch`)으로 넘긴다 — 예약이 묶음을 기다리고, 실행시킨다 */
+  if (messengerRealtimeResyncDeferred()) return true;
   /** 네이티브 `appStateChange(isActive)` 가 visibilitychange 보다 먼저 와도 숨김 시작 시각으로 잰다 */
   return resumeRefetchNeeded({
     allChannelsLive: messengerRealtimeAllSupervisedChannelsLive(),
