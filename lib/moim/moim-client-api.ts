@@ -71,6 +71,10 @@ async function call<T>(url: string, init?: RequestInit & { json?: unknown }): Pr
 export function moimErrorKey(error: string | undefined | null): MessageKey {
   const e = (error ?? "").trim();
   if (/^moim_[a-z_]+$/.test(e)) return `moim_err_${e}` as MessageKey;
+  /** 공용 활동 제한 거절 — 일반 안내로 떨어뜨리지 않는다 (R3 U-15) */
+  if (e === "member_activity_restricted") return "api_err_member_activity_restricted";
+  if (e === "community_restricted") return "moim_err_community_restricted";
+  if (e === "community_restriction_unavailable") return "moim_err_community_restriction_unavailable";
   return "moim_err_moim_unknown";
 }
 
@@ -87,7 +91,14 @@ export const moimApi = {
     if (q.category) sp.set("category", q.category);
     if (q.q) sp.set("q", q.q);
     if (q.before) sp.set("before", q.before);
-    return call<{ items: MoimCardDto[]; nextBefore: string | null; hasAddress: boolean; areaStatus?: MoimViewerAreaDto["status"] }>(`/api/moim?${sp}`);
+    return call<{
+      items: MoimCardDto[];
+      nextBefore: string | null;
+      hasAddress: boolean;
+      areaStatus?: MoimViewerAreaDto["status"];
+      /** 보는 사람 모임 동네(시/군) 이름 — 「{city} 모임」 제목 (R3 U1-local-title) */
+      cityLabel?: string | null;
+    }>(`/api/moim?${sp}`);
   },
   create: (input: {
     name: string;
@@ -170,7 +181,8 @@ export const moimApi = {
   sendInvite: (moimId: string, userId: string) =>
     call<{ invite_target_id: string }>(`/api/moim/${enc(moimId)}/invites`, { method: "POST", json: { userId } }),
   receivedInvites: () => call<{ invites: MoimReceivedInviteDto[] }>("/api/moim/invites"),
-  respondInvite: (inviteId: string, accept: boolean, profile?: { nickname?: string; avatarUrl?: string | null; bio?: string }) =>
+  /** R3 U-13: 수락이 가입 신청이 되는 초대면 가입 질문 답 `answers` 를 함께 보낸다 */
+  respondInvite: (inviteId: string, accept: boolean, profile?: { nickname?: string; avatarUrl?: string | null; bio?: string; answers?: string[] }) =>
     call<{ status: "active" | "pending" | "declined"; moim_id?: string }>(`/api/moim/invites/${enc(inviteId)}`, {
       method: "POST",
       json: { accept, ...(profile ?? {}) },

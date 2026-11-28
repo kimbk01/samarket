@@ -16,4 +16,15 @@ describe("getMessengerRoomActionErrorMessage", () => {
       "tr:auth_phone_gate_unverified_title"
     );
   });
+
+  it("maps moim room codes to moim_err_* keys (moim R3 U-14)", () => {
+    for (const code of [
+      "moim_room_membership_managed_by_moim",
+      "moim_room_settings_managed_by_moim",
+      "moim_room_owner_immutable",
+      "moim_room_create_requires_moim",
+    ]) {
+      expect(getMessengerRoomActionErrorMessage(code, t)).toBe(`tr:moim_err_${code}`);
+    }
+  });
 });

@@ -12,7 +12,6 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimApiResult, MoimDetailDto } from "@/lib/moim/moim-api-types";
-import type { MoimRole } from "@/lib/moim/moim-permission-contract";
 
 /**
  * 모임 운영 화면 공통 — 상세 불러오기·머리글·로딩/오류/권한 없음·토스트·사람 행.
@@ -148,48 +147,12 @@ export function useMoimManageToast() {
   return { node, show, showError };
 }
 
-export function MoimAvatar({ url, name, size = 40 }: { url: string | null; name: string; size?: number }) {
-  const initial = (name.trim()[0] ?? "").toUpperCase();
-  if (url) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- 모임 프로필 사진(외부 저장소 URL)
-      <img
-        src={url}
-        alt=""
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full border border-sam-border-soft bg-sam-surface-muted object-cover"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-full bg-sam-primary-soft text-[15px] font-semibold text-sam-primary"
-      style={{ width: size, height: size }}
-    >
-      {initial}
-    </span>
-  );
-}
+/** 역할 배지·아바타·역할 키는 모임 공용 부품 하나 (D-8 · R3 U-08) — 운영 화면은 여기서 다시 내보낸다 */
+export { MoimAvatar, MoimRoleBadge, moimRoleKey } from "@/components/moim/moim-ui";
 
-const ROLE_BADGE_CLASS: Record<MoimRole, string | null> = {
-  host: Sam.badge.primary,
-  co_host: Sam.badge.info,
-  staff: Sam.badge.info,
-  member: null,
-};
-
-export function MoimRoleBadge({ role }: { role: MoimRole }) {
-  const { t } = useI18n();
-  const cls = ROLE_BADGE_CLASS[role];
-  if (!cls) return null;
-  return <span className={`${cls} shrink-0 whitespace-nowrap`}>{t(`moim_role_${role}` as MessageKey)}</span>;
-}
-
-export function moimRoleKey(role: MoimRole): MessageKey {
-  return `moim_role_${role}` as MessageKey;
+/** 영어 단수 — 수가 1이면 `_one` 키 (모임 선례 `formatMoimCount` 와 같은 방식 · R3 U-09) */
+export function moimCountKey(count: number, other: MessageKey, one: MessageKey): MessageKey {
+  return count === 1 ? one : other;
 }
 
 /** 날짜만 (필리핀 시간 기준) */
@@ -209,4 +172,8 @@ export function useMoimDateFormat() {
 export const moimManageCardClass = "rounded-ui-rect border border-sam-border bg-sam-surface";
 export const moimManageInputClass = `${Sam.input.base} w-full rounded-ui-rect`;
 export const moimManageTextareaClass = `${Sam.input.textarea} w-full rounded-ui-rect`;
+/** 시트·다이얼로그 안 입력·선택 카드 — 12px (LOCKED `04-DESIGN-SYSTEM.md` 「시트·다이얼로그 안 버튼·카드·입력」 · R3 U-07) */
+export const moimManageSheetRadius = "rounded-[length:var(--overlay-radius-md)]";
+export const moimManageSheetInputClass = `${Sam.input.base} w-full ${moimManageSheetRadius}`;
+export const moimManageSheetTextareaClass = `${Sam.input.textarea} w-full ${moimManageSheetRadius}`;
 export const moimManageSectionTitleClass = "px-4 pb-2 pt-5 text-[13px] font-semibold text-sam-muted";

@@ -147,21 +147,32 @@ export async function searchMoimSchedules(
   return toSchedules(sb, access, viewerId, (data ?? []) as ScheduleRow[]);
 }
 
-/** 공개 페이지용: 다가오는 일정 제목·시간만 (비멤버도) */
+/** 공개 페이지용: 다가오는 일정 제목·시간·장소·인원만 (비멤버도 · R3 D-6 시안 U3 「시각·장소·인원」) */
 export async function listUpcomingScheduleTeasers(sb: SupabaseServer, moimId: string, limit = 3) {
   const { data } = await sb
     .from("moim_schedules")
-    .select("id, title, starts_at, confirmed_count, capacity, status")
+    .select("id, title, starts_at, place_text, confirmed_count, capacity, status")
     .eq("moim_id", moimId)
     .in("status", ["recruiting", "full", "closed"])
     /** R1 A-19: 공개 미리보기는 시작 전 일정만 (시작한 일정은 비회원에게 「다가오는 일정」이 아니다) */
     .gt("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
     .limit(limit);
-  return ((data ?? []) as { id: string; title: string; starts_at: string; confirmed_count: number; capacity: number | null; status: string }[]).map((r) => ({
+  return (
+    (data ?? []) as {
+      id: string;
+      title: string;
+      starts_at: string;
+      place_text: string | null;
+      confirmed_count: number;
+      capacity: number | null;
+      status: string;
+    }[]
+  ).map((r) => ({
     id: r.id,
     title: r.title,
     startsAt: r.starts_at,
+    placeText: (r.place_text ?? "").trim() || null,
     confirmedCount: r.confirmed_count,
     capacity: r.capacity,
     status: r.status,

@@ -518,7 +518,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               type="button"
               data-moim-room-home="header"
               onClick={() => vm.router.push(moimRoomOwnerHref(vm.moimRoomOwner!))}
-              className="mr-1 shrink-0 rounded-full border border-sam-border px-2.5 py-1 sam-text-helper font-semibold text-sam-fg"
+              className="mr-1 inline-flex min-h-[length:var(--sam-tap-min)] shrink-0 items-center rounded-ui-rect border border-sam-border px-3 sam-text-helper font-semibold text-sam-fg"
             >
               {/* 일정 방 = 「일정 보기」 → 일정 상세 · 모임 방 = 「모임 홈」 (설계 §2 · 4번 묶음 D2) */}
               {vm.t(vm.moimRoomOwner.kind === "schedule" ? "moim_room_schedule_btn" : "moim_room_home_btn")}

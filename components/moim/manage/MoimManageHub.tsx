@@ -8,6 +8,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { moimCls } from "@/components/moim/moim-ui";
 import { MoimManageFrame, MoimManageForbidden, moimManageCardClass } from "./moim-manage-shared";
 
 type HubEntry = {
@@ -86,7 +87,7 @@ function HubBody({ detail }: { detail: MoimDetailDto }) {
                 <span className="mt-0.5 block text-[13px] text-sam-muted">{t(e.descKey)}</span>
               </span>
               {e.count ? (
-                <span className={`${Sam.badge.primary} shrink-0 whitespace-nowrap`}>{t("moim_manage_count_badge", { count: e.count })}</span>
+                <span className={`${moimCls.badge} ${moimCls.badgeGreen}`}>{t("moim_manage_count_badge", { count: e.count })}</span>
               ) : null}
               <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sam-meta" />
             </Link>

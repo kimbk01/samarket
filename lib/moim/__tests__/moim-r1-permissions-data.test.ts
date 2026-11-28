@@ -16,7 +16,16 @@ beforeEach(() => vi.clearAllMocks());
 describe("A-02 권한 조정 상한 — TS = SQL moim_permission_ceiling", () => {
   it("상한 값이 SQL 과 같고, 조정 칸만 움직인다", async () => {
     const { MOIM_PERMISSION_DEFAULTS, isAllowedMoimPermissionOverride } = await import("@/lib/moim/moim-permission-contract");
-    const body = R1_SQL.slice(R1_SQL.indexOf("function public.moim_permission_ceiling"), R1_SQL.indexOf("else null end;"));
+    /** 운영에 마지막으로 정의된 moim_permission_ceiling (뒤 마이그레이션이 앞 정의를 바꾼다 — R3 Q2 start_dm) */
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(process.cwd(), "supabase/migrations");
+    let body = "";
+    for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
+      const sql = readFileSync(join(dir, f), "utf8");
+      const i = sql.indexOf("function public.moim_permission_ceiling");
+      if (i >= 0) body = sql.slice(i, sql.indexOf("else null end;", i));
+    }
     const sqlCeil = new Map([...body.matchAll(/when '([a-z_]+)' then '([a-z_]+)'/g)].map((m) => [m[1], m[2]]));
     for (const [action, rule] of Object.entries(MOIM_PERMISSION_DEFAULTS)) {
       if (rule.adjustable) expect(rule.ceilingRole, action).toBe(sqlCeil.get(action));

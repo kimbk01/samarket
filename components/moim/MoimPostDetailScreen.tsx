@@ -18,6 +18,20 @@ import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { MoimReportSheet, type MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { MoimAvatar, MoimErrorState, MoimListSkeleton, MoimRoleBadge, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
+import { MoimNoticeBadge } from "@/components/moim/MoimPostRow";
+
+/**
+ * 댓글 칸 머리·안내 (R3 U-05 · D-35): 비회원은 댓글 내용·작성자를 받지 않는다 → 수는 목록과 같은 `post.commentCount`,
+ * 빈 목록 안내 대신 「댓글은 멤버만 볼 수 있어요」. 멤버는 받은 댓글 수와 「첫 댓글」 안내.
+ */
+export function moimCommentSection(
+  viewerIsMember: boolean,
+  post: Pick<MoimPostDto, "commentCount">,
+  commentsLength: number
+): { count: number; note: "members_only" | "empty" | null } {
+  if (!viewerIsMember) return { count: post.commentCount, note: "members_only" };
+  return { count: commentsLength, note: commentsLength === 0 ? "empty" : null };
+}
 
 function AuthorLine({ author, at }: { author: MoimAuthorDto; at: string }) {
   const { t, language } = useI18n();
@@ -156,12 +170,10 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   }
 
   const can = moim?.can;
+  /** ⋮ 순서 (R3 1-1): 일반(수정·고정) → 신고 → 위험(삭제·숨김) */
   const items: DibayActionSheetItem[] = [];
   if (post.viewerIsAuthor) {
     items.push({ key: "edit", label: t("common_edit"), onClick: () => router.push(`${moimRoutes.write(moimId)}?edit=${post.id}`) });
-    items.push({ key: "delete", label: t("common_delete"), danger: true, onClick: () => void removePost() });
-  } else if (can?.hide_post) {
-    items.push({ key: "hide", label: t("moim_post_hide_btn"), danger: true, onClick: () => void hidePost() });
   }
   if (post.boardKind === "notice" && can?.pin_notice) {
     items.push({ key: "pin", label: post.isPinned ? t("moim_post_unpin_btn") : t("moim_post_pin_btn"), onClick: () => void togglePin() });
@@ -169,6 +181,12 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
   if (!post.viewerIsAuthor && moim?.viewer.loggedIn) {
     items.push({ key: "report", label: t("moim_menu_report"), onClick: () => setReport({ type: "post", id: post.id }) });
   }
+  if (post.viewerIsAuthor) {
+    items.push({ key: "delete", label: t("common_delete"), danger: true, onClick: () => void removePost() });
+  } else if (can?.hide_post) {
+    items.push({ key: "hide", label: t("moim_post_hide_btn"), danger: true, onClick: () => void hidePost() });
+  }
+  const commentSection = moimCommentSection(viewerIsMember, post, comments.length);
 
   const commentItems: DibayActionSheetItem[] = commentMenu
     ? commentMenu.viewerIsAuthor || can?.hide_post
@@ -181,7 +199,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
       <article className={`${moimCls.column} flex-1 pb-6`}>
         <div className="border-b border-sam-border bg-sam-surface px-4 py-4">
           <div className="mb-2 flex flex-wrap gap-1.5">
-            {post.isPinned ? <span className={`${moimCls.badge} ${moimCls.badgeGreen}`}>{t("moim_post_pinned_badge")}</span> : null}
+            {post.isPinned ? <MoimNoticeBadge /> : null}
             {post.visibility === "public" ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_post_public_badge")}</span> : null}
           </div>
           {post.title ? <h1 className="mb-3 break-words text-[18px] font-bold text-sam-fg">{post.title}</h1> : null}
@@ -199,9 +217,13 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
 
         <section>
           <div className={moimCls.sectionHead}>
-            <h2 className={moimCls.sectionTitle}>{t("moim_comments_title", { count: comments.length })}</h2>
+            <h2 className={moimCls.sectionTitle}>{t("moim_comments_title", { count: commentSection.count })}</h2>
           </div>
-          {comments.length === 0 ? <p className="px-4 text-[13px] text-sam-muted">{t("moim_comments_empty")}</p> : null}
+          {commentSection.note ? (
+            <p className="px-4 text-[13px] text-sam-muted">
+              {commentSection.note === "members_only" ? t("moim_comments_members_only") : t("moim_comments_empty")}
+            </p>
+          ) : null}
           <div>
             {comments.map((c) => (
               <div key={c.id} className="flex gap-2 border-b border-sam-border bg-sam-surface px-4 py-3">
@@ -209,7 +231,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
                   <AuthorLine author={c.author} at={c.createdAt} />
                   <p className="mt-1.5 whitespace-pre-wrap break-words pl-10 text-[14px] text-sam-fg">{c.body}</p>
                 </div>
-                {moim?.viewer.loggedIn ? (
+                {viewerIsMember && moim?.viewer.loggedIn ? (
                   <button type="button" className="-my-2 -mr-2 grid h-11 w-11 shrink-0 place-items-center text-sam-muted" aria-label={t("moim_comment_menu_aria")} onClick={() => setCommentMenu(c)}>
                     <MoreVertical className="h-4 w-4" aria-hidden />
                   </button>
@@ -225,7 +247,7 @@ export function MoimPostDetailScreen({ moimId, postId }: { moimId: string; postI
           {viewerIsMember ? (
             <div className="flex items-end gap-2">
               <textarea
-                className={`${moimCls.textarea} min-h-[42px] flex-1 resize-none py-2`}
+                className={`${moimCls.textarea} flex-1 resize-none py-2`}
                 rows={1}
                 value={draft}
                 maxLength={2000}

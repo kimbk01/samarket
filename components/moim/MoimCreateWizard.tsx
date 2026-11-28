@@ -230,13 +230,16 @@ export function MoimCreateWizard() {
                 <div className="relative h-36 w-full overflow-hidden rounded-ui-rect">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={cover} alt="" className="h-full w-full object-cover" />
+                  {/* 누름 영역 44px 투명 버튼 안에 지금 모양(28px 원) 그대로 (R3 U-06) */}
                   <button
                     type="button"
-                    className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-sam-surface text-sam-fg shadow"
+                    className="absolute right-0 top-0 grid h-[length:var(--sam-tap-min)] w-[length:var(--sam-tap-min)] items-start justify-items-end p-2"
                     aria-label={t("moim_create_cover_remove_aria")}
                     onClick={() => setCover(null)}
                   >
-                    <X className="h-4 w-4" aria-hidden />
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-sam-surface text-sam-fg shadow">
+                      <X className="h-4 w-4" aria-hidden />
+                    </span>
                   </button>
                 </div>
               ) : (
@@ -289,7 +292,7 @@ export function MoimCreateWizard() {
                     type="button"
                     role="radio"
                     aria-checked={joinMode === m}
-                    className={`flex-1 py-2.5 text-[13px] ${joinMode === m ? "bg-sam-primary-soft font-bold text-sam-primary" : "text-sam-fg"}`}
+                    className={`min-h-[length:var(--sam-segment-tab-height)] flex-1 py-2.5 text-[13px] ${joinMode === m ? "bg-sam-primary-soft font-bold text-sam-primary" : "text-sam-fg"}`}
                     onClick={() => setJoinMode(m)}
                   >
                     {t(`moim_join_mode_${m}` as MessageKey)}
@@ -310,7 +313,7 @@ export function MoimCreateWizard() {
                     />
                     <button
                       type="button"
-                      className="grid h-9 w-9 shrink-0 place-items-center text-sam-muted"
+                      className="grid h-[length:var(--sam-tap-min)] w-[length:var(--sam-tap-min)] shrink-0 place-items-center text-sam-muted"
                       aria-label={t("moim_create_question_remove_aria")}
                       onClick={() => setQuestions((qs) => qs.filter((_, j) => j !== i))}
                     >
@@ -379,7 +382,7 @@ export function MoimCreateWizard() {
               ))}
             </ul>
             <p className={moimCls.hint}>{t("moim_create_rules_sanction_note")}</p>
-            <label className="flex items-center gap-2 text-[14px] text-sam-fg">
+            <label className="flex min-h-[length:var(--sam-tap-min)] cursor-pointer items-center gap-2 text-[14px] text-sam-fg">
               <input type="checkbox" className="h-4 w-4 accent-[color:var(--sam-primary)]" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
               {t("moim_create_rules_agree")}
             </label>

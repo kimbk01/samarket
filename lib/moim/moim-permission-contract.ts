@@ -34,6 +34,8 @@ export const MOIM_ACTIONS = [
   "set_role",
   "transfer_host",
   "close",
+  /** 모임 화면에서 [대화하기](메신저 1:1 시작) — 계약 P11 「운영진만 1:1」 (R3 Q2) */
+  "start_dm",
 ] as const;
 export type MoimAction = (typeof MOIM_ACTIONS)[number];
 
@@ -68,6 +70,8 @@ export const MOIM_PERMISSION_DEFAULTS: Readonly<Record<MoimAction, MoimPermissio
   set_role: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
   transfer_host: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
   close: { defaultMinRole: "host", adjustable: false, floorRole: "host", ceilingRole: "host" },
+  /** 계약 P11 · R3 Q2: 기본 = 멤버 누구나 · 모임장이 「운영진 이상」까지 올릴 수 있다(= 운영진만 1:1) */
+  start_dm: { defaultMinRole: "member", adjustable: true, floorRole: "member", ceilingRole: "staff" },
 };
 
 const ROLE_RANK: Readonly<Record<MoimRole, number>> = { host: 4, co_host: 3, staff: 2, member: 1 };

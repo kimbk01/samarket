@@ -9,7 +9,7 @@ import type { MoimBoardDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import { MOIM_ROLES, type MoimRole } from "@/lib/moim/moim-permission-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
-import { MoimManageFrame, moimManageCardClass, moimManageInputClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
+import { MoimManageFrame, moimManageCardClass, moimManageSheetInputClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
 
 const NAME_MAX = 30;
 const ROLES_LOW_TO_HIGH: MoimRole[] = [...MOIM_ROLES].reverse();
@@ -67,7 +67,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
           type="button"
           role="radio"
           aria-checked={role === r}
-          className={`${role === r ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} shrink-0 whitespace-nowrap rounded-ui-rect`}
+          className={`${role === r ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
           onClick={() => setRole(r)}
         >
           {t("moim_manage_perm_role_or_above_chip", { role: t(moimRoleKey(r)) })}
@@ -83,7 +83,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
           <li key={b.id} className="px-4 py-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="break-all text-[15px] font-medium text-sam-fg">{boardName(b)}</span>
-              {b.kind !== "custom" ? <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t("moim_manage_board_system_badge")}</span> : null}
+              {b.kind !== "custom" ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_board_system_badge")}</span> : null}
             </div>
             <p className="mt-0.5 text-[12px] text-sam-meta">{t("moim_manage_board_write_role", { role: t(moimRoleKey(b.writeMinRole)) })}</p>
             {b.kind === "notice" ? (
@@ -153,7 +153,7 @@ function BoardsBody({ detail, reload }: { detail: MoimDetailDto; reload: () => v
             <label className="block text-[13px] font-medium text-sam-muted" htmlFor="moim-board-name">
               {t("moim_manage_board_name_label")}
             </label>
-            <input id="moim-board-name" className={`${moimManageInputClass} mt-1.5`} maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
+            <input id="moim-board-name" className={`${moimManageSheetInputClass} mt-1.5`} maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
             <p className="mt-1 text-right text-[12px] text-sam-meta">{t("moim_manage_char_count", { count: name.trim().length, max: NAME_MAX })}</p>
           </>
         ) : null}

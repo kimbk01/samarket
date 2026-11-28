@@ -47,6 +47,10 @@ export type MoimCardDto = {
   /** 보는 사람의 상태 (비로그인·비멤버면 null) */
   viewerStatus: MoimMemberStatus | null;
   viewerRole: MoimRole | null;
+  /** 모임 상태 — 내 모임에는 열람 기간 안의 종료 모임도 온다(카드 「종료」 · R3 U-12) */
+  status: MoimStatus;
+  /** 모집 중인 시작 전 일정이 있는가 — 카드 목록 select 안의 관계 행으로 판정(추가 요청 없음 · R3 U1-card-badge-sched) */
+  hasRecruitingSchedule: boolean;
 };
 
 export type MoimBoardDto = {
@@ -105,8 +109,8 @@ export type MoimDetailDto = {
   pinnedNotices: MoimPostDto[];
   /** 최근 글 (멤버면 전부, 비멤버면 public 만) */
   recentPosts: MoimPostDto[];
-  /** 다가오는 일정 (제목·시간·인원만 — 비멤버도 보임, 설계 §6 P2) */
-  upcomingSchedules: { id: string; title: string; startsAt: string; confirmedCount: number; capacity: number | null; status: string }[];
+  /** 다가오는 일정 (제목·시간·장소·인원만 — 비멤버도 보임, 설계 §6 P2 · R3 D-6) */
+  upcomingSchedules: { id: string; title: string; startsAt: string; placeText: string | null; confirmedCount: number; capacity: number | null; status: string }[];
   /** 종료 후 멤버 열람 기간(일, 운영 정책) — 모임장에게만 채움, 정책 없음·비모임장 = null */
   closedRetentionDays: number | null;
   viewer: {
@@ -160,6 +164,8 @@ export type MoimReceivedInviteDto = {
   moim: MoimCardDto;
   inviterNickname: string;
   createdAt: string;
+  /** R3 U-13: 수락이 가입 신청이 되는 초대(승인제 · 초대한 사람이 운영진 미만)일 때만 가입 질문, 그 밖은 빈 배열 */
+  joinQuestions: string[];
 };
 
 export type MoimApiOk<T> = { ok: true } & T;

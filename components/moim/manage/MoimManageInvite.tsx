@@ -18,6 +18,7 @@ import {
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
+  moimCountKey,
   moimManageCardClass,
   moimManageInputClass,
   moimManageSectionTitleClass,
@@ -114,7 +115,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
               type="button"
               role="radio"
               aria-checked={expiryDays === o.days}
-              className={`${expiryDays === o.days ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} shrink-0 whitespace-nowrap rounded-ui-rect`}
+              className={`${expiryDays === o.days ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
               onClick={() => setExpiryDays(o.days)}
             >
               {t(o.key)}
@@ -148,7 +149,7 @@ function InviteLinks({ detail, toast }: { detail: MoimDetailDto; toast: Toast })
                   <span>
                     {link.expiresAt ? t("moim_manage_invite_expires_at", { date: fmt(link.expiresAt) }) : t("moim_manage_invite_expiry_none_chip")}
                   </span>
-                  {expired ? <span className={`${Sam.badge.neutral} whitespace-nowrap`}>{t("moim_manage_invite_expired_badge")}</span> : null}
+                  {expired ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_invite_expired_badge")}</span> : null}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {!expired ? (
@@ -242,7 +243,7 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
     }
     setSending(false);
     setSelected(new Set());
-    if (okCount > 0) toast.show(t("moim_manage_invite_sent_toast", { count: okCount }), "success");
+    if (okCount > 0) toast.show(t(moimCountKey(okCount, "moim_manage_invite_sent_toast", "moim_manage_invite_sent_toast_one"), { count: okCount }), "success");
   };
 
   return (
