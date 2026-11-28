@@ -72,6 +72,13 @@ import {
 } from "@/lib/support/support-ticket-form";
 
 const HISTORY_KEY = "dibaySupportModal";
+/** 창 아래 경로 변화로 기록 중간에 남은 창 항목의 회차 표지(이 탭 메모리 · 새로고침하면 비움) */
+const staleHistoryTokens = new Set<string>();
+let historyTokenSeq = 0;
+function newHistoryToken(): string {
+  historyTokenSeq += 1;
+  return `${Date.now().toString(36)}-${historyTokenSeq}`;
+}
 
 type AuthState = "checking" | "in" | "out";
 
@@ -172,6 +179,8 @@ export function SupportModalHost() {
   /** 쓰기 화면별 접수 오류 (화면 id → 오류 코드) */
   const [submitErrors, setSubmitErrors] = useState<Record<string, string | null>>({});
   const historyPushed = useRef(false);
+  /** 이 회차 창 기록 항목의 표지 */
+  const historyTokenRef = useRef<string | null>(null);
   /** 창을 연 경로 — 창 아래에서 경로가 바뀌면(호스트가 시작하지 않은 이동) route_changed (C-20) */
   const openPathRef = useRef<string | null>(null);
   /** 최종 점검 U9: 진행 중 문의 행에서 상세를 열었다 — 돌아오면 그 행으로 초점을 돌려준다 */
@@ -232,18 +241,24 @@ export function SupportModalHost() {
       }
       historyPushed.current = false;
       openPathRef.current = null;
+      // 이 회차 항목이 기록 중간에 남는다 — ◁ 로 돌아오면 건너뛸 표지
+      if (historyTokenRef.current) staleHistoryTokens.add(historyTokenRef.current);
+      historyTokenRef.current = null;
       dispatchSupportModalIntent({ type: "route_changed" });
     }
   }, [pathname]);
 
-  // C-20 마무리(2026-11-29): 창 아래에서 경로가 바뀌어 창이 닫히면 창이 넣은 기록 항목은 브라우저 기록 중간에 남는다
-  //   (지울 수 없음). ◁ 로 그 항목에 돌아오면(창은 닫혀 있고 항목에 창 표시가 있음) 한 번 더 뒤로 가서 건너뛴다 —
-  //   사용자가 ◁ 를 두 번 누를 필요가 없다. 새로고침으로 그 항목에 머무는 경우는 건드리지 않는다(popstate 때만).
+  // C-20 마무리(2026-11-29 · 5차 재감사로 다시 설계): 창 아래에서 경로가 바뀌어 창이 닫히면 창이 넣은 기록 항목은 기록 중간에 남는다.
+  //   그 항목에만 붙인 **회차 표지**를 이 탭 메모리에 기억해 두고, ◁ 로 그 항목에 돌아오면 한 번만 더 뒤로 가 건너뛴다(◁ 두 번 필요 없음).
+  //   표지는 건너뛸 때 지운다 — 앞으로 가기로 다시 오면 멈춘다(앞으로 막지 않음). 새로고침하면 메모리가 비어 건너뛰지 않는다
+  //   (새로고침 뒤 남은 옛 표지 항목 때문에 사용자가 보던 화면을 떠나는 일 없음).
   useEffect(() => {
     const onPopStale = (e: PopStateEvent) => {
       if (getSupportModalMachineState().phase === "open" || historyPushed.current) return;
       const st = e.state as Record<string, unknown> | null;
-      if (!st || st[HISTORY_KEY] !== true) return;
+      const token = st ? st[HISTORY_KEY] : null;
+      if (typeof token !== "string" || !staleHistoryTokens.has(token)) return;
+      staleHistoryTokens.delete(token);
       try {
         window.history.back();
       } catch {
@@ -303,7 +318,8 @@ export function SupportModalHost() {
 
     if (!historyPushed.current) {
       try {
-        window.history.pushState({ ...window.history.state, [HISTORY_KEY]: true }, "");
+        historyTokenRef.current = newHistoryToken();
+        window.history.pushState({ ...window.history.state, [HISTORY_KEY]: historyTokenRef.current }, "");
         historyPushed.current = true;
         openPathRef.current = pathname ?? null;
       } catch {
@@ -317,7 +333,7 @@ export function SupportModalHost() {
       dispatchSupportModalIntent({ type: "back" }, { fromPop: true });
       if (getSupportModalMachineState().phase === "open") {
         try {
-          window.history.pushState({ ...window.history.state, [HISTORY_KEY]: true }, "");
+          window.history.pushState({ ...window.history.state, [HISTORY_KEY]: historyTokenRef.current ?? newHistoryToken() }, "");
         } catch {
           historyPushed.current = false;
         }

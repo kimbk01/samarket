@@ -163,9 +163,12 @@ export async function markSupportCaseNotificationsRead(
         .filter((r) => r.type !== "support_admin_replied" || shownKeys.has(String(r.dedupe_key ?? "")))
         .map((r) => r.id);
       if (ids.length > 0) {
-        const r = await base().in("id", ids).select("id");
-        error = r.error;
-        data = (r.data ?? []) as { id: string }[];
+        // 주소 길이 상한: 한 번에 200개씩(한 문의의 안 읽은 알림은 보통 몇 개 — 넘으면 그때만 나눠 보낸다)
+        const parts: string[][] = [];
+        for (let i = 0; i < ids.length; i += 200) parts.push(ids.slice(i, i + 200));
+        const rs = await Promise.all(parts.map((part) => base().in("id", part).select("id")));
+        error = rs.find((r) => r.error)?.error ?? null;
+        data = rs.flatMap((r) => (r.data ?? []) as { id: string }[]);
       } else {
         data = [];
       }

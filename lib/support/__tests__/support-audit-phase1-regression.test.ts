@@ -938,6 +938,7 @@ describe("support inquiry SSOT 2026-11-27 — post-fix reaudit D1~D16", () => {
     const a = await openStructured(sb, "ORDER_STATUS", "x");
     if (!a.ok) throw new Error(a.error);
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답변" });
+    await flush(); // 답 받은 글 알림 읽음 = 응답 뒤(요청 예산)
     expect(adminResolveCalls).toContain(a.case.id);
     adminResolveCalls.length = 0;
     await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "메모", internalNote: true });
@@ -1270,6 +1271,7 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     expect(r.ok && r.unseenCustomerMessages).toBe(1);
     // 고치기 전: 무조건 WAITING_USER(고객 확인 대기) → 「답변 필요」 탭에서 빠졌다
     expect(db.support_cases[0].status).toBe("WAITING_ADMIN");
+    await flush(); // 알림 읽음 = 응답 뒤(요청 예산)
     // 본 글(첫 글) 알림만 읽음 · 담당 지정 알림은 종류로 읽음 · 그사이 온 글 알림은 남는다
     const replies = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"));
     expect(replies?.dedupeKeys).toEqual([`support_customer_replied:${first.id}`]);
@@ -1444,6 +1446,7 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     const r = await adminReplySupportCase(sb, { adminUserId: ADMIN, caseId: a.case.id, body: "답", seenLastMessageAt: seen });
     expect(r.ok && r.unseenCustomerMessages).toBe(0);
     expect(db.support_cases[0].status).toBe("WAITING_USER");
+    await flush(); // 알림 읽음 = 응답 뒤(요청 예산)
     const keys = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"))?.dedupeKeys ?? [];
     expect([...keys].sort()).toEqual(customerMsgs(db).map((m) => `support_customer_replied:${m.id}`).sort());
 
@@ -1453,6 +1456,7 @@ describe("support final audit 2026-11-28 — D1·D5·L1~L11 (동작)", () => {
     adminResolveInputs.length = 0;
     await adminReplySupportCase(legacy.sb, { adminUserId: ADMIN, caseId: b.case.id, body: "답" });
     expect(legacy.db.support_cases[0].status).toBe("WAITING_USER");
+    await flush(); // 알림 읽음 = 응답 뒤(요청 예산)
     // 본 시각 없는 호출 = 답변 시각까지 모두 봄 → 그때까지 고객 글 알림 전부 읽음 (예전 「전원 읽음」과 같은 뜻)
     const legacyKeys = adminResolveInputs.find((i) => i.kinds.includes("support_customer_replied"))?.dedupeKeys ?? [];
     expect([...legacyKeys].sort()).toEqual(customerMsgs(legacy.db).map((m) => `support_customer_replied:${m.id}`).sort());

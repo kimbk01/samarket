@@ -108,7 +108,8 @@ export const ROUTE_SUPABASE_CALL_BUDGET: Readonly<Record<string, number>> = {
   "/api/support/category-settings": 1.0,
   /**
    * 고객센터 (2026-11-29 전체 수정 · **실측**: `lib/support/__tests__/support-full-fix-server-2026-11-29.test.ts` 「요청 예산」이
-   * 요청 1회의 DB 호출(from·rpc + 인증 + 언어 읽기 2 + 매장 소유 + 감사 기록)을 세어 예산 이하를 시험으로 고정한다).
+   * 요청 1회의 DB 호출(from·rpc + 인증 + 언어 읽기 2 + 매장 소유 + 감사 기록 + 흉내 낸 어드민 알림 함수 호출)을 세어 예산 이하를 시험으로 고정한다 ·
+   * 5차 재감사: 어드민 알림 읽음 함수를 세지 않던 셈을 바로잡았고, 답 받은 글·담당 지정 알림 읽음은 응답 뒤로 옮겨 답변 13).
    * 응답 뒤(`after`) 작업 — 어드민 알림 만들기·되살림(받는 어드민 수 비례) · 고객 푸시 · 숫자 신호 · 재전송 정리 — 는 요청 안에서 시작하지 않는다.
    * 목록 `/api/support/cases`: FAB 숫자 2 · 쓰기 창 진행 중(`limit` 만) 3 · 「내 문의」 첫 페이지 3(진행 중을 한 번 읽어 개수·첫 페이지 · 사장님 포함).
    */

@@ -823,6 +823,8 @@ describe("R7 경로 변화·진입 주소 (C-20·C-21)", () => {
     });
     await flush();
     expect(getSupportModalState().phase).toBe("open");
+    const token = (window.history.state as { dibaySupportModal?: string } | null)?.dibaySupportModal;
+    expect(typeof token).toBe("string");
     const back = vi.spyOn(window.history, "back");
     nav.pathname = "/chats/room-9";
     await act(async () => root.render(<SupportModalHost />));
@@ -830,13 +832,19 @@ describe("R7 경로 변화·진입 주소 (C-20·C-21)", () => {
     expect(getSupportModalState().phase).toBe("closed");
     // 새 화면을 되돌리지 않는다
     expect(back).not.toHaveBeenCalled();
-    // C-20 마무리: 새 화면에서 ◁ 로 창이 남긴 기록 항목에 돌아오면 한 번 더 뒤로(◁ 두 번 누를 필요 없음)
+    // C-20 마무리(5차 재감사 설계): 새 화면에서 ◁ 로 이 회차가 남긴 기록 항목에 돌아오면 한 번 더 뒤로(◁ 두 번 필요 없음)
     act(() => {
-      window.dispatchEvent(new PopStateEvent("popstate", { state: { dibaySupportModal: true } }));
+      window.dispatchEvent(new PopStateEvent("popstate", { state: { dibaySupportModal: token } }));
     });
     expect(back).toHaveBeenCalledTimes(1);
-    // 창 표시가 없는 보통 항목으로 돌아온 것은 건드리지 않는다
+    // 앞으로 가기로 같은 항목에 다시 오면 멈춘다(표지는 한 번 쓰고 지움 — 앞으로 막지 않음)
     act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: { dibaySupportModal: token } }));
+    });
+    expect(back).toHaveBeenCalledTimes(1);
+    // 새로고침 뒤처럼 이 탭이 모르는 옛 표지 · 표지 없는 보통 항목은 건드리지 않는다
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: { dibaySupportModal: "old-tab-token" } }));
       window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
     });
     expect(back).toHaveBeenCalledTimes(1);

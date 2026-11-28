@@ -389,14 +389,19 @@ async function reconcileSupportAdminWork(
     return unanswered.length;
   }
   const latestReplyAt = answers.latestReplyAt;
-  await Promise.all([
-    resolveSupportAdminAlerts(sb, {
-      caseId: c.id,
-      kinds: ["support_customer_replied"],
-      dedupeKeys: done.map((m) => `support_customer_replied:${m.id}`),
-    }),
-    resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_case_assigned"] }),
-  ]);
+  // 요청 예산(5차 재감사 실측): 답 받은 고객 글·담당 지정 알림 읽음은 어드민 쪽 일 — 응답 뒤(같은 조건이라 다시 해도 같다).
+  //   어드민 헤더 숫자는 그 읽음의 실시간 UPDATE 로 바로 맞는다.
+  const doneKeys = done.map((m) => `support_customer_replied:${m.id}`);
+  runAfterResponse(async () => {
+    try {
+      await Promise.all([
+        resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_customer_replied"], dedupeKeys: doneKeys }),
+        resolveSupportAdminAlerts(sb, { caseId: c.id, kinds: ["support_case_assigned"] }),
+      ]);
+    } catch (err) {
+      console.error("[support] answered_admin_alerts_resolve_failed", { caseId: c.id, err });
+    }
+  });
   // 상태 맞춤 — CAS: 마지막 글 = 최신 어드민 답변(그 뒤 고객 글이 오면 DB 함수가 WAITING_ADMIN 으로 이미 맞춤 · 건드리지 않음)
   if (latestReplyAt) {
     const target = unanswered.length > 0 ? { from: "WAITING_USER", to: "WAITING_ADMIN" } : { from: "WAITING_ADMIN", to: "WAITING_USER" };
@@ -430,8 +435,22 @@ function scheduleAdminAlertsForUnanswered(
 ): void {
   runAfterResponse(async () => {
     try {
-      if (revive) await reviveCustomerMessageAdminAlerts(sb, c.id, messageIds);
-      await notifyUnansweredCustomerMessages(sb, c, messageIds, answers);
+      // 5차 재감사(경합): 응답 뒤 그사이 새 답변이 그 글을 봤으면 되살리지·만들지 않는다 — 지금 답 판정으로 다시 거른다
+      const now = await loadSupportCustomerMessageAnswers(sb, {
+        caseId: c.id,
+        onlyBeforeLatestReply: false,
+        fallbackLatestReplyAt: null,
+        limit: SUPPORT_MESSAGES_LIST_LIMIT,
+      });
+      // 그사이 종료·보관됐으면 어드민 일이 없다
+      const { data: st } = await sb.from("support_cases").select("status").eq("id", c.id).maybeSingle();
+      const status = String((st as { status?: unknown } | null)?.status ?? "");
+      if (status !== "OPEN" && status !== "WAITING_ADMIN" && status !== "WAITING_USER") return;
+      const stillOpen = now ? new Set(now.customers.filter((m) => !m.answered).map((m) => m.id)) : null;
+      const ids = stillOpen ? messageIds.filter((id) => stillOpen.has(id)) : messageIds;
+      if (ids.length === 0) return;
+      if (revive) await reviveCustomerMessageAdminAlerts(sb, c.id, ids);
+      await notifyUnansweredCustomerMessages(sb, c, ids, now ?? answers);
     } catch (err) {
       console.error("[support] unanswered_admin_alerts_failed", { caseId: c.id, err });
     }

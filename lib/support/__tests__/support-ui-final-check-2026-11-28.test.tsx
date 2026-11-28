@@ -208,7 +208,7 @@ describe("M1 기기 ◁ = 화면 ‹ 와 같이 한 단계 뒤로 (동작)", () 
     expect(getSupportModalState().phase).toBe("open");
     expect(q('[data-support-ticket-view="form"]')).not.toBeNull();
     // 창이 가진 기록 항목을 다시 넣었다(다음 ◁ 도 이 창이 받는다)
-    expect(window.history.state?.dibaySupportModal).toBe(true);
+    expect(window.history.state?.dibaySupportModal).toBeTruthy();
 
     deviceBack();
     expect(getSupportModalState().phase).toBe("closed");
@@ -615,7 +615,7 @@ describe("남은 위험 1 (재감사 D1·D2) — 「문의 접수」 전송 중�
     expect(getSupportModalState().phase).toBe("open");
     expect(q('[data-support-ticket-body="1"]')).not.toBeNull();
     // 창이 가진 기록 항목을 다시 넣었다(보관한 ◁ 가 결과 뒤 그 항목을 정리한다)
-    expect(window.history.state?.dibaySupportModal).toBe(true);
+    expect(window.history.state?.dibaySupportModal).toBeTruthy();
     await act(async () => {
       holder.release({ ok: true, case: { ...caseRow(), id: "c-new", public_case_no: "SC-NEW" }, created: true });
     });

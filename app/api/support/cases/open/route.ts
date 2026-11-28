@@ -92,6 +92,24 @@ export async function POST(req: NextRequest) {
     clientRequestId: requestId,
   });
 
+  // 계약 §1 (5차 재감사): 같은 요청 id 재전송은 **처음 결과** — 그사이 안내문·분야 설정이 바뀌어 검증에 걸려도 이미 접수된 문의를 돌려준다.
+  //   검증에 걸렸을 때만 확인한다(평소 요청 수 그대로 · 판정은 DB 함수와 같은 「그 요청 id 의 글」).
+  if (!res.ok && requestId && res.error !== "request_id_conflict") {
+    const replay = await findSupportMessageReplay(sb, { requestId, senderUserId: auth.userId });
+    if ("found" in replay && replay.found) {
+      const first = await loadSupportOpenReplay(sb, { userId: auth.userId, message: replay.message });
+      if (first) {
+        return NextResponse.json({
+          ok: true,
+          case: toSupportRequesterCaseView(first.case),
+          sessionId: first.sessionId,
+          created: first.created,
+          href: buildSupportCaseRoute(first.case.id),
+          replayed: true,
+        });
+      }
+    }
+  }
   if (!res.ok) return fail(res.error);
 
   return NextResponse.json({

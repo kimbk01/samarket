@@ -191,8 +191,9 @@ export async function replaySupportRequesterNotification(
       payload.type === "support_case_resolved"
         ? buildResolvedNotification(c, payload.actorUserId ?? undefined, lang)
         : buildReopenedNotification(c, payload.actorUserId ?? undefined, lang);
-    // 키는 DB 가 넣은 값 그대로(그사이 다시 종료·재오픈돼 문의 시각이 바뀌었으면 그 회차 알림은 아래 상태 확인에서 걸러진다)
-    input.dedupeKey = payload.dedupeKey;
+    // 5차 재감사: 지금 문의의 회차 키가 대기열 키와 다르면(그사이 재오픈·다시 종료 등으로 다른 회차) 그 지난 회차 알림은 만들지 않는다
+    //   — 지금 회차 알림은 그 회차의 앱 발송·안전망 행이 맡는다(늦은 옛 「종료」 알림 금지).
+    if (input.dedupeKey !== payload.dedupeKey) return { ok: true };
     const event = requesterNotificationEvent(input) as unknown as Record<string, unknown> & { dedupeKey: string };
     const r = await recreateSupportRequesterNotification(sb, {
       event,
