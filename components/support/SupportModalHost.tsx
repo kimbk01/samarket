@@ -49,8 +49,6 @@ import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-moda
 import {
   buildSupportTicketOpenPayload,
   clearSupportTicketDraftIfSent,
-  clearSupportTicketSubmitting,
-  markSupportTicketSubmitting,
   type SupportTicketFormState,
 } from "@/lib/support/support-ticket-form";
 import {
@@ -60,6 +58,8 @@ import {
 } from "@/components/support/support-modal-back-steps";
 
 const HISTORY_KEY = "dibaySupportModal";
+/** 접수 요청 시간 제한 — 넘기면 끊고 「연결 오류」로 풀어 창 닫기를 다시 허용한다. */
+const SUPPORT_SUBMIT_TIMEOUT_MS = 20_000;
 
 type AuthState = "checking" | "in" | "out";
 
@@ -91,6 +91,10 @@ export function SupportModalHost() {
 
   const [auth, setAuth] = useState<AuthState>("checking");
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  useEffect(() => {
+    submittingRef.current = submitting;
+  }, [submitting]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<SupportTicketSubmittedInfo | null>(null);
   /** 「새 문의 쓰기」마다 쓰기 화면을 새로 만든다 */
@@ -191,6 +195,15 @@ export function SupportModalHost() {
     //   첫 단계(쓰기·접수 완료·직접 연 상세)에서만 닫기(작성 중 내용은 저장되어 다시 열면 「이어 쓰기」).
     const onPop = () => {
       if (!historyPushed.current) return;
+      // 남은 위험 1 (재감사 D1·D2): 「문의 접수」 전송 중에는 기기 뒤로도 무시 — 기록 항목만 다시 넣는다
+      if (submittingRef.current) {
+        try {
+          window.history.pushState({ ...window.history.state, [HISTORY_KEY]: true }, "");
+        } catch {
+          historyPushed.current = false;
+        }
+        return;
+      }
       if (backRegistry.stepBack()) {
         try {
           window.history.pushState({ ...window.history.state, [HISTORY_KEY]: true }, "");
@@ -212,6 +225,8 @@ export function SupportModalHost() {
   }, [open, router, backRegistry]);
 
   const handleClose = useCallback(() => {
+    // 남은 위험 1 (재감사 D1·D2): 전송 중에는 닫지 않는다 — 응답이 창 밖에서 늦게 처리되는 경우를 없앤다(최대 20초)
+    if (submittingRef.current) return;
     closeSupportModal();
   }, []);
 
@@ -267,15 +282,18 @@ export function SupportModalHost() {
       // (다음에 창을 열면 지난 「접수 완료」가 나오던 것). 성공이면 초안만 지운다(이미 접수된 글이 되살아나지 않게).
       const session = openSessionRef.current;
       const sameSession = () => openSessionRef.current === session;
-      // 남은 위험 1: 응답을 기다리는 동안 이 글은 「작성 중인 문의」 카드로 다시 띄우지 않는다(닫았다 다시 열어도)
       const sentBody = state.body;
-      markSupportTicketSubmitting(draftKey, sentBody);
+      // 남은 위험 1: 전송 중에는 창을 닫을 수 없으므로 응답이 오지 않으면 갇힌다 — 20초 뒤 끊고 「네트워크 오류 · 다시 시도」
+      submittingRef.current = true;
+      const abort = new AbortController();
+      const timeout = window.setTimeout(() => abort.abort(), SUPPORT_SUBMIT_TIMEOUT_MS);
       try {
         const res = await fetch("/api/support/cases/open", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
+          signal: abort.signal,
         });
         if (res.status === 401) {
           if (sameSession()) setAuth("out");
@@ -319,7 +337,8 @@ export function SupportModalHost() {
       } catch {
         if (sameSession()) setSubmitError("network_error");
       } finally {
-        clearSupportTicketSubmitting(draftKey);
+        window.clearTimeout(timeout);
+        submittingRef.current = false;
         if (sameSession()) setSubmitting(false);
       }
     },

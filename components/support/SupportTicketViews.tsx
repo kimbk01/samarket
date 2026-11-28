@@ -42,7 +42,6 @@ import {
   sortActiveSupportTickets,
   isSupportTicketClosedStatus,
   listSupportTicketCategories,
-  isSupportTicketDraftBeingSubmitted,
   readSupportTicketDraft,
   selectSupportTicketCategory,
   selectSupportTicketIssue,
@@ -70,11 +69,14 @@ export function SupportTicketHeader({
   onBack,
   onClose,
   titleId,
+  closeDisabled = false,
 }: {
   title: string;
   onBack?: (() => void) | null;
   onClose: () => void;
   titleId?: string;
+  /** 남은 위험 1 (재감사 D1·D2): 「문의 접수」 전송 중에는 창을 닫을 수 없다 */
+  closeDisabled?: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -103,8 +105,9 @@ export function SupportTicketHeader({
       <button
         type="button"
         data-support-modal-close="1"
-        className="flex h-12 w-12 items-center justify-center text-[var(--overlay-text-primary)]"
+        className="flex h-12 w-12 items-center justify-center text-[var(--overlay-text-primary)] disabled:opacity-40"
         aria-label={t("support_modal_close_aria")}
+        disabled={closeDisabled}
         onClick={onClose}
       >
         <X className="h-5 w-5" strokeWidth={2} aria-hidden />
@@ -455,11 +458,7 @@ export function SupportTicketCompose({
   const [state, setState] = useState<SupportTicketFormState>(() => initSupportTicketForm(context));
   const [view, setView] = useState<ComposeView>("form");
   const draftKey = useMemo(() => supportTicketDraftKey(context), [context]);
-  // 남은 위험 1: 접수 응답을 기다리는 그 글이면 카드로 띄우지 않는다(같은 글 두 번 접수 방지)
-  const [draft, setDraft] = useState<SupportTicketDraft | null>(() => {
-    const d = readSupportTicketDraft(draftKey);
-    return isSupportTicketDraftBeingSubmitted(draftKey, d) ? null : d;
-  });
+  const [draft, setDraft] = useState<SupportTicketDraft | null>(() => readSupportTicketDraft(draftKey));
   const touchedRef = useRef(false);
   /** 최종 감사 U-3: 상세에서 돌아오면 「진행 중인 문의」 상태가 바뀌었을 수 있다 — 그 목록만 다시 읽는다 */
   const [activeRefreshKey, setActiveRefreshKey] = useState(0);
@@ -651,7 +650,7 @@ export function SupportTicketCompose({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" data-support-ticket-view="form">
-      <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} />
+      <SupportTicketHeader titleId={titleId} title={title} onClose={onClose} closeDisabled={submitting} />
       {whoRow}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-form-keyboard-scroll-root="1">
         <ActiveTicketList
