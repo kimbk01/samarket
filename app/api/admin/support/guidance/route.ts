@@ -8,6 +8,7 @@ import {
   listEnabledSupportGuidance,
 } from "@/lib/support/support-guidance-service";
 import type { SupportGuidanceCtaKind } from "@/lib/support/support-guidance-authority";
+import { supportErrorHttpStatus } from "@/lib/support/support-display-labels";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,8 @@ type UpsertBody = {
   ctaKind?: SupportGuidanceCtaKind;
   ctaTarget?: string | null;
   escalationAllowed?: boolean;
+  /** 수정 CAS — 화면이 읽은 revision */
+  revision?: number | null;
 };
 
 /** POST /api/admin/support/guidance — Admin server authority upsert */
@@ -97,18 +100,11 @@ export async function POST(req: NextRequest) {
     ctaKind: body.ctaKind,
     ctaTarget: body.ctaTarget,
     escalationAllowed: body.escalationAllowed,
+    expectedRevision: typeof body.revision === "number" && Number.isFinite(body.revision) ? body.revision : null,
   });
 
   if (!res.ok) {
-    const status =
-      res.error === "missing_guidance_table"
-        ? 503
-        : res.error.startsWith("invalid_") ||
-            res.error.startsWith("cta_") ||
-            res.error.startsWith("missing_")
-          ? 400
-          : 500;
-    return NextResponse.json({ ok: false, error: res.error }, { status });
+    return NextResponse.json({ ok: false, error: res.error }, { status: supportErrorHttpStatus(res.error) });
   }
 
   await appendAdminRouteAudit(sb, req, {

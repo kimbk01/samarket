@@ -87,7 +87,8 @@ describe("F3 support admin writes leave an admin audit row", () => {
     const res = await PATCH(req("http://x/api/admin/support/cases/c1", "PATCH", { action: "status", status: "OPEN" }), {
       params: Promise.resolve({ caseId: "c1" }),
     });
-    expect(res.status).toBe(400);
+    // 전체 수정 E-1·D-2 (2026-11-29): status 동작은 RESOLVED 만 — 다른 값 = invalid_transition(상태 경합 409)
+    expect(res.status).toBe(409);
     expect(appendAdminRouteAudit).not.toHaveBeenCalled();
   });
 

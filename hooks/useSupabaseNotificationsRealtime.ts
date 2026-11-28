@@ -74,7 +74,7 @@ function playRowEventSound(row: Record<string, unknown>): void {
  * 앱당 채널 1개(`notifications-rt:${userId}`) — 복수 구독 시 Realtime·워커 부하만 증가.
  */
 export function useSupabaseNotificationsRealtime(
-  onChange: (ctx: { eventType: string }) => void,
+  onChange: (ctx: { eventType: string; row?: Record<string, unknown> }) => void,
   options?: SupabaseNotificationsRealtimeOptions
 ) {
   const onChangeRef = useRef(onChange);
@@ -209,7 +209,11 @@ export function useSupabaseNotificationsRealtime(
                 const ev = payload as { eventType?: string; new?: Record<string, unknown> };
                 if (ev.eventType !== "UPDATE" || !isNotificationEventReadOrDismissUpdate(ev.new)) return;
                 markRealtimeSignal();
-                onChangeRef.current({ eventType: "UPDATE" });
+                // 고객센터 전체 수정 §4 (A-3): 바뀐 행을 넘겨 받는 쪽이 알림 종류(support_* 등)를 고를 수 있게 한다
+                onChangeRef.current({
+                  eventType: "UPDATE",
+                  row: adaptNotificationEventInsertToLegacyRow(ev.new as Record<string, unknown>),
+                });
               }
             ),
       });

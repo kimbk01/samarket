@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { SupportContext } from "@/lib/support/support-context";
-import { openSupportCaseFromContext } from "@/lib/support/support-case-service";
+import {
+  findSupportMessageReplay,
+  loadSupportOpenReplay,
+  openSupportCaseFromContext,
+  parseSupportRequestId,
+} from "@/lib/support/support-case-service";
+import { supportErrorHttpStatus } from "@/lib/support/support-display-labels";
 import { buildSupportCaseRoute } from "@/lib/support/support-case-types";
 import { checkSupportCustomerPostRate } from "@/lib/support/support-customer-rate-limit";
 import { toSupportRequesterCaseView } from "@/lib/support/support-requester-view";
@@ -21,7 +27,11 @@ type OpenBody = {
   /** Structured triage: when true, issueType is required. */
   requireIssueType?: boolean;
   explicitOtherSelection?: boolean;
+  /** 전체 수정 계약 §1 — 접수 요청 id(uuid). 같은 id 재전송 = 처음 결과(`replayed: true`) */
+  requestId?: unknown;
 };
+
+const fail = (error: string) => NextResponse.json({ ok: false, error }, { status: supportErrorHttpStatus(error) });
 
 /** POST /api/support/cases/open — server-validated case open/create */
 export async function POST(req: NextRequest) {
@@ -29,25 +39,42 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
+  if (!sb) return fail("supabase_unconfigured");
 
   let body: OpenBody;
   try {
     body = (await req.json()) as OpenBody;
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return fail("invalid_json");
   }
 
   const context = body.context;
-  if (!context || typeof context !== "object") {
-    return NextResponse.json({ ok: false, error: "missing_context" }, { status: 400 });
-  }
+  if (!context || typeof context !== "object") return fail("missing_context");
 
+  const requestId = parseSupportRequestId(body.requestId);
+  if (requestId === "invalid") return fail("invalid_request_id");
+
+  // 계약 §1: 같은 요청 id 재전송은 429 를 받지 않는다. 판정은 접수 DB 함수가 잠금 안에서 하므로(처음과 같은 문의·created · 알림 없음)
+  //   평소에는 미리 확인하지 않는다 — 속도 제한에 걸렸을 때만 「같은 요청 id 재전송인가」를 본다(요청 예산 실측: 접수 1회 조회 1건 덜).
   // 고객 문의 최종 감사 D5: 접수도 고객 글 1건(새 문의 첫 글 또는 진행 중 문의에 붙는 글) → 같은 속도 제한
   if ((await checkSupportCustomerPostRate(sb, auth.userId)) === "rate_limited") {
-    return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
+    if (requestId) {
+      const replay = await findSupportMessageReplay(sb, { requestId, senderUserId: auth.userId });
+      if ("conflict" in replay) return fail("request_id_conflict");
+      if ("found" in replay && replay.found) {
+        const first = await loadSupportOpenReplay(sb, { userId: auth.userId, message: replay.message });
+        if (!first) return fail("forbidden");
+        return NextResponse.json({
+          ok: true,
+          case: toSupportRequesterCaseView(first.case),
+          sessionId: first.sessionId,
+          created: first.created,
+          href: buildSupportCaseRoute(first.case.id),
+          replayed: true,
+        });
+      }
+    }
+    return fail("rate_limited");
   }
 
   const res = await openSupportCaseFromContext(sb, {
@@ -62,40 +89,28 @@ export async function POST(req: NextRequest) {
     // Contextual Production callers omit issueType — centralized compat.
     allowMissingIssue: body.requireIssueType === true ? false : true,
     explicitOtherSelection: body.explicitOtherSelection === true,
+    clientRequestId: requestId,
   });
 
-  if (!res.ok) {
-    const status =
-      res.error === "disabled_context" ||
-      res.error === "missing_store_id" ||
-      res.error === "member_case_must_not_have_store" ||
-      res.error === "reference_incomplete" ||
-      res.error === "invalid_reference_id" ||
-      res.error === "missing_category" ||
-      res.error === "invalid_category" ||
-      res.error === "missing_issue_type" ||
-      res.error === "invalid_issue_type" ||
-      res.error === "generic_other_forbidden" ||
-      res.error === "guidance_not_found" ||
-      res.error === "guidance_disabled" ||
-      res.error === "guidance_audience_mismatch" ||
-      res.error === "guidance_category_mismatch" ||
-      res.error === "guidance_issue_mismatch" ||
-      res.error === "guidance_revision_mismatch" ||
-      res.error === "invalid_guidance_outcome"
-        ? 400
-        : res.error === "store_forbidden" ||
-            res.error === "reference_forbidden" ||
-            res.error === "reference_type_not_allowed"
-          ? 403
-          : res.error === "missing_table" || res.error === "missing_guidance_table"
-            ? 503
-            : // 2차 재감사 F: 동시 접수 경합 끝에 붙을 문의가 종료됐다 — 화면이 아는 코드(다시 누르면 새 문의)
-              res.error === "case_closed"
-              ? 409
-              : 500;
-    return NextResponse.json({ ok: false, error: res.error }, { status });
+  // 계약 §1 (5차 재감사): 같은 요청 id 재전송은 **처음 결과** — 그사이 안내문·분야 설정이 바뀌어 검증에 걸려도 이미 접수된 문의를 돌려준다.
+  //   검증에 걸렸을 때만 확인한다(평소 요청 수 그대로 · 판정은 DB 함수와 같은 「그 요청 id 의 글」).
+  if (!res.ok && requestId && res.error !== "request_id_conflict") {
+    const replay = await findSupportMessageReplay(sb, { requestId, senderUserId: auth.userId });
+    if ("found" in replay && replay.found) {
+      const first = await loadSupportOpenReplay(sb, { userId: auth.userId, message: replay.message });
+      if (first) {
+        return NextResponse.json({
+          ok: true,
+          case: toSupportRequesterCaseView(first.case),
+          sessionId: first.sessionId,
+          created: first.created,
+          href: buildSupportCaseRoute(first.case.id),
+          replayed: true,
+        });
+      }
+    }
   }
+  if (!res.ok) return fail(res.error);
 
   return NextResponse.json({
     ok: true,
@@ -103,5 +118,6 @@ export async function POST(req: NextRequest) {
     sessionId: res.sessionId,
     created: res.created,
     href: buildSupportCaseRoute(res.case.id),
+    ...(res.replayed ? { replayed: true } : {}),
   });
 }

@@ -62,6 +62,7 @@
 4. 계수기 끄기(긴급): Vercel 환경변수 `SUPABASE_CALL_COUNTER=0` (Owner 승인 후 재배포).
 5. 고객센터 (2026-11-28 최종 감사 L10): `/api/support/cases` 3.0 — 목록(로그인 확인 1 + 목록 1 + 첫 페이지 개수 1) · FAB 숫자 `?summary=unread`(2, 클라이언트 5초 캐시·요청 공유). 코드 계산값, 7일 뒤 Vercel 값으로 내리기만.
    - 2026-11-28 최종 점검 L12 (코드 계산값 · 응답 뒤 어드민 알림은 support 어드민 수 비례라 제외 — 측정 뒤 단위 예산 대상): `/api/support/cases/[caseId]` 7.0 (상세 GET 4~7 · 「확인했어요」 7 · 추가 문의 4) · `/api/support/cases/open` 11.0 (새 문의 9~11 · 진행 중 문의에 붙음 6~9) · `/api/admin/support/cases` 12.0 (권한 2 + 목록 1(+검색 2) + 탭 숫자 5 + 표시 이름 1~2) · `/api/admin/support/cases/[caseId]` 13.0 (GET 10~12 · 답변 12~13 · 종료 8 · 답변 삭제 최대 17 드묾). 계산 내역은 `lib/perf/request-budget.ts` 주석.
+   - 2026-11-29 고객센터 전체 수정 — **실측**(시험 `support-full-fix-server-2026-11-29` 「요청 예산」이 요청 1회 DB 호출을 세어 예산 이하로 고정): `/api/support/cases` 3 이하(FAB 2 · 쓰기 창 3 · 「내 문의」 첫 페이지 3 — 진행 중을 한 번 읽어 개수·페이지) · `/api/support/cases/[caseId]` 7 이하(GET 4 · seen 7 · 추가 문의 5) · `/api/support/cases/open` **11.0 → 7.0**(회원 3 · 사장님 4, 참조·안내문 +1~3) · `/api/admin/support/cases/[caseId]` 13 이하(답변 13 · 재전송 4 · 삭제 13 · GET 6 · seen 8 · 종료 7). 받는 어드민 수에 비례하는 알림·푸시·숫자 신호는 응답 뒤(`after`)로만.
 
 ## 5. 한계 (알고 쓰는 것)
 

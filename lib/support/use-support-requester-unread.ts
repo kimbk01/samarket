@@ -12,7 +12,7 @@ import {
 import {
   getSupportModalState,
   subscribeSupportModalState,
-} from "@/lib/support/support-modal-controller";
+} from "@/lib/support/support-modal-machine";
 
 /**
  * Phase 3 B5/B6 — requester-side support unread SSOT for entry badges.

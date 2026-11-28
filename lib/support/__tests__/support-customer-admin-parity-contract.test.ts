@@ -31,7 +31,9 @@ describe("Support Customer ↔ Admin message parity contracts", () => {
     const admin = read("components/admin/support/AdminSupportPage.tsx");
     expect(admin).toContain('t("admin_support_internal_note_2")');
     expect(copyAdminB4Ops1Messages.ko.admin_support_internal_note_2).toBe("관리자 내부 메모");
-    expect(admin).toContain("internalNote: true");
+    // 전체 수정 계약 §1: 내부 메모 본문은 답 요청 본문 함수 한 곳에서 만든다
+    expect(admin).toContain("buildAdminSupportInternalNotePayload(text, intent.requestId)");
+    expect(read("components/admin/support/admin-support-reply.ts")).toContain("internalNote: true");
   });
 
   it("customer shell consumes shared usable-area; admin is 3-column console", () => {

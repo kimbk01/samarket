@@ -59,7 +59,7 @@ import {
 import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
 import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal-entry";
-import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
+import { deliverSupportOpen, deliverSupportPushOpen } from "@/lib/support/deliver-support-open";
 import { buildSupportCaseRoute } from "@/lib/support/support-case-types";
 import {
   confirmLeaveWriteBeforeNavigation,
@@ -512,11 +512,11 @@ export function PushRouteListener() {
        */
       const supportCaseId = parseSupportCaseIdFromPushPath(path);
       if (supportCaseId) {
-        const delivered = deliverSupportOpen({
-          caseId: supportCaseId,
-          notificationId: notificationId ?? null,
-          source: "push",
-        });
+        // 고객센터 진입 주소(`/support/…`) 위면 주소를 먼저 정리하고 연다 — 정리 replace 는 고객센터 표시로(창이 닫히지 않음)
+        const delivered = deliverSupportPushOpen(
+          { caseId: supportCaseId, notificationId: notificationId ?? null, source: "push" },
+          router
+        );
         if (!delivered.ok) {
           console.info("[push-route] support_delivery_failed", {
             path,
@@ -529,12 +529,6 @@ export function PushRouteListener() {
         maybeMarkMemberAOnPushTap(path, notificationId, transport);
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
-        if (
-          typeof window !== "undefined" &&
-          window.location.pathname.startsWith("/support/")
-        ) {
-          router.replace("/");
-        }
         console.info("[push-route] webview_route_delivered", {
           path: buildSupportCaseRoute(supportCaseId),
           via: "support_modal_direct",

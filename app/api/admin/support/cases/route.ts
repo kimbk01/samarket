@@ -11,6 +11,7 @@ import { getSupportCategoryGroup } from "@/lib/support/support-category-groups";
 import { SUPPORT_REFERENCE_TYPES } from "@/lib/support/support-reference-authority";
 import { parseSupportCaseKind, parseSupportCaseScope } from "@/lib/support/support-community-filter";
 import { parseAdminListPage } from "@/lib/admin/pagination/parse-admin-list-page";
+import { supportErrorHttpStatus } from "@/lib/support/support-display-labels";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
     countSupportCasesByTab(sb),
   ]);
   if (!res.ok) {
-    return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
+    return NextResponse.json({ ok: false, error: res.error }, { status: supportErrorHttpStatus(res.error) });
   }
   const cases = await enrichSupportCasesForAdminDisplay(sb, res.cases);
   return NextResponse.json({ ok: true, cases, counts, total: res.total, limit: res.limit, offset: res.offset });

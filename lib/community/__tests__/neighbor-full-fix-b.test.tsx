@@ -50,6 +50,8 @@ describe("V-C1 확장 — 사용자 화면 전체 (구조 확인)", () => {
     "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx": "통화 코드 — 통화 규정상 변경 금지(설계 §6 제외)",
     "components/moim/MoimCreateWizard.tsx": "만들기 시트를 열 때 그 순간 읽기(설계 §6 제외)",
     "components/moim/MoimJoinSheet.tsx": "가입 시트를 열 때 기본 별명 그 순간 읽기(설계 §6 제외)",
+    "components/support/SupportModalHost.tsx":
+      "그리는 값 아님 — 모듈 함수 evaluateSupportLoginReturn 이 로그인 신호·경로 변화 때 그 순간 읽기(고객센터 로그인 뒤 같은 창). 창 이름 표시는 SSOT",
   };
   /** 설계 §6 표 밖의 같은 종류 — Owner 결정 전 보고만(설계 §11 PR-B 기록). 늘면 실패 */
   const REPORTED_OUT_OF_SCOPE: Record<string, string> = {

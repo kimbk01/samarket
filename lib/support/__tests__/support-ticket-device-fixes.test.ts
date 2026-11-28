@@ -19,11 +19,12 @@ describe("실기 결함 수정", () => {
 
   it("2 창을 닫고 다른 화면으로 갈 때 back 대신 기록 교체(내 문의·로그인·회원가입·매장 채팅)", () => {
     const h = read("components/support/SupportModalHost.tsx");
-    expect(h).toContain("router.replace(navTarget)");
-    expect(h).toContain("closeAndNavigate(supportTicketMineHref(info))");
+    expect(h).toContain("if (pushed) routerRef.current.replace(reason.href);");
+    expect(h).toContain("closeAndNavigate(supportTicketMineHref(v.info))");
     expect(h).toContain("closeAndNavigate(`${path}?next=");
     expect(h).toContain("onOpenStoreChat={closeAndNavigate}");
     expect(h).not.toMatch(/closeSupportModal\(\);\s*router\.push/);
+    expect(h).toContain('dispatchSupportModalIntent({ type: "navigate", href })');
   });
 
   it("3 쓰기 화면 맨 위 「진행 중인 문의」 — 답변 완료 먼저·최근 순·종료 제외·최대 5줄, 누르면 상세(뒤로 = 쓰기)", () => {
@@ -36,13 +37,13 @@ describe("실기 결함 수정", () => {
     expect(sortActiveSupportTickets(rows).map((r) => r.id)).toEqual(["d", "b", "a"]);
     expect(SUPPORT_TICKET_ACTIVE_LIST_MAX).toBe(5);
     const v = read("components/support/SupportTicketViews.tsx");
-    expect(v).toMatch(/<ActiveTicketList\s+audience=\{state\.audience\}/);
+    expect(v).toMatch(/<ActiveTicketList\s+viewId=\{viewId\}\s+audience=\{state\.audience\}/);
     // 최종 감사 U-10: 행 = 공용 행(SupportCaseRowButton)
-    expect(v).toContain('<SupportCaseRowButton key={c.id} c={c} surface="overlay" onOpen={onOpenCase} />');
+    expect(v).toContain('<SupportCaseRowButton key={c.id} c={c} surface="overlay" disabled={busy} onOpen={onOpenCase} />');
     expect(read("components/support/SupportCaseRow.tsx")).toContain("onClick={() => onOpen(c.id)}");
     const h = read("components/support/SupportModalHost.tsx");
-    expect(h).toMatch(/onOpenCase=\{\(caseId\) => \{\s*setComposeKept\(true\);\s*setSupportModalCaseId\(caseId\);/);
-    expect(h).toContain("() => setSupportModalCaseId(null)");
+    // 계약 §5: 진행 중 행 = open_case intent(쓰기 화면은 아래에 유지 · 뒤로 = back intent 로 상세만 뺌)
+    expect(h).toMatch(/onOpenCase=\{\(caseId\) => \{\s*lastActiveRowCaseId\.current = caseId;\s*dispatchSupportModalIntent\(\{ type: "open_case", caseId \}\);/);
   });
 
   it("4 알림함 문구 = 「내 문의」", () => {

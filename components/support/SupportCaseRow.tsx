@@ -17,10 +17,13 @@ export function SupportCaseRowButton({
   c,
   surface,
   onOpen,
+  disabled = false,
 }: {
   c: SupportCaseRow;
   surface: "overlay" | "page";
   onOpen: (caseId: string) => void;
+  /** 문의 창 쓰기 요청 중(계약 §5 busy) */
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
   // 분야·세부 이름 = 어드민 「문의 유형 관리」 이름 우선, 없으면 코드 기본 이름. `subject` 는 쓰지 않는다(B5).
@@ -41,8 +44,9 @@ export function SupportCaseRowButton({
       type="button"
       {...rowAttrs}
       data-support-case-row="1"
+      disabled={disabled}
       onClick={() => onOpen(c.id)}
-      className={`grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto_16px] grid-rows-[22px_18px] content-center gap-x-2 px-4 text-left ${
+      className={`grid h-[60px] w-full grid-cols-[minmax(0,1fr)_auto_16px] grid-rows-[22px_18px] content-center gap-x-2 px-4 text-left disabled:opacity-60 ${
         overlay
           ? "border-b border-[var(--overlay-border)] last:border-b-0 active:bg-[var(--overlay-secondary)]"
           : "transition active:bg-sam-surface-muted"

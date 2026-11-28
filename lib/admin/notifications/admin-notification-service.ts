@@ -14,10 +14,14 @@ import "server-only";
  *   A revoked admin's rows are kept but unreadable and never pushed.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { loadActiveAdminMembership, resolveEffectiveAdminRole } from "@/lib/admin/admin-membership";
+import {
+  isSupportRequesterOutboxPayload,
+  replaySupportRequesterNotification,
+} from "@/lib/support/support-requester-outbox";
+import { isPrivilegedAdminRole, normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { loadActiveAdminMembership } from "@/lib/admin/admin-membership";
 import { isSuperAdminRole, loadEffectiveStaffPermissions, permissionKeyAllowed } from "@/lib/admin/admin-user-server";
-import { isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
+import { isLoginDeniedMemberAccount, isSuspendedMemberAccount } from "@/lib/auth/member-account-state";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_NOTIFICATION_RETENTION_DAYS,
@@ -49,8 +53,21 @@ export const ADMIN_NOTIFICATIONS_TABLE = "admin_notifications";
 export const ADMIN_NOTIFICATION_PUSH_DELIVERIES_TABLE = "admin_notification_push_deliveries";
 
 export type AdminRecipientAuthority =
-  | { active: false }
+  /** `unknown: true` = 읽기 실패로 판정 못 함(받는 사람으로는 보지 않지만 담당 해제 근거는 아니다 · 재감사 2차 1) */
+  | { active: false; unknown?: true }
   | { active: true; isSuperAdmin: boolean; permissions: AdminPermissionKey[] };
+
+/**
+ * 「권한을 잃었다」가 **확인된** 경우만 true (정지·차단·탈퇴·권한 없음·멤버십 없음). 읽기 실패(unknown) = false.
+ * 담당 해제는 이 판정으로만 한다 — 결정 4(못 읽음 = 정지)는 받는 사람 판정에만 쓴다(재감사 2차 1).
+ */
+export function authorityConfirmedLoss(
+  authority: AdminRecipientAuthority,
+  requiredPermission: AdminPermissionKey | null
+): boolean {
+  if (authority.active === false && authority.unknown) return false;
+  return !authorityAllows(authority, requiredPermission);
+}
 
 /** Same authority formula as requireAdminApiActor (membership → role → permissions). */
 export async function resolveAdminRecipientAuthority(
@@ -59,17 +76,25 @@ export async function resolveAdminRecipientAuthority(
 ): Promise<AdminRecipientAuthority> {
   const membership = await loadActiveAdminMembership(sb, userId);
   if (!membership) return { active: false };
-  const role = await resolveEffectiveAdminRole(sb, userId);
+  // 3차 재감사 D3: 역할은 방금 읽은 활성 멤버십 행에서 바로 — 다시 읽는 판정 캐시(`resolveEffectiveAdminRole`)는 읽기 오류를 삼켜
+  //   「역할 없음 = 권한 잃음 확인」이 되어 정상 담당자가 풀렸다(다른 인스턴스의 낡은 「없음」 캐시도 같음). 같은 공식, 조회 1회 덜.
+  const role = normalizeAdminRole(membership.role);
   if (!role || !isPrivilegedAdminRole(role)) return { active: false };
   const isSuperAdmin = isSuperAdminRole(role);
   // 재감사 5: 정지된 운영자(최고관리자 제외)는 관리자 경로가 막혀 문의를 열 수 없다(앱 `isSuspendedNonSuperAdminActor`) —
   // 알림 받는 사람·담당자로도 보지 않는다(정지 담당자 = 「받을 수 없는 담당자 → 해제 + 전원」 경로).
-  // 프로필을 못 읽으면 정지가 아닌 것으로 본다(알림을 끊지 않는 쪽 · 화면은 관리자 API 가 막는다).
+  // 고객센터 전체 수정 결정 4 (2026-11-29): 프로필을 못 읽으면 **정지로 본다**(fail-closed · RLS
+  // `internal.support_admin_has_support_permission` 과 같은 쪽 — 받는 사람·담당자 판정이 RLS 보다 넓지 않게).
+  // 받는 사람 판정 1곳 = 이 함수(고객센터 담당 지정·재오픈 담당 확인·알림 받는 사람·푸시 직전 재확인).
   if (!isSuperAdmin) {
     const { data: profile, error: profileErr } = await sb.from("profiles").select("status").eq("id", userId).maybeSingle();
     if (profileErr) {
       console.error("[admin-notification] recipient_profile_read_failed", { userId, error: profileErr.message });
-    } else if (isSuspendedMemberAccount(profile as { status?: string | null } | null)) {
+      return { active: false, unknown: true };
+    }
+    // 전체 수정 S-7: 차단·탈퇴(로그인 불가)도 정지와 같게 — 받을 수 없는 담당자·받는 사람
+    const p = profile as { status?: string | null } | null;
+    if (isSuspendedMemberAccount(p) || isLoginDeniedMemberAccount(p)) {
       return { active: false };
     }
   }
@@ -210,7 +235,15 @@ async function defaultSendPush(row: AdminNotificationRow, sb: SupabaseClient) {
 }
 
 export type CreateAdminNotificationResult =
-  | { ok: true; created: number; skippedRecipients: number; pushed: number }
+  | {
+      ok: true;
+      created: number;
+      /** 받지 못한 후보 전부(권한 확인된 없음 + 판정 못 함) */
+      skippedRecipients: number;
+      /** 그중 권한을 잃은 것이 **확인된** 후보 수 — 담당 해제는 이 값만 본다(재감사 2차 1). 없으면 0 으로 본다 */
+      revokedRecipients?: number;
+      pushed: number;
+    }
   | {
       ok: false;
       error: string;
@@ -392,6 +425,7 @@ export async function createAdminNotification(
   const gatePermission = input.broadcastPermission ?? requiredPermission;
   const recipients: string[] = [];
   let authorityErrors = 0;
+  let revokedRecipients = 0;
   // 고객 문의 최종 감사 L8: 후보 권한 조회(후보당 3건)를 차례로 하지 않고 10명씩 동시에 — 순서는 후보 순서 그대로.
   for (let i = 0; i < candidates.length; i += AUTHORITY_LOOKUP_CHUNK) {
     const chunk = candidates.slice(i, i + AUTHORITY_LOOKUP_CHUNK);
@@ -410,11 +444,12 @@ export async function createAdminNotification(
         continue;
       }
       if (authorityAllows(r.authority, gatePermission)) recipients.push(r.uid);
+      else if (authorityConfirmedLoss(r.authority, gatePermission)) revokedRecipients += 1;
     }
   }
   if (authorityErrors > 0) return fail("authority_lookup_failed");
   const skippedRecipients = candidates.length - recipients.length;
-  if (recipients.length === 0) return { ok: true, created: 0, skippedRecipients, pushed: 0 };
+  if (recipients.length === 0) return { ok: true, created: 0, skippedRecipients, revokedRecipients, pushed: 0 };
 
   const rows = recipients.map((uid) => ({
     recipient_admin_id: uid,
@@ -453,7 +488,7 @@ export async function createAdminNotification(
     }
   }
 
-  return { ok: true, created: inserted.length, skippedRecipients, pushed };
+  return { ok: true, created: inserted.length, skippedRecipients, revokedRecipients, pushed };
 }
 
 /**
@@ -609,6 +644,22 @@ export async function runAdminNotificationDeliveryWorker(
   if (claimed.error) sum.errors.push(`outbox_claim:${claimed.error.message}`);
   for (const row of (claimed.data ?? []) as OutboxRow[]) {
     sum.outboxClaimed += 1;
+    // 전체 수정 §4 S-6: 고객센터 고객 알림(응답 전 저장 실패분)도 같은 대기열 — 어드민 알림 판정을 거치지 않고 다시 만든다
+    if (isSupportRequesterOutboxPayload(row.payload)) {
+      const rr = await replaySupportRequesterNotification(sb, row.payload);
+      const finR = await sb.rpc("admin_notification_outbox_finish", {
+        p_id: row.id,
+        p_claim_token: row.claim_token,
+        p_ok: rr.ok,
+        p_error: rr.ok ? null : rr.error,
+      });
+      const stateR = String(finR.data ?? "");
+      if (finR.error) sum.errors.push(`outbox_finish:${finR.error.message}`);
+      else if (stateR === "delivered") sum.outboxDelivered += 1;
+      else if (stateR === "retry") sum.outboxRetry += 1;
+      else if (stateR === "dead") sum.outboxDead += 1;
+      continue;
+    }
     const input = parseOutboxPayload(row.payload);
     let res: CreateAdminNotificationResult;
     // 고객 문의 남은 위험 (5차 재감사 2·4): 고객 글 알림은 보내기 직전에 문의 상태를 본다 —
@@ -647,8 +698,8 @@ export async function runAdminNotificationDeliveryWorker(
       input.kind === "support_customer_replied" &&
       (input.recipientAdminIds?.length ?? 0) > 0
     ) {
-      // 담당자가 권한을 잃은 경우에만 담당을 푼다(글쓴이 본인 담당은 그대로 — 받을 사람만 넓힌다).
-      if (res.skippedRecipients > 0) await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
+      // 담당자가 권한을 잃은 것이 **확인된** 경우에만 담당을 푼다(글쓴이 본인 담당·프로필 읽기 실패는 그대로 — 받을 사람만 넓힌다 · 재감사 2차 1).
+      if ((res.revokedRecipients ?? 0) > 0) await releaseUnreachableSupportAssignees(sb, input, input.recipientAdminIds ?? []);
       res = await createAdminNotification(
         sb,
         { ...input, recipientAdminIds: undefined, broadcastPermission: "support", requiredPermission: "support" },

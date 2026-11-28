@@ -155,7 +155,7 @@ export async function loadSupportCustomerMessageAnswers(
     fallbackLatestReplyAt?: string | null;
     limit?: number;
   }
-): Promise<{ latestReplyAt: string | null; customers: SupportCustomerMessageAnswer[] } | null> {
+): Promise<{ latestReplyAt: string | null; customers: SupportCustomerMessageAnswer[]; seenAtByReply: Map<string, number> } | null> {
   const limit = input.limit ?? 1000;
   const msgs = () =>
     sb
@@ -182,7 +182,7 @@ export async function loadSupportCustomerMessageAnswers(
       (r) => Date.parse(r.created_at) >= Date.parse(m.created_at) && supportReplySawMessage(r, seenMap, m.created_at)
     ),
   }));
-  return { latestReplyAt, customers };
+  return { latestReplyAt, customers, seenAtByReply: seenMap };
 }
 
 /**

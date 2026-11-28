@@ -57,6 +57,7 @@ import { MESSAGES } from "@/lib/i18n/messages";
 import { AdminSupportPage } from "@/components/admin/support/AdminSupportPage";
 import {
   createSupportCaseCountCache,
+  dispatchAdminSupportCaseChange,
   dispatchAdminSupportMessageInsert,
   shouldRefreshSupportCountsForCaseUpdate,
 } from "@/components/admin/support/admin-support-realtime";
@@ -209,6 +210,9 @@ async function typeDraft(text: string) {
   });
 }
 
+/** 저장 요청(PATCH) — 화면이 보일 때 자동으로 보내는 읽음(`action: "seen"`)은 빼고 센다 (계약 §3) */
+const writePatches = () => calls.filter((c) => c.method === "PATCH" && c.body?.action !== "seen");
+
 const centerText = () => q("[data-admin-support-center]")?.textContent ?? "";
 
 describe("H1 — 문의를 바꿔 누르면 이전 문의가 남지 않고, 저장은 보이는 문의로만 (동작)", () => {
@@ -241,7 +245,7 @@ describe("H1 — 문의를 바꿔 누르면 이전 문의가 남지 않고, 저�
 
     await typeDraft("hello B");
     await click(q("[data-admin-support-send]"));
-    const patches = calls.filter((c) => c.method === "PATCH");
+    const patches = writePatches();
     expect(patches).toHaveLength(1);
     expect(patches[0].url).toBe("/api/admin/support/cases/B");
     expect(patches[0].body).toMatchObject({
@@ -259,7 +263,7 @@ describe("H1 — 문의를 바꿔 누르면 이전 문의가 남지 않고, 저�
     await click(q('[data-admin-support-row="B"]'));
     expect(q("[data-admin-support-resolve]")).toBeNull();
     expect(q("[data-admin-support-assign-self]")).toBeNull();
-    expect(calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
+    expect(writePatches()).toHaveLength(0);
   });
 });
 
@@ -271,7 +275,7 @@ describe("M6 — 「상담 종료」는 본 마지막 글 시각을 보내고, c
     patchResponder = () => ({ status: 409, body: { ok: false, error: "case_updated" } });
     const getsBefore = calls.filter((c) => c.method === "GET" && c.url === "/api/admin/support/cases/B").length;
     await click(q("[data-admin-support-resolve]"));
-    const patch = calls.find((c) => c.method === "PATCH");
+    const patch = writePatches()[0];
     expect(patch?.url).toBe("/api/admin/support/cases/B");
     expect(patch?.body).toMatchObject({ action: "status", status: "RESOLVED", seenLastMessageAt: "2026-11-28T02:00:00Z" });
     const getsAfter = calls.filter((c) => c.method === "GET" && c.url === "/api/admin/support/cases/B").length;
@@ -286,7 +290,6 @@ describe("L13 — 콘솔은 support_messages 를 직접 구독하지 않고 공�
   it("콘솔 채널에 support_messages 없음 · 이벤트로 열린 문의 다시 읽기", async () => {
     realtimeTables.length = 0;
     await mount();
-    expect(realtimeTables).toContain("support_cases");
     expect(realtimeTables).not.toContain("support_messages");
     await click(q('[data-admin-support-row="A"]'));
     await resolveDetail("A");
@@ -462,7 +465,7 @@ describe("PR #687 재감사(2차) 1 — 목록은 가장 최근 요청의 응답
     deferLists = true;
     const emit = async () => {
       await act(async () => {
-        realtimeHandlers.support_cases?.({ eventType: "INSERT", new: { id: "NEW" }, old: null });
+        dispatchAdminSupportCaseChange({ eventType: "INSERT", newRow: { id: "NEW" }, oldRow: null });
       });
       await act(async () => {
         vi.advanceTimersByTime(350);
@@ -489,12 +492,12 @@ describe("병합 전 L2 — 열린 문의가 다른 곳에서 바뀌면 상세�
     const gets = () => calls.filter((c) => c.method === "GET" && c.url === "/api/admin/support/cases/A").length;
     const before = gets();
     await act(async () => {
-      realtimeHandlers.support_cases?.({ eventType: "UPDATE", new: { ...caseRow("B"), status: "RESOLVED" }, old: { id: "B" } });
+      dispatchAdminSupportCaseChange({ eventType: "UPDATE", newRow: { ...caseRow("B"), status: "RESOLVED" }, oldRow: { id: "B" } });
     });
     await flush();
     expect(gets()).toBe(before);
     await act(async () => {
-      realtimeHandlers.support_cases?.({ eventType: "UPDATE", new: { ...caseRow("A"), status: "RESOLVED" }, old: { id: "A" } });
+      dispatchAdminSupportCaseChange({ eventType: "UPDATE", newRow: { ...caseRow("A"), status: "RESOLVED" }, oldRow: { id: "A" } });
     });
     await flush();
     expect(gets()).toBe(before + 1);

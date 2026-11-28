@@ -41,7 +41,8 @@ describe("ARO-OPS-UX-002-B6 support / notification control plane", () => {
     expect(svc).toContain("adminUpdateSupportCaseStatus");
     // 고객 문의 SSOT §8 F10 (2026-11-27): 답변과 종료는 별도 동작 — 답변 안에 종료 옵션이 없다.
     expect(svc).not.toContain("closeAfter");
-    expect(svc).toContain('case "ACTIONABLE"');
+    // 전체 수정 D-2 (2026-11-29): 목록 기준 = 탭 하나 — 옛 filter 는 화면과 같은 변환으로 탭
+    expect(svc).toContain("adminSupportTabFromLegacyFilter(input.filter)");
     expect(copyAdminB4Ops1Messages.en.admin_support_support_messenger_notifications_are_not_support).toContain(
       "Support ≠ Messenger"
     );

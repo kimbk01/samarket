@@ -48,9 +48,11 @@ import {
   getSupportModalState,
   openSupportModal,
 } from "@/lib/support/support-modal-controller";
+import { __resetSupportModalMachineForTests } from "@/lib/support/support-modal-machine";
 import { buildGenericSupportTriageContext } from "@/lib/support/support-context";
 import {
   initSupportTicketForm,
+  readSupportFollowUpDraft,
   readSupportTicketDraft,
   setSupportTicketBody,
   supportTicketDraftKey,
@@ -122,7 +124,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  act(() => closeSupportModal());
+  // 계약 §5: 쓰기 요청 중이면 닫기는 보관된다 — 끝나지 않은 요청을 남긴 시험이 다음 시험에 새지 않게 상태 기계를 비운다
+  act(() => __resetSupportModalMachineForTests());
   act(() => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
@@ -205,7 +208,7 @@ describe("M1 기기 ◁ = 화면 ‹ 와 같이 한 단계 뒤로 (동작)", () 
     expect(getSupportModalState().phase).toBe("open");
     expect(q('[data-support-ticket-view="form"]')).not.toBeNull();
     // 창이 가진 기록 항목을 다시 넣었다(다음 ◁ 도 이 창이 받는다)
-    expect(window.history.state?.dibaySupportModal).toBe(true);
+    expect(window.history.state?.dibaySupportModal).toBeTruthy();
 
     deviceBack();
     expect(getSupportModalState().phase).toBe("closed");
@@ -252,7 +255,7 @@ describe("M1 기기 ◁ = 화면 ‹ 와 같이 한 단계 뒤로 (동작)", () 
     expect(getSupportModalState().phase).toBe("open");
     expect(q('[data-support-ticket-view="detail"]')).not.toBeNull();
     expect(q('[data-support-ticket-followup="1"]')).toBeNull();
-    expect(window.sessionStorage.getItem("dibaySupportFollowUpDraft:c1")).toBe("하나 더 궁금해요");
+    expect(readSupportFollowUpDraft("c1").body).toBe("하나 더 궁금해요");
 
     click(q('[data-support-ticket-followup-open="1"]'));
     expect(q<HTMLTextAreaElement>('[data-support-ticket-followup="1"]')!.value).toBe("하나 더 궁금해요");
@@ -553,12 +556,23 @@ describe("병합 전 2차 7 — 「문의 접수」 전송 중 입력은 무시�
   });
 });
 
-describe("병합 전 3차 — 접수 중 창을 닫으면 늦은 응답이 다음 창에 남지 않는다 (동작)", () => {
-  it("접수 → 응답 전 ✕ → 성공 도착 → 초안 지워짐 · 다시 열 문의 저장 안 함 · 다시 열면 접수 완료 아님", async () => {
-    let release: (v: unknown) => void = () => undefined;
-    route = (url) => {
+describe("남은 위험 1 (재감사 D1·D2) — 「문의 접수」 전송 중에는 창을 닫을 수 없고, 20초가 지나면 끊고 다시 시도할 수 있다 (동작)", () => {
+  /** 쓰기 → 분야·세부·본문 → 접수. 접수 응답은 release 로 늦게 보낸다 */
+  async function submitAndHold(body: string, opts: { abortable?: boolean } = {}) {
+    const holder: { release: (v: unknown) => void; aborted: boolean } = { release: () => undefined, aborted: false };
+    route = (url, init) => {
       if (url.startsWith("/api/support/cases?")) return { ok: true, cases: [] };
-      if (url.startsWith("/api/support/cases/open")) return new Promise((r) => (release = r));
+      if (url.startsWith("/api/support/cases/open")) {
+        return new Promise((resolve, reject) => {
+          holder.release = resolve;
+          if (opts.abortable) {
+            init?.signal?.addEventListener("abort", () => {
+              holder.aborted = true;
+              reject(new DOMException("aborted", "AbortError"));
+            });
+          }
+        });
+      }
       return { ok: false };
     };
     const ctx = memberCtx();
@@ -568,29 +582,93 @@ describe("병합 전 3차 — 접수 중 창을 닫으면 늦은 응답이 다�
     click(q('[data-testid="support-ticket-field-category"]'));
     click(q('[data-testid^="support-ticket-cat-"]'));
     click(q('[data-testid^="support-ticket-issue-"]'));
-    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, "보낸 글");
+    typeInto(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!, body);
     click(q('[data-support-ticket-submit="1"]'));
     await flush(2);
+    return { ctx, holder };
+  }
+
+  it("전송 중 ✕ = 비활성·눌러도 그대로 → 성공 도착 → 접수 완료 화면 · 초안 지워짐 · ✕ 다시 사용", async () => {
+    const { ctx, holder } = await submitAndHold("보낸 글");
+    const closeBtn = q<HTMLButtonElement>('[data-support-modal-close="1"]')!;
+    expect(closeBtn.disabled).toBe(true);
+    click(closeBtn);
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    await act(async () => {
+      holder.release({ ok: true, case: { ...caseRow(), id: "c-new", public_case_no: "SC-NEW" }, created: true });
+    });
+    await flush(3);
+    expect(q('[data-support-ticket-view="submitted"]')).not.toBeNull();
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))).toBeNull();
+    // 응답 뒤에는 다시 닫을 수 있다
+    expect(q<HTMLButtonElement>('[data-support-modal-close="1"]')!.disabled).toBe(false);
     click(q('[data-support-modal-close="1"]'));
     await flush();
     expect(getSupportModalState().phase).toBe("closed");
+  });
+
+  it("계약 §5: 전송 중 기기 ◁ = 보관 → 창은 그대로 · 결과를 붙인 뒤 실행(접수 완료 → 닫힘) · 초안 지워짐", async () => {
+    const { ctx, holder } = await submitAndHold("보낸 글");
+    deviceBack();
+    await flush();
+    expect(getSupportModalState().phase).toBe("open");
+    expect(q('[data-support-ticket-body="1"]')).not.toBeNull();
+    // 창이 가진 기록 항목을 다시 넣었다(보관한 ◁ 가 결과 뒤 그 항목을 정리한다)
+    expect(window.history.state?.dibaySupportModal).toBeTruthy();
     await act(async () => {
-      release({ ok: true, case: { ...caseRow(), id: "c-late", public_case_no: "SC-LATE" }, created: true });
+      holder.release({ ok: true, case: { ...caseRow(), id: "c-new", public_case_no: "SC-NEW" }, created: true });
     });
     await flush(3);
+    expect(getSupportModalState().phase).toBe("closed");
     expect(readSupportTicketDraft(supportTicketDraftKey(ctx))).toBeNull();
-    // 닫은 뒤 늦게 온 성공이 「새로고침하면 다시 열 문의」를 남기지 않는다(고치기 전: c-late 저장 → 닫은 창이 새로고침 때 다시 열림)
-    expect(window.sessionStorage.getItem("dibay_support_modal_restore_case_id")).toBeNull();
-    // 푸시처럼 문의 상세로 다시 연다 → 지난 「접수 완료」가 아니라 그 문의 상세
-    route = (url) =>
-      url.startsWith("/api/support/cases/c1") ? { ok: true, case: caseRow(), messages: [questionMsg, answerMsg()] } : { ok: false };
-    act(() => {
-      openSupportModal({ caseId: "c1" });
+  });
+
+  it("전송 실패 → 오류 표시 · 글 그대로 · ✕ 다시 사용 → 닫으면 초안 남음", async () => {
+    const { ctx, holder } = await submitAndHold("실패할 글");
+    await act(async () => {
+      holder.release({ ok: false, error: "open_failed" });
     });
+    await flush(3);
+    expect(q('[role="alert"]')?.textContent).toBe("common_error");
+    expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("실패할 글");
+    const closeBtn = q<HTMLButtonElement>('[data-support-modal-close="1"]')!;
+    expect(closeBtn.disabled).toBe(false);
+    click(closeBtn);
     await flush();
-    expect(q('[data-support-ticket-view="submitted"]')).toBeNull();
-    expect(q('[data-support-ticket-view="detail"]')).not.toBeNull();
-    expect(document.body.textContent).not.toContain("SC-LATE");
+    expect(getSupportModalState().phase).toBe("closed");
+    expect(readSupportTicketDraft(supportTicketDraftKey(ctx))?.body).toBe("실패할 글");
+  });
+
+  it("응답이 오지 않으면 20초에 끊는다 → 「연결 오류」 · 글 그대로 · ✕ 다시 사용", async () => {
+    // 접수가 건 시간 제한 타이머만 붙잡아 직접 울린다(나머지 타이머는 그대로)
+    const realSetTimeout = window.setTimeout.bind(window);
+    const limits: { ms: number; fire: () => void }[] = [];
+    const spy = vi.spyOn(window, "setTimeout").mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+      if (typeof ms === "number" && ms >= 10_000) {
+        limits.push({ ms, fire: fn });
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      }
+      return realSetTimeout(fn, ms, ...rest);
+    }) as typeof window.setTimeout);
+    try {
+      const { holder } = await submitAndHold("응답 없는 글", { abortable: true });
+      // 고치기 전: 시간 제한 없음 → 응답이 안 오면 「보내는 중」 그대로 갇힌다
+      // 계약 §5: 쓰기 20초(읽기 15초 — 진행 중 목록 등은 따로)
+      expect(limits.filter((l) => l.ms === 20_000).length).toBe(1);
+      expect(holder.aborted).toBe(false);
+      expect(q<HTMLButtonElement>('[data-support-modal-close="1"]')!.disabled).toBe(true);
+      await act(async () => {
+        limits.find((l) => l.ms === 20_000)!.fire();
+      });
+      await flush(3);
+      expect(holder.aborted).toBe(true);
+      expect(q('[role="alert"]')?.textContent).toBe("common_network_error");
+      expect(q<HTMLTextAreaElement>('[data-support-ticket-body="1"]')!.value).toBe("응답 없는 글");
+      expect(q<HTMLButtonElement>('[data-support-modal-close="1"]')!.disabled).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
@@ -634,7 +712,7 @@ describe("U3 닫는 「확인」 = 보조 모양 · 새 문의 = 「문의하기
 
   it("(구조 확인) 접수 완료 「확인」 = secondary", () => {
     expect(src("components/support/SupportTicketViews.tsx")).toContain(
-      '<DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose} data-support-ticket-ok="submitted">'
+      '<DibayOverlayButton roleTone="secondary" className={SUPPORT_BTN} onClick={onClose} disabled={busy} data-support-ticket-ok="submitted">'
     );
   });
 });

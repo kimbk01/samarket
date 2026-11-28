@@ -1,3 +1,5 @@
+> **대체됨 (2026-11-29)** — 권한·노출 규칙은 `docs/support-center/support-inquiry-ssot.md` §5 가 단일 정의다(어드민 API = `requireAdminPermission("support")` · 고객 직접 SELECT 없음 · 어드민 RLS = `internal.support_admin_has_support_permission`). 아래는 CUT 2 의 역사 기록이며 지금 동작과 다르다.
+
 # Support Center — Identity / Case / Session (CUT 2)
 
 ## ACCESS MODEL

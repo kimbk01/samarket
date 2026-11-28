@@ -4,7 +4,7 @@
  * - 채팅식 4단계(분야 → 세부 → 안내 → 내용)를 한 화면(분야·세부·관련·내용)으로 합친다.
  * - 문의 접수는 기존 `POST /api/support/cases/open` 그대로(문의 1건 = support_cases, 내용 = 첫 메시지).
  * - 작성 중 내용은 같은 맥락(누가·매장·화면·관련 항목) 단위로 sessionStorage 에 저장 → 다시 열면
- *   「이어 쓰기 / 지우기」. 접수 성공 시 삭제.
+ *   「이어 쓰기 / 지우기」. 접수 성공 시 삭제. 빈 내용으로는 지우지 않는다. 요청 id 는 본문에 묶어 함께 저장.
  */
 
 import {
@@ -149,6 +149,8 @@ export function canSubmitSupportTicket(state: SupportTicketFormState): boolean {
 
 export type SupportTicketOpenPayload = {
   context: SupportContext;
+  /** 계약 §1: 요청 id(보낸 본문에 묶음) — 호출 측이 넣는다 */
+  requestId?: string;
   issueType: string;
   initialSummary: string;
   initialBody: string;
@@ -192,6 +194,11 @@ export type SupportTicketDraft = {
   issueType: string | null;
   body: string;
   savedAt: string;
+  /**
+   * 계약 §1: 이 본문으로 보낸 접수 요청 id — 본문이 같으면 다시 보낼 때 같은 id(서버 replay → 중복 없음),
+   * 본문이 바뀌면 지운다(새 id). 접수 성공 때 초안과 함께 지운다.
+   */
+  requestId?: string;
 };
 
 /** 같은 맥락이면 같은 키 — 누가·매장·화면·관련 항목 */
@@ -226,19 +233,39 @@ export function readSupportTicketDraft(key: string): SupportTicketDraft | null {
       issueType: typeof parsed.issueType === "string" ? parsed.issueType : null,
       body: parsed.body.slice(0, SUPPORT_TICKET_BODY_MAX),
       savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : new Date().toISOString(),
+      ...(typeof parsed.requestId === "string" && parsed.requestId ? { requestId: parsed.requestId } : {}),
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * 요청 id 가 묶인 「같은 접수」인가 — 본문 · 분야 · 세부 · 대상 · 매장이 모두 같을 때만(하나라도 바뀌면 새 id).
+ * 본문만 비교하면 끊긴 뒤 분야를 바꿔 다시 보낼 때 서버가 처음 문의를 돌려주는데 화면은 새 분야를 보였다(재감사).
+ */
+export function isSameSupportTicketRequest(
+  prev: Pick<SupportTicketDraft, "body" | "category" | "issueType" | "audience" | "storeId">,
+  state: Pick<SupportTicketFormState, "body" | "category" | "issueType" | "audience" | "storeId">
+): boolean {
+  return (
+    prev.body === state.body &&
+    (prev.category ?? null) === (state.category ?? null) &&
+    (prev.issueType ?? null) === (state.issueType ?? null) &&
+    prev.audience === state.audience &&
+    (prev.storeId?.trim() || "") === (state.storeId?.trim() || "")
+  );
+}
+
+/**
+ * 쓰는 글 저장. **빈 내용으로는 옛 초안을 지우지 않는다**(계약 §5 — 지우기는 카드 「지우기」 확인·접수 성공 때만).
+ * 본문이 저장본과 같으면 그 본문에 묶인 요청 id 를 그대로 둔다.
+ */
 export function writeSupportTicketDraft(key: string, state: SupportTicketFormState): void {
   if (typeof window === "undefined") return;
+  if (!isSupportTicketDraftWorthSaving(state)) return;
   try {
-    if (!isSupportTicketDraftWorthSaving(state)) {
-      window.sessionStorage.removeItem(key);
-      return;
-    }
+    const prev = readSupportTicketDraft(key);
     const draft: SupportTicketDraft = {
       audience: state.audience,
       storeId: state.storeId,
@@ -246,6 +273,7 @@ export function writeSupportTicketDraft(key: string, state: SupportTicketFormSta
       issueType: state.issueType,
       body: state.body,
       savedAt: new Date().toISOString(),
+      ...(prev?.requestId && isSameSupportTicketRequest(prev, state) ? { requestId: prev.requestId } : {}),
     };
     window.sessionStorage.setItem(key, JSON.stringify(draft));
   } catch {
@@ -253,10 +281,106 @@ export function writeSupportTicketDraft(key: string, state: SupportTicketFormSta
   }
 }
 
+/**
+ * 접수 직전 — 이 본문에 묶인 요청 id 를 돌려준다(저장본 본문이 같으면 그 id, 아니면 새 id 를 만들어 초안과 함께 저장).
+ * 「연결 오류」 뒤 같은 글로 다시 누르면 같은 id 가 간다(서버가 처음 결과를 돌려줌 · C-7).
+ */
+export function bindSupportTicketDraftRequestId(
+  key: string,
+  state: SupportTicketFormState,
+  newId: () => string
+): string {
+  const prev = readSupportTicketDraft(key);
+  const requestId = prev?.requestId && isSameSupportTicketRequest(prev, state) ? prev.requestId : newId();
+  if (typeof window !== "undefined") {
+    try {
+      const draft: SupportTicketDraft = {
+        audience: state.audience,
+        storeId: state.storeId,
+        category: state.category,
+        issueType: state.issueType,
+        body: state.body,
+        savedAt: new Date().toISOString(),
+        requestId,
+      };
+      window.sessionStorage.setItem(key, JSON.stringify(draft));
+    } catch {
+      /* 저장 실패 — 이번 요청은 그 id 로 보낸다 */
+    }
+  }
+  return requestId;
+}
+
 export function clearSupportTicketDraft(key: string): void {
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ───────────── 추가 문의 임시 저장 (문의별 · 요청 id 를 본문에 묶음) ───────────── */
+
+const FOLLOW_UP_DRAFT_PREFIX = "dibaySupportFollowUpDraft:";
+
+export type SupportFollowUpDraft = { body: string; requestId: string | null };
+
+/** 옛 모양(글만 저장)도 읽는다 */
+export function readSupportFollowUpDraft(caseId: string): SupportFollowUpDraft {
+  if (typeof window === "undefined") return { body: "", requestId: null };
+  try {
+    const raw = window.sessionStorage.getItem(FOLLOW_UP_DRAFT_PREFIX + caseId) ?? "";
+    if (!raw) return { body: "", requestId: null };
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw) as { body?: unknown; requestId?: unknown };
+      if (typeof parsed.body === "string") {
+        return {
+          body: parsed.body,
+          requestId: typeof parsed.requestId === "string" && parsed.requestId ? parsed.requestId : null,
+        };
+      }
+    }
+    return { body: raw, requestId: null };
+  } catch {
+    return { body: "", requestId: null };
+  }
+}
+
+/** 글이 바뀌면 묶인 요청 id 는 버린다(본문이 같으면 유지) · 빈 글 = 지움 */
+export function writeSupportFollowUpDraft(caseId: string, body: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!body) {
+      window.sessionStorage.removeItem(FOLLOW_UP_DRAFT_PREFIX + caseId);
+      return;
+    }
+    const prev = readSupportFollowUpDraft(caseId);
+    const requestId = prev.requestId && prev.body === body ? prev.requestId : null;
+    window.sessionStorage.setItem(FOLLOW_UP_DRAFT_PREFIX + caseId, JSON.stringify({ body, requestId }));
+  } catch {
+    /* 저장 실패 — 화면 안 입력은 그대로 */
+  }
+}
+
+/** 보내기 직전 — 이 본문의 요청 id(같은 본문이면 같은 id) */
+export function bindSupportFollowUpRequestId(caseId: string, body: string, newId: () => string): string {
+  const prev = readSupportFollowUpDraft(caseId);
+  const requestId = prev.requestId && prev.body === body ? prev.requestId : newId();
+  if (typeof window !== "undefined") {
+    try {
+      window.sessionStorage.setItem(FOLLOW_UP_DRAFT_PREFIX + caseId, JSON.stringify({ body, requestId }));
+    } catch {
+      /* ignore */
+    }
+  }
+  return requestId;
+}
+
+export function clearSupportFollowUpDraft(caseId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(FOLLOW_UP_DRAFT_PREFIX + caseId);
   } catch {
     /* ignore */
   }
@@ -288,9 +412,6 @@ export function applySupportTicketDraft(
 }
 
 /* ───────────── 요청자 화면 상태 ───────────── */
-
-/** 고객·사장님 화면에 보이는 문의 = 진행 중만. 종료(RESOLVED·ARCHIVED)는 목록에서 사라진다. */
-export const SUPPORT_TICKET_REQUESTER_VISIBLE_STATUSES = ["OPEN", "WAITING_ADMIN", "WAITING_USER"] as const;
 
 export function isSupportTicketClosedStatus(status: string | null | undefined): boolean {
   return status === "RESOLVED" || status === "ARCHIVED";

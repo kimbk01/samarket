@@ -18,6 +18,9 @@ vi.mock("@/components/i18n/AppLanguageProvider", () => ({
 let deliverResult: { ok: boolean; error?: string } = { ok: true };
 vi.mock("@/lib/support/deliver-support-open", () => ({
   deliverSupportOpen: () => ({ ...deliverResult, source: "enter" }),
+  canDeliverSupportOpen: () => deliverResult.ok,
+  deliverSupportOpenAfterRouteLeaves: () => undefined,
+  markSupportEntryReplace: () => undefined,
 }));
 vi.mock("@/lib/auth/dibay-session-manager", () => ({
   getSessionPhase: () => "restoring",

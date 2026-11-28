@@ -1,118 +1,18 @@
 /**
- * Support Modal Controller SSOT — daily entry opens sheet overlay (not hard-nav).
+ * Support Modal Controller — 옛 이름 유지용 다시 내보내기.
+ * 단일 정의는 `support-modal-machine.ts`(상태 기계 · 계약 §5). 새 코드는 그 파일을 직접 쓴다.
  * Close ≠ resolve case / revoke session (Admin owns end consultation).
+ * 새 문의하기(resetSupportModalToStart) = 분야 고르기(needsCategorySelection)부터 — 정의는 machine.
  */
-
-import type { SupportContext } from "@/lib/support/support-context";
-import { isSupportContextEnabled } from "@/lib/support/support-context";
-import { clearSupportModalRestoreCaseId } from "@/lib/support/support-modal-restore-stash";
-
-export type SupportModalPhase = "closed" | "open";
-
-export type SupportModalView = "START" | "LOADING" | "ACTIVE" | "RESOLVED";
-
-export type SupportModalState = {
-  phase: SupportModalPhase;
-  context: SupportContext | null;
-  caseId: string | null;
-  /** When restoring an existing case from deeplink/bootstrap. */
-  restoreCaseId: string | null;
-};
-
-const INITIAL: SupportModalState = {
-  phase: "closed",
-  context: null,
-  caseId: null,
-  restoreCaseId: null,
-};
-
-let state: SupportModalState = { ...INITIAL };
-const listeners = new Set<() => void>();
-
-function emit(): void {
-  for (const l of listeners) l();
-}
-
-export function getSupportModalState(): SupportModalState {
-  return state;
-}
-
-export function subscribeSupportModalState(onStore: () => void): () => void {
-  listeners.add(onStore);
-  return () => {
-    listeners.delete(onStore);
-  };
-}
-
-export function isSupportModalOpen(): boolean {
-  return state.phase === "open";
-}
-
-export type OpenSupportModalInput = {
-  context?: SupportContext | null;
-  /** Open directly into an existing case (notification / cold-start). */
-  caseId?: string | null;
-};
-
-/**
- * Open Support Sheet on the current shell. Does not create a case by itself.
- */
-export function openSupportModal(input: OpenSupportModalInput = {}): boolean {
-  const context = input.context ?? null;
-  const caseId = input.caseId?.trim() || null;
-  const enabled =
-    context &&
-    context.enabled === true &&
-    (Boolean(String(context.category ?? "").trim()) ||
-      context.needsCategorySelection === true);
-  if (!caseId && !enabled) {
-    return false;
-  }
-  state = {
-    phase: "open",
-    context: enabled ? context : null,
-    caseId,
-    restoreCaseId: caseId,
-  };
-  emit();
-  return true;
-}
-
-/** UI-only close — does not resolve case or revoke session. */
-export function closeSupportModal(): void {
-  if (state.phase === "closed") return;
-  clearSupportModalRestoreCaseId();
-  state = { ...INITIAL };
-  emit();
-}
-
-export function setSupportModalCaseId(caseId: string | null): void {
-  if (state.phase !== "open") return;
-  state = { ...state, caseId: caseId?.trim() || null, restoreCaseId: null };
-  emit();
-}
-
-/** After 새 문의하기 — return to generic triage START (no silent reopen). */
-export function resetSupportModalToStart(nextContext?: SupportContext | null): void {
-  if (state.phase !== "open") return;
-  state = {
-    ...state,
-    caseId: null,
-    restoreCaseId: null,
-    context:
-      nextContext && isSupportContextEnabled(nextContext)
-        ? nextContext
-        : state.context
-          ? {
-              ...state.context,
-              category: "",
-              needsCategorySelection: true,
-              referenceType: undefined,
-              referenceId: undefined,
-              referenceTitle: undefined,
-              explicitOtherSelection: undefined,
-            }
-          : null,
-  };
-  emit();
-}
+export {
+  closeSupportModal,
+  getSupportModalState,
+  isSupportModalOpen,
+  openSupportModal,
+  resetSupportModalToStart,
+  setSupportModalCaseId,
+  subscribeSupportModalState,
+  type OpenSupportModalInput,
+  type SupportModalPhase,
+  type SupportModalState,
+} from "@/lib/support/support-modal-machine";

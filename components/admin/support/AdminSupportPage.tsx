@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { privateRealtimeChannelOptions } from "@/lib/supabase/private-realtime-channel-options";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ADMIN_SUPPORT_TABS,
@@ -68,12 +66,19 @@ import {
   isOffListSupportCaseUpdate,
   isAdminSupportOwnWriteEcho,
   shouldRefetchSupportListForCaseChange,
+  subscribeAdminSupportAlertCreated,
+  subscribeAdminSupportCaseChange,
   subscribeAdminSupportMessageInsert,
   type AdminSupportOwnWrite,
 } from "@/components/admin/support/admin-support-realtime";
 import {
+  adminSupportSeenKey,
+  buildAdminSupportInternalNotePayload,
   buildAdminSupportPublicReplyPayload,
   buildAdminSupportResolvePayload,
+  buildAdminSupportSeenPayload,
+  resolveAdminSupportReplyIntent,
+  type AdminSupportReplyIntent,
 } from "@/components/admin/support/admin-support-reply";
 
 /** 주소 추가 키 (`tab`·`filter`·`search`·연결 조건은 예전 딥링크와 같은 이름). */
@@ -326,6 +331,19 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  /** 저장 중 표시의 즉시 값 — 같은 렌더 안 두 번 누름(연타)도 막는다(state 는 다음 렌더에야 바뀜) */
+  const busyRef = useRef(false);
+  /** 계약 §1 S-3: 마지막으로 보낸(아직 성공 못 한) 답 — 같은 본문 재시도 = 같은 requestId */
+  const replyIntentRef = useRef<AdminSupportReplyIntent | null>(null);
+  /** 마지막 저장 실패 코드 — `request_id_conflict` 면 다음 전송에 새 requestId */
+  const lastPatchErrorRef = useRef<string | null>(null);
+  /** 계약 §3 A-1: 이미 읽음 요청을 보낸 상세(문의·보여 준 글) — 같은 화면에 2번 보내지 않는다 */
+  const seenSentKeyRef = useRef<string | null>(null);
+  /**
+   * 재감사 3: 열린 문의에 내 알림 행이 읽음(seen) 뒤에 새로 생김 — 같은 상세라도 읽음을 1번 더 보낸다.
+   * 값 = 그 문의 id (탭이 숨어 있으면 보일 때까지 기다린다). 이 경우에만 같은 상세 재전송을 허용한다.
+   */
+  const seenResendCaseRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selfAdminId = getCurrentUser()?.id?.trim() || "";
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -446,6 +464,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   useEffect(() => {
     // 점검 H1: 다른 문의를 누르면 이전 상세·오류·진행 중 요청을 즉시 버린다
     activeIdRef.current = activeId;
+    // 재감사 3: 다른 문의로 바꾸면 이전 문의의 「읽음 다시 보내기」 예약은 버린다
+    if (seenResendCaseRef.current !== activeId) seenResendCaseRef.current = null;
     setEditingId(null);
     setDraft("");
     setError(null);
@@ -484,8 +504,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     tabRef.current = tab;
   });
   useEffect(() => {
-    const sb = getSupabaseClient();
-    if (!sb) return;
     let listTimer: number | null = null;
     let slowTimer: number | null = null;
     let lastListAt = Date.now();
@@ -527,50 +545,102 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       if (open && caseId === open) void loadDetail(open);
       // 재감사 6: 목록 값(상태·마지막 글·미읽음)은 같은 트랜잭션의 support_cases UPDATE 로 오고 아래에서 거른다 — 여기서 목록을 다시 읽지 않는다
     });
-    const channel = sb
-      .channel("admin-support-queue", privateRealtimeChannelOptions())
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_cases" }, (payload) => {
-        const newRow = (payload.new ?? null) as Record<string, unknown> | null;
-        const oldRow = (payload.old ?? null) as Record<string, unknown> | null;
-        const caseId = String(newRow?.id ?? oldRow?.id ?? "");
-        if (
-          isAdminSupportOwnWriteEcho({ ownWrite: ownWriteRef.current, caseId, now: Date.now(), kind: "case" })
-        ) {
-          return;
-        }
-        // 병합 전 L2: 다른 어드민이 **열린 문의**의 상태·담당을 바꿨으면 상세도 다시 읽는다(종료된 문의에 답 칸이 남지 않게)
-        const shownCase = detailRef.current?.caseId === caseId ? detailRef.current.case : null;
-        if (
-          shownCase &&
-          caseId === activeIdRef.current &&
-          newRow &&
-          (String(newRow.status ?? "") !== String(shownCase.status ?? "") ||
-            String(newRow.assigned_admin_id ?? "") !== String(shownCase.assigned_admin_id ?? ""))
-        ) {
-          void loadDetail(caseId);
-        }
-        if (
-          shouldRefetchSupportListForCaseChange({
-            eventType: payload.eventType,
-            newRow,
-            oldRow,
-            listed: casesRef.current,
-            tab: tabRef.current,
-          })
-        ) {
-          scheduleList();
-        } else if (isOffListSupportCaseUpdate({ eventType: payload.eventType, newRow, listed: casesRef.current })) {
-          scheduleSlowList();
-        }
-      })
-      .subscribe();
+    // 전체 수정 계약 §4 B-5: support_cases 도 공통 구독(AdminStorePointPendingProvider) 한 곳만 받고 이 창 이벤트로 넘겨준다.
+    const unsubscribeCases = subscribeAdminSupportCaseChange((payload) => {
+      const { newRow, oldRow } = payload;
+      const caseId = String(newRow?.id ?? oldRow?.id ?? "");
+      if (
+        isAdminSupportOwnWriteEcho({ ownWrite: ownWriteRef.current, caseId, now: Date.now(), kind: "case" })
+      ) {
+        return;
+      }
+      // 병합 전 L2: 다른 어드민이 **열린 문의**의 상태·담당을 바꿨으면 상세도 다시 읽는다(종료된 문의에 답 칸이 남지 않게)
+      const shownCase = detailRef.current?.caseId === caseId ? detailRef.current.case : null;
+      if (
+        shownCase &&
+        caseId === activeIdRef.current &&
+        newRow &&
+        (String(newRow.status ?? "") !== String(shownCase.status ?? "") ||
+          String(newRow.assigned_admin_id ?? "") !== String(shownCase.assigned_admin_id ?? ""))
+      ) {
+        void loadDetail(caseId);
+      }
+      if (
+        shouldRefetchSupportListForCaseChange({
+          eventType: payload.eventType,
+          newRow,
+          oldRow,
+          listed: casesRef.current,
+          tab: tabRef.current,
+        })
+      ) {
+        scheduleList();
+      } else if (isOffListSupportCaseUpdate({ eventType: payload.eventType, newRow, listed: casesRef.current })) {
+        scheduleSlowList();
+      }
+    });
     return () => {
       unsubscribeMessages();
+      unsubscribeCases();
       if (listTimer != null) window.clearTimeout(listTimer);
       if (slowTimer != null) window.clearTimeout(slowTimer);
-      void sb.removeChannel(channel);
     };
   }, [loadDetail]);
+
+  /**
+   * 전체 수정 계약 §3 A-1: 읽음 = 화면에 보인 것. 상세 GET 은 읽기만 하고, 읽음은 별도 요청(`action: "seen"`)으로 —
+   * 이 탭이 보이고(`visibilityState === "visible"`) · 그 문의가 지금 열린 문의이고 · 그 상세가 그려진 뒤에만 보낸다.
+   * 탭이 숨은 사이 실시간으로 다시 읽은 상세는 다시 보일 때(visibilitychange) 보낸다. 같은 상세에는 1번만.
+   */
+  const sendSeenIfVisible = useCallback(() => {
+    if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+    const shown = detailRef.current;
+    const open = activeIdRef.current;
+    if (!shown || !open || shown.caseId !== open || shown.case.id !== open) return;
+    const payload = buildAdminSupportSeenPayload(shown.messages, shown.case.last_message_at);
+    const key = adminSupportSeenKey(open, payload);
+    const resend = seenResendCaseRef.current === open;
+    if (seenSentKeyRef.current === key && !resend) return;
+    seenResendCaseRef.current = null;
+    seenSentKeyRef.current = key;
+    const forget = () => {
+      // 실패하면 다음 상세·다시 보일 때 다시 보낸다(반복 재시도 없음)
+      if (seenSentKeyRef.current === key) seenSentKeyRef.current = null;
+    };
+    void (async () => {
+      try {
+        const res = await fetch(`/api/admin/support/cases/${encodeURIComponent(open)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        // 헤더 받은 알림 숫자는 내 알림 행 실시간(공통 구독) 하나로만 바뀐다 — 여기서 따로 신호를 보내지 않는다
+        if (res.ok && json.ok) return;
+        forget();
+      } catch {
+        forget();
+      }
+    })();
+  }, []);
+  useEffect(() => {
+    sendSeenIfVisible();
+  }, [detail, activeId, sendSeenIfVisible]);
+  useEffect(() => {
+    const onVisibility = () => sendSeenIfVisible();
+    document.addEventListener("visibilitychange", onVisibility);
+    // 재감사 3: 알림 행이 읽음보다 늦게 생김(응답 뒤·outbox) — 열린 문의면 지금 그려진 상세로 읽음을 다시 보낸다(숨어 있으면 보일 때)
+    const unsubscribeAlerts = subscribeAdminSupportAlertCreated(({ caseId }) => {
+      if (!caseId || caseId !== activeIdRef.current) return;
+      seenResendCaseRef.current = caseId;
+      sendSeenIfVisible();
+    });
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      unsubscribeAlerts();
+    };
+  }, [sendSeenIfVisible]);
 
   /**
    * 점검 H1: 저장은 「누를 때 화면에 보이던 문의」(`expectedCaseId`)로만 보낸다.
@@ -582,7 +652,9 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       activeId: activeIdRef.current,
       shownCaseId: shownCaseIdRef.current,
     });
-    if (!writeCaseId || busy) return false;
+    if (!writeCaseId || busyRef.current) return false;
+    busyRef.current = true;
+    lastPatchErrorRef.current = null;
     setBusy(true);
     setError(null);
     // 진행 중에는 끝없이, 끝난 뒤 잠깐 — 그 사이 같은 문의의 내 변경 실시간 메아리는 다시 읽지 않는다 (D6).
@@ -594,11 +666,18 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string; unseenCustomerMessages?: number };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        unseenCustomerMessages?: number;
+        /** 계약 §1: 같은 requestId 의 답이 이미 저장됨 — 처음 결과(새로 쓰지 않음), 성공과 같게 다룬다 */
+        replayed?: boolean;
+      };
       // 재감사 1·2: 그사이 다른 문의를 눌렀으면 저장한 문의의 상세를 다시 읽지 않고(열린 문의 응답이 버려져 멈춤) 결과 문구도 띄우지 않는다
       const stillOpen = activeIdRef.current === writeCaseId;
       if (!res.ok || !json.ok) {
         const code = json.error ?? "action_failed";
+        lastPatchErrorRef.current = code;
         // 점검 M6 · 병합 전 L2: 문의가 그사이 바뀌었다(고객 새 글·다른 어드민의 종료·상태 변경) — 상세를 다시 읽고 안내를 남긴다
         if (stillOpen && ADMIN_SUPPORT_RELOAD_ON_ERROR.has(code)) await loadDetail(writeCaseId);
         if (stillOpen) setError(code);
@@ -612,10 +691,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       return true;
     } catch {
       // DEF-07: non-JSON 5xx / network failure must surface, not fail silently.
+      lastPatchErrorRef.current = "network_error";
       if (activeIdRef.current === writeCaseId) setError("network_error");
       return false;
     } finally {
       ownWriteRef.current = { caseId: writeCaseId, until: Date.now() + ADMIN_SUPPORT_OWN_WRITE_GRACE_MS };
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -650,11 +731,26 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const sendComposer = async () => {
     const text = draft.trim();
     if (!text || !activeCase) return;
+    if (busyRef.current) return;
     const sentCaseId = activeCase.id;
+    // 계약 §1 S-3: 실패 뒤 같은 본문을 다시 보내면 같은 requestId(서버 replay = 답변·푸시 1번), 본문이 바뀌면 새 id
+    const intent = resolveAdminSupportReplyIntent(replyIntentRef.current, {
+      caseId: sentCaseId,
+      mode: composerMode,
+      body: text,
+    });
+    replyIntentRef.current = intent;
     const ok =
       composerMode === "public"
-        ? await patchCase(buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at), activeCase.id)
-        : await patchCase({ action: "reply", body: text, internalNote: true }, activeCase.id);
+        ? await patchCase(
+            buildAdminSupportPublicReplyPayload(text, activeCase.last_message_at, intent.requestId),
+            activeCase.id
+          )
+        : await patchCase(buildAdminSupportInternalNotePayload(text, intent.requestId), activeCase.id);
+    // 성공 = 끝난 요청 · request_id_conflict = 그 id 는 다른 글 것 — 둘 다 다음 전송은 새 id
+    if ((ok || lastPatchErrorRef.current === "request_id_conflict") && replyIntentRef.current === intent) {
+      replyIntentRef.current = null;
+    }
     // 재감사 3: 그사이 다른 문의로 바꿨으면 그 문의에 쓰는 답을 지우지 않는다
     if (ok && activeIdRef.current === sentCaseId) setDraft("");
   };
@@ -1438,7 +1534,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
 }
 
 /** 병합 전 L2: 이 오류면 상세가 낡은 것 — 다시 읽는다 */
-const ADMIN_SUPPORT_RELOAD_ON_ERROR = new Set(["case_updated", "case_closed", "status_conflict", "invalid_transition"]);
+const ADMIN_SUPPORT_RELOAD_ON_ERROR = new Set([
+  "case_updated",
+  "case_closed",
+  "status_conflict",
+  "invalid_transition",
+  "invalid_seen_last_message_at",
+]);
 
 export function AdminSupportPage({ initialCaseId }: { initialCaseId?: string }) {
   return (

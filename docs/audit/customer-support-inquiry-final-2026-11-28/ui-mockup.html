@@ -121,7 +121,8 @@
 <header class="doc">
   <h1>고객센터 문의 — 최종 화면·버튼 시안 (현재 운영 코드 그대로)</h1>
   <p>기준: 운영 main <b>63057603f</b>(고객센터 마지막 변경 = PR #678 ece96be, U1~U9 반영 뒤) 코드. 폭 375px. 색·크기·문구는 코드 값(<code>app/design-tokens.css</code>·<code>dibay-overlay.css</code>·카탈로그)을 그대로 옮겼다. 각 버튼 번호 = 아래 표의 「형태 · 누르면 · 비활성」.</p>
-  <p><span class="mark" style="padding:0 4px">빨간 점선</span> = 2026-11-28 최종 감사에서 찾은 결함(맨 아래 5절 표 번호) — 위 화면은 수정 전, 고친 모습은 5절 「수정 후」 열. 이전 시안(54bc4d3)은 U1~U9 수정 <b>전</b> 모습이라 코드와 달랐다 — 작업자가 갱신하지 않은 실수(보고서 W1).</p>
+  <p>(2026-11-29: 1~4절의 결함 표시는 모두 지금 코드 모습으로 바꿨다. 아래 문장은 그때의 기록.) 2026-11-28 최종 감사 결함은 맨 아래 5절 표 번호 — 이전 시안(54bc4d3)은 U1~U9 수정 <b>전</b> 모습이라 코드와 달랐다 — 작업자가 갱신하지 않은 실수(보고서 W1).</p>
+  <p><b>2026-11-29 갱신(전체 재감사 §1 「시안 = 구현」 불일치 정정):</b> 1~4절 화면을 지금 코드에 맞췄다 — 접수 완료·종료+안 읽음 「확인」 = 보조 버튼 · 종료 화면 버튼 = 「문의하기」 · 안내 = 「알림으로 알려 드려요」 · 내 문의 행 › 있음 · 종료+안 읽음 상세에 상태 줄. 전송 중에는 모든 버튼·✕ 비활성(전체 수정 계약 §5 — 그림은 쉬는 상태). 사장님 「내 문의」(3-B)는 회원과 같은 목록 컴포넌트(<code>SupportCasesHistoryList</code>). 5·6절 표는 그때의 기록이라 그대로 둔다.</p>
   <p>확인 못 한 값: 앱 머리글(MyScreen) 높이·사장님 셸 머리글·확인 창 모양 — 52px 머리글은 그림용 가정이다. 화면 캡처가 아니라 코드 판독으로 그렸다(실기 NOT_PROVEN).</p>
 </header>
 
@@ -161,7 +162,7 @@
     </div>
     <table class="spec">
       <tr><th>누르면</th><td>그 화면 맥락으로 쓰기 화면(맥락 화면이면 분야 고정 + 「관련」 줄)</td></tr>
-      <tr><th>숫자 다시 읽음</th><td>창 닫힐 때 · 고객지원 알림 도착 · 실시간 재연결 · 앱 복귀</td></tr>
+      <tr><th>숫자 다시 읽음</th><td>창 닫힐 때 · 고객지원 알림 행 생성·읽음(실시간 INSERT·UPDATE) · 실시간 재연결 · 앱 복귀</td></tr>
       <tr><th>숨김</th><td>문의 창이 열려 있을 때 · 키보드 올라올 때 · 허용 안 된 화면</td></tr>
     </table>
   </div>
@@ -205,13 +206,13 @@
         </div>
         <div class="lab">내용</div>
         <div class="grp" style="padding-bottom:0"><div class="ta" style="margin-top:12px">문의 내용을 적어 주세요.</div><div class="cnt">0 / 1000 · 자동 저장</div></div>
-        <div class="help">답변은 바로 오지 않을 수 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div>
+        <div class="help">답변은 바로 오지 않을 수 있어요. 답변이 오면 알림으로 알려 드려요.</div>
       </div>
       <div class="ft"><div class="ob dis"><span class="num">2</span>문의 접수</div></div>
     </div>
     <table class="spec">
       <tr><th>#</th><th>형태</th><th>누르면 / 비활성</th></tr>
-      <tr><td>행</td><td>진행 중 문의 줄 60px · 알약 4px · 화살표</td><td>같은 창에서 문의 상세(머리글 ‹ = 쓰기로). <b class="flag">U-3: ‹ 로 돌아오면 쓰기 화면이 새로 만들어져, 입력하던 글이 폼이 아닌 「작성 중인 문의가 있어요」 카드로 바뀜(저장 300ms 전 입력은 사라질 수 있음)</b></td></tr>
+      <tr><td>행</td><td>진행 중 문의 줄 60px · 알약 4px · 화살표</td><td>같은 창에서 문의 상세(머리글 ‹ = 쓰기로 · 쓰기 화면은 숨긴 채 유지 — 돌아오면 입력 그대로). 전송 중 = 비활성</td></tr>
       <tr><td>1</td><td>분야·세부 줄 44px · 라벨 칸 64px · 화살표</td><td>분야 → 분야 선택 → 곧바로 세부 선택 → 쓰기. 분야 고정(맥락 화면)이면 누를 수 없음</td></tr>
       <tr><td>2</td><td>primary 44 · 모서리 4 · 사장님 활성 = 갈색 (비활성 = 회색 #c9c3c3 바탕, 갈색 글자)</td><td><code>POST /api/support/cases/open</code> → 접수 완료. 비활성: 분야·세부·내용 빈칸 / 사장님 매장 없음 / 보내는 중(스피너). 오류는 버튼 위 빨간 12px 글자</td></tr>
     </table>
@@ -222,7 +223,7 @@
     <div class="phone">
       <div class="hd"><div></div><div class="t">고객센터 문의</div><div class="ic">✕</div></div>
       <div class="top"><span class="l">문의하는 사람</span><span class="v">홍길동</span>
-        <span class="mark" style="display:inline-flex;border:1px solid var(--ov-border);border-radius:4px;overflow:hidden;font-size:11px;font-weight:700"><span style="padding:4px 8px;background:var(--green);color:#fff"><span class="num">1</span>회원으로</span><span style="padding:4px 8px;color:var(--muted)">매장으로</span></span></div>
+        <span style="display:inline-flex;border:1px solid var(--ov-border);border-radius:4px;overflow:hidden;font-size:11px;font-weight:700"><span style="min-height:44px;min-width:44px;display:inline-flex;align-items:center;padding:0 8px;background:var(--green);color:#fff"><span class="num">1</span>회원으로</span><span style="min-height:44px;min-width:44px;display:inline-flex;align-items:center;padding:0 8px;color:var(--muted)">매장으로</span></span></div>
       <div class="scroll">
         <div style="margin:12px 16px 0;border:1px solid var(--warning);border-radius:4px;overflow:hidden;background:#fff">
           <div style="height:36px;display:flex;align-items:center;padding:0 12px;background:var(--warning-soft);font-size:13px;font-weight:600;color:var(--brown)">작성 중인 문의가 있어요</div>
@@ -238,7 +239,7 @@
     </div>
     <table class="spec">
       <tr><th>#</th><th>형태</th><th>누르면</th></tr>
-      <tr><td>1</td><td>묶음 4px 테두리 · 11px 굵게 · 선택 = 초록(회원)/갈색(매장)</td><td>대상 전환 — 분야·세부 비움, 내용 유지. 매장이 있는 회원·분야 고정 아님일 때만 보임. <b class="flag">U-4: 누르는 영역 약 24px(px-2 py-1) — 44px 미달</b></td></tr>
+      <tr><td>1</td><td>묶음 4px 테두리 · 11px 굵게 · 선택 = 초록(회원)/갈색(매장)</td><td>대상 전환 — 분야·세부 비움, 내용 유지. 매장이 있는 회원·분야 고정 아님일 때만 보임. 누르는 영역 44×44. 전송 중 = 비활성</td></tr>
       <tr><td>2</td><td>primary 44</td><td>저장본을 폼에 넣고 카드 닫기</td></tr>
       <tr><td>3</td><td>destructive 44 (빨강 #d45252)</td><td>확인 창 「작성 중인 문의를 지울까요?」 [취소][지우기] → 저장본 삭제</td></tr>
     </table>
@@ -273,13 +274,13 @@
     <p class="cap">2-D 접수 완료 — 새 문의 / 진행 중 문의에 추가</p>
     <div class="phone" style="height:360px">
       <div class="hd"><div></div><div class="t">문의 접수 완료</div><div class="ic">✕</div></div>
-      <div class="center"><div class="chk">✓</div><div class="h">문의가 접수되었어요</div><div class="b">결제·충전 · 포인트 미반영<br>접수 번호 SC-100042 · 11. 27. 오후 4:10</div><div class="b" style="margin-top:8px">답변을 기다리고 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div></div>
-      <div class="ft"><div class="two"><div class="ob s"><span class="num">1</span>내 문의 보기</div><div class="ob p"><span class="num">2</span>확인</div></div></div>
+      <div class="center"><div class="chk">✓</div><div class="h">문의가 접수되었어요</div><div class="b">결제·충전 · 포인트 미반영<br>접수 번호 SC-100042 · 11. 27. 오후 4:10</div><div class="b" style="margin-top:8px">답변을 기다리고 있어요. 답변이 오면 알림으로 알려 드려요.</div></div>
+      <div class="ft"><div class="two"><div class="ob s"><span class="num">1</span>내 문의 보기</div><div class="ob s"><span class="num">2</span>확인</div></div></div>
     </div>
     <div class="phone" style="height:360px;margin-top:14px">
       <div class="hd"><div></div><div class="t">문의 접수 완료</div><div class="ic">✕</div></div>
-      <div class="center"><div class="chk">✓</div><div class="h">진행 중인 문의에 추가했어요</div><div class="b">같은 분야의 진행 중인 문의가 있어 그 문의에 이어서 접수했어요.</div><div class="b">결제·충전 · 충전 상태 확인 <span class="flag">(기존 문의 세부)</span><br>접수 번호 SC-100041 · 기존 접수 시각</div></div>
-      <div class="ft"><div class="two"><div class="ob s">내 문의 보기</div><div class="ob p">확인</div></div></div>
+      <div class="center"><div class="chk">✓</div><div class="h">진행 중인 문의에 추가했어요</div><div class="b">같은 분야의 진행 중인 문의가 있어 그 문의에 이어서 접수했어요.</div><div class="b">결제·충전 · 충전 상태 확인 (기존 문의 세부)<br>접수 번호 SC-100041 · 기존 접수 시각</div></div>
+      <div class="ft"><div class="two"><div class="ob s">내 문의 보기</div><div class="ob s">확인</div></div></div>
     </div>
     <table class="spec">
       <tr><th>#</th><th>누르면</th></tr>
@@ -298,15 +299,15 @@
       <div class="bar"><div class="back">‹</div><div class="t">내 문의</div></div>
       <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px">
         <div style="background:#fff;border:1px solid #ece7e4;border-radius:4px">
-          <div class="hrow noarrow"><span class="a">결제·충전 · 포인트 미반영</span><span class="s tag m">답변 완료</span><span class="d">SC-100041 · 11. 27. 오후 3:10 (마지막 글 시각)</span></div>
-          <div class="hrow noarrow" style="border-bottom:0"><span class="a">기술 · 앱 오류</span><span class="s tag w">답변 대기</span><span class="d">SC-100042 · 11. 27. 오후 4:10</span></div>
-          <div class="hrow noarrow" style="border-bottom:0;border-top:1px solid var(--ov-border)"><span class="a">계정 · 로그인</span><span class="s tag m">새 답변</span><span class="d">SC-100039 · 종료 + 안 읽은 답변</span></div>
+          <div class="hrow"><span class="a">결제·충전 · 포인트 미반영</span><span class="s tag m">답변 완료</span><span class="d">SC-100041 · 11. 27. 오후 3:10 (마지막 글 시각)</span></div>
+          <div class="hrow" style="border-bottom:0"><span class="a">기술 · 앱 오류</span><span class="s tag w">답변 대기</span><span class="d">SC-100042 · 11. 27. 오후 4:10</span></div>
+          <div class="hrow" style="border-bottom:0;border-top:1px solid var(--ov-border)"><span class="a">계정 · 로그인</span><span class="s tag m">새 답변</span><span class="d">SC-100039 · 종료 + 안 읽은 답변</span></div>
         </div>
-        <div class="mark" style="font-size:12px;color:#7a6a6a">종료된 문의는 이 목록에서 사라져요. <span class="flag">U-8: 바로 위 「새 답변」(종료 문의)이 목록에 있음 — 문구와 동작 다름</span></div>
+        <div style="font-size:12px;color:#7a6a6a">종료된 문의는 답변을 확인하면 목록에서 사라져요.</div>
       </div>
     </div>
     <table class="spec">
-      <tr><th>행</th><td>60px · 화살표 없음 <span class="flag">(쓰기 화면 같은 행은 › 있음 — U-10)</span> · 알약: 답변 완료·새 답변 = 연초록/초록, 답변 대기 = 연노랑, 종료 = 회색</td></tr>
+      <tr><th>행</th><td>60px · › 있음 (쓰기 화면과 같은 행 컴포넌트 <code>SupportCaseRow</code> — U-10 반영) · 알약: 답변 완료·새 답변 = 연초록/초록, 답변 대기 = 연노랑, 종료 = 회색</td></tr>
       <tr><th>누르면</th><td>문의 창 → 상세 (‹ 없음, ✕ 만)</td></tr>
       <tr><th>빈 목록</th><td>「진행 중인 문의가 없어요.」 + 「문의하기」(sam-btn, 최대 240px) · 로딩 = 뼈대 · 오류 = MyStateView · 「더 보기」</td></tr>
     </table>
@@ -314,9 +315,9 @@
     <div class="phone short" style="min-height:220px">
       <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px">
         <div class="sb" style="font-size:14px;background:var(--brown)">문의하기 (갈색 44px·4px)</div>
-        <div class="two mark"><div class="sb" style="font-size:14px">내 문의 <span class="flag" style="color:#fde68a">U-7 선택 탭 = 초록</span></div><div style="min-height:44px;border:1px solid #e3dfdc;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px">이전 문의 기록</div></div>
+        <div class="two"><div class="sb" style="font-size:14px;background:var(--brown)">내 문의</div><div style="min-height:44px;border:1px solid #e3dfdc;border-radius:4px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px">이전 문의 기록</div></div>
         <div style="background:#fff;border:1px solid #ece7e4;border-radius:4px;font-size:14px;color:#7a6a6a;padding:16px">진행 중인 문의가 없어요.</div>
-        <div class="mark" style="font-size:12px;color:#7a6a6a">로딩 = 「불러오는 중」 글자 · 오류 = 밑줄 글자 버튼 · 더 보기 없음 <span class="flag">U-5 (회원 목록과 다른 컴포넌트)</span></div>
+        <div style="font-size:12px;color:#7a6a6a">회원과 같은 목록 컴포넌트(<code>SupportCasesHistoryList</code>) · 로딩 = 뼈대(회원 3-A 와 같은 컴포넌트 — 최종 감사에서 시안 안 불일치 정정) · 오류 = 다시 시도 버튼 · 더 보기 · 빈 목록 = 안내만(테두리·4px·흰 바탕 상자)</div>
       </div>
     </div>
   </div>
@@ -327,7 +328,7 @@
       <div class="hd"><div></div><div class="t">SC-100042 · 기술</div><div class="ic">✕</div></div>
       <div class="top"><span class="l">상태</span><span class="v">11. 27. 오후 4:10</span><span class="tag w">답변 대기</span></div>
       <div class="scroll"><div class="qa"><div class="h"><span>내 문의</span><span>11. 27. 오후 4:10</span></div><div class="b">앱이 사진 올릴 때 꺼집니다.</div></div>
-        <div class="help">답변을 기다리고 있어요. 답변이 오면 고객센터 버튼에 숫자로 알려 드려요.</div></div>
+        <div class="help">답변을 기다리고 있어요. 답변이 오면 알림으로 알려 드려요.</div></div>
       <div class="ft"><div class="ob s"><span class="num">1</span>확인</div></div>
     </div>
     <table class="spec"><tr><td>1</td><td>secondary 44 → 창 닫기</td></tr></table>
@@ -355,18 +356,18 @@
     <p class="cap">3-E 상세 — 종료 + 안 읽은 답변 / 3-F 종료(숨김)</p>
     <div class="phone" style="height:380px">
       <div class="hd"><div></div><div class="t">SC-100041 · 결제·충전</div><div class="ic">✕</div></div>
-      <div class="top mark"><span class="l">상태</span><span class="v flag">상태 줄 없음 (U-2)</span><span></span></div>
+      <div class="top"><span class="l">상태</span><span class="v">11. 27. 오후 3:10</span><span class="tag m">새 답변</span></div>
       <div class="scroll"><div class="note">종료된 문의예요. 답변을 확인하면 목록에서 사라져요.</div>
         <div class="qa"><div class="h"><span>DIBAY 고객센터 답변</span><span>오후 3:10</span></div><div class="b ans">지금 반영해 드렸어요.</div></div></div>
-      <div class="ft"><div class="ob p"><span class="num">1</span>확인</div></div>
+      <div class="ft"><div class="ob s"><span class="num">1</span>확인</div></div>
     </div>
     <div class="phone" style="height:340px;margin-top:14px">
       <div class="hd"><div></div><div class="t">SC-100041 · 결제·충전</div><div class="ic">✕</div></div>
       <div class="center"><div class="h">종료된 문의예요</div><div class="b">종료된 문의는 내용이 보이지 않아요. 궁금한 점이 있으면 새로 문의해 주세요.</div></div>
-      <div class="ft"><div class="ob p"><span class="num">2</span>새 문의 쓰기</div></div>
+      <div class="ft"><div class="ob p"><span class="num">2</span>문의하기</div></div>
     </div>
     <table class="spec">
-      <tr><td>1</td><td>primary → 창 닫기 (서버는 이 내용을 1번만 주고 읽음 처리, 앱 실행 동안 기억)</td></tr>
+      <tr><td>1</td><td>secondary → 창 닫기 (화면이 보이면 seen 으로 읽음 처리 → 서버는 그 뒤 내용을 주지 않음 · ✕·◁ 로 닫아도 같음)</td></tr>
       <tr><td>2</td><td>primary → 같은 대상(회원/매장)으로 새 쓰기 화면</td></tr>
       <tr><td>오류</td><td>상자 안 빨간 글 + 「다시 시도」 secondary 44px (U6 반영)</td></tr>
     </table>
@@ -375,7 +376,7 @@
 
 <!-- ───────────── 4. 어드민 ───────────── -->
 <h2 class="sec">4. 어드민 — 콘솔 · 토스트 · 알림함</h2>
-<p class="secd">/admin/support (넓은 화면 320px 목록 + 대화). 어드민 버튼 = AdminActionButton(모서리 4px, sm 32px · md 40px), primary = 검정 #111827. 상태 알약: 답변 필요 = 빨강 · 고객 확인 대기 = 노랑 · 종료 = 회색 <span class="flag">(커뮤니티 문의 화면은 파랑·초록·「처리 대기/완료」 — U-6)</span></p>
+<p class="secd">/admin/support (넓은 화면 320px 목록 + 대화). 어드민 버튼 = AdminActionButton(모서리 4px, sm 32px · md 40px), primary = 검정 #111827. 상태 알약: 답변 필요 = 빨강 · 고객 확인 대기 = 노랑 · 종료 = 회색 (커뮤니티 문의 화면도 같은 이름·색 — U-6 반영)</p>
 <div class="row">
   <div class="adm">
     <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-size:20px;font-weight:700">고객지원 관제</div><div style="font-size:12px;color:var(--adm-muted)">회원·사장님 문의 처리</div></div><div style="font-size:12px;color:var(--adm-muted);text-decoration:underline">이전 문의 기록 (레거시)</div></div>
@@ -386,11 +387,11 @@
         <div style="padding:8px 12px;border-bottom:1px solid var(--adm-border);font-size:12px;font-weight:600;color:var(--adm-muted)">답변 필요 · 2건</div>
         <div class="q sel"><div style="display:flex;gap:6px;align-items:center"><b style="font-size:12px">SC-100042</b><span class="st" style="color:var(--adm-muted);border-color:var(--adm-border)">회원</span><span style="background:var(--danger);color:#fff;border-radius:999px;padding:0 6px;font-size:12px;font-weight:700">1</span><span style="margin-left:auto;font-size:12px;color:var(--adm-muted)">5분 전</span></div>
           <div style="font-size:12px;font-weight:500;margin-top:2px">홍길동 · 회원</div><div style="font-size:12px;color:var(--adm-muted)">기술 · 앱 오류</div><div style="font-size:12px">앱이 사진 올릴 때 꺼집니다.</div>
-          <div style="margin-top:4px"><span class="st r">접수</span> <span style="font-size:12px;color:var(--adm-muted)">미배정</span></div></div>
+          <div style="margin-top:4px"><span class="st r">답변 필요</span> <span style="font-size:12px;color:var(--adm-muted)">미배정</span></div></div>
       </div>
       <div class="card" style="display:flex;flex-direction:column">
         <div style="padding:12px 16px;border-bottom:1px solid var(--adm-border)">
-          <div><b style="font-size:16px">SC-100042</b> <span class="st r">접수</span> <span style="font-size:12px;color:var(--adm-muted)">담당자: 미배정</span></div>
+          <div><b style="font-size:16px">SC-100042</b> <span class="st r">답변 필요</span> <span style="font-size:12px;color:var(--adm-muted)">담당자: 미배정</span></div>
           <div style="font-size:14px;margin:4px 0 8px">홍길동 · 회원 · 기술 · 앱 오류</div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="ab"><span class="num">1</span>나에게 배정</span><span class="ab" style="font-size:12px">우선순위 일반 ▾</span><span class="chip">문의 정보</span><span style="margin-left:auto" class="ab"><span class="num">2</span>상담 종료</span></div>
         </div>
@@ -401,7 +402,7 @@
         </div>
         <div style="border-top:1px solid var(--adm-border);padding:12px">
           <div style="margin-bottom:8px"><span class="chip on"><span class="num">3</span>공개 답변</span> <span class="chip">내부 메모 (회원 비노출)</span></div>
-          <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1;min-height:72px;border:1px solid var(--adm-border);border-radius:4px;background:#fff;padding:8px;color:var(--adm-muted)">고객에게 보낼 답변 (Ctrl/⌘+Enter 전송)</div><span class="ab p md mark"><span class="num">4</span>답변</span></div>
+          <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1;min-height:72px;border:1px solid var(--adm-border);border-radius:4px;background:#fff;padding:8px;color:var(--adm-muted)">고객에게 보낼 답변 (Ctrl/⌘+Enter 전송)</div><span class="ab p md"><span class="num">4</span>답변</span></div>
         </div>
       </div>
     </div>
@@ -412,8 +413,8 @@
   <tr><td>1</td><td>「나에게 배정」 secondary sm 32px · 「배정 해제」 같음</td><td>PATCH <code>{action:"assign"}</code> — support 권한 없으면 거부, 같은 사람 재지정은 변화 없음</td><td>진행 중 · 담당이 내가 아닐 때 / 바쁨</td></tr>
   <tr><td>2</td><td>「상담 종료」 secondary sm → 확인 창(L1)</td><td>PATCH <code>{action:"status",status:"RESOLVED"}</code> → 고객 「종료」 푸시. 종료 뒤 「보관」 secondary · 「재오픈」 <b>primary</b>(검정) · 보관 중 「보관 해제」 primary</td><td>진행 중 / 바쁨</td></tr>
   <tr><td>3</td><td>공개 답변 / 내부 메모 칩(32px, 선택 = 파랑)</td><td>작성 모드 전환 (메모 = 노란 입력칸)</td><td>종료 문의 + 공개 모드면 입력칸 대신 「종료된 상담입니다… 재오픈」 안내</td></tr>
-  <tr><td>4</td><td>「답변」(메모 모드 「메모 저장」) primary md 40px</td><td>PATCH <code>{action:"reply"}</code> → 고객 푸시·알림함 · 그 문의 어드민 알림 전원 읽음 <b class="flag">S-1: 어드민이 답을 쓰는 동안 들어온 고객 글 알림까지 읽음 + 상태 「고객 확인 대기」 → 답 안 된 글이 「답변 필요」·알림함·푸시에서 빠짐</b></td><td>바쁨 · 빈칸</td></tr>
-  <tr><td>수정/삭제</td><td>ghost(파란 글자) 24px, 내 글만</td><td>수정 = 같은 말풍선 편집 [취소 quiet][저장 secondary] · 삭제 = 확인 L3(사유·「삭제」 재입력) · 읽은 답변 삭제는 미읽음 그대로(결함 B 고침) <b class="flag">S-3: 삭제된 답변 원문이 고객 Supabase 직접 조회로 읽힘</b></td><td>삭제된 글은 취소선 + 「삭제된 메시지 (고객에게 숨김)」</td></tr>
+  <tr><td>4</td><td>「답변」(메모 모드 「메모 저장」) primary md 40px</td><td>PATCH <code>{action:"reply"}</code> → 고객 푸시·알림함 · 그 문의 어드민 알림 전원 읽음 · 보낼 때 화면에 보이던 마지막 글 시각까지만 「봤음」(그 뒤 고객 글은 「답변 필요」에 남음) · 같은 답 재전송 = 같은 요청 id(중복 답변 없음)</td><td>바쁨 · 빈칸</td></tr>
+  <tr><td>수정/삭제</td><td>ghost(파란 글자) 24px, 내 글만</td><td>수정 = 같은 말풍선 편집 [취소 quiet][저장 secondary] · 삭제 = 확인 L3(사유·「삭제」 재입력) · 읽은 답변 삭제는 미읽음 그대로(결함 B 고침) · 고객 직접 조회 없음(RLS) · 고객 화면엔 빈 자리</td><td>삭제된 글은 취소선 + 「삭제된 메시지 (고객에게 숨김)」</td></tr>
 </table>
 <div class="row">
   <div><p class="cap">4-B 토스트 (콘솔 열려 있을 때만 · 8초 · 소리 1회)</p>

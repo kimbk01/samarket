@@ -86,10 +86,16 @@ import {
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { ADMIN_ME_SNAPSHOT_READY_EVENT, fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import {
   adminMeCanReceiveSupportRealtime,
+  createAdminInboxRefreshScheduler,
+  createAdminInboxRowStateCache,
+  dispatchAdminSupportAlertCreated,
+  shouldRefreshAdminInboxForNotificationChange,
+  supportCaseIdFromAdminNotificationRow,
   createSupportCaseCountCache,
+  dispatchAdminSupportCaseChange,
   dispatchAdminSupportMessageInsert,
   shouldRefreshSupportCountsForCaseUpdate,
 } from "@/components/admin/support/admin-support-realtime";
@@ -216,6 +222,8 @@ export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
   const { safeT } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
+  /** 최종 감사 D3: 권한 조회 실패로 고객센터 구독을 빼고 붙었을 때, 권한을 읽으면 +1 → 공통 구독을 다시 붙인다 */
+  const [realtimeMeRetryTick, setRealtimeMeRetryTick] = useState(0);
   const [cashChargePendingCount, setCashChargePendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
@@ -244,6 +252,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
   const awarenessToastTimeoutRef = useRef<number | null>(null);
   const rtTimeoutRef = useRef<number | null>(null);
+  /** 전체 수정 계약 §4 A-2: 받은 알림 다시 읽기 예약 — 구독을 다시 붙여도(효과 재실행) 하나로 묶이게 화면 틀 수명 동안 1개 */
+  const supportInboxRefreshRef = useRef<ReturnType<typeof createAdminInboxRefreshScheduler> | null>(null);
   const seenFeedIdsRef = useRef<Set<string> | null>(null);
   const prevFeedCountRef = useRef(0);
   const feedSoundHydratedRef = useRef(false);
@@ -1007,6 +1017,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
     let cancelled = false;
     let channel: ReturnType<typeof sb.channel> | null = null;
+    let removeMeReadyListener: (() => void) | null = null;
 
     const scheduleRefresh = () => {
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
@@ -1101,7 +1112,21 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }
       const supportRealtimeAllowed = adminMeCanReceiveSupportRealtime(me);
       if (cancelled) return;
+      // 최종 감사 D3: 두 번 다 못 읽었으면(권한을 모름) 나중에 어느 화면이든 권한을 읽는 순간 구독을 1번 다시 붙인다
+      //   (콘솔은 자기 구독 없이 이 구독만 받는다 — 새로고침 전까지 실시간이 꺼져 있지 않게)
+      if (!me) {
+        const onMeReady = () => {
+          window.removeEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+          if (!cancelled) setRealtimeMeRetryTick((n) => n + 1);
+        };
+        window.addEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+        removeMeReadyListener = () => window.removeEventListener(ADMIN_ME_SNAPSHOT_READY_EVENT, onMeReady);
+      }
       const supportCountCache = createSupportCaseCountCache();
+      // 전체 수정 계약 §4 A-2: 내 알림 행(admin_notifications) 생성·읽음 → 헤더 받은 알림 숫자를 바로(1번으로 묶어) 다시 읽는다
+      supportInboxRefreshRef.current ??= createAdminInboxRefreshScheduler();
+      const inboxRefresh = supportInboxRefreshRef.current;
+      const inboxRowState = createAdminInboxRowStateCache();
 
       const opsChannel = sb
         .channel("admin-ops-realtime-bridge", messengerPrivateBroadcastChannelOptions())
@@ -1390,7 +1415,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               "postgres_changes",
               { event: "INSERT", schema: "public", table: "support_cases" },
               // Count refresh only — awareness comes from support_messages (A1).
-              () => scheduleRefresh()
+              // 전체 수정 계약 §4 B-5: 콘솔(/admin/support)은 자기 구독 대신 이 이벤트로 받는다
+              (payload) => {
+                dispatchAdminSupportCaseChange({ eventType: "INSERT", newRow: rowAsRecord(payload.new), oldRow: null });
+                scheduleRefresh();
+              }
             )
             .on(
               "postgres_changes",
@@ -1398,9 +1427,42 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               // Count refresh only — UPDATE old row is PK-only, never a toast/sound source.
               // 점검 M7: 상태·담당·어드민 미읽음 수가 바뀔 수 있을 때만(문의별 직전 값 표와 비교, 처음 보는 문의는 읽음).
               (payload) => {
+                dispatchAdminSupportCaseChange({
+                  eventType: "UPDATE",
+                  newRow: rowAsRecord(payload.new),
+                  oldRow: rowAsRecord(payload.old),
+                });
                 if (shouldRefreshSupportCountsForCaseUpdate(supportCountCache, rowAsRecord(payload.new))) {
                   scheduleRefresh();
                 }
+              }
+            )
+            .on(
+              "postgres_changes",
+              // 전체 수정 계약 §4 A-2: 받은 알림 숫자 신호 = 서버가 쓴 내 알림 행 그 자체(생성·읽음).
+              //   추측 대기 시간 없이, 알림 행이 생기거나 읽힌 순간 헤더 숫자를 다시 읽는다(짧게 1번으로 묶음).
+              { event: "*", schema: "public", table: "admin_notifications", filter: `recipient_admin_id=eq.${me?.userId ?? ""}` },
+              // 재감사 1: 푸시 결과만 바뀐 UPDATE(push_status·push_attempted_at)는 숫자가 그대로라 다시 읽지 않는다
+              (payload) => {
+                const eventType = String(payload.eventType ?? "");
+                const newRow = rowAsRecord(payload.new);
+                if (shouldRefreshAdminInboxForNotificationChange(inboxRowState, eventType, newRow, rowAsRecord(payload.old))) {
+                  inboxRefresh.schedule();
+                }
+                // 재감사 3: 고객센터 문의 알림이 새로 생김 → 그 문의를 보고 있는 콘솔이 읽음을 다시 보낸다
+                if (eventType === "INSERT") {
+                  const caseId = supportCaseIdFromAdminNotificationRow(newRow);
+                  if (caseId) dispatchAdminSupportAlertCreated({ caseId });
+                }
+              }
+            )
+            .on(
+              "postgres_changes",
+              { event: "DELETE", schema: "public", table: "support_cases" },
+              // B-5: 콘솔이 지운 문의를 목록에서 빼도록 넘긴다(구 콘솔 구독 `*` 와 같은 범위)
+              (payload) => {
+                dispatchAdminSupportCaseChange({ eventType: "DELETE", newRow: null, oldRow: rowAsRecord(payload.old) });
+                scheduleRefresh();
               }
             )
         : opsChannel;
@@ -1415,8 +1477,10 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
     return () => {
       cancelled = true;
+      removeMeReadyListener?.();
       if (awarenessToastTimeoutRef.current) window.clearTimeout(awarenessToastTimeoutRef.current);
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
+      // 받은 알림 다시 읽기 예약은 취소하지 않는다 — 구독을 다시 붙이는 사이 온 고객 글 알림 신호를 잃지 않게(창 이벤트 1번뿐)
       if (channel) void sb.removeChannel(channel);
     };
   }, [
@@ -1433,6 +1497,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     markSupportMessageAlert,
     maybeIngestAdminOpsSound,
     ingestAdminOpsSoundIfPrefAllowed,
+    realtimeMeRetryTick,
   ]);
 
   const value = useMemo(

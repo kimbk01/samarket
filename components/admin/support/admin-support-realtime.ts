@@ -3,6 +3,7 @@
  * 콘솔·벨 브리지가 「이 변경에 다시 읽을지」를 이 함수들로만 정한다 — 읽음 숫자 같은 변경마다 목록을 다시 읽지 않는다.
  */
 import type { AdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { ADMIN_INBOX_CHANGED_EVENT } from "@/lib/admin/notifications/admin-notification-kinds";
 import { ADMIN_SUPPORT_TAB_STATUSES, type AdminSupportTab } from "@/lib/support/support-case-types";
 
 /** 목록 표시에 쓰는 열 — 이 열이 바뀔 때만 목록을 다시 읽는다 */
@@ -86,6 +87,141 @@ export function subscribeAdminSupportMessageInsert(
   };
   window.addEventListener(ADMIN_SUPPORT_MESSAGE_INSERT_EVENT, listener);
   return () => window.removeEventListener(ADMIN_SUPPORT_MESSAGE_INSERT_EVENT, listener);
+}
+
+/**
+ * 전체 수정 계약 §4 B-5: `support_cases` 변경도 공통 구독(AdminStorePointPendingProvider) 한 곳만 받고,
+ * 콘솔은 이 창 이벤트로 받는다 — `/admin/support` 에서 같은 표를 2번 구독하지 않게.
+ */
+export const ADMIN_SUPPORT_CASE_CHANGE_EVENT = "samarket:admin-support-case-change";
+
+export type AdminSupportCaseChangeDetail = {
+  eventType: string;
+  newRow: Record<string, unknown> | null;
+  oldRow: Record<string, unknown> | null;
+};
+
+export function dispatchAdminSupportCaseChange(detail: AdminSupportCaseChangeDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<AdminSupportCaseChangeDetail>(ADMIN_SUPPORT_CASE_CHANGE_EVENT, { detail }));
+}
+
+export function subscribeAdminSupportCaseChange(handler: (detail: AdminSupportCaseChangeDetail) => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<AdminSupportCaseChangeDetail>).detail;
+    if (d && typeof d.eventType === "string") handler(d);
+  };
+  window.addEventListener(ADMIN_SUPPORT_CASE_CHANGE_EVENT, listener);
+  return () => window.removeEventListener(ADMIN_SUPPORT_CASE_CHANGE_EVENT, listener);
+}
+
+/**
+ * 전체 수정 계약 §4 A-2: 고객센터 알림 행이 생기거나 읽히면 헤더 받은 알림 숫자(AdminInboxLink)를 바로 다시 읽게 한다.
+ * 읽음(seen·답변 등 내 저장 성공) = 바로 · 생성(고객 글 → 서버가 응답 뒤 알림 행을 만듦) = 잠깐 뒤 1번.
+ */
+export function dispatchAdminInboxChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ADMIN_INBOX_CHANGED_EVENT));
+}
+
+/** 알림 행 변경이 몰려도(답변 1건 = 여러 행 읽음) 받은 알림 숫자는 1번만 다시 읽는 묶음 시간 */
+export const ADMIN_SUPPORT_INBOX_CREATE_DELAY_MS = 300;
+
+/** 여러 고객 글이 몰려도 받은 알림 숫자는 1번만 다시 읽는다 */
+export function createAdminInboxRefreshScheduler(delayMs: number = ADMIN_SUPPORT_INBOX_CREATE_DELAY_MS): {
+  schedule: () => void;
+  cancel: () => void;
+} {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule: () => {
+      if (timer != null) return;
+      timer = setTimeout(() => {
+        timer = null;
+        dispatchAdminInboxChanged();
+      }, delayMs);
+    },
+    cancel: () => {
+      if (timer != null) clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
+/**
+ * 재감사(HEAD e249d41d3) 1: 내 알림 행(admin_notifications) 변경 → 헤더 받은 알림 숫자를 다시 읽을지.
+ * 헤더 숫자 = `read_at IS NULL AND archived_at IS NULL` 행 수 — 이 상태(「안 읽은 알림」인가)가 바뀔 때만 읽는다.
+ *  - INSERT: 읽는다(새 알림) · 상태를 표에 적는다
+ *  - UPDATE: 본 적 있는 행이면 「안 읽음」 상태가 바뀐 때만(읽음·보관·되살림). 푸시 결과(push_status·push_attempted_at)만 바뀐 UPDATE 는 무시.
+ *    처음 보는 행(이 화면을 연 뒤 생기지 않은 행)은 직전 상태를 몰라(실시간 old = id 만) 1번 읽는다.
+ *  - 페이로드에 read_at·archived_at 이 없으면(부분 행) INSERT 만 읽는다.
+ *  - DELETE: 읽는다(안 읽은 행이었을 수 있다)
+ * 표는 최대 SUPPORT_CASE_COUNT_CACHE_MAX 건.
+ */
+export type AdminInboxRowStateCache = Map<string, boolean>;
+
+export function createAdminInboxRowStateCache(): AdminInboxRowStateCache {
+  return new Map();
+}
+
+export function shouldRefreshAdminInboxForNotificationChange(
+  cache: AdminInboxRowStateCache,
+  eventType: string | null | undefined,
+  newRow: Record<string, unknown> | null | undefined,
+  oldRow?: Record<string, unknown> | null | undefined
+): boolean {
+  const ev = norm(eventType).toUpperCase();
+  const id = norm(newRow?.id ?? oldRow?.id).trim();
+  if (ev === "DELETE") {
+    if (id) cache.delete(id);
+    return true;
+  }
+  if (!id || !newRow) return false;
+  if (!("read_at" in newRow) || !("archived_at" in newRow)) return ev === "INSERT";
+  const unread = newRow.read_at == null && newRow.archived_at == null;
+  const prev = cache.get(id);
+  cache.delete(id);
+  cache.set(id, unread);
+  while (cache.size > SUPPORT_CASE_COUNT_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+  if (ev === "INSERT") return true;
+  if (ev !== "UPDATE") return false;
+  return prev === undefined || prev !== unread;
+}
+
+/**
+ * 재감사(HEAD e249d41d3) 3: 고객센터 문의에 내 알림 행이 새로 생겼다(INSERT) — 콘솔이 그 문의를 열어 보고 있으면
+ * 이미 보낸 읽음(seen)이 알림 행보다 먼저 갔을 수 있어 다시 보낸다. 공통 구독(Provider) → 창 이벤트 → 콘솔.
+ */
+export const ADMIN_SUPPORT_ALERT_CREATED_EVENT = "samarket:admin-support-alert-created";
+
+export type AdminSupportAlertCreatedDetail = { caseId: string };
+
+/** admin_notifications 행 → 고객센터 문의 id (아니면 null) */
+export function supportCaseIdFromAdminNotificationRow(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  if (norm(row.work_ref_table).trim() !== "support_cases") return null;
+  const id = norm(row.work_ref_id).trim();
+  return id || null;
+}
+
+export function dispatchAdminSupportAlertCreated(detail: AdminSupportAlertCreatedDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<AdminSupportAlertCreatedDetail>(ADMIN_SUPPORT_ALERT_CREATED_EVENT, { detail }));
+}
+
+export function subscribeAdminSupportAlertCreated(handler: (detail: AdminSupportAlertCreatedDetail) => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  const listener = (e: Event) => {
+    const d = (e as CustomEvent<AdminSupportAlertCreatedDetail>).detail;
+    if (d && typeof d.caseId === "string") handler(d);
+  };
+  window.addEventListener(ADMIN_SUPPORT_ALERT_CREATED_EVENT, listener);
+  return () => window.removeEventListener(ADMIN_SUPPORT_ALERT_CREATED_EVENT, listener);
 }
 
 type CaseLike = { id: string } & Partial<Record<(typeof LIST_RELEVANT_FIELDS)[number], unknown>>;

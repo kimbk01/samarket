@@ -88,9 +88,138 @@ export function supportErrorLabel(safeT: SafeT, code: string | null | undefined)
     case "invalid_transition":
       // 최종 감사 2026-11-28: 지금 상태에서 할 수 없는 처리(예: 답변 완료가 아닌 문의를 「확인했어요」)
       return safeT("support_error_invalid_transition");
+    // 전체 수정 계약 §7 E-1 (2026-11-29): 고객 API 가 돌려주는 코드는 모두 여기서 문구를 정한다
+    case "store_forbidden":
+    case "reference_forbidden":
+    case "reference_type_not_allowed":
+      return safeT("support_case_unavailable");
+    case "empty_body":
+      return safeT("support_error_empty_body");
+    case "invalid_json":
+    case "invalid_request_id":
+    case "request_id_conflict":
+    case "invalid_seen_last_message_at":
+    case "invalid_shown_message_ids":
+    case "invalid_action":
+    case "invalid_case_id":
+    case "invalid_status":
+    case "invalid_cursor":
+    case "disabled_context":
+    case "missing_store_id":
+    case "member_case_must_not_have_store":
+    case "reference_incomplete":
+    case "invalid_reference_id":
+    case "missing_category":
+    case "invalid_category":
+    case "missing_issue_type":
+    case "invalid_issue_type":
+    case "generic_other_forbidden":
+    case "guidance_not_found":
+    case "guidance_disabled":
+    case "guidance_audience_mismatch":
+    case "guidance_category_mismatch":
+    case "guidance_issue_mismatch":
+    case "guidance_revision_mismatch":
+    case "invalid_guidance_outcome":
+      return safeT("support_error_invalid_request");
+    case "supabase_unconfigured":
+    case "missing_table":
+    case "missing_guidance_table":
+    case "guidance_read_failed":
+    case "case_fetch_failed":
+    case "cases_fetch_failed":
+    case "messages_fetch_failed":
+    case "message_save_failed":
+    case "case_open_failed":
+    case "session_failed":
+    case "first_message_failed":
+    case "read_failed":
+    case "close_failed":
+    case "transition_failed":
+    case "http_500":
+    case "http_503":
+      return safeT("support_error_server_failed");
     default:
       return safeT("common_error");
   }
+}
+
+/**
+ * 전체 수정 계약 §7 E-1 — 고객센터 API 오류 코드 → HTTP 상태 (고객·어드민 라우트 공통 · 단일 표).
+ * 서버 실패 = 5xx · 경합(상태가 화면과 달라짐·같은 요청 id 충돌) = 409 · 입력 오류 = 400 · 권한 = 403 · 없음 = 404 · 속도 제한 = 429.
+ * 표에 없는 코드 = 500(서버 실패로 본다).
+ */
+const SUPPORT_ERROR_HTTP_STATUS: Record<string, number> = {
+  // 400 입력
+  invalid_json: 400,
+  missing_context: 400,
+  invalid_request_id: 400,
+  invalid_seen_last_message_at: 400,
+  invalid_shown_message_ids: 400,
+  invalid_action: 400,
+  invalid_case_id: 400,
+  invalid_status: 400,
+  invalid_cursor: 400,
+  invalid_priority: 400,
+  invalid_message: 400,
+  empty_body: 400,
+  reason_required: 400,
+  missing_query: 400,
+  missing_guidance_content: 400,
+  invalid_cta_kind: 400,
+  cta_target_must_be_empty: 400,
+  missing_cta_target: 400,
+  // 최종 감사 D1: 안내문 이동 대상 검증(support-guidance-authority) — 입력 오류
+  cta_url_forbidden: 400,
+  invalid_internal_route: 400,
+  invalid_domain_entity_target: 400,
+  disabled_context: 400,
+  missing_store_id: 400,
+  member_case_must_not_have_store: 400,
+  reference_incomplete: 400,
+  invalid_reference_id: 400,
+  missing_category: 400,
+  invalid_category: 400,
+  missing_issue_type: 400,
+  invalid_issue_type: 400,
+  generic_other_forbidden: 400,
+  guidance_not_found: 400,
+  guidance_disabled: 400,
+  guidance_audience_mismatch: 400,
+  guidance_category_mismatch: 400,
+  guidance_issue_mismatch: 400,
+  guidance_revision_mismatch: 400,
+  invalid_guidance_outcome: 400,
+  assignee_not_active_admin: 400,
+  assignee_not_support_admin: 400,
+  // 403 권한
+  forbidden: 403,
+  store_forbidden: 403,
+  reference_forbidden: 403,
+  reference_type_not_allowed: 403,
+  not_own_message: 403,
+  // 404
+  not_found: 404,
+  // 409 경합
+  case_closed: 409,
+  case_updated: 409,
+  status_conflict: 409,
+  active_case_exists: 409,
+  request_id_conflict: 409,
+  invalid_transition: 409,
+  not_closed: 409,
+  message_deleted: 409,
+  guidance_revision_conflict: 409,
+  // 429
+  rate_limited: 429,
+  // 503 설정·표 없음
+  supabase_unconfigured: 503,
+  missing_table: 503,
+  missing_guidance_table: 503,
+};
+
+export function supportErrorHttpStatus(code: string | null | undefined): number {
+  return SUPPORT_ERROR_HTTP_STATUS[String(code ?? "").trim()] ?? 500;
 }
 
 /** 화면이 다시 읽어야 하는 고객 오류 코드 — 문의 상태가 화면과 달라졌다 */
@@ -136,6 +265,40 @@ export function adminSupportErrorLabel(safeT: SafeT, code: string | null | undef
       return safeT("admin_support_error_not_found");
     case "network_error":
       return safeT("common_network_error");
+    // 전체 수정 계약 §7 E-1: 서버 실패(5xx)·권한·낡은 화면 — 기본 「오류」 대신 할 일을 알려 준다
+    case "invalid_seen_last_message_at":
+      return safeT("admin_support_error_reload");
+    case "request_id_conflict": // 계약 §1: 같은 요청 id 가 다른 글에 쓰임 — 화면은 다음 전송에 새 id
+      return safeT("admin_support_error_request_id_conflict");
+    case "forbidden":
+    case "forbidden_permission":
+    case "admin_only":
+    case "super_admin_only":
+    case "admin_actor_suspended":
+      return safeT("admin_support_error_forbidden");
+    case "supabase_unconfigured":
+    case "service_role_missing":
+    case "missing_table":
+    case "read_failed":
+    case "load_failed":
+    case "action_failed":
+    case "case_fetch_failed":
+    case "cases_fetch_failed":
+    case "messages_fetch_failed":
+    case "message_fetch_failed":
+    case "message_save_failed":
+    case "update_failed":
+    case "close_failed":
+    case "reopen_failed":
+    case "assign_failed":
+    case "priority_failed":
+    case "edit_failed":
+    case "delete_failed":
+    case "session_failed":
+    case "first_message_failed":
+    case "replay_read_failed":
+    case "transition_failed": // 전체 수정 §2: 상태 전이 DB 함수 실패
+      return safeT("admin_support_error_server_failed");
     default:
       return safeT("common_error");
   }

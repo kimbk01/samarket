@@ -11,14 +11,15 @@ import {
   adminSetSupportCasePriority,
   adminUpdateSupportCaseStatus,
   enrichSupportCasesForAdminDisplay,
+  adminSeenSupportCase,
   getSupportCaseForAdmin,
   listSupportFollowupIssueSelections,
   listSupportMessages,
-  markSupportCaseNotificationsRead,
-  markSupportCaseReadForAdmin,
-  supportShownListSeenAt,
+  parseSupportRequestId,
   reopenSupportCase,
 } from "@/lib/support/support-case-service";
+import { normalizeShownMessageIds } from "@/lib/support/support-notification-ledger";
+import { supportErrorHttpStatus } from "@/lib/support/support-display-labels";
 import type { SupportCasePriority, SupportCaseStatus } from "@/lib/support/support-case-types";
 
 /** DB CHECK `support_cases.priority IN ('NORMAL','HIGH','URGENT')` (20261202170000) — 최종 감사 L4 */
@@ -26,6 +27,8 @@ const SUPPORT_CASE_PRIORITIES: readonly SupportCasePriority[] = ["NORMAL", "HIGH
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const fail = (error: string) => NextResponse.json({ ok: false, error }, { status: supportErrorHttpStatus(error) });
 
 export async function GET(
   _req: NextRequest,
@@ -36,32 +39,12 @@ export async function GET(
   if (!adminGate.ok) return adminGate.response;
   const { caseId } = await context.params;
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
+  if (!sb) return fail("supabase_unconfigured");
   const gate = await getSupportCaseForAdmin(sb, caseId);
-  if (!gate.ok) {
-    const status = gate.error === "not_found" ? 404 : gate.error === "case_fetch_failed" ? 500 : 400;
-    return NextResponse.json({ ok: false, error: gate.error }, { status });
-  }
+  if (!gate.ok) return fail(gate.error);
   const messages = await listSupportMessages(sb, { caseId, includeInternal: true });
-  if (!messages.ok) {
-    return NextResponse.json({ ok: false, error: messages.error }, { status: 500 });
-  }
-  // 2차 재감사 E: 돌려준 글 목록 기준 시각 — 그 뒤 새 고객 글이 왔으면 읽음 0 으로 만들지 않는다
-  // 최종 점검 L6: 위에서 읽은 문의 행을 그대로(문의 행 2번 읽지 않음) · M8: 바뀔 값이 없으면 쓰지 않음
-  await markSupportCaseReadForAdmin(sb, caseId, supportShownListSeenAt(messages.messages, gate.case.last_message_at), gate.case);
-  // Phase 3 A3 — clear this admin's support_customer_replied bell rows for the case.
-  // 재감사 D15: 권한 확인이 이미 본 관리자 id 를 쓴다(인증 조회 1번).
-  await markSupportCaseNotificationsRead(sb, {
-    userId: adminGate.actor.userId,
-    caseId,
-    includeAdmin: true,
-    // 남은 위험 5: 보여 준 고객 공개 글의 알림만 읽음
-    shownCustomerMessageIds: messages.messages
-      .filter((m) => (m.sender_type === "MEMBER" || m.sender_type === "OWNER") && m.message_type === "PUBLIC")
-      .map((m) => m.id),
-  });
+  if (!messages.ok) return fail(messages.error);
+  // 전체 수정 계약 §3 (A-1): GET 은 읽기만 — 읽음은 화면이 실제로 보일 때 `PATCH { action: "seen" }`
   // DEF-09: detail carries the same display-only identity fields as the queue, so the
   // header keeps the member name when the case is not in the current filtered list.
   // 재감사 D8: 진행 중 문의에 이어 붙은 접수에서 고객이 고른 세부 (글 id → 세부)
@@ -89,9 +72,7 @@ export async function PATCH(
   const auth = { userId: adminGate.actor.userId };
   const { caseId } = await context.params;
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
+  if (!sb) return fail("supabase_unconfigured");
 
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
@@ -104,6 +85,10 @@ export async function PATCH(
     reason?: unknown;
     /** 최종 감사 D1: 답변할 때 화면이 보여 준 문의 `last_message_at` */
     seenLastMessageAt?: unknown;
+    /** 계약 §3: `seen` — 화면에 보인 글 id */
+    shownMessageIds?: unknown;
+    /** 계약 §1: 답변·메모 요청 id */
+    requestId?: unknown;
   };
 
   // F3: 성공한 변경만 관리자 감사 로그에 남긴다 (메시지 본문은 기록하지 않음).
@@ -123,21 +108,43 @@ export async function PATCH(
     if (!raw || !Number.isFinite(Date.parse(raw))) return { ok: false };
     return { ok: true, value: raw };
   };
-  const invalidSeen = () => NextResponse.json({ ok: false, error: "invalid_seen_last_message_at" }, { status: 400 });
+  const invalidSeen = () => fail("invalid_seen_last_message_at");
+
+  // 전체 수정 계약 §3 (A-1): 화면에 실제로 보인 글만 읽음 — 지금까지 GET 안에서 하던 규칙 그대로(그 어드민 것만 · 보여 준 고객 글까지)
+  if (body.action === "seen") {
+    const shown = normalizeShownMessageIds(body.shownMessageIds);
+    if (!shown) return fail("invalid_shown_message_ids");
+    const seenParsed = parseSeen();
+    if (!seenParsed.ok) return invalidSeen();
+    const res = await adminSeenSupportCase(sb, {
+      adminUserId: auth.userId,
+      caseId,
+      shownMessageIds: shown,
+      seenLastMessageAt: seenParsed.value,
+    });
+    if (!res.ok) return fail(res.error);
+    return NextResponse.json({ ok: true, notificationsRead: res.notificationsRead });
+  }
 
   if (body.action === "reply") {
     const seenParsed = parseSeen();
     if (!seenParsed.ok) return invalidSeen();
     const seenLastMessageAt = seenParsed.value;
+    const requestId = parseSupportRequestId(body.requestId);
+    if (requestId === "invalid") return fail("invalid_request_id");
+    // 계약 §1: 같은 요청 id 재전송 판정은 저장 DB 함수가 잠금 안에서 한다(처음 결과 · 답변·고객 푸시·미읽음 증가·감사 기록 없음).
+    //   어드민 답변에는 속도 제한이 없어 미리 확인할 이유가 없다 — 요청 예산(답변 경로 조회 1회 줄임).
     const res = await adminReplySupportCase(sb, {
       adminUserId: auth.userId,
       caseId,
       body: String(body.body ?? ""),
       internalNote: body.internalNote === true,
       seenLastMessageAt,
+      clientRequestId: requestId,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
+    if (!res.ok) return fail(res.error);
+    if (res.replayed) {
+      return NextResponse.json({ ok: true, message: res.message, unseenCustomerMessages: 0, replayed: true });
     }
     await audit("reply", { internalNote: body.internalNote === true });
     // unseenCustomerMessages > 0 = 답을 쓰는 사이 온 고객 글이 있어 문의가 「답변 필요」로 남았다(화면이 다시 읽는다)
@@ -150,14 +157,14 @@ export async function PATCH(
       caseId,
       assigneeAdminId: body.assigneeAdminId ?? null,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-    }
+    if (!res.ok) return fail(res.error);
     await audit("assign", { assigneeAdminId: body.assigneeAdminId ?? null });
     return NextResponse.json({ ok: true, case: res.case });
   }
 
   if (body.action === "status" && body.status) {
+    // D-2 (2026-11-29): status 동작은 「상담 종료」(RESOLVED) 하나 — 보관·보관 해제는 archive·unarchive 동작만(같은 일 두 경로 제거)
+    if (body.status !== "RESOLVED") return fail("invalid_transition");
     // 최종 점검 M6: 「상담 종료」 때 화면이 본 문의 last_message_at — 그 뒤 새 글이 왔으면 닫지 않는다(case_updated → 409)
     const seenParsed = parseSeen();
     if (!seenParsed.ok) return invalidSeen();
@@ -165,27 +172,24 @@ export async function PATCH(
       adminUserId: auth.userId,
       caseId,
       status: body.status as SupportCaseStatus,
+      mode: "close",
       seenLastMessageAt: seenParsed.value,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: res.error === "case_updated" ? 409 : 400 });
-    }
+    if (!res.ok) return fail(res.error);
     await audit("status", { status: body.status });
     return NextResponse.json({ ok: true, case: res.case });
   }
 
   if (body.action === "priority" && body.priority) {
     if (!(SUPPORT_CASE_PRIORITIES as readonly string[]).includes(body.priority)) {
-      return NextResponse.json({ ok: false, error: "invalid_priority" }, { status: 400 });
+      return fail("invalid_priority");
     }
     const res = await adminSetSupportCasePriority(sb, {
       adminUserId: auth.userId,
       caseId,
       priority: body.priority as SupportCasePriority,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-    }
+    if (!res.ok) return fail(res.error);
     await audit("priority", { priority: body.priority });
     return NextResponse.json({ ok: true, case: res.case });
   }
@@ -196,9 +200,7 @@ export async function PATCH(
       caseId,
       isAdmin: true,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-    }
+    if (!res.ok) return fail(res.error);
     await audit("reopen", {});
     return NextResponse.json({ ok: true, case: res.case });
   }
@@ -209,10 +211,9 @@ export async function PATCH(
       adminUserId: auth.userId,
       caseId,
       status: body.action === "archive" ? "ARCHIVED" : "RESOLVED",
+      mode: body.action,
     });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: res.error }, { status: 400 });
-    }
+    if (!res.ok) return fail(res.error);
     await audit(body.action, {});
     return NextResponse.json({ ok: true, case: res.case });
   }
@@ -220,14 +221,10 @@ export async function PATCH(
   // Console redesign — admin edits / deletes own message (soft, audited).
   if (body.action === "edit_message" || body.action === "delete_message") {
     const messageId = String(body.messageId ?? "").trim();
-    if (!messageId) {
-      return NextResponse.json({ ok: false, error: "invalid_message" }, { status: 400 });
-    }
+    if (!messageId) return fail("invalid_message");
     // 메시지 삭제 = delete(L3) — 화면 확인창 사유 필수 (유일한 호출자 AdminSupportPage 가 보낸다).
     const deleteReason = body.action === "delete_message" ? parseAdminReason(body.reason) : null;
-    if (body.action === "delete_message" && !deleteReason) {
-      return NextResponse.json({ ok: false, error: ADMIN_REASON_REQUIRED_CODE }, { status: 400 });
-    }
+    if (body.action === "delete_message" && !deleteReason) return fail(ADMIN_REASON_REQUIRED_CODE);
     const res =
       body.action === "edit_message"
         ? await adminEditSupportMessage(sb, {
@@ -237,13 +234,10 @@ export async function PATCH(
             body: String(body.body ?? ""),
           })
         : await adminDeleteSupportMessage(sb, { adminUserId: auth.userId, caseId, messageId });
-    if (!res.ok) {
-      const status = res.error === "not_own_message" ? 403 : res.error === "not_found" ? 404 : 400;
-      return NextResponse.json({ ok: false, error: res.error }, { status });
-    }
+    if (!res.ok) return fail(res.error);
     await audit(body.action, deleteReason ? { messageId, reason: deleteReason } : { messageId });
     return NextResponse.json({ ok: true });
   }
 
-  return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+  return fail("invalid_action");
 }

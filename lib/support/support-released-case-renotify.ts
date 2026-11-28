@@ -21,7 +21,16 @@ export const RENOTIFY_MAX_MESSAGES = 200;
 const RENOTIFY_CONCURRENCY = 5;
 const ID_CHUNK = 100;
 
-export async function renotifyReleasedSupportCases(sb: SupabaseClient, caseIds: readonly string[]): Promise<number> {
+/**
+ * 결정 2 (2026-11-29 · A-8·S-11): 수동 재배정이면 `assigneeAdminId` = 새 담당자 — 그 사람에게(받을 수 없으면 앱 즉시 발송과 같이
+ * 담당 해제 + 전원). 없거나 null = 담당 해제·권한 회수 → support 어드민 전원.
+ */
+export async function renotifyReleasedSupportCases(
+  sb: SupabaseClient,
+  caseIds: readonly string[],
+  opts: { assigneeAdminId?: string | null } = {}
+): Promise<number> {
+  const assigneeAdminId = opts.assigneeAdminId?.trim() || null;
   const ids = [...new Set(caseIds.map((s) => String(s).trim()).filter(Boolean))].slice(0, 200);
   if (ids.length === 0) return 0;
   const { data: cases, error } = await sb
@@ -84,8 +93,8 @@ export async function renotifyReleasedSupportCases(sb: SupabaseClient, caseIds: 
       jobs.slice(i, i + RENOTIFY_CONCURRENCY).map(async (j) => {
         try {
           await notifyAdminsOfCustomerMessage(sb, {
-            // 담당이 풀린 뒤 상태 — 전원 발송 경로로 간다
-            caseRow: { ...j.c, assigned_admin_id: null },
+            // 담당이 풀린 뒤 = 전원 발송 경로 · 재배정 = 새 담당자 경로
+            caseRow: { ...j.c, assigned_admin_id: assigneeAdminId },
             messageId: j.id,
             body: j.body,
             actorUserId: j.actor,
