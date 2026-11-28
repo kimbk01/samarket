@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export interface PostFavoriteButtonProps {
@@ -62,9 +63,9 @@ export function PostFavoriteButton({
 
   const busyRef = useRef(false);
 
-  const me = getCurrentUser();
-  const hideForOwnPost =
-    Boolean(authorUserId?.trim()) && me?.id != null && me.id === authorUserId;
+  /** 내 글 판정 = 회원 상태 SSOT 의 회원 id(캐시가 늦게 차도 맞춰짐 — 설계 v2 §6) · 누른 순간 확인은 아래 그대로 */
+  const meId = useClientMemberId("post-favorite-button");
+  const hideForOwnPost = Boolean(authorUserId?.trim()) && meId != null && meId === authorUserId;
 
   const handleClick = useCallback(
     async (e: React.MouseEvent) => {

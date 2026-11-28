@@ -14,7 +14,7 @@ import { MyScreen } from "@/components/mypage/ds/MyScreen";
 import { MyGroup, MyStateView } from "@/components/mypage/ds";
 import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientViewerCacheKey } from "@/hooks/use-client-membership-state";
 import {
   MYPAGE_RECENCY_BUCKETS,
   mypageRecencyBucket,
@@ -80,7 +80,8 @@ export function RecentViewedScreen({
   embedded = false,
 }: { embedded?: boolean } = {}) {
   const { t } = useI18n();
-  const viewer = getCurrentUser()?.id ?? "session";
+  /** 보는 사람 키 = 회원 상태 SSOT (`useClientViewerCacheKey` — 확인 중엔 기다리고, 비회원·확인 실패도 불러온다 · 설계 v2 §6) */
+  const viewer = useClientViewerCacheKey("recent-viewed");
   const [confirmClear, setConfirmClear] = useState(false);
   const { run, pending } = useMypageSubmitGuard();
 
@@ -98,7 +99,7 @@ export function RecentViewedScreen({
     };
   }, []);
   const list = useMypageCursorList<RecentViewEntry>({
-    cacheKey: `mypage:recent-views:${viewer}`,
+    cacheKey: viewer ? `mypage:recent-views:${viewer}` : null,
     fetchPage,
     getId: entryPostId,
   });

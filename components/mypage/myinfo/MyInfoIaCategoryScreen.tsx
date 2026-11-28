@@ -30,7 +30,6 @@ import {
 } from "@/components/mypage/home/mypage-home-values-context";
 import { useMypageHomeModel } from "@/hooks/use-mypage-home-model";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { buildMypageIaCategoryHref, type MypageIaCategory, type MypageIaGroup, type MypageIaRow } from "@/lib/mypage/mypage-ia";
 import type { MypageOwnerStoreGateSeed } from "@/lib/my/load-mypage-owner-store-gate-seed";
@@ -187,8 +186,7 @@ export function MyInfoIaCategoryScreen({
   const { safeT } = useI18n();
   const pathname = usePathname() ?? "";
   const membership = useClientMembershipState("mypage-ia-category");
-  const sessionUser = getCurrentUser();
-  const treatAsMember = Boolean(sessionUser?.id) || membership.status === "member";
+  const treatAsMember = membership.status === "member"; /* 회원 상태 하나로 — 캐시가 이미 회원이면 첫 화면부터 member(보충 읽기 삭제 · 관심이웃 전체 수정 설계 v2 §6) */
   const values = useMypageHomeValuesState(treatAsMember);
   const ccUnread = useCustomerCenterUnreadTotal();
   const addressesHref = buildMypageAddressesHrefFromPath(pathname, "");

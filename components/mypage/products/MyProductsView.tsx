@@ -23,8 +23,7 @@ import {
   type MypageCursorPage,
 } from "@/lib/mypage/use-mypage-cursor-list";
 import { MYPAGE_LIST_PAGE_DEFAULT } from "@/lib/mypage/mypage-list-cursor";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { useClientMemberId } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerPostApiErrorText } from "@/lib/posts/owner-post-api-error-text";
 import type { PointPromotionOrder } from "@/lib/types/point";
@@ -61,19 +60,13 @@ export function MyProductsView({
   const { open: openTradeWriteSheet } = useTradeWriteSheet();
   const writeCtx = useWriteCategory();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
+  /** 지금 보는 회원 id = 회원 상태 SSOT(설계 v2 §6) — 예전: 처음 한 번 읽고 로그인 변경 신호로만 다시 읽음(신호 없는 캐시 변경을 놓침) */
+  const currentUserId = useClientMemberId("my-products");
   const [promotedTargetIds, setPromotedTargetIds] = useState<Set<string>>(() => new Set());
   const [salesRows, setSalesRows] = useState<SalesHistoryRow[]>([]);
   const [salesLoadFailed, setSalesLoadFailed] = useState(false);
 
   const tradesByPostId = useMemo(() => groupSalesRowsByPostId(salesRows), [salesRows]);
-
-  useEffect(() => {
-    const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
-    syncUser();
-    window.addEventListener(TEST_AUTH_CHANGED_EVENT, syncUser);
-    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, syncUser);
-  }, []);
 
   /** A1 페이지 모드(옵트인) — 서버가 같은 술어(`filterMyProductsByListingAxis`)로 필터·keyset 커서 */
   const listKey = currentUserId

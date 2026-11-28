@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   getUserSettings,
@@ -23,8 +23,12 @@ type TradePresenceSettings = {
 };
 
 export function ChatSettingsContent() {
+  return <SettingsMemberGate source="settings-chat">{(userId) => <ChatSettingsContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function ChatSettingsContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
   const [tradePresence, setTradePresence] = useState<TradePresenceSettings | null>(null);
   const [tradePresenceErr, setTradePresenceErr] = useState<string | null>(null);

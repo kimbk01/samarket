@@ -13,7 +13,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { MyStateView } from "@/components/mypage/ds";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useClientViewerCacheKey } from "@/hooks/use-client-membership-state";
 import { formatMypageDate, formatMypageMoney } from "@/lib/mypage/format-mypage-date";
 import { formatPrice } from "@/lib/utils/format";
 
@@ -74,7 +74,8 @@ type Props = {
 export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
   const { t } = useI18n();
   const router = useRouter();
-  const viewer = getCurrentUser()?.id ?? "session";
+  /** 보는 사람 키 = 회원 상태 SSOT (`useClientViewerCacheKey` — 확인 중엔 기다리고, 비회원·확인 실패도 불러온다 · 설계 v2 §6) */
+  const viewer = useClientViewerCacheKey("my-offers");
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<PriceOfferListItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PriceOfferListItem | null>(null);
@@ -90,7 +91,7 @@ export function MyOffersView({ mode, emptyLabel, onPendingCount }: Props) {
     [mode]
   );
   const list = useMypageCursorList<PriceOfferListItem>({
-    cacheKey: `my-offers:${viewer}:${mode}`,
+    cacheKey: viewer ? `my-offers:${viewer}:${mode}` : null,
     fetchPage,
     getId: (o) => o.id,
   });

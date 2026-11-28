@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { SettingsMemberGate } from "./SettingsMemberGate";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -12,8 +12,12 @@ import {
 import { MyToggle } from "@/components/mypage/ds/MyToggle";
 
 export function PersonalizationContent() {
+  return <SettingsMemberGate source="settings-personalization">{(userId) => <PersonalizationContentBody userId={userId} />}</SettingsMemberGate>;
+}
+
+/** 회원 id 가 정해진 뒤에만 그린다 — 문은 `SettingsMemberGate` */
+function PersonalizationContentBody({ userId }: { userId: string }) {
   const { t } = useI18n();
-  const userId = getCurrentUser()?.id ?? "me";
   const [enabled, setEnabled] = useState(true);
 
   const refresh = useCallback(() => {
@@ -35,7 +39,9 @@ export function PersonalizationContent() {
       <MyToggle
         checked={enabled}
         ariaLabel={t("settings_personalization_recommend")}
-        onChange={(next) => updateUserSettings(userId, { personalization_enabled: next })}
+        onChange={(next) =>
+          updateUserSettings(userId, { personalization_enabled: next })
+        }
       />
     </div>
   );

@@ -74,6 +74,9 @@ beforeEach(async () => {
   vi.stubGlobal("fetch", fetchMock);
   const { forgetMypageListCache } = await import("@/lib/mypage/use-mypage-cursor-list");
   forgetMypageListCache();
+  // 로그인 회원으로 보는 화면 — 회원 상태 SSOT 를 회원으로 둔다(목록 키는 회원을 알 때만 · 설계 v2 §6)
+  (await import("@/hooks/use-client-membership-state")).resetClientMembershipStateForTests();
+  (await import("@/lib/auth/supabase-profile-cache")).setSupabaseProfileCache({ id: "11111111-1111-4111-8111-111111111111", email: "", nickname: "me" } as never);
 });
 afterEach(() => {
   act(() => root.unmount());
