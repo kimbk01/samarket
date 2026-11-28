@@ -18,6 +18,7 @@ describe("CUT1 Community My Info authority SSOT", () => {
       "liked-posts",
       "favorite-posts",
       "community-friends",
+      "community-friends-manage",
       "reports",
     ]);
   });

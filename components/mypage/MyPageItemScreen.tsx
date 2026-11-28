@@ -31,7 +31,8 @@ import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
  * 해당 없으면 null. `MyPageItemScreen` 도 같은 매핑을 쓴다(분기 1곳).
  */
 export function MyPageItemStaticContent({ section, item }: { section: string; item: string }) {
-  if (section === "community" && item === "community-friends") return <NeighborFollowScreen />;
+  if (section === "community" && item === "community-friends") return <NeighborFollowScreen mode="view" />;
+  if (section === "community" && item === "community-friends-manage") return <NeighborFollowScreen mode="manage" />;
   if (section === "account") {
     if (item === "blocked-users") return <AccountUserListSection kind="blocked-users" />;
     if (item === "hidden-users") return <AccountUserListSection kind="hidden-users" />;
