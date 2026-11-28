@@ -1,6 +1,7 @@
 /**
  * 관심이웃 SSOT — 감사 `docs/audit/interest-neighbor-audit-2026-11-28.md` 결함 재현 시험.
- * 설계 `docs/audit/interest-neighbor-build-design-2026-11-28.md` A·C·D.
+ * 설계 `docs/audit/interest-neighbor-build-design-2026-11-28.md` A·C·D, 전체 수정 설계 v2(추가·해제 = DB 함수 1회,
+ * 차단·탈퇴 정리 = DB 트리거). 가짜 DB 의 `rpc` 는 SQL 함수와 같은 순서로 흉내 낸다(`neighbor-follow-fake-sb.ts`).
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeSb, type FakeDb } from "./neighbor-follow-fake-sb";
@@ -11,7 +12,6 @@ const OTHER = "33333333-3333-4333-8333-333333333333";
 
 let db: FakeDb;
 let fake: ReturnType<typeof createFakeSb>;
-let blockedEitherWay = false;
 let registrationGap: Response | null = null;
 
 vi.mock("@/lib/chat/supabase-server", () => ({ getSupabaseServer: () => fake }));
@@ -20,9 +20,6 @@ vi.mock("@/lib/auth/api-session", () => ({
 }));
 vi.mock("@/lib/auth/require-registration-for-action.server", () => ({
   requireRegistrationForAction: async () => registrationGap,
-}));
-vi.mock("@/lib/community-messenger/social-relations", () => ({
-  isBlockedEitherWay: async () => blockedEitherWay,
 }));
 
 function profile(id: string, extra: Record<string, unknown> = {}) {
@@ -55,10 +52,17 @@ function followRows(user = ME) {
   return (db.user_relationships ?? []).filter((r) => r.user_id === user && r.type === "neighbor_follow");
 }
 
+const uuidN = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
+const block = (owner: string, target: string, is_active = true) => ({
+  owner_user_id: owner,
+  target_user_id: target,
+  relation_type: "blocked",
+  is_active,
+});
+
 beforeEach(() => {
-  db = { user_relationships: [], profiles: [profile(ME), profile(PEER), profile(OTHER)] };
+  db = { user_relationships: [], profiles: [profile(ME), profile(PEER), profile(OTHER)], user_social_relations: [] };
   fake = createFakeSb(db);
-  blockedEitherWay = false;
   registrationGap = null;
 });
 
@@ -66,7 +70,7 @@ describe("E1 — 상태 지정 POST: 같은 「추가」를 두 번 보내도 �
   it("이전 토글 결함 재현 조건: 이미 관심이웃인데 다른 버튼이 following:true 를 보냄 → 그대로 관심이웃", async () => {
     db.user_relationships!.push(follow(ME, PEER));
     const r = await post({ targetUserId: PEER, following: true });
-    expect(r).toEqual({ status: 200, json: { ok: true, following: true } });
+    expect(r).toEqual({ status: 200, json: { ok: true, following: true, count: 1 } });
     expect(followRows()).toHaveLength(1);
   });
 
@@ -90,24 +94,26 @@ describe("E1 — 상태 지정 POST: 같은 「추가」를 두 번 보내도 �
 describe("E9 — 상한 100명 (레거시 FAQ 102)", () => {
   it("100명 저장돼 있으면 101번째 추가는 409, 해제는 된다", async () => {
     for (let i = 0; i < 100; i += 1) {
-      db.user_relationships!.push(follow(ME, `t-${String(i).padStart(3, "0")}`));
+      db.user_relationships!.push(follow(ME, uuidN(i)));
     }
     const add = await post({ targetUserId: PEER, following: true });
     expect(add.status).toBe(409);
     expect(add.json.error).toBe("neighbor_follow_limit");
     expect(followRows()).toHaveLength(100);
-    const rm = await post({ targetUserId: "t-000", following: false });
-    expect(rm.json).toEqual({ ok: true, following: false });
+    const rm = await post({ targetUserId: uuidN(0), following: false });
+    expect(rm.json).toEqual({ ok: true, following: false, count: 99 });
     expect(followRows()).toHaveLength(99);
   });
 });
 
 describe("추가 거절 — 차단·탈퇴·가입 미완료 (해제는 막지 않음)", () => {
-  it("양방향 차단이면 400 blocked_target", async () => {
-    blockedEitherWay = true;
+  it("양방향 활성 차단이면 400 blocked_target · 차단 해제(is_active=false)면 추가됨", async () => {
+    db.user_social_relations!.push(block(PEER, ME));
     const r = await post({ targetUserId: PEER, following: true });
     expect(r.status).toBe(400);
     expect(r.json.error).toBe("blocked_target");
+    db.user_social_relations = [block(PEER, ME, false)];
+    expect((await post({ targetUserId: PEER, following: true })).json.following).toBe(true);
   });
 
   it("탈퇴한 상대·프로필 없는 상대는 404 target_unavailable", async () => {
@@ -122,54 +128,26 @@ describe("추가 거절 — 차단·탈퇴·가입 미완료 (해제는 막지 �
     db.user_relationships!.push(follow(ME, PEER));
     registrationGap = Response.json({ ok: false, error: "signup_incomplete" }, { status: 403 }) as never;
     expect((await post({ targetUserId: OTHER, following: true })).status).toBe(403);
-    expect((await post({ targetUserId: PEER, following: false })).json).toEqual({ ok: true, following: false });
+    expect((await post({ targetUserId: PEER, following: false })).json).toEqual({ ok: true, following: false, count: 0 });
   });
 });
 
-describe("E4 — 보이는 관심이웃 = 탈퇴·프로필 없음·차단 제외 (목록·개수·글 공통)", () => {
-  it("listVisibleNeighborFollowRows", async () => {
-    vi.resetModules();
-    vi.doMock("@/lib/neighborhood/social-filter", () => ({
-      fetchBlockedAuthorIdsForViewer: async () => new Set([OTHER]),
-    }));
-    const { listVisibleNeighborFollowRows } = await import("@/lib/community/neighbor-follow-list.server");
-    const gone = "55555555-5555-4555-8555-555555555555";
-    const withdrawn = "66666666-6666-4666-8666-666666666666";
-    db.profiles!.push(profile(withdrawn, { status: "deleted" }));
+describe("목록·개수 = 저장 행 (탈퇴·차단 상대 행은 DB 트리거가 지움 — 전체 수정 설계 v2 §5-3)", () => {
+  it("listNeighborFollowRows: 내 neighbor_follow 행만 최신순, 다른 종류·남의 행·자기 자신 제외", async () => {
+    const { listNeighborFollowRows } = await import("@/lib/community/neighbor-follow-list.server");
     db.user_relationships!.push(
       follow(ME, PEER, "2026-11-05T00:00:00Z"),
-      follow(ME, OTHER),
-      follow(ME, gone),
-      follow(ME, withdrawn),
+      follow(ME, OTHER, "2026-11-01T00:00:00Z"),
+      { ...follow(ME, uuidN(7)), type: "blocked", relation_type: "blocked" },
       follow(PEER, ME),
     );
-    const r = await listVisibleNeighborFollowRows(fake as never, ME);
-    expect(r.ok && r.rows.map((x) => x.targetId)).toEqual([PEER]);
-    vi.doUnmock("@/lib/neighborhood/social-filter");
+    const r = await listNeighborFollowRows(fake as never, ME);
+    expect(r.ok && r.rows.map((x) => x.targetId)).toEqual([PEER, OTHER]);
   });
 
-  it("차단·탈퇴 정리: 양방향 삭제 · 한 회원 전체 삭제 (다른 회원 행은 그대로)", async () => {
-    const { deleteNeighborFollowsBetween, deleteAllNeighborFollowsForUser } = await import(
-      "@/lib/community/neighbor-follow-list.server"
-    );
-    db.user_relationships!.push(follow(ME, PEER), follow(PEER, ME), follow(OTHER, PEER), {
-      ...follow(ME, PEER),
-      type: "blocked",
-      relation_type: "blocked",
-    });
-    await deleteNeighborFollowsBetween(fake as never, ME, PEER);
-    expect(db.user_relationships!.map((r) => `${r.user_id}>${r.target_user_id}:${r.type}`).sort()).toEqual(
-      [`${OTHER}>${PEER}:neighbor_follow`, `${ME}>${PEER}:blocked`].sort(),
-    );
-    db.user_relationships!.push(follow(ME, OTHER));
-    await deleteAllNeighborFollowsForUser(fake as never, PEER);
-    expect(db.user_relationships!.map((r) => `${r.user_id}>${r.target_user_id}:${r.type}`).sort()).toEqual(
-      [`${ME}>${PEER}:blocked`, `${ME}>${OTHER}:neighbor_follow`].sort(),
-    );
-  });
-
-  it("관계 삭제가 던져도(가짜 클라이언트) 탈퇴 흐름을 멈추지 않는다", async () => {
-    const { deleteAllNeighborFollowsForUser } = await import("@/lib/community/neighbor-follow-list.server");
-    await expect(deleteAllNeighborFollowsForUser({ from: () => ({}) } as never, ME)).resolves.toBeUndefined();
+  it("countNeighborFollows: 같은 기준의 head count", async () => {
+    const { countNeighborFollows } = await import("@/lib/community/neighbor-follow-list.server");
+    db.user_relationships!.push(follow(ME, PEER), follow(ME, OTHER), follow(PEER, ME));
+    expect(await countNeighborFollows(fake as never, ME)).toBe(2);
   });
 });

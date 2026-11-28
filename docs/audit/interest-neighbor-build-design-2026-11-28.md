@@ -78,3 +78,9 @@
 - 빈 화면 문구·CTA 의 서비스 이름은 브랜드 SSOT(`BK.FEED` = 「정보 공유」, 목적지 `/philife`)를 쓴다 — 시안의 「라운지 둘러보기」와 글자가 다르다(목적지 같음).
 - 글 목록은 피드 카드(`CommunityCard`)를 그대로 쓴다(글 표시 SSOT) — 시안 ②의 단순 행 대신 피드와 같은 카드. 카드 색 범위 `[data-community-ui]` 를 목록에 붙였다.
 - 어드민 노출 삭제 확인 = `confirmAdminAction({ action: "delete" })`(사유 필수·재입력 없음), 사유는 감사 기록 `neighbor_follow_admin_remove.after_json.reason`.
+
+### 5-1. 전체 수정 설계 v2 반영 (2026-11-28 · `interest-neighbor-full-fix-design-2026-11-28.md`)
+- 위 첫 메모(`blockUserSocial` 안 삭제 사본)는 **폐기** — 차단·탈퇴·삭제 때 관심이웃 정리는 DB 트리거 하나(`supabase/migrations/20271128250000_neighbor_follow_invariants.sql`). 추가·해제는 DB 함수 `neighbor_follow_set_for` 1회(상한·차단·탈퇴를 한 트랜잭션).
+- §1-A 응답: POST 응답에 `count` 를 이번에 채운다(`{ok, following, count}`). 관계 조회는 새 `GET /api/community/user-relation`(관심이웃·차단 한 요청) — 옛 `neighbor-relations` GET·`block-relations` GET 삭제. 차단 POST 는 상태 지정 `{targetUserId, blocked}`.
+- §1-E 어드민: 기존 `community?section=neighbors` 대신 별도 `GET/DELETE /api/admin/users/[id]/neighbor-relations` 로 구현됨(첫 구현 그대로). 사유는 관리자 공용 `parseAdminReason`(최소 2자) 서버 검사.
+- 운영 사실: `user_relationships` RLS 정책 0개(회원 직접 쓰기 불가), 저장소의 옛 정책·type 동기화 트리거는 운영에 없음 — 대신 CHECK `type = relation_type`.

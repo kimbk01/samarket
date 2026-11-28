@@ -26,10 +26,55 @@ function parseOrPairs(expr: string): Filter | null {
   return null;
 }
 
+/**
+ * DB 함수 `neighbor_follow_set_for` 흉내 — `supabase/migrations/20271128250000_neighbor_follow_invariants.sql` 와 같은 순서
+ * (해제 → 이미 있음 → 탈퇴·프로필 없음 → 양방향 활성 차단 → 상한 → 추가). 라우트가 결과를 그대로 옮기는지 보는 용도이고,
+ * SQL 자체는 구조 확인 시험(`neighbor-follow-block-cleanup.test.ts`)과 운영 적용 뒤 확인으로 본다.
+ */
+function fakeNeighborFollowSetFor(db: FakeDb, a: { p_user: string; p_target: string; p_follow: boolean; p_limit: number }) {
+  const mine = () => (db.user_relationships ??= []).filter((r) => r.user_id === a.p_user && r.type === "neighbor_follow");
+  if (!a.p_follow) {
+    db.user_relationships = (db.user_relationships ?? []).filter(
+      (r) => !(r.user_id === a.p_user && r.target_user_id === a.p_target && r.type === "neighbor_follow"),
+    );
+    return { ok: true, following: false, count: mine().length };
+  }
+  if (mine().some((r) => r.target_user_id === a.p_target)) return { ok: true, following: true, count: mine().length };
+  const prof = (db.profiles ?? []).find((p) => p.id === a.p_target);
+  if (!prof || String(prof.status ?? "") === "deleted" || prof.deleted_at) return { ok: false, error: "target_unavailable" };
+  const blocked = (db.user_social_relations ?? []).some(
+    (s) =>
+      s.relation_type === "blocked" &&
+      s.is_active !== false &&
+      ((s.owner_user_id === a.p_user && s.target_user_id === a.p_target) ||
+        (s.owner_user_id === a.p_target && s.target_user_id === a.p_user)),
+  );
+  if (blocked) return { ok: false, error: "blocked_target" };
+  const n = mine().length;
+  if (n >= a.p_limit) return { ok: false, error: "neighbor_follow_limit", limit: a.p_limit };
+  const rels = (db.user_relationships ??= []);
+  rels.push({
+    id: `id-${rels.length + 1}`,
+    user_id: a.p_user,
+    target_user_id: a.p_target,
+    type: "neighbor_follow",
+    relation_type: "neighbor_follow",
+    created_at: new Date().toISOString(),
+  });
+  return { ok: true, following: true, count: n + 1 };
+}
+
 export function createFakeSb(db: FakeDb) {
   const calls: Array<{ table: string; op: string; args: unknown[] }> = [];
   const sb = {
     calls,
+    async rpc(fn: string, args: Record<string, unknown>) {
+      calls.push({ table: `rpc:${fn}`, op: "rpc", args: [args] });
+      if (fn === "neighbor_follow_set_for") {
+        return { data: fakeNeighborFollowSetFor(db, args as never), error: null };
+      }
+      return { data: null, error: { message: `unknown rpc ${fn}` } };
+    },
     from(table: string) {
       const filters: Filter[] = [];
       let mode: "select" | "delete" | "insert" = "select";

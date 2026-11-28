@@ -11,6 +11,8 @@ import {
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
 import { invalidateMypageSummary } from "@/lib/mypage/mypage-home-summary-client";
+import { forgetMypageListCache } from "@/lib/mypage/use-mypage-cursor-list";
+import { NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX } from "@/lib/community/neighbor-follow-contract";
 
 export type NeighborRelationState = {
   /** null = 아직 모름 */
@@ -28,6 +30,14 @@ const loading = new Set<string>();
 const versions = new Map<string, number>();
 /** 이 저장소 값이 속한 로그인 회원 — 바뀌면 비운다(재감사 8: 계정 전환) */
 let storeViewer: string | null = null;
+/**
+ * 계정 세대 — 회원이 바뀔 때만 +1(되돌리지 않음). 서버 읽기·저장은 시작 세대를 잡고, 끝났을 때 다르면 버린다
+ * (감사 D6: 비울 때 versions 도 0 으로 돌아가 이전 계정 응답이 새 계정 저장소에 써지던 결함). 화면 구독은 이 값으로 다시 읽는다.
+ */
+let storeEpoch = 0;
+const epochListeners = new Set<() => void>();
+/** 구독자 없고 요청 중이 아닌 대상 값은 이 개수를 넘으면 오래된 순으로 정리(감사 L1) */
+const MAX_TRACKED_TARGETS = 500;
 
 function bump(k: string): void {
   versions.set(k, (versions.get(k) ?? 0) + 1);
@@ -39,11 +49,31 @@ export function ensureNeighborStoreViewer(viewerId: string | null | undefined): 
   if (v === storeViewer) return;
   const hadOwner = storeViewer !== null;
   storeViewer = v;
-  if (!hadOwner) return;
-  states.clear();
-  loading.clear();
-  versions.clear();
-  for (const set of listeners.values()) for (const fn of set) fn();
+  storeEpoch += 1;
+  if (hadOwner) {
+    states.clear();
+    loading.clear();
+    versions.clear();
+    for (const set of listeners.values()) for (const fn of set) fn();
+  }
+  for (const fn of epochListeners) fn();
+}
+
+function subscribeEpoch(fn: () => void): () => void {
+  epochListeners.add(fn);
+  return () => {
+    epochListeners.delete(fn);
+  };
+}
+
+function pruneUntracked(): void {
+  if (states.size <= MAX_TRACKED_TARGETS) return;
+  for (const k of states.keys()) {
+    if (states.size <= MAX_TRACKED_TARGETS) break;
+    if ((listeners.get(k)?.size ?? 0) > 0 || states.get(k)?.busy || loading.has(k)) continue;
+    states.delete(k);
+    versions.delete(k);
+  }
 }
 
 function key(targetUserId: string): string {
@@ -58,7 +88,10 @@ function patch(k: string, next: Partial<NeighborRelationState>): void {
   const prev = states.get(k) ?? EMPTY;
   const merged = { ...prev, ...next };
   if (merged.following === prev.following && merged.blocked === prev.blocked && merged.busy === prev.busy) return;
+  /** 지웠다 다시 넣어 최근 순서로 — 정리는 가장 오래 안 바뀐 대상부터 */
+  states.delete(k);
   states.set(k, merged);
+  pruneUntracked();
   emit(k);
 }
 
@@ -91,15 +124,19 @@ export function applyBlockToNeighborRelation(targetUserId: string, blocked: bool
   invalidateCommunityUserRelationSnapshot(k);
   bump(k);
   patch(k, blocked ? { blocked: true, following: false } : { blocked: false });
+  /** 차단하면 관심이웃 목록에서도 빠진다 — 내정보 관심이웃 사람 목록 캐시 무효화 */
+  if (blocked) forgetMypageListCache(NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX);
 }
 
 async function loadFromServer(k: string): Promise<void> {
   if (loading.has(k)) return;
   loading.add(k);
   const startedAt = versions.get(k) ?? 0;
+  const epochAt = storeEpoch;
   try {
     const rel = await fetchCommunityUserRelationSnapshot(k);
-    /** 읽는 동안 사용자가 바꿨으면(세대 변경) 낡은 값이라 버린다 */
+    /** 읽는 동안 회원이 바뀌었거나(계정 세대) 사용자가 바꿨으면(대상 세대) 낡은 값이라 버린다 */
+    if (storeEpoch !== epochAt) return;
     if (states.get(k)?.busy || (versions.get(k) ?? 0) !== startedAt) return;
     patch(k, {
       ...(typeof rel.following === "boolean" ? { following: rel.following } : {}),
@@ -119,6 +156,8 @@ function subscribe(k: string, fn: () => void): () => void {
   set.add(fn);
   return () => {
     set?.delete(fn);
+    /** 빈 구독 목록은 지운다(감사 L1) */
+    if (set && set.size === 0 && listeners.get(k) === set) listeners.delete(k);
   };
 }
 
@@ -139,6 +178,8 @@ export function useNeighborRelation(
     () => (k ? states.get(k) ?? EMPTY : EMPTY),
     () => EMPTY,
   );
+  /** 회원이 바뀌어 저장소를 비우면 다시 읽는다(감사 D6) */
+  const epoch = useSyncExternalStore(subscribeEpoch, () => storeEpoch, () => 0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -147,7 +188,7 @@ export function useNeighborRelation(
     }
     const cur = readNeighborRelation(k);
     if (cur.following === null || cur.blocked === null) void loadFromServer(k);
-  }, [enabled, k, seedFollowing, seedBlocked]);
+  }, [enabled, k, seedFollowing, seedBlocked, epoch]);
 
   return value;
 }
@@ -167,6 +208,7 @@ export async function setNeighborFollow(targetUserId: string, following: boolean
   if (prev.busy) return { ok: false, error: "busy", status: 409 };
   bump(k);
   patch(k, { busy: true, following });
+  const epochAt = storeEpoch;
   try {
     const res = await fetch("/api/community/neighbor-relations", {
       method: "POST",
@@ -176,10 +218,13 @@ export async function setNeighborFollow(targetUserId: string, following: boolean
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; following?: boolean; error?: string };
     invalidateCommunityUserRelationSnapshot(k);
+    /** 요청 중 회원이 바뀌었으면 새 회원 저장소에 쓰지 않는다(감사 D6) */
+    if (storeEpoch !== epochAt) return { ok: false, error: "stale_viewer", status: 0 };
     if (res.ok && j.ok && typeof j.following === "boolean") {
       patch(k, { busy: false, following: j.following });
-      /** 내정보 › 라운지 › 관심이웃 「n명」 다시 셈 */
+      /** 내정보 › 라운지 › 관심이웃 「n명」 다시 셈 · 관심이웃 사람 목록 캐시 무효화 */
       invalidateMypageSummary();
+      forgetMypageListCache(NEIGHBOR_FOLLOW_PEOPLE_CACHE_PREFIX);
       return { ok: true, following: j.following };
     }
     patch(k, {
@@ -201,4 +246,6 @@ export function __resetNeighborFollowStoreForTests(): void {
   loading.clear();
   versions.clear();
   storeViewer = null;
+  storeEpoch = 0;
+  epochListeners.clear();
 }

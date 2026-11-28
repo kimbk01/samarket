@@ -136,7 +136,7 @@ export const MYPAGE_IA_CATEGORIES: readonly MypageIaCategory[] = [
         rows: [
           link("/mypage/section/community/liked-posts", "mypage_mnav_community_liked_posts", "heart"),
           link("/mypage/section/community/favorite-posts", "mypage_mnav_community_favorite_posts", "star"),
-          link("/mypage/section/community/community-friends", "mypage_mnav_community_community_friends", "users", {
+          link(NEIGHBOR_FOLLOW_MYPAGE_HREF, "mypage_mnav_community_community_friends", "users", {
             valueSource: { kind: "summary-count", field: "neighborFollowCount", format: "people" },
           }),
         ],

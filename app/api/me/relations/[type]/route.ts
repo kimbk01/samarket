@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listVisibleNeighborFollowRows } from "@/lib/community/neighbor-follow-list.server";
+import { listNeighborFollowRows } from "@/lib/community/neighbor-follow-list.server";
 import { loadMasterPublicCityLabelsByUserIds } from "@/lib/addresses/master-public-city-labels.server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -168,8 +168,8 @@ export async function GET(
   }
 
   if (type === "neighbor") {
-    /** 보이는 관심이웃 = 탈퇴·프로필 없음·양방향 차단 제외 (관심이웃 설계 C · 감사 E4) — 개수·글 거름과 같은 함수 */
-    const visible = await listVisibleNeighborFollowRows(sb, auth.userId);
+    /** 관심이웃 = 저장 행(탈퇴·차단 상대 행은 DB 트리거가 지움 — 전체 수정 설계 v2 §5-3). 프로필은 아래 신원 조회 1회만 */
+    const visible = await listNeighborFollowRows(sb, auth.userId);
     if (!visible.ok) {
       if (isMissingTableError(visible.error, "user_relationships")) {
         return NextResponse.json({ ok: true, items: [], source: "missing_table" });

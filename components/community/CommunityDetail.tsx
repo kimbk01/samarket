@@ -6,7 +6,7 @@ import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isAdminUser } from "@/lib/auth/get-current-user";
-import { useClientProfile } from "@/lib/auth/use-client-profile";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
@@ -84,8 +84,9 @@ export function CommunityDetail({
   const requireAction = useRequireAuthAction();
   const communityPostNotificationReadOnceRef = useRef<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  /** 로그인 정보 — 캐시가 늦게 차도(주소로 바로 연 상세) 다시 그린다. 한 번 읽기는 관심이웃 안내·입력줄 아바타를 빈 값으로 남겼다 */
-  const me = useClientProfile();
+  /** 지금 보는 회원 = 회원 상태 SSOT(`useClientMembershipState`) — 캐시가 늦게 차도(주소로 바로 연 상세) 다시 그린다 */
+  const membership = useClientMembershipState("community-detail");
+  const me = membership.status === "member" ? membership.profile : null;
   const viewerIsAdmin = !!me && isAdminUser(me);
   /** 글 작성자 = 댓글 고정 권한 (Owner 결정 1). 가져온 글은 작성자가 없다 */
   const viewerIsPostAuthor =

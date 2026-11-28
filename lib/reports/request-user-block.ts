@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { applyBlockToNeighborRelation } from "@/lib/community/neighbor-follow-store";
 import {
   reportClientFailure,
   reportClientFailureFromResponse,
@@ -25,7 +26,11 @@ export async function requestUserBlock(
 
   const result = await blockUserRequest(targetUserId, options);
   /** 차단한 판매자 글이 목록 캐시에 남지 않게 — 서버 목록은 차단 작성자를 제외해 내려준다. */
-  if (result.ok) invalidateHomePostsCache();
+  if (result.ok) {
+    invalidateHomePostsCache();
+    /** 관심이웃 버튼·관계 캐시·내정보 관심이웃 목록 캐시도 정리(DB 는 트리거가 관심이웃 행을 지움 — 재감사 M5) */
+    applyBlockToNeighborRelation(targetUserId, true);
+  }
   return result;
 }
 
@@ -49,20 +54,12 @@ async function blockUserRequest(
       }
     }
 
-    const checkRes = await fetch(
-      `/api/community/block-relations?targetUserId=${encodeURIComponent(targetUserId)}`,
-      { credentials: "include", cache: "no-store" }
-    );
-    const check = (await checkRes.json()) as { ok?: boolean; blocked?: boolean };
-    if (checkRes.ok && check.ok && check.blocked === true) {
-      return { ok: true };
-    }
-
+    /** 상태 지정 차단 — 이미 차단이면 서버가 그대로 200(사전 GET 확인 불필요, 설계 v2 §5-2) */
     const res = await fetch("/api/community/block-relations", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetUserId }),
+      body: JSON.stringify({ targetUserId, blocked: true }),
     });
     const j = (await res.json()) as { ok?: boolean; blocked?: boolean; error?: string };
     if (!res.ok || !j.ok) {

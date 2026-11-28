@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayToast } from "@/components/ui/dibay-overlay/DibayToast";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { useClientProfile } from "@/lib/auth/use-client-profile";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { NEIGHBOR_FOLLOW_LIMIT } from "@/lib/community/neighbor-follow-contract";
 import {
   ensureNeighborStoreViewer,
@@ -34,22 +34,23 @@ export function useNeighborFollowToggle(opts: {
 }) {
   const { t } = useI18n();
   const requireAction = useRequireAuthAction();
-  /** 로그인 정보 — 캐시가 늦게 차도 다시 그린다(주소로 바로 연 상세에서 비로그인으로 남던 결함) */
-  const me = useClientProfile();
+  /**
+   * 지금 보는 회원 = 회원 상태 SSOT(`useClientMembershipState`). 확인 중·비회원·본인이면 버튼 대상이 아니다
+   * (설계 §1 「본인·비회원·탈퇴 프로필은 숨김」 · 감사 D7: 확인 전 `me=null` 을 「본인 아님」으로 보던 결함).
+   */
+  const membership = useClientMembershipState("neighbor-follow");
+  const me = membership.status === "member" ? membership.profile : null;
   const target = String(opts.targetUserId ?? "").trim();
-  const isPeer = Boolean(target) && me?.id !== target;
   const meId = me?.id ?? null;
+  const isPeer = Boolean(target) && Boolean(meId) && meId !== target;
+  const settled = membership.status !== "checking";
   /**
    * 계정이 바뀌면 이전 회원의 관심이웃 값을 비운다 — 아래 저장소 읽기(effect)보다 먼저 선언(effect 는 선언 순서로 실행).
-   * `mounted` 뒤에만: 하이드레이션 첫 그림은 서버 값(null)이라, 늦게 붙는 인스턴스가 null 로 저장소를 비우지 않게 한다(재감사 minor-1).
+   * 확인 중에는 부르지 않는다: 확인 전 null 로 다른 인스턴스가 정한 회원 값을 비우지 않게(재감사 minor-1).
    */
-  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setMounted(true);
-  }, []);
-  useEffect(() => {
-    if (mounted) ensureNeighborStoreViewer(meId);
-  }, [mounted, meId]);
+    if (settled) ensureNeighborStoreViewer(meId);
+  }, [settled, meId]);
   const rel = useNeighborRelation(target, {
     enabled: opts.enabled !== false && isPeer && Boolean(me?.id),
     seed: opts.seed,
@@ -137,7 +138,6 @@ export function useNeighborFollowToggle(opts: {
     blocked: rel.blocked,
     busy: rel.busy,
     toggle,
-    setFollowing: (want: boolean) => run(want, true),
     toastNode,
   };
 }
