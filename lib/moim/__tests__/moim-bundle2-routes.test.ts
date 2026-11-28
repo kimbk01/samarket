@@ -31,6 +31,7 @@ const moimClose = vi.fn(async () => ({ ok: true as const }));
 const moimAccountCleanup = vi.fn();
 const notifyMoimMany = vi.fn(async () => undefined);
 const notifyMoimClosedOrDeleted = vi.fn(async () => undefined);
+const notifyMoimHostChanged = vi.fn(async () => undefined);
 const pendingAfter: Promise<unknown>[] = [];
 const flushAfter = async () => {
   await Promise.all(pendingAfter.splice(0));
@@ -49,6 +50,7 @@ vi.mock("@/lib/moim/server/moim-rpc.server", () => ({
 vi.mock("@/lib/moim/server/moim-notify.server", () => ({
   notifyMoimMany: (...a: unknown[]) => notifyMoimMany(...(a as [])),
   notifyMoimClosedOrDeleted: (...a: unknown[]) => notifyMoimClosedOrDeleted(...(a as [])),
+  notifyMoimHostChanged: (...a: unknown[]) => notifyMoimHostChanged(...(a as [])),
   MOIM_ROLE_KEY: { host: "moim_role_host", co_host: "moim_role_co_host", staff: "moim_role_staff", member: "moim_role_member" },
   /** 응답 뒤 발송(3번 묶음 E1) — 시험에서는 바로 실행해 결과를 본다 */
   notifyMoimAfterResponse: (work: () => Promise<unknown>) => pendingAfter.push(work()),
@@ -130,16 +132,25 @@ describe("B13 모임 종료 — 취소된 일정의 확정 참여자에게 일�
 });
 
 describe("B8 탈퇴·영구 삭제 전 모임 정리", () => {
-  it("새 모임장이 생긴 모임마다 전체 멤버에게 moim_host_changed", async () => {
-    moimAccountCleanup.mockResolvedValueOnce({ ok: true, transferred: 1, closed: 1, left: 2, handovers: [{ moim_id: "m1", to_user_id: "u-a" }] });
-    const sb = fakeSb({ moim_members: [{ nickname: "NewHost" }] });
+  it("새 모임장이 생긴 모임마다 전체 멤버에게 moim_host_changed (R5 E16: 알림 함수 하나 · DB 닉네임 · 삭제 모임은 보내지 않음)", async () => {
+    notifyMoimHostChanged.mockClear();
+    moimAccountCleanup.mockResolvedValueOnce({
+      ok: true,
+      transferred: 2,
+      closed: 1,
+      left: 2,
+      handovers: [
+        { moim_id: "m1", to_user_id: "u-a", moim_status: "active", to_nickname: "NewHost" },
+        { moim_id: "m2", to_user_id: "u-b", moim_status: "deleted", to_nickname: "Other" },
+      ],
+    });
+    const sb = fakeSb({});
     expect(await runMoimAccountCleanup(sb as never, "u-gone")).toEqual({ ok: true });
-    expect(notifyMoimMany).toHaveBeenCalledTimes(1);
-    expect(notifyMoimMany).toHaveBeenCalledWith(
-      sb,
-      ["u-host", "u-a", "u-b"],
-      expect.objectContaining({ kind: "moim_host_changed", moimId: "m1", dedupeRef: "account_withdrawal:m1:u-gone", vars: { moim: "Moim", name: "NewHost" } })
-    );
+    expect(notifyMoimHostChanged).toHaveBeenCalledTimes(1);
+    expect(notifyMoimHostChanged).toHaveBeenCalledWith(sb, "m1", "u-a", ["u-host", "u-a", "u-b"], "account_withdrawal:m1:u-gone", {
+      toNickname: "NewHost",
+      moimStatus: "active",
+    });
   });
 
   it("DB 정리가 실패하면 실패를 돌려준다 (회원 삭제 라우트가 멈춤)", async () => {

@@ -8,7 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegisterMainTier1Header } from "@/lib/layout/use-register-main-tier1-header";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
 import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
-import { activeMoimBoards, canWriteMoimBoard } from "@/components/moim/MoimMemberView";
+import { activeMoimBoards, canWriteMoimBoard, defaultMoimWriteBoard } from "@/components/moim/MoimMemberView";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, chipClass, moimCls, useMoimBoardLabel, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
@@ -68,7 +68,8 @@ export function MoimWriteScreen({ moimId }: { moimId: string }) {
   const writable = useMemo(() => (moim ? activeMoimBoards(moim).filter((b) => canWriteMoimBoard(moim, b)) : []), [moim]);
   useEffect(() => {
     if (editId || !moim) return;
-    if (!boardId || !writable.some((b) => b.id === boardId)) setBoardId(writable[0]?.id ?? null);
+    /** R5 B4: 기본 = 공지가 아닌 첫 게시판 (공지는 직접 골라야 함) */
+    if (!boardId || !writable.some((b) => b.id === boardId)) setBoardId(defaultMoimWriteBoard(moim)?.id ?? null);
   }, [editId, moim, writable, boardId]);
 
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -23,6 +23,8 @@ vi.mock("@/lib/moim/server/moim-rpc.server", async () => {
   return { ...actual, moimInviteRespond: (...a: unknown[]) => inviteRespond(...a) };
 });
 vi.mock("@/lib/auth/require-registration-for-action.server", () => ({ requireRegistrationForAction: async () => null }));
+/** R5 B5: 초대 수락 분기는 라우트가 약관을 확인한다(거절은 동의 예외) — 이 시험은 약관 통과로 둔다 */
+vi.mock("@/lib/auth/require-signup-complete-api", () => ({ requireSignupCompleteForUser: async () => ({ ok: true }) }));
 vi.mock("@/lib/moim/server/moim-notify.server", () => ({
   notifyMoimAfterResponse: () => undefined,
   notifyMoimJoinRequested: async () => undefined,
@@ -238,9 +240,12 @@ describe("R3 U-13 초대 수락 — 가입 질문 답 전달", () => {
     const sb = {
       from(table: string) {
         calls.push(table);
-        const rows = tables[table] ?? [];
+        let rows = (tables[table] ?? []) as Record<string, unknown>[];
         const chain: Record<string, unknown> = {};
-        for (const m of ["select", "eq", "in", "is", "or", "not", "order", "limit", "lt", "gt", "gte", "neq"]) chain[m] = () => chain;
+        for (const m of ["select", "is", "or", "not", "order", "limit", "lt", "gt", "gte", "neq"]) chain[m] = () => chain;
+        /** eq·in 은 실제로 거른다 (R5 B14 — 보는 사람의 멤버 상태로 초대를 거르므로 가짜도 user_id 조건을 지킨다) */
+        chain.eq = (col: string, v: unknown) => ((rows = rows.filter((r) => !(col in r) || r[col] === v)), chain);
+        chain.in = (col: string, vs: unknown[]) => ((rows = rows.filter((r) => !(col in r) || vs.includes(r[col]))), chain);
         chain.maybeSingle = async () => ({ data: rows[0] ?? null, error: null });
         chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: rows, error: null });
         return chain;

@@ -6,6 +6,13 @@ import { readFileSync } from "node:fs";
  * 모임 R4 — 메신저 쪽 (설계 docs/audit/moim-r4-decisions-design-2026-11-28.md)
  * §1 메신저 이름 · §2-2 D-3 「모임 홈」 숨김 · #14 판정 중 · #18 역할 표시 · §5(a) DELETE 대체 경로 ·
  * §5(b)① 부제 · §5(b)③ start_dm · §5(c) 어드민 읽기 전용 · D-42 · D-44 · D-45
+ *
+ * 모임 R5 (2026-11-28 · docs/audit/moim-r5-design-2026-11-28/A-messenger-room.md §7-11) 로 바뀐 기대:
+ * - #14 「판정 실패 = 판정 끝(메뉴 보임)」 → Owner 결정 1 「실패도 숨김 · 다음 표시 때 다시 묻기」
+ * - 「모임 홈」 진입 = 서버 `homeOpen` (삭제·종료+열람 끝 = 숨김 · A9)
+ * - /api/moim/rooms 응답에 `homeOpen`·`readonlyReason`·`scheduleStartsAt` 칸 추가 (A9·A16·A24)
+ * - 멤버 시트 [1:1] = 표면 규칙 `startDirectChat` (A22)
+ * - §5(c) 메신저 어드민 거부는 R5 D5(작업자 A) 로 방 상태 6개 조치·새 코드·새 문구 키로 바뀜
  */
 
 vi.mock("@/lib/admin/audit/append-admin-route-audit", () => ({ appendAdminRouteAudit: vi.fn(async () => undefined) }));
@@ -27,8 +34,8 @@ import { messengerRoomTitleDisplayKey } from "@/lib/community-messenger/room/mes
 import { markParticipantLeft } from "@/lib/community-messenger/group/group-room-repository";
 import { runCmRoomActionCas } from "@/lib/admin-community-messenger/admin-chat-moderation-cas";
 import {
-  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
-  rejectsMoimRoomReadonlyAction,
+  MOIM_ROOM_MANAGED_BY_MOIM,
+  rejectsMoimRoomAdminAction,
 } from "@/lib/admin-community-messenger/moim-room-admin-guard";
 
 type Call = { table: string; op: string; select?: string; filters: string[] };
@@ -175,11 +182,14 @@ describe("/api/moim/rooms — moimStatus · 역할 맵 · start_dm (D-3 · #18 �
       kind: "moim",
       moimName: "Alive",
       moimStatus: "active",
+      homeOpen: true,
+      readonlyReason: null,
+      scheduleStartsAt: null,
       memberRoles: { h1: "host", c1: "co_host", s1: "staff" },
       canStartDm: true,
     });
     /** 삭제된 모임 = 모임 방 판정은 그대로(owner 있음) · 상태만 deleted · 모임이 활성이 아니라 [1:1] 없음 */
-    expect(body.owners[ROOM_B]).toMatchObject({ moimId: "m2", kind: "moim", moimStatus: "deleted", canStartDm: false });
+    expect(body.owners[ROOM_B]).toMatchObject({ moimId: "m2", kind: "moim", moimStatus: "deleted", homeOpen: false, readonlyReason: "moim_deleted", canStartDm: false });
     expect(calls.map((c) => c.table)).toEqual([
       "community_messenger_participants",
       "community_messenger_rooms",
@@ -220,11 +230,12 @@ describe("/api/moim/rooms — moimStatus · 역할 맵 · start_dm (D-3 · #18 �
 describe("D-3 · #18 화면 판정 함수", () => {
   const base: MoimRoomOwner = { moimId: "m1", kind: "moim", moimName: "M" };
 
-  it("삭제된 모임만 「모임 홈」 진입점을 숨긴다 (옛 응답·종료 모임은 보임)", () => {
-    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "deleted" })).toBe(false);
-    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "closed" })).toBe(true);
-    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "active" })).toBe(true);
-    expect(moimRoomOwnerShowsHome(base)).toBe(true);
+  it("「모임 홈」 진입점 = 서버 homeOpen 만 본다 (R5 A9 — 삭제·종료+열람 끝 숨김 · 옛 응답도 숨김)", () => {
+    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "deleted", homeOpen: false })).toBe(false);
+    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "closed", homeOpen: true })).toBe(true);
+    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "closed", homeOpen: false })).toBe(false);
+    expect(moimRoomOwnerShowsHome({ ...base, moimStatus: "active", homeOpen: true })).toBe(true);
+    expect(moimRoomOwnerShowsHome(base)).toBe(false);
     expect(moimRoomOwnerShowsHome(null)).toBe(false);
   });
 
@@ -243,7 +254,7 @@ describe("D-3 · #18 화면 판정 함수", () => {
     const modal = readFileSync("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx", "utf8");
     const timeline = readFileSync("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx", "utf8");
     expect(sheets.match(/\{moimRoleSuffix\(member\.id\)\}/g)?.length).toBe(2);
-    expect(modal).toContain('const showStartDirectChat = !moimOwner || moimOwner.canStartDm !== false;');
+    expect(modal).toContain("const showStartDirectChat = moimSurface.startDirectChat;");
     expect(modal).toContain("{showStartDirectChat ? (");
     expect(modal).toContain('data-cm-member-call=""');
     expect(modal).not.toMatch(/showStartDirectChat[^\n]*data-cm-member-call/);
@@ -277,22 +288,23 @@ describe("#14 모임 방 판정 중(unknown)", () => {
     expect(peekMoimRoomOwner("r2")).toBeNull();
   });
 
-  it("판정 요청이 실패하면 판정 끝으로 보고 메뉴를 보인다(예전 동작)", async () => {
+  it("판정 요청이 실패해도 판정 끝이 아니다 — 메뉴를 숨긴 채 다음 표시 때 다시 묻는다 (R5 Owner 결정 1 · 예전: 판정 끝 = 메뉴 보임)", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => null })));
     requestMoimRoomOwners(["r9"]);
     expect(peekMoimRoomOwnerResolved("r9")).toBe(false);
     await vi.advanceTimersByTimeAsync(200);
-    expect(peekMoimRoomOwnerResolved("r9")).toBe(true);
+    expect(peekMoimRoomOwnerResolved("r9")).toBe(false);
     expect(peekMoimRoomOwner("r9")).toBeNull();
   });
 
-  it("방 화면·목록 메뉴는 판정 중인 비공개 그룹방을 모임 방처럼 다룬다 (구조 확인)", () => {
+  it("방 화면·목록 메뉴는 판정 중·실패인 비공개 그룹방을 모임 방처럼 다룬다 (구조 확인)", () => {
     const pres = readFileSync("lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation.ts", "utf8");
     const sheet = readFileSync("components/community-messenger/MessengerChatRoomActionSheet.tsx", "utf8");
-    expect(pres).toContain("const isMoimRoom = Boolean(moimRoomOwner) || Boolean(isPrivateGroupRoom && !moimRoomResolved);");
-    /** 재감사 5: 시트는 판정 결과를 구독한다(열 때 한 번 읽기 아님) */
+    expect(pres).toContain('const isMoimRoom = moimSurface.state !== "not_moim";');
+    /** 재감사 5: 시트는 판정 결과를 구독한다(열 때 한 번 읽기 아님) · 표면 규칙 하나로 나가기를 정한다 */
     expect(sheet).toContain("useMoimRoomOwnerState(isPrivateGroup ? room.id : null)");
-    expect(sheet).toContain("(Boolean(moimOwnerState.owner) || !moimOwnerState.resolved)");
+    expect(sheet).toContain("ownerStatus: moimOwnerState.status,");
+    expect(sheet).toContain("onLeave && moimSurface.messengerManagement");
     expect(sheet).not.toContain("peekMoimRoomOwnerResolved");
   });
 });
@@ -347,27 +359,32 @@ describe("§5(c) 메신저 어드민 = 모임 방 읽기 전용 거부", () => {
       action: "readonly_off",
       reason: "test reason",
     });
-    expect(out).toEqual({ ok: false, error: MOIM_ROOM_READONLY_MANAGED_BY_MOIM, status: 422 });
+    expect(out).toEqual({ ok: false, error: MOIM_ROOM_MANAGED_BY_MOIM, status: 422 });
     expect(sb.calls.some((c) => c.op === "update")).toBe(false);
   });
 
-  it("모임 방이 아니면 그대로 갱신, 모임 방의 읽기 전용이 아닌 조치(차단)도 그대로", async () => {
+  it("모임 방이 아니면 그대로 갱신 · 모임 방은 차단·보관·읽기 전용 모두 거부(R5 D5) · 메시지 숨김은 그대로", async () => {
     const plain = fakeSb({ community_messenger_rooms: [{ id: "r1", owner_domain: null, room_status: "active", is_readonly: true }] });
     expect(
       await runCmRoomActionCas(plain as never, new Request("https://x.test"), { roomId: "r1", adminUserId: "a1", action: "readonly_off", reason: "ok ok" })
     ).toEqual({ ok: true });
-    expect(rejectsMoimRoomReadonlyAction({ owner_domain: "moim" }, "block_room")).toBe(false);
-    expect(rejectsMoimRoomReadonlyAction({ owner_domain: "moim" }, "readonly_on")).toBe(true);
+    /** R5 D5: 모임 방은 차단·보관도 모임 어드민에서 (방 상태 6개 조치) · 메시지 숨김은 그대로 */
+    expect(rejectsMoimRoomAdminAction({ owner_domain: "moim" }, "block_room")).toBe(true);
+    expect(rejectsMoimRoomAdminAction({ owner_domain: "moim" }, "readonly_on")).toBe(true);
+    expect(rejectsMoimRoomAdminAction({ owner_domain: "moim" }, "hide_message")).toBe(false);
+    expect(rejectsMoimRoomAdminAction({ owner_domain: null }, "block_room")).toBe(false);
   });
 
   it("어드민 안내 문구는 ko·en 키, 세 경로가 같은 거부를 쓴다 (구조 확인)", () => {
-    expect(translate("ko", "admin_cm_moim_room_readonly_managed_by_moim")).toContain("모임 어드민");
-    expect(translate("en", "admin_cm_moim_room_readonly_managed_by_moim")).toContain("Groups admin");
+    expect(translate("ko", "admin_cm_moim_room_managed_by_moim")).toContain("모임 어드민");
+    expect(translate("en", "admin_cm_moim_room_managed_by_moim")).toContain("Groups admin");
     const svc = readFileSync("lib/admin-community-messenger/service.ts", "utf8");
     const cmRoute = readFileSync("app/api/admin/community-messenger/rooms/[id]/action/route.ts", "utf8");
     const chatRoute = readFileSync("app/api/admin/chat/rooms/[id]/action/route.ts", "utf8");
-    expect(svc).toContain("rejectsMoimRoomReadonlyAction(");
-    expect(cmRoute).toContain("MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY");
-    expect(chatRoute).toContain("MOIM_ROOM_READONLY_MANAGED_BY_MOIM_MESSAGE_KEY");
+    expect(svc).toContain("rejectsMoimRoomAdminAction(");
+    /** 라우트는 새 이름(MOIM_ROOM_MANAGED_BY_MOIM_MESSAGE_KEY) 또는 같은 값을 가리키는 옛 별칭을 쓴다 (guard 파일 19~21줄) */
+    expect(cmRoute).toMatch(/MOIM_ROOM_(READONLY_)?MANAGED_BY_MOIM_MESSAGE_KEY/);
+    /** 라우트는 새 이름(MOIM_ROOM_MANAGED_BY_MOIM_MESSAGE_KEY) 또는 같은 값을 가리키는 옛 별칭을 쓴다 (guard 파일 19~21줄) */
+    expect(chatRoute).toMatch(/MOIM_ROOM_(READONLY_)?MANAGED_BY_MOIM_MESSAGE_KEY/);
   });
 });

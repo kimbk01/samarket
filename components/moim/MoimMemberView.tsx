@@ -52,6 +52,15 @@ export function activeMoimBoards(moim: MoimDetailDto): MoimBoardDto[] {
   return moim.boards.filter((b) => b.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+/**
+ * R5 B4: 「전체」에서 글쓰기 기본 게시판 — 쓸 수 있는 게시판 중 공지가 아닌 첫 게시판, 없으면 공지(쓸 수 있으면).
+ * 운영진이 무심코 공지로 쓰지 않게 한다(공지는 직접 골라야 함).
+ */
+export function defaultMoimWriteBoard(moim: MoimDetailDto): MoimBoardDto | null {
+  const writable = activeMoimBoards(moim).filter((b) => canWriteMoimBoard(moim, b));
+  return writable.find((b) => b.kind !== "notice") ?? writable[0] ?? null;
+}
+
 /** 모임 홈 (시안 U4) — 2단 탭 홈·일정·게시판·앨범·멤버, 주소 ?tab=schedules / ?tab=board&board= / ?tab=album / ?tab=members */
 export function MoimMemberView({
   moim,
@@ -193,7 +202,7 @@ function PostList({ moim, posts }: { moim: MoimDetailDto; posts: MoimPostDto[] }
   return (
     <div className="grid gap-2 px-4">
       {posts.map((p) => (
-        <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(byId.get(p.boardId) ?? { kind: p.boardKind, name: null })} />
+        <MoimPostRow key={p.id} post={p} boardLabel={boardLabel(byId.get(p.boardId) ?? { kind: p.boardKind, name: p.boardName })} />
       ))}
     </div>
   );
@@ -383,7 +392,7 @@ function MoimBoardTab({
     setNextBefore(r.nextBefore);
   };
 
-  const writeBoard = current ? (canWriteMoimBoard(moim, current) ? current : null) : boards.find((b) => canWriteMoimBoard(moim, b)) ?? null;
+  const writeBoard = current ? (canWriteMoimBoard(moim, current) ? current : null) : defaultMoimWriteBoard(moim);
 
   return (
     <div>

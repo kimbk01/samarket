@@ -83,10 +83,9 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
     if (cap === "invalid" || (cap != null && cap < 2)) return toast.showError("moim_capacity_invalid");
     const from = parseOptionalInt(ageFrom);
     const to = parseOptionalInt(ageTo);
-    const yearOk = (y: number | null | "invalid") => y === null || (y !== "invalid" && y >= 1900 && y <= 2100);
-    if (!yearOk(from) || !yearOk(to) || (typeof from === "number" && typeof to === "number" && from > to)) {
-      return toast.show(t("moim_manage_info_age_invalid_toast"), "error");
-    }
+    /** R5 C17: 어느 칸이 틀렸는지 나눠 알린다 · 올해까지(서버 `moim__assert_birth_years` 와 같은 규칙) */
+    const ageError = moimBirthYearRangeError(from, to, new Date().getFullYear());
+    if (ageError) return toast.show(t(ageError), "error");
     const qs = questions.map((q) => q.trim()).filter(Boolean).slice(0, QUESTIONS_MAX);
     const catList = categories.state.status === "ready" ? categories.state.data.categories : [];
     const customTopic = catList.find((c) => c.id === categoryId)?.allowCustomTopic === true;
@@ -307,6 +306,20 @@ function InfoForm({ detail, reload }: { detail: MoimDetailDto; reload: () => voi
       {toast.node}
     </div>
   );
+}
+
+/**
+ * R5 C17: 출생 연도 범위 검사 — 형식·범위(1900~올해) 오류와 순서(시작 > 끝) 오류를 나눈다. 맞으면 null.
+ */
+export function moimBirthYearRangeError(
+  from: number | null | "invalid",
+  to: number | null | "invalid",
+  thisYear: number
+): "moim_manage_info_age_year_invalid_toast" | "moim_manage_info_age_order_invalid_toast" | null {
+  const yearOk = (y: number | null | "invalid") => y === null || (y !== "invalid" && y >= 1900 && y <= thisYear);
+  if (!yearOk(from) || !yearOk(to)) return "moim_manage_info_age_year_invalid_toast";
+  if (typeof from === "number" && typeof to === "number" && from > to) return "moim_manage_info_age_order_invalid_toast";
+  return null;
 }
 
 export function MoimManageInfo({ moimId }: { moimId: string }) {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { useEffect, useMemo } from "react";
+import { revalidateMoimRoomOwner, useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface } from "@/lib/moim/moim-room-surface-policy";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { resolveGroupRoomCapabilities } from "@/lib/community-messenger/group/group-room-permissions";
 import {
@@ -112,13 +113,28 @@ export function useMessengerRoomPhase2RoomPresentation({
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
   const isOwner = snapshot?.myRole === "owner";
   /** 모임 소유 방 (docs/dibay-messenger-domain-group-hard-lock.md 「MOIM-owned GROUP rooms」) — 멤버십·방 설정은 모임에서 */
-  const { owner: moimRoomOwner, resolved: moimRoomResolved } = useMoimRoomOwnerState(isPrivateGroupRoom ? roomId : null);
+  const { owner: moimRoomOwner, status: moimRoomOwnerStatus } = useMoimRoomOwnerState(isPrivateGroupRoom ? roomId : null);
   /**
-   * 모임 방 판정 중(unknown)인 비공개 그룹방도 모임 방처럼 메신저 운영·나가기·초대 메뉴를 숨긴다 (모임 R4 #14 —
-   * 판정 전에 메뉴가 잠깐 보였다 사라지지 않게). 판정 요청이 실패하면 resolved=true 라 메뉴가 보인다(예전 동작).
-   * 「모임 홈」 같은 모임 진입점은 `moimRoomOwner` 가 있을 때만이라 판정 중에는 보이지 않는다.
+   * 모임 방 표면 규칙 하나 (모임 R5 A §1 · `lib/moim/moim-room-surface-policy.ts`).
+   * 판정 중·실패인 비공개 그룹방도 모임 방처럼 메신저 운영·나가기·초대 메뉴를 숨긴다(Owner 결정 1 — R4 #14 의 「실패 = 보임」을 바꿈).
+   * `isMoimRoom` 은 `moimSurface.state !== "not_moim"` (기존 호출처 호환).
    */
-  const isMoimRoom = Boolean(moimRoomOwner) || Boolean(isPrivateGroupRoom && !moimRoomResolved);
+  const moimSurface = useMemo(
+    () =>
+      resolveMoimRoomSurface({
+        roomType: snapshot?.room.roomType,
+        owner: moimRoomOwner,
+        ownerStatus: moimRoomOwnerStatus,
+        viewerUserId: snapshot?.viewerUserId,
+      }),
+    [moimRoomOwner, moimRoomOwnerStatus, snapshot?.room.roomType, snapshot?.viewerUserId]
+  );
+  const isMoimRoom = moimSurface.state !== "not_moim";
+  const messengerManagement = moimSurface.messengerManagement;
+  /** 방을 열 때 — 마지막 판정이 60초보다 오래됐으면 그 방 1개만 다시 묻는다(예전 값은 그대로 보임 · 모임 R5 A13) */
+  useEffect(() => {
+    if (isPrivateGroupRoom) revalidateMoimRoomOwner(roomId);
+  }, [isPrivateGroupRoom, roomId]);
   const domainChromePresentation = useMemo(() => {
     if (!snapshot?.room) return null;
     const tradeProductTitle =
@@ -226,13 +242,17 @@ export function useMessengerRoomPhase2RoomPresentation({
     tradeListingUnavailable,
   ]);
 
-  const roomTypeLabel =
-    domainChromePresentation?.roomTypeLabel ??
-    (isOpenGroupRoom
-      ? t("nav_messenger_open_group")
-      : isPrivateGroupRoom
-        ? t("nav_messenger_private_group")
-        : t("nav_messenger_direct_room"));
+  /** 모임 방 = 「모임 채팅방」/「일정 채팅방」 · 판정 중 = 빈칸(종류 칸 생략) (모임 R5 A6) */
+  const roomTypeLabel = moimSurface.roomTypeLabelKey
+    ? t(moimSurface.roomTypeLabelKey)
+    : moimSurface.hideRoomType
+      ? ""
+      : (domainChromePresentation?.roomTypeLabel ??
+        (isOpenGroupRoom
+          ? t("nav_messenger_open_group")
+          : isPrivateGroupRoom
+            ? t("nav_messenger_private_group")
+            : t("nav_messenger_direct_room")));
   const showTimelineMemberCountSuffix = domainChromePresentation?.showTimelineMemberCountSuffix ?? false;
   const timelineMemberCount = domainChromePresentation?.timelineMemberCount ?? 0;
   const roomSubtitle = isGroupRoom
@@ -277,25 +297,30 @@ export function useMessengerRoomPhase2RoomPresentation({
           },
         })
       : null;
-  const canInviteMembers = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canInviteMembers);
-  const myRoleLabel = snapshot
-    ? isOwner
-      ? t("nav_messenger_owner_label")
-      : t("nav_messenger_my_role_label", { role: snapshot.myRole })
-    : "";
+  const canInviteMembers = Boolean(isPrivateGroupRoom && messengerManagement && groupCaps?.canInviteMembers);
+  /** 모임 방 = 모임 역할(모임장·부모임장·운영진·멤버) · 판정 중 = 빈칸(칸 생략) (모임 R5 A2·A3) */
+  const myRoleLabel = !snapshot
+    ? ""
+    : moimSurface.viewerRoleKey
+      ? t(moimSurface.viewerRoleKey)
+      : moimSurface.hideViewerRole
+        ? ""
+        : isOwner
+          ? t("nav_messenger_owner_label")
+          : t("nav_messenger_my_role_label", { role: snapshot.myRole });
   const privateGroupNotice = snapshot?.room.noticeText?.trim() ?? "";
   /** 모임 방 공지는 모임 게시판 공지 하나 — 메신저 방 공지 편집 없음 (모임 4번 묶음 D1) */
   const canEditGroupNotice = Boolean(
-    (isPrivateGroupRoom || isOpenGroupRoom) && !isMoimRoom && groupCaps?.canEditNotice
+    (isPrivateGroupRoom || isOpenGroupRoom) && messengerManagement && groupCaps?.canEditNotice
   );
-  const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canEditGroupInfo);
+  const canEditPrivateGroupMeta = Boolean(isPrivateGroupRoom && messengerManagement && groupCaps?.canEditGroupInfo);
   /** 메시지 고정은 모임 방에서도 그대로 (방 설정이 아님) */
   const canPinGroupMessage = Boolean(isPrivateGroupRoom && groupCaps?.canEditGroupInfo);
-  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canUpdatePermissions);
+  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && messengerManagement && groupCaps?.canUpdatePermissions);
   const canManageMemberRoles = Boolean(
-    isPrivateGroupRoom && !isMoimRoom && (groupCaps?.canPromoteMember || groupCaps?.canDemoteAdmin)
+    isPrivateGroupRoom && messengerManagement && (groupCaps?.canPromoteMember || groupCaps?.canDemoteAdmin)
   );
-  const canKickGroupMembers = Boolean(isPrivateGroupRoom && !isMoimRoom && groupCaps?.canKickMembers);
+  const canKickGroupMembers = Boolean(isPrivateGroupRoom && messengerManagement && groupCaps?.canKickMembers);
   const canStartGroupCall = Boolean(
     isGroupRoom &&
       snapshot &&
@@ -399,6 +424,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     isOwner,
     isMoimRoom,
     moimRoomOwner,
+    moimSurface,
     roomTypeLabel,
     roomSubtitle,
     roomJoinLabel,

@@ -33,13 +33,20 @@ export function getSwipeActions(input: {
    * 나가기는 주문 상태와 무관하게 허용 (Owner 2026-11-10 「주문은 지워도 상관 없다」).
    */
   storeOrderCustomerList?: boolean;
+  /**
+   * 모임 방이거나 판정 중·실패(표면 규칙 `state !== "not_moim"`) — 나가기는 모임에서만 (모임 R5 A8 · Owner 결정 1·2).
+   * 확인창 「그룹 나가기」·서버 거부(409)를 만나지 않게 leave 를 뺀다.
+   */
+  moimManaged?: boolean;
 }): MessengerSwipeActionDef[] {
   void input.policyType;
   const { listContext } = input;
-  const omitLeave = shouldOmitSwipeLeaveAction({
-    viewerIsGroupOwner: Boolean(input.viewerIsGroupOwner),
-    viewerIsDeliveryStoreOwner: Boolean(input.viewerIsDeliveryStoreOwner),
-  });
+  const omitLeave =
+    Boolean(input.moimManaged) ||
+    shouldOmitSwipeLeaveAction({
+      viewerIsGroupOwner: Boolean(input.viewerIsGroupOwner),
+      viewerIsDeliveryStoreOwner: Boolean(input.viewerIsDeliveryStoreOwner),
+    });
 
   if (input.storeOrderCustomerList) {
     const actions: MessengerSwipeActionDef[] = [

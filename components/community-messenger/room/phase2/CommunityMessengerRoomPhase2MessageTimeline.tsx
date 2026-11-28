@@ -125,6 +125,11 @@ import {
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
 import { moimRoomMemberRoleKey } from "@/lib/moim/use-moim-room-owner";
 import {
+  buildRoomTimelineChipParts,
+  resolveMoimRoomSurfaceFromView,
+  resolveRoomReadonlyNotice,
+} from "@/lib/moim/moim-room-surface-policy";
+import {
   noteCmRoomR5TimelineComponentMount,
   noteCmRoomR5TimelineFirstRowDom,
 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
@@ -607,6 +612,22 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
    * 메시지마다 요청 없음(메신저 핫 경로). 일반 멤버·내 메시지·모임 방이 아니면 그대로.
    */
   const moimRoleOwnerForBubble = vm.isMoimRoom ? vm.moimRoomOwner : null;
+  /** 모임 방 표면 규칙 하나 (모임 R5 A §1) — 칩 조각·읽기 전용 이유 */
+  const moimSurface = useMemo(
+    () =>
+      resolveMoimRoomSurfaceFromView({
+        isPrivateGroupRoom: vm.isPrivateGroupRoom,
+        isMoimRoom: vm.isMoimRoom,
+        moimRoomOwner: vm.moimRoomOwner,
+        viewerUserId: vm.snapshot.viewerUserId,
+      }),
+    [vm.isPrivateGroupRoom, vm.isMoimRoom, vm.moimRoomOwner, vm.snapshot.viewerUserId]
+  );
+  const readonlyNoticeKey = resolveRoomReadonlyNotice({
+    roomStatus: vm.snapshot.room.roomStatus,
+    isReadonly: Boolean(vm.snapshot.room.isReadonly),
+    surface: moimSurface,
+  });
   const resolveMessageSenderLabel = useCallback(
     (message: Parameters<typeof resolveBaseMessageSenderLabel>[0]) => {
       const base = resolveBaseMessageSenderLabel(message);
@@ -1924,12 +1945,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           <div className="chat-timeline-chrome space-y-2.5 px-3 py-3 sm:px-4">
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
-              {vm.snapshot.room.roomStatus === "blocked"
-                ? vm.t("nav_messenger_room_blocked_notice")
-                : vm.snapshot.room.roomStatus === "archived"
-                  ? vm.t("nav_messenger_room_archived_notice")
-                  : vm.t("nav_messenger_room_restricted_notice")}
-              {vm.snapshot.room.isReadonly ? ` ${vm.t("nav_messenger_room_readonly_notice")}` : ""}
+              {/* 읽기 전용 이유 한 문장 — 모임 방은 종료·차단·삭제·일정 끝/취소, 그 밖 active 방은 읽기 전용 한 문장 (모임 R5 A16 · 신규1) */}
+              {readonlyNoticeKey
+                ? vm.t(readonlyNoticeKey)
+                : vm.snapshot.room.roomStatus === "blocked"
+                  ? vm.t("nav_messenger_room_blocked_notice")
+                  : vm.snapshot.room.roomStatus === "archived"
+                    ? vm.t("nav_messenger_room_archived_notice")
+                    : vm.t("nav_messenger_room_restricted_notice")}
+              {!readonlyNoticeKey && vm.snapshot.room.isReadonly ? ` ${vm.t("nav_messenger_room_readonly_notice")}` : ""}
             </div>
           ) : null}
           {(vm.managedDirectCallError || (vm.call.errorMessage && !vm.call.panel) || vm.groupCallAutoAcceptNotice) ? (
@@ -1938,18 +1962,21 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : null}
           <p className="mx-auto max-w-[min(100%,22rem)] rounded-full bg-[color:var(--cm-room-primary-soft)] px-3 py-1 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)]">
-            {vm.roomTypeLabel}
-            {vm.roomJoinLabel ? ` · ${vm.roomJoinLabel}` : ""}
-            {vm.roomIdentityLabel ? ` · ${vm.roomIdentityLabel}` : ""}
-            {vm.showTimelineMemberCountSuffix
-              ? /* 그룹 결함 D4: 앞 공백이 있는 번역 값은 화면 번역에서 잘린다 — 구분자는 다른 칩 줄과 같이 코드에서 붙인다 */
-                ` · ${vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })}`
-              : ""}
-            {vm.snapshot.room.myIdentityMode
-              ? ` · ${vm.t("nav_messenger_my_identity", {
-                  mode: vm.snapshot.room.myIdentityMode === "alias" ? vm.t("nav_messenger_identity_alias") : vm.t("nav_messenger_identity_real"),
-                })}`
-              : ""}
+            {/* 그룹 결함 D4: 구분자는 코드에서 · 빈 조각(판정 중 방 종류)·모임 방 「내 신원」 조각은 뺀다 (모임 R5 A6) */}
+            {buildRoomTimelineChipParts({
+              roomTypeLabel: vm.roomTypeLabel,
+              joinLabel: vm.roomJoinLabel,
+              roomIdentityLabel: vm.roomIdentityLabel,
+              memberCountLabel: vm.showTimelineMemberCountSuffix
+                ? vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })
+                : null,
+              myIdentityLabel: vm.snapshot.room.myIdentityMode
+                ? vm.t("nav_messenger_my_identity", {
+                    mode: vm.snapshot.room.myIdentityMode === "alias" ? vm.t("nav_messenger_identity_alias") : vm.t("nav_messenger_identity_real"),
+                  })
+                : null,
+              surface: moimSurface,
+            }).join(" · ")}
             {vm.isGroupRoom && isCmGroupCallEnabled() ? ` · ${vm.groupCallStatusLabel}` : ""}
           </p>
           {vm.tradeListingHeader ? (

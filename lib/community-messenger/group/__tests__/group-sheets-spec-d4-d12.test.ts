@@ -21,7 +21,9 @@ describe("D4 방 안내 칩 「비공개 그룹 · 2명」 띄어쓰기", () => 
     expect(safeTranslate("ko", "cm_ui_member_count_label" as never, { vars: { count: 2 } })).toBe("2명");
     expect(safeTranslate("en", "cm_ui_member_count_label" as never, { vars: { count: 2 } })).toBe("2 members");
     const src = read(TIMELINE);
-    expect(src).toContain('` · ${vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })}`');
+    /** 모임 R5 A6: 칩 조각을 배열로 모아 코드에서 「 · 」로 잇는다(빈 조각·앞 구분자 없음) — 숫자는 같은 공백 없는 키 (구조 확인) */
+    expect(src).toContain('vm.t("cm_ui_member_count_label", { count: vm.timelineMemberCount })');
+    expect(src).toContain('}).join(" · ")}');
     expect(src).not.toContain("cm_ui_member_count_suffix");
   });
 });

@@ -130,7 +130,7 @@ export type MoimAdminPolicyLabelRow = { code: string; label_ko: string; label_en
 export type MoimAdminReportReasonRow = MoimAdminPolicyLabelRow & { is_active: boolean };
 
 /**
- * 목록 항목 검사 (SQL 과 같은 규칙) — 코드 `^[a-z_]{2,40}$`·겹침 없음 · 한국어 이름 1~80자(필수) · 영어 이름 0~80자.
+ * 목록 항목 검사 (SQL 과 같은 규칙) — 코드 `^[a-z_]{2,40}$`·겹침 없음 · 한국어·영어 이름 1~80자(둘 다 필수 · R5 D20).
  * 신고 사유는 is_active 가 boolean 이어야 한다(없으면 켜짐). 틀리면 null.
  */
 export function parseMoimAdminPolicyRows(raw: unknown, kind: "prohibited_types"): MoimAdminPolicyLabelRow[] | null;
@@ -154,7 +154,8 @@ export function parseMoimAdminPolicyRows(raw: unknown, kind: "prohibited_types" 
     const ko = typeof o.label_ko === "string" ? o.label_ko.trim() : "";
     if (o.label_en != null && typeof o.label_en !== "string") return null;
     const en = typeof o.label_en === "string" ? o.label_en.trim() : "";
-    if (ko.length < 1 || ko.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN || en.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN) return null;
+    /** R5 D20: 영어 이름도 1~80자 필수 (비면 영어 화면에 코드가 보인다 · SQL moim_admin_policies_save 도 거부) */
+    if (ko.length < 1 || ko.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN || en.length < 1 || en.length > MOIM_ADMIN_POLICY_LABEL_MAX_LEN) return null;
     if (o.is_active != null && typeof o.is_active !== "boolean") return null;
     out.push({ code, label_ko: ko, label_en: en, is_active: o.is_active !== false });
   }
@@ -176,6 +177,22 @@ export function removedMoimReportReasonCodes(before: readonly { code: string }[]
   const keep = new Set(next.map((r) => r.code));
   return (before ?? []).map((r) => r.code).filter((c) => !keep.has(c));
 }
+
+/** R5 D6: 신고 사유는 하나 이상 켜져 있어야 저장할 수 있다 (SQL moim_policy_report_reason_none_active 와 같은 규칙) */
+export function moimPolicyReasonsHaveActive(rows: readonly { is_active?: boolean }[] | null | undefined): boolean {
+  return (rows ?? []).some((r) => r.is_active !== false);
+}
+
+/**
+ * R5 D19: 빈 칸일 때 SQL 이 쓰는 기본값 (`coalesce(policy.<key>, n)` 확인). 여기 없는 키는 빈 칸 = 검사·작업 안 함
+ * (SQL 이 `is not null and …` 로만 쓴다 — 2026-11-28 마이그레이션 확인).
+ */
+export const MOIM_ADMIN_POLICY_INT_DEFAULTS: Partial<Record<MoimAdminPolicyIntKey, number>> = {
+  name_min_len: 1,
+  name_max_len: 60,
+  intro_min_len: 0,
+  intro_max_len: 2000,
+};
 
 /** 사유 최소 글자 (SQL 은 공백만 아니면 통과 — 화면은 2자 이상) */
 export const MOIM_ADMIN_REASON_MIN_LENGTH = 2;
@@ -234,3 +251,258 @@ export function isMoimAdminListTab(v: unknown): v is MoimAdminListTab {
 export function pickEnum<T extends string>(list: readonly T[], v: unknown, fallback: T): T {
   return typeof v === "string" && (list as readonly string[]).includes(v) ? (v as T) : fallback;
 }
+
+// ── R5 (2026-11-28) 어드민 공통 판정 ─────────────────────────────────────────
+
+/**
+ * R5 D §1-1: 모임 어드민 RPC 오류 → HTTP 번호 (서버 `moimAdminRpcResponse` 와 시험이 같은 표를 읽는다).
+ * 404 는 「행이 정말 없음」만. 상태 때문에 못 하는 조치는 422(시트를 닫지 않고 그 코드 문장).
+ */
+export const MOIM_ADMIN_HTTP_409_CODES = ["moim_conflict", "moim_transfer_stale"] as const;
+export const MOIM_ADMIN_HTTP_404_CODES = [
+  "moim_not_found",
+  "moim_report_not_found",
+  "moim_sanction_not_found",
+  "moim_content_not_found",
+  "moim_transfer_not_found",
+  "moim_ban_not_found",
+] as const;
+export const MOIM_ADMIN_HTTP_422_CODES = [
+  "moim_closed",
+  "moim_deleted",
+  "moim_sanction_not_revocable",
+  "moim_sanction_already_active",
+  "moim_room_managed_by_moim",
+  "moim_content_author_deleted",
+  "moim_report_link_invalid",
+] as const;
+
+export function moimAdminHttpStatus(code: string): number {
+  if ((MOIM_ADMIN_HTTP_409_CODES as readonly string[]).includes(code)) return 409;
+  if ((MOIM_ADMIN_HTTP_404_CODES as readonly string[]).includes(code)) return 404;
+  if ((MOIM_ADMIN_HTTP_422_CODES as readonly string[]).includes(code)) return 422;
+  if (code === "moim_unknown") return 500;
+  return 400;
+}
+
+export type MoimAdminMoimStatus = "active" | "closed" | "deleted";
+
+/**
+ * R5 D §1-2: 모임 상태 → 어드민이 할 수 있는 조치 (SQL `moim__admin_assert_state` 와 1:1 · 최종 판정은 서버).
+ * 플랫폼 상태(추천 제외·경고·차단)는 어드민 조치를 막지 않는다 — 경고 중에도 모임장 지정·미접속 요청 승인 가능(Owner E18).
+ * 삭제된 모임은 복구 전까지 조회만 — 단 신고 처리의 이용 제한·기각은 된다.
+ */
+export type MoimAdminAllowedActions = {
+  /** 역할 변경 · 모임장 지정 · 미접속 요청 승인 — 운영 중만 */
+  roleAndHost: boolean;
+  /** 내보내기 · 차단 · 차단 해제 */
+  members: boolean;
+  /** 콘텐츠 숨김·숨김 해제·삭제·삭제 복구 · 일정 취소 */
+  content: boolean;
+  /** 모임 제재 적용 · 해제 */
+  sanctions: boolean;
+  /** 기본정보 수정 */
+  editInfo: boolean;
+  /** 신고 처리: 콘텐츠 숨김 · 모임 제재 */
+  reportContentOrMoim: boolean;
+  /** 신고 처리: 이용 제한 · 기각 */
+  reportRestrictOrDismiss: boolean;
+};
+
+export function moimAdminAllowedActions(status: string | null | undefined): MoimAdminAllowedActions {
+  const deleted = status === "deleted";
+  const closed = status === "closed";
+  return {
+    roleAndHost: !deleted && !closed,
+    members: !deleted,
+    content: !deleted,
+    sanctions: !deleted,
+    editInfo: !deleted,
+    reportContentOrMoim: !deleted,
+    reportRestrictOrDismiss: true,
+  };
+}
+
+/** R5 D2: 제재 이력 대상 종류 필터 — user = 이용 제한(대상 host·member) */
+export const MOIM_ADMIN_SANCTION_KINDS = ["all", "moim", "content", "user"] as const;
+export type MoimAdminSanctionKind = (typeof MOIM_ADMIN_SANCTION_KINDS)[number];
+
+/** 뷰 `moim_admin_sanction_rows_v.live_state` (리드 결정 1 — 읽을 때 연결된 커뮤니티 제재·콘텐츠 상태를 붙여 읽는다) */
+export const MOIM_ADMIN_SANCTION_LIVE_STATES = ["active", "expired", "revoked", "lifted", "unlinked"] as const;
+export type MoimAdminSanctionLiveState = (typeof MOIM_ADMIN_SANCTION_LIVE_STATES)[number];
+
+export type MoimAdminSanctionRowInput = {
+  target_kind: string;
+  target_id: string;
+  level: string;
+  revoked_at: string | null;
+  ends_at: string | null;
+  live_state?: string | null;
+  report_target_type?: string | null;
+  community_sanction_id?: string | null;
+};
+
+export type MoimAdminSanctionFollowUp = "content_posts" | "content_album" | "schedule_none" | "message_admin" | "user_restrictions" | null;
+
+export type MoimAdminSanctionRowView = {
+  kind: "moim" | "content" | "user";
+  /** 화면 상태 — unlinked(연결 안 된 옛 이용 제한 행)는 지금 ends_at·revoked_at 기준으로 보인다 */
+  state: "active" | "expired" | "revoked" | "lifted";
+  /** 「해제」 버튼 — 모임 단위 행이 진행 중이고 모임이 삭제가 아닐 때만 */
+  revocable: boolean;
+  followUp: MoimAdminSanctionFollowUp;
+};
+
+function timeState(row: { revoked_at: string | null; ends_at: string | null }, nowMs: number): "active" | "expired" | "revoked" {
+  if (row.revoked_at) return "revoked";
+  if (row.ends_at && Date.parse(row.ends_at) <= nowMs) return "expired";
+  return "active";
+}
+
+/** R5 D §1-3: 제재 행 보기 하나 — 모임 상세 「제재」 탭과 「제재 이력」 화면이 같이 쓴다 */
+export function moimSanctionRowView(row: MoimAdminSanctionRowInput, moimStatus: string | null | undefined, nowMs: number = Date.now()): MoimAdminSanctionRowView {
+  const kind: MoimAdminSanctionRowView["kind"] = row.target_kind === "moim" ? "moim" : row.target_kind === "content" ? "content" : "user";
+  const live = (MOIM_ADMIN_SANCTION_LIVE_STATES as readonly string[]).includes(row.live_state ?? "") ? (row.live_state as MoimAdminSanctionLiveState) : null;
+  const state: MoimAdminSanctionRowView["state"] = live && live !== "unlinked" ? live : timeState(row, nowMs);
+  let followUp: MoimAdminSanctionFollowUp = null;
+  if (kind === "user") followUp = "user_restrictions";
+  if (kind === "content") {
+    const t = row.report_target_type;
+    followUp = t === "album" ? "content_album" : t === "schedule" ? "schedule_none" : t === "chat_message" ? "message_admin" : "content_posts";
+  }
+  return { kind, state, revocable: kind === "moim" && state === "active" && moimStatus !== "deleted", followUp };
+}
+
+/** R5 D §1-3: 후속 처리 링크 (없으면 null — 일정 취소는 되돌릴 수 없어 글만) */
+export function moimSanctionFollowUpHref(
+  view: MoimAdminSanctionRowView,
+  row: { moim_id?: string | null; target_id: string; community_sanction_id?: string | null },
+  ctx: { moimId: string; chatRoomId?: string | null }
+): string | null {
+  const moim = encodeURIComponent(row.moim_id || ctx.moimId);
+  switch (view.followUp) {
+    case "content_posts":
+      return `/admin/community/moims/${moim}?tab=posts`;
+    case "content_album":
+      return `/admin/community/moims/${moim}?tab=album`;
+    case "message_admin":
+      return ctx.chatRoomId ? `/admin/chats/messenger/${encodeURIComponent(ctx.chatRoomId)}` : `/admin/community/moims/${moim}?tab=chats`;
+    case "user_restrictions": {
+      const qs = new URLSearchParams({ userId: row.target_id });
+      if (row.community_sanction_id) qs.set("sanctionId", row.community_sanction_id);
+      return `/admin/community/restrictions?${qs.toString()}`;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
+ * R5 D17: 운영기록 종류 (moim_events.type) — 마이그레이션이 남기는 값 전부. 화면은 `admin_moim_event_<type>` 문구,
+ * 모르는 값은 「기타 기록」 + 원래 값은 접힌 기술 정보에만. 시험이 「마이그레이션 문자열 ⊂ 이 목록」을 확인한다.
+ */
+export const MOIM_EVENT_TYPES = [
+  "created",
+  "info_updated",
+  "closed",
+  "closed_retention_ended",
+  "member_joined",
+  "member_left",
+  "member_removed",
+  "member_banned",
+  "member_unbanned",
+  "role_changed",
+  "permissions_updated",
+  "host_changed",
+  "host_transfer_requested",
+  "host_transfer_declined",
+  "host_transfer_cancelled",
+  "host_inactive_requested",
+  "join_requested",
+  "join_approved",
+  "join_rejected",
+  "join_cancelled",
+  "join_expired",
+  "invite_sent",
+  "invite_declined",
+  "invite_link_created",
+  "invite_link_revoked",
+  "board_saved",
+  "board_reordered",
+  "post_created",
+  "post_updated",
+  "post_hidden",
+  "post_deleted",
+  "post_pinned",
+  "post_unpinned",
+  "comment_created",
+  "comment_hidden",
+  "comment_deleted",
+  "album_added",
+  "album_hidden",
+  "album_deleted",
+  "album_pinned",
+  "album_unpinned",
+  "profile_updated",
+  "note_set",
+  "note_deleted",
+  "report_created",
+  "sanction_expired",
+  "sanction_dedup",
+  "schedule_created",
+  "schedule_updated",
+  "schedule_cancelled",
+  "schedule_done",
+  "schedule_closed",
+  "schedule_reopened",
+  "schedule_requested",
+  "schedule_approved",
+  "schedule_rejected",
+  "schedule_joined",
+  "schedule_left",
+  "schedule_participant_removed",
+  "schedule_host_reassigned",
+  "schedule_room_archived",
+  "attendance_set",
+  "admin_info_updated",
+  "admin_deleted",
+  "admin_restored",
+  "admin_role_changed",
+  "admin_host_assigned",
+  "admin_host_request_approved",
+  "admin_host_request_declined",
+  "admin_member_removed",
+  "admin_member_banned",
+  "admin_member_unbanned",
+  "admin_sanction_applied",
+  "admin_sanction_revoked",
+  "admin_schedule_cancelled",
+  "admin_report_reviewing",
+  "admin_report_actioned",
+  "admin_report_dismissed",
+  "admin_post_hide",
+  "admin_post_restore",
+  "admin_post_delete",
+  "admin_post_undelete",
+  "admin_comment_hide",
+  "admin_comment_restore",
+  "admin_comment_delete",
+  "admin_comment_undelete",
+  "admin_album_hide",
+  "admin_album_restore",
+  "admin_album_delete",
+  "admin_album_undelete",
+  "admin_category_created",
+  "admin_category_updated",
+  "admin_policies_updated",
+  "admin_messenger_message_hidden",
+  "admin_messenger_message_unhidden",
+] as const;
+export type MoimEventType = (typeof MOIM_EVENT_TYPES)[number];
+
+export function isMoimEventType(v: unknown): v is MoimEventType {
+  return typeof v === "string" && (MOIM_EVENT_TYPES as readonly string[]).includes(v);
+}
+
+/** R5 D27: 이용 제한 「대상」 이름 — 신고 대상 종류마다 (모임 대상은 SQL 이 모임장을 대상으로 잡는다) */
+export const MOIM_ADMIN_WHO_TARGET_TYPES = ["member", "post", "comment", "album", "schedule", "chat_message"] as const;

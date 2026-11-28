@@ -58,6 +58,8 @@ describe("A-09 초대 수락·위임 수락 = 가입 버튼과 같은 이용 제
       };
     });
     vi.doMock("@/lib/auth/require-registration-for-action.server", () => ({ requireRegistrationForAction: async () => null }));
+    /** R5 B5: 초대 수락 분기는 라우트가 약관을 확인한다(거절은 동의 예외) — 이 시험은 이용 제한만 보므로 약관은 통과 */
+    vi.doMock("@/lib/auth/require-signup-complete-api", () => ({ requireSignupCompleteForUser: async () => ({ ok: true }) }));
     vi.doMock("@/lib/moim/server/moim-rpc.server", async () => {
       const actual = await vi.importActual<Record<string, unknown>>("@/lib/moim/server/moim-rpc.server");
       return { ...actual, moimInviteRespond: respond, moimHostTransferRespond: respond };

@@ -4,7 +4,8 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { updateCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
-import { MOIM_ROOM_READONLY_MANAGED_BY_MOIM, rejectsMoimRoomReadonlyAction } from "@/lib/admin-community-messenger/moim-room-admin-guard";
+import { MOIM_ROOM_MANAGED_BY_MOIM, rejectsMoimRoomAdminAction } from "@/lib/admin-community-messenger/moim-room-admin-guard";
+import { resolveMoimRooms } from "@/lib/admin/moim/moim-room-ref.server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import {
   ADMIN_FORCE_END_REASON_PREFIX,
@@ -325,6 +326,8 @@ export type AdminCommunityMessengerRoomDetail = {
   };
   /** R1-B: 주문·거래 도메인 역링크 (없으면 null 필드) */
   domainRef: AdminCmRoomDomainRef;
+  /** R5 D23·D5: 모임 방·일정 방이면 그 모임 (아니면 null) — 화면은 방 차단·보관·읽기 전용 버튼 대신 「모임 어드민에서」 안내 */
+  moimRef?: { moimId: string; scheduleId: string | null } | null;
   participants: Array<{
     id: string;
     userId: string;
@@ -909,12 +912,22 @@ export async function getAdminCommunityMessengerRoomDetail(
   const { data: roomData } = await (sb() as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at, chat_domain, domain_identity_key, direct_key"
+      "id, room_type, room_status, visibility, join_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, password_hash, last_message, last_message_at, last_message_type, created_at, updated_at, admin_note, moderated_by, moderated_at, chat_domain, domain_identity_key, direct_key, owner_domain"
     )
     .eq("id", roomId)
     .maybeSingle();
   const room = roomData as RoomRow | null;
   if (!room) return null;
+  /** R5 D23·D5: 모임 방·일정 방이면 모임 연결 (모임 방이 아니면 조회 없음) */
+  let moimRef: { moimId: string; scheduleId: string | null } | null = null;
+  if ((roomData as { owner_domain?: unknown }).owner_domain === "moim") {
+    try {
+      const ref = (await resolveMoimRooms(sb() as never, [roomId])).get(roomId);
+      moimRef = ref ? { moimId: ref.moimId, scheduleId: ref.scheduleId } : null;
+    } catch {
+      moimRef = null;
+    }
+  }
 
   const [{ data: participantData }, messagePage, { data: callData }, { data: reportData }, { data: sessionData }, { data: sessionParticipantData }, { data: auditData }] = await Promise.all([
     (sb() as any)
@@ -1007,6 +1020,7 @@ export async function getAdminCommunityMessengerRoomDetail(
       directKey: t(room.direct_key),
     },
     domainRef,
+    moimRef,
     participants: participants.map((participant) => ({
       id: participant.id,
       userId: participant.user_id,
@@ -1067,9 +1081,9 @@ export async function runAdminCommunityMessengerRoomAction(input: {
     .select("id, owner_domain, room_status, is_readonly, admin_note, moderated_by, moderated_at")
     .eq("id", input.roomId)
     .maybeSingle();
-  /** 모임 방 읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · DB 트리거도 막는다) */
-  if (rejectsMoimRoomReadonlyAction(beforeData as { owner_domain?: unknown } | null, input.action)) {
-    return { ok: false, error: MOIM_ROOM_READONLY_MANAGED_BY_MOIM };
+  /** 모임 방의 차단·보관·읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · R5 D5 · DB 트리거도 막는다) */
+  if (rejectsMoimRoomAdminAction(beforeData as { owner_domain?: unknown } | null, input.action)) {
+    return { ok: false, error: MOIM_ROOM_MANAGED_BY_MOIM };
   }
 
   const { error } = await client

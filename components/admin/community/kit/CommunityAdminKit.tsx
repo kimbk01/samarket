@@ -339,15 +339,18 @@ export function CommunityListBody<E extends string = string>({
   filteredEmptyMessage?: string;
   children: ReactNode;
 }) {
+  /** R5 D18: 로딩·실패 안내도 앱 언어로 (영어 어드민에 한국어가 보이던 결함) */
+  const { language } = useI18n();
+  const ko = language !== "en";
   const hasData = state.data !== null && state.data !== undefined;
-  if (state.status === "loading" && !hasData) return <AdminLoadingState ko />;
+  if (state.status === "loading" && !hasData) return <AdminLoadingState ko={ko} />;
   if (state.status === "error" && (!hasData || empty)) {
-    return <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={onRetry} />;
+    return <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={onRetry} />;
   }
   return (
     <>
       {state.status === "error" ? (
-        <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={onRetry} />
+        <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={onRetry} />
       ) : null}
       {empty ? <CommunityListEmpty lq={lq} message={emptyMessage} filteredMessage={filteredEmptyMessage} /> : children}
     </>

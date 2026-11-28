@@ -11,7 +11,9 @@ import { DIBAY_TOAST_MS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
 import { moimApi, moimErrorKey, moimRoutes } from "@/lib/moim/moim-client-api";
-import { MOIM_LIST_CAP, type MoimApiResult, type MoimDetailDto } from "@/lib/moim/moim-api-types";
+import { MOIM_LIST_CAP, MOIM_MEMBER_LIST_CAP, type MoimApiResult, type MoimDetailDto } from "@/lib/moim/moim-api-types";
+import { moimRoleRank, type MoimAction, type MoimRole } from "@/lib/moim/moim-permission-contract";
+import { moimManageBlockReason } from "@/lib/moim/moim-state-gate";
 
 /**
  * 모임 운영 화면 공통 — 상세 불러오기·머리글·로딩/오류/권한 없음·토스트·사람 행.
@@ -34,23 +36,39 @@ export function canOpenMoimMembers(detail: MoimDetailDto): boolean {
 }
 
 /**
- * 운영 허브(`/moim/[id]/manage`)에 들어갈 항목이 하나라도 있는가 — 허브 항목 조건과 같다(없으면 허브는 「권한 없음」).
+ * 운영 허브를 여는 권한 — 단일 목록 (R5 C1·C22). 모임 ⋮ 「운영 관리」와 운영 화면 「뒤로」가 같이 쓴다.
+ * 멤버 기본 권한 `send_invite`(친구 초대)는 넣지 않는다 — 일반 멤버의 초대 화면 뒤로 = 모임 홈.
+ */
+export const MOIM_MANAGE_HUB_ACTIONS: readonly MoimAction[] = [
+  "edit_info",
+  "decide_join",
+  "manage_invite_link",
+  "manage_boards",
+  "hide_post",
+  "remove_member",
+  "ban_member",
+  "write_note",
+  "set_role",
+  "transfer_host",
+  "close",
+];
+
+/**
+ * 운영 허브(`/moim/[id]/manage`)를 열 수 있는가 — 위 목록 + 위임 화면 + 미접속 모임장 변경 요청.
  * R4 #17: 바로 연 운영 화면의 뒤로는 이 값이 false 면 허브 대신 모임 홈으로.
  */
 export function canOpenMoimManageHub(detail: MoimDetailDto): boolean {
-  const c = detail.can;
-  return (
-    c.decide_join ||
-    canOpenMoimMembers(detail) ||
-    c.edit_info ||
-    c.manage_invite_link ||
-    c.send_invite ||
-    c.manage_boards ||
-    c.hide_post ||
-    canOpenMoimTransfer(detail) ||
-    canRequestMoimHostChange(detail) ||
-    c.close
-  );
+  return MOIM_MANAGE_HUB_ACTIONS.some((a) => detail.can[a]) || canOpenMoimTransfer(detail) || canRequestMoimHostChange(detail);
+}
+
+/** 「{role} 이상」 문구 — 모임장이면 「모임장만」 (R5 C12). 게시판·권한 화면 4곳이 같이 쓴다 */
+export function moimRoleAtLeastLabel(
+  role: MoimRole,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
+  variant: "chip" | "board_write" = "chip"
+): string {
+  if (role === "host") return t(variant === "chip" ? "moim_manage_perm_host_only_chip" : "moim_manage_board_write_role_host_only");
+  return t(variant === "chip" ? "moim_manage_perm_role_or_above_chip" : "moim_manage_board_write_role", { role: t(moimRoleKey(role)) });
 }
 
 /** R4 #17: 운영 화면 뒤로 — 지정값 > (상세를 받았고 허브 권한이 없으면) 모임 홈 > 운영 허브 */
@@ -121,7 +139,7 @@ export function MoimManageFrame({
         allow(state.data.moim) ? (
           children({ detail: state.data.moim, reload })
         ) : (
-          <MoimManageForbidden moimId={moimId} />
+          <MoimManageForbidden moimId={moimId} detail={state.data.moim} />
         )
       ) : null}
     </div>
@@ -149,12 +167,23 @@ export function MoimManageError({ errorKey, onRetry }: { errorKey: MessageKey; o
   );
 }
 
-export function MoimManageForbidden({ moimId }: { moimId: string }) {
+/**
+ * 운영 화면을 못 여는 이유. R5 C16: 권한이 아니라 모임 상태(종료·차단) 때문이면 그 이유를 쓴다.
+ */
+export function moimManageForbiddenKeys(detail: MoimDetailDto | null | undefined): { title: MessageKey; body: MessageKey } {
+  const reason = moimManageBlockReason(detail);
+  if (reason === "closed") return { title: "moim_manage_closed_title", body: "moim_manage_closed_body" };
+  if (reason === "blocked") return { title: "moim_manage_blocked_title", body: "moim_manage_blocked_body" };
+  return { title: "moim_manage_forbidden_title", body: "moim_manage_forbidden_body" };
+}
+
+export function MoimManageForbidden({ moimId, detail }: { moimId: string; detail?: MoimDetailDto | null }) {
   const { t } = useI18n();
+  const keys = moimManageForbiddenKeys(detail);
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-16 text-center">
-      <p className="text-[16px] font-semibold text-sam-fg">{t("moim_manage_forbidden_title")}</p>
-      <p className="text-[14px] text-sam-muted">{t("moim_manage_forbidden_body")}</p>
+      <p className="text-[16px] font-semibold text-sam-fg">{t(keys.title)}</p>
+      <p className="text-[14px] text-sam-muted">{t(keys.body)}</p>
       <Link href={moimRoutes.home(moimId)} className={`${moimCls.btnSecondary} ${moimCls.btnSm} mt-2`}>
         {t("moim_manage_back_to_group_btn")}
       </Link>
@@ -197,6 +226,30 @@ export function useMoimManageToast() {
 
 /** 역할 배지·아바타·역할 키는 모임 공용 부품 하나 (D-8 · R3 U-08) — 운영 화면은 여기서 다시 내보낸다 */
 export { MoimAvatar, MoimRoleBadge, moimRoleKey } from "@/components/moim/moim-ui";
+import { moimRoleKey } from "@/components/moim/moim-ui";
+
+/**
+ * R5 C14: 사람 목록(멤버·가입 신청·차단·일정 참여자)이 상한에 닿았을 때 — 사람 단위 「명」. 링크·메모는 `MoimListCappedHint`(「개」).
+ * cap 기본 = 멤버 상한(1,000명), 그 밖 사람 목록은 `MOIM_LIST_CAP`(500)을 넘긴다.
+ */
+export function MoimPeopleCappedHint({ show, cap = MOIM_MEMBER_LIST_CAP }: { show: boolean | undefined; cap?: number }) {
+  const { t } = useI18n();
+  if (!show) return null;
+  return <p className="px-4 pt-2 text-[12px] text-sam-meta">{t("moim_list_capped_people_hint", { count: cap })}</p>;
+}
+
+/**
+ * R5 C13: 메모를 고칠 수 있는가 — 「write_note 가진 사람이, 자기보다 낮은 역할의 다른 멤버에게만」 (멤버 탭·메모 탭·서버 같은 규칙).
+ * 그 밖의 메모는 볼 수만 있다.
+ */
+export function moimCanEditMemberNote(
+  x: { canWriteNote: boolean; viewerRole: MoimRole | null; myId: string | null },
+  target: { userId: string; role: MoimRole }
+): boolean {
+  if (!x.canWriteNote) return false;
+  if (x.myId && target.userId === x.myId) return false;
+  return moimRoleRank(target.role) < moimRoleRank(x.viewerRole);
+}
 
 /** 영어 단수 — 수가 1이면 `_one` 키 (모임 선례 `formatMoimCount` 와 같은 방식 · R3 U-09) */
 export function moimCountKey(count: number, other: MessageKey, one: MessageKey): MessageKey {

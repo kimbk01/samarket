@@ -35,6 +35,8 @@ function makeVm(opts: { canEdit: boolean; isMuted?: boolean }) {
     isGroupRoom: true,
     isPrivateGroupRoom: true,
     isMoimRoom: false,
+    /** 모임 R5: 서랍은 표면 규칙(isMoimRoom + moimRoomOwner)으로 메신저 관리 카드를 정한다 — 일반 비공개 그룹 = 판정 끝·모임 방 아님 */
+    moimRoomOwner: null,
     isOwner: opts.canEdit,
     canEditPrivateGroupMeta: opts.canEdit,
     canInviteMembers: true,

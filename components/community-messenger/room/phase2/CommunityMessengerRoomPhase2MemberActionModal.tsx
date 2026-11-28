@@ -7,6 +7,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -16,7 +17,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import { moimRoomMemberRoleKey } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurfaceFromView } from "@/lib/moim/moim-room-surface-policy";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -63,11 +64,23 @@ const MessengerCallChoiceSheetLazy = lazy(
 export function CommunityMessengerRoomPhase2MemberActionModal() {
   const vm = useMessengerRoomPhase2SheetsView();
   const memberActionTarget = vm.memberActionTarget;
-  /** 모임 방 = 메신저 역할(방장·부방장) 대신 모임 역할 (모임 R4 #18 · 이미 받은 /api/moim/rooms 응답 · 추가 요청 0) */
-  const moimOwner = vm.isMoimRoom ? vm.moimRoomOwner : null;
-  const moimRoleKey = memberActionTarget ? moimRoomMemberRoleKey(moimOwner, memberActionTarget.id) : null;
-  /** 모임 방 [1:1 대화]는 모임 권한 start_dm 을 따른다 (모임 R4 §5(b)③ · D-45). [통화]는 통화 규정 대상이라 그대로 */
-  const showStartDirectChat = !moimOwner || moimOwner.canStartDm !== false;
+  /**
+   * 모임 방 표면 규칙 하나 (모임 R5 A §1). 모임 방 = 메신저 역할 대신 모임 역할(모임 R4 #18 · 추가 요청 0) ·
+   * 판정 중 = 역할 줄·3칸 표·[1:1] 없음(A7·A22). [통화]는 통화 규정 대상이라 그대로.
+   */
+  const moimSurface = useMemo(
+    () =>
+      resolveMoimRoomSurfaceFromView({
+        isPrivateGroupRoom: vm.isPrivateGroupRoom,
+        isMoimRoom: vm.isMoimRoom,
+        moimRoomOwner: vm.moimRoomOwner,
+        viewerUserId: vm.snapshot?.viewerUserId,
+      }),
+    [vm.isPrivateGroupRoom, vm.isMoimRoom, vm.moimRoomOwner, vm.snapshot?.viewerUserId]
+  );
+  const moimRoleKey = memberActionTarget ? moimSurface.memberRoleKey(memberActionTarget.id) : null;
+  /** 모임 방 [1:1 대화]는 모임 권한 start_dm 을 따른다 (모임 R4 §5(b)③ · D-45) · 판정 중에는 숨김 */
+  const showStartDirectChat = moimSurface.startDirectChat;
   /** 멤버에게 1:1 통화 — 통화 시트 (발신 창 통일 3판) */
   const [callSheetOpen, setCallSheetOpen] = useState(false);
   useEffect(() => {
@@ -82,17 +95,20 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
           title={moimRoleKey ? `${memberActionTarget.label} · ${vm.t(moimRoleKey)}` : memberActionTarget.label}
         >
             <p className={OverlayUi.caption}>{vm.t("cm_ui_member_actions")}</p>
-            <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
-              {moimOwner
-                ? vm.t(moimRoleKey ?? "moim_role_member")
-                : memberActionTarget.memberRole === "admin"
-                ? vm.t("nav_messenger_admin")
-                : vm.snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)
-                  ? vm.t("nav_messenger_owner")
-                  : vm.t("nav_messenger_member")}
-              {memberActionTarget.identityMode === "alias" ? ` · ${vm.t("cm_ui_nickname_profile")}` : ""}
-            </p>
-            {vm.isPrivateGroupRoom ? (
+            {moimSurface.state === "pending" ? null : (
+              <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
+                {moimSurface.state === "moim"
+                  ? vm.t(moimRoleKey ?? "moim_role_member")
+                  : memberActionTarget.memberRole === "admin"
+                  ? vm.t("nav_messenger_admin")
+                  : vm.snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)
+                    ? vm.t("nav_messenger_owner")
+                    : vm.t("nav_messenger_member")}
+                {/* 「닉네임 프로필」 = 메신저 관리 방만 (모임 R5 A7) */}
+                {memberActionTarget.identityMode === "alias" && moimSurface.messengerManagement ? ` · ${vm.t("cm_ui_nickname_profile")}` : ""}
+              </p>
+            )}
+            {vm.isPrivateGroupRoom && moimSurface.messengerManagement ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-surface)] px-3 py-2">
                   <p className={OverlayUi.caption}>{vm.t("cm_ui_change_role")}</p>

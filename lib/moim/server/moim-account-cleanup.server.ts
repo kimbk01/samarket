@@ -2,8 +2,8 @@ import "server-only";
 
 import type { SupabaseServer } from "@/lib/chat/supabase-server";
 import { moimAccountCleanup } from "@/lib/moim/server/moim-rpc.server";
-import { listActiveMoimMemberIds, loadMoimName } from "@/lib/moim/server/moim-queries.server";
-import { moimPaths, notifyMoimMany } from "@/lib/moim/server/moim-notify.server";
+import { listActiveMoimMemberIds } from "@/lib/moim/server/moim-queries.server";
+import { notifyMoimHostChanged } from "@/lib/moim/server/moim-notify.server";
 
 /**
  * 회원 탈퇴·영구 삭제 전 모임 정리 (설계 P8 · 2026-11-27 감사 B8).
@@ -15,17 +15,12 @@ export async function runMoimAccountCleanup(sb: SupabaseServer, userId: string):
   const r = await moimAccountCleanup(userId, sb);
   if (!r.ok) return { ok: false, error: r.error };
   for (const h of r.handovers ?? []) {
-    const [members, moim, host] = await Promise.all([
-      listActiveMoimMemberIds(sb, h.moim_id),
-      loadMoimName(sb, h.moim_id),
-      sb.from("moim_members").select("nickname").eq("moim_id", h.moim_id).eq("user_id", h.to_user_id).maybeSingle(),
-    ]);
-    await notifyMoimMany(sb, members, {
-      kind: "moim_host_changed",
-      moimId: h.moim_id,
-      linkUrl: moimPaths.home(h.moim_id),
-      dedupeRef: `account_withdrawal:${h.moim_id}:${userId}`,
-      vars: { moim, name: ((host.data as { nickname?: string } | null)?.nickname ?? "").trim() },
+    /** R5 E16·E4: 이름은 DB 가 돌려준 모임 닉네임, 삭제 모임은 보내지 않음 (notifyMoimHostChanged 하나로) */
+    if (h.moim_status === "deleted") continue;
+    const members = await listActiveMoimMemberIds(sb, h.moim_id);
+    await notifyMoimHostChanged(sb, h.moim_id, h.to_user_id, members, `account_withdrawal:${h.moim_id}:${userId}`, {
+      ...(h.to_nickname !== undefined ? { toNickname: h.to_nickname ?? "" } : {}),
+      moimStatus: h.moim_status ?? null,
     });
   }
   return { ok: true };

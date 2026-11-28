@@ -27,14 +27,17 @@ import type {
   MoimInviteLinkDto,
   MoimJoinRequestDto,
   MoimMemberDto,
+  MoimMyContentItemDto,
+  MoimMyContentType,
   MoimPostDto,
   MoimReceivedInviteDto,
   MoimViewerAreaDto,
 } from "@/lib/moim/moim-api-types";
 import { MOIM_TEXT_LIMITS_FALLBACK, type MoimTextLimitsDto } from "@/lib/moim/moim-api-types";
 /** R4 #6: 운영 목록 상한(가입 신청·차단·초대 링크·메모) — 화면 안내와 같은 값 */
-import { MOIM_LIST_CAP, moimListCapped } from "@/lib/moim/moim-api-types";
-import { normalizeMoimSearchQuery } from "@/lib/moim/moim-search-query";
+import { MOIM_LIST_CAP, MOIM_MEMBER_LIST_CAP, moimListCapped } from "@/lib/moim/moim-api-types";
+import { moimSearchTerm, normalizeMoimSearchQuery } from "@/lib/moim/moim-search-query";
+import { moimViewable } from "@/lib/moim/moim-view-rule";
 import { activeMoimReportReasons, parseMoimPolicyLabelItems, parseMoimReportReasons, type MoimReportReasonItem } from "@/lib/moim/moim-report-reasons";
 
 /**
@@ -349,7 +352,8 @@ export async function listLocalMoims(
   // 운영 정책 inactive_unlist_days: 마지막 활동이 N일 지난 모임은 동네 목록·검색에서 뺀다 (상태 변경 없음 — 활동이 생기면 바로 다시 보임)
   const inactiveDays = await loadMoimInactiveUnlistDays(sb);
   if (inactiveDays) query = query.gte("last_activity_at", new Date(Date.now() - inactiveDays * 86_400_000).toISOString());
-  const q = (opts.q ?? "").trim().replace(/[%_,()]/g, " ").slice(0, 40);
+  /** R5 E17: 글자·숫자·공백만 (PostgREST or() 예약 문자·ilike 와일드카드 제거 — 단일 정리 함수) */
+  const q = moimSearchTerm(opts.q);
   const cursor = parseMoimTimeCursor(opts.before);
   if (cursor === "invalid") return { items: [], nextBefore: null };
   const searchExpr = q ? `name.ilike.%${q}%,intro.ilike.%${q}%,topic_label.ilike.%${q}%` : null;
@@ -420,24 +424,33 @@ async function toPosts(sb: SupabaseServer, moimId: string, rows: PostRow[], view
   if (!rows.length) return [];
   const [authors, boards] = await Promise.all([
     authorMap(sb, moimId, rows.map((r) => r.author_id)),
-    sb.from("moim_boards").select("id, kind").eq("moim_id", moimId),
+    sb.from("moim_boards").select("id, kind, name").eq("moim_id", moimId),
   ]);
-  const kindById = new Map(((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"] }[]).map((b) => [b.id, b.kind]));
-  return postsFrom(rows, viewerId, authors, kindById);
+  return postsFrom(rows, viewerId, authors, boardInfoMap(boards.data));
 }
 
-/** 글 행 → 화면 값 (작성자·게시판 종류는 미리 읽은 값 — 상세 API 가 다시 읽지 않게, 감사 E3) */
+type BoardInfo = { kind: MoimBoardDto["kind"]; name: string | null };
+
+/** 게시판 id → 종류·이름 (R5 B19: 비멤버 공개 글도 사용자 게시판 이름을 보인다) */
+function boardInfoMap(rows: unknown): Map<string, BoardInfo> {
+  return new Map(
+    ((rows ?? []) as { id: string; kind: MoimBoardDto["kind"]; name?: string | null }[]).map((b) => [b.id, { kind: b.kind, name: b.name ?? null }])
+  );
+}
+
+/** 글 행 → 화면 값 (작성자·게시판은 미리 읽은 값 — 상세 API 가 다시 읽지 않게, 감사 E3) */
 function postsFrom(
   rows: PostRow[],
   viewerId: string | null,
   authors: Map<string, MoimAuthorDto>,
-  kindById: Map<string, MoimBoardDto["kind"]>
+  boardById: Map<string, BoardInfo>
 ): MoimPostDto[] {
   return rows.map((r) => ({
     id: r.id,
     moimId: r.moim_id,
     boardId: r.board_id,
-    boardKind: kindById.get(r.board_id) ?? "free",
+    boardKind: boardById.get(r.board_id)?.kind ?? "free",
+    boardName: boardById.get(r.board_id)?.name ?? null,
     title: r.title,
     body: r.body,
     images: imagesOf(r.images),
@@ -473,9 +486,8 @@ async function loadOverrides(sb: SupabaseServer, moimId: string): Promise<Partia
 
 /** 모임을 볼 수 있는가 (삭제 모임 불가, 종료 모임은 탈퇴 안 한 멤버만 · 열람 기간(운영 정책)이 끝나면 아무도 못 봄 — 설계 P15) */
 function canViewMoim(m: MoimRow, me: MemberRow | null): boolean {
-  if (m.status === "deleted") return false;
-  if (m.status === "closed") return !m.retention_ended_at && !!me && me.status === "active";
-  return true;
+  /** R5 E4: 규칙은 moim-view-rule 하나 (알림 이동 위치와 같은 판정) */
+  return moimViewable({ status: m.status, retentionEndedAt: m.retention_ended_at }, !!me && me.status === "active");
 }
 
 export type MoimAccess = { moim: MoimRow; me: MemberRow | null; role: MoimRole | null; overrides: Partial<Record<MoimAction, MoimRole>> };
@@ -518,8 +530,17 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     viewerId && !isMember
       ? sb.from("moim_bans").select("id").eq("moim_id", moim.id).eq("user_id", viewerId).is("released_at", null).maybeSingle()
       : Promise.resolve({ data: null }),
+    /** R5 C5 (BC R-H): 받은 요청·보낸 요청을 한 번에 — 모임당 열린 요청은 1개(고유 인덱스), 요청 추가 0 */
     viewerId
-      ? sb.from("moim_host_transfers").select("id").eq("moim_id", moim.id).eq("to_user_id", viewerId).eq("kind", "direct").eq("status", "requested").maybeSingle()
+      ? sb
+          .from("moim_host_transfers")
+          .select("id, from_user_id, to_user_id, created_at")
+          .eq("moim_id", moim.id)
+          .eq("kind", "direct")
+          .eq("status", "requested")
+          .or(`to_user_id.eq.${viewerId},from_user_id.eq.${viewerId}`)
+          .limit(1)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
     (() => {
       let q = sb.from("moim_posts").select(POST_COLS).eq("moim_id", moim.id).eq("status", "active").eq("is_pinned", true);
@@ -527,7 +548,8 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
       return q.order("created_at", { ascending: false }).limit(5);
     })(),
     (() => {
-      let q = sb.from("moim_posts").select(POST_COLS).eq("moim_id", moim.id).eq("status", "active");
+      /** R5 B18: 고정 공지는 위 칸에 있으므로 최근 글에서 뺀다 */
+      let q = sb.from("moim_posts").select(POST_COLS).eq("moim_id", moim.id).eq("status", "active").eq("is_pinned", false);
       if (!isMember) q = q.eq("visibility", "public");
       return q.order("created_at", { ascending: false }).limit(5);
     })(),
@@ -541,9 +563,11 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
    */
   const pinnedRows = (pinned.data ?? []) as PostRow[];
   const recentRows = (recent.data ?? []) as PostRow[];
-  const kindById = new Map(((boards.data ?? []) as { id: string; kind: MoimBoardDto["kind"] }[]).map((b) => [b.id, b.kind]));
+  const boardById = boardInfoMap(boards.data);
+  const transferRow = (transfer.data ?? null) as { id: string; from_user_id: string; to_user_id: string; created_at: string } | null;
+  const outgoingTransfer = transferRow && role === "host" && transferRow.from_user_id === viewerId ? transferRow : null;
   const [postAuthors, upcoming] = await Promise.all([
-    authorMap(sb, moim.id, [...pinnedRows, ...recentRows].map((r) => r.author_id)),
+    authorMap(sb, moim.id, [...pinnedRows, ...recentRows].map((r) => r.author_id).concat(outgoingTransfer ? [outgoingTransfer.to_user_id] : [])),
     /** R4 #7·8: 공개 페이지(비멤버)만 미리보기를 쓴다 — 멤버 홈은 일정 목록(`scope=upcoming&limit=3`)으로 내 참여 배지까지 받는다 */
     moim.status === "active" && !isMember ? listUpcomingScheduleTeasers(sb, moim.id, 3) : Promise.resolve([]),
   ]);
@@ -573,9 +597,10 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
     lastActivityAt: moim.last_activity_at,
     host: moim.host_user_id ? host.get(moim.host_user_id) ?? null : null,
     joinQuestions: ((questions.data ?? []) as { question: string }[]).map((q) => q.question),
-    boards: isMember ? boardRows.filter((b) => b.isActive) : [],
-    pinnedNotices: postsFrom(pinnedRows, viewerId, postAuthors, kindById),
-    recentPosts: postsFrom(recentRows, viewerId, postAuthors, kindById),
+    /** R5 C15: 멤버에게 닫은 게시판까지 (다시 열기) — 글쓰기·칩은 isActive 로 거른다 */
+    boards: isMember ? boardRows : [],
+    pinnedNotices: postsFrom(pinnedRows, viewerId, postAuthors, boardById),
+    recentPosts: postsFrom(recentRows, viewerId, postAuthors, boardById),
     upcomingSchedules: upcoming,
     closedRetentionDays,
     reportReasons: reportReasonRows ? activeMoimReportReasons(reportReasonRows) : null,
@@ -588,7 +613,15 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
       bio: me?.bio ?? null,
       pendingRequestId: (pendingReq.data as { id: string } | null)?.id ?? null,
       banned: !!ban.data,
-      incomingHostTransferId: (transfer.data as { id: string } | null)?.id ?? null,
+      incomingHostTransferId: transferRow && transferRow.to_user_id === viewerId ? transferRow.id : null,
+      outgoingHostTransfer: outgoingTransfer
+        ? {
+            id: outgoingTransfer.id,
+            toUserId: outgoingTransfer.to_user_id,
+            toNickname: postAuthors.get(outgoingTransfer.to_user_id)?.nickname ?? "",
+            createdAt: outgoingTransfer.created_at,
+          }
+        : null,
       roomId: isMember ? moim.main_room_id : null,
     },
     can: moimCanMap(access),
@@ -600,8 +633,8 @@ export async function getMoimDetail(sb: SupabaseServer, moimId: string, viewerId
 export async function listMoimMembers(
   sb: SupabaseServer,
   access: MoimAccess,
-  /** R4 #6: 메모가 상한(500)에 닿았는지 — 라우트가 응답 `notesCapped` 로 넘긴다 */
-  out?: { notesCapped?: boolean }
+  /** R4 #6: 메모가 상한(500)에 닿았는지 — 라우트가 응답 `notesCapped` 로 넘긴다 · R5 C14: 멤버가 상한(1000)에 닿았는지 `capped` */
+  out?: { notesCapped?: boolean; capped?: boolean }
 ): Promise<MoimMemberDto[] | null> {
   if (!access.role) return null;
   const staffView = moimCanMap(access).write_note;
@@ -611,8 +644,9 @@ export async function listMoimMembers(
     .eq("moim_id", access.moim.id)
     .eq("status", "active")
     .order("joined_at", { ascending: true })
-    .limit(1000);
+    .limit(MOIM_MEMBER_LIST_CAP);
   const rows = (data ?? []) as MemberRow[];
+  if (out) out.capped = rows.length >= MOIM_MEMBER_LIST_CAP;
   let notes = new Map<string, string>();
   if (staffView && rows.length) {
     const { data: n } = await sb.from("moim_member_notes").select("target_user_id, body").eq("moim_id", access.moim.id).limit(MOIM_LIST_CAP);
@@ -683,20 +717,25 @@ export async function listMoimBans(sb: SupabaseServer, access: MoimAccess): Prom
   if (!moimCanMap(access).ban_member) return null;
   const { data } = await sb
     .from("moim_bans")
-    .select("user_id, reason, created_at")
+    .select("user_id, reason, created_at, source")
     .eq("moim_id", access.moim.id)
     .is("released_at", null)
     .order("created_at", { ascending: false })
     .limit(MOIM_LIST_CAP);
-  const rows = (data ?? []) as { user_id: string; reason: string | null; created_at: string }[];
+  const rows = (data ?? []) as { user_id: string; reason: string | null; created_at: string; source?: string | null }[];
   const authors = await authorMap(sb, access.moim.id, rows.map((r) => r.user_id));
-  return rows.map((r) => ({
-    userId: r.user_id,
-    nickname: authors.get(r.user_id)?.nickname ?? "",
-    avatarUrl: authors.get(r.user_id)?.avatarUrl ?? null,
-    reason: r.reason,
-    createdAt: r.created_at,
-  }));
+  return rows.map((r) => {
+    /** R5 E3: 플랫폼 어드민 차단 — 사유는 운영진에게 돌려주지 않고, 운영진은 풀 수 없다 */
+    const byPlatform = r.source === "admin";
+    return {
+      userId: r.user_id,
+      nickname: authors.get(r.user_id)?.nickname ?? "",
+      avatarUrl: authors.get(r.user_id)?.avatarUrl ?? null,
+      reason: byPlatform ? null : r.reason,
+      createdAt: r.created_at,
+      byPlatform,
+    };
+  });
 }
 
 export async function listMoimInviteLinks(sb: SupabaseServer, access: MoimAccess): Promise<MoimInviteLinkDto[] | null> {
@@ -838,7 +877,13 @@ export async function listReceivedMoimInvites(sb: SupabaseServer, userId: string
     .limit(50);
   const rows = (data ?? []) as { id: string; moim_id: string; inviter_id: string; created_at: string }[];
   if (!rows.length) return [];
-  const { data: moims } = await sb.from("moims").select(MOIM_COLS).in("id", rows.map((r) => r.moim_id)).eq("status", "active");
+  /** R5 B14: 차단 모임 초대는 수락할 수 없어 빼고(풀리면 다시 보임), 아래에서 이미 멤버·차단된 초대도 뺀다 */
+  const { data: moims } = await sb
+    .from("moims")
+    .select(MOIM_COLS)
+    .in("id", rows.map((r) => r.moim_id))
+    .eq("status", "active")
+    .neq("platform_state", "blocked");
   /** 감사 E4: 초대한 사람의 모임별 닉네임·역할을 한 번에 (초대 N건이면 N회 → 1회) */
   const [cardList, { data: inviters }] = await Promise.all([
     toCards(sb, (moims ?? []) as MoimRow[], userId),
@@ -886,6 +931,7 @@ export async function listReceivedMoimInvites(sb: SupabaseServer, userId: string
   for (const r of rows) {
     const card = cards.get(r.moim_id);
     if (!card) continue;
+    if (card.viewerStatus === "active" || card.viewerStatus === "banned") continue;
     out.push({
       id: r.id,
       moim: card,
@@ -918,4 +964,106 @@ export async function listActiveMoimMemberIds(sb: SupabaseServer, moimId: string
 export async function loadMoimName(sb: SupabaseServer, moimId: string): Promise<string> {
   const { data } = await sb.from("moims").select("name").eq("id", moimId).maybeSingle();
   return ((data as { name?: string } | null)?.name ?? "").trim();
+}
+
+/** R5 B1: 「내가 쓴 글·댓글·사진」 한 쪽 수 */
+export const MOIM_MY_CONTENT_PAGE = 20;
+
+function firstLine(text: string | null | undefined, max = 120): string | null {
+  const t = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;
+  return Array.from(t).length > max ? `${Array.from(t).slice(0, max).join("")}…` : t;
+}
+
+/**
+ * R5 B1 · E8 · D-36: 내가 쓴 글·댓글·사진 (작성자 = 나, 숨김 포함, 삭제 모임 제외). 시각 커서 쪽.
+ * 조회: 항목 1 + 모임 이름·상태 1 + 내 멤버 상태 1 (+댓글이면 글 제목 1). 신고자·숨긴 사람·숨김 사유는 담지 않는다.
+ * 쪽 안에서 삭제 모임 줄을 빼므로 한 쪽이 20개보다 적을 수 있다(`nextBefore` 는 그대로 정확).
+ */
+export async function listMyMoimContent(
+  sb: SupabaseServer,
+  userId: string,
+  opts: { type: MoimMyContentType; moimId?: string | null; before?: string | null }
+): Promise<{ items: MoimMyContentItemDto[]; nextBefore: string | null }> {
+  const cursor = parseMoimTimeCursor(opts.before);
+  if (cursor === "invalid") return { items: [], nextBefore: null };
+  const limit = MOIM_MY_CONTENT_PAGE;
+  const table = opts.type === "post" ? "moim_posts" : opts.type === "comment" ? "moim_comments" : "moim_album_items";
+  const cols =
+    opts.type === "post"
+      ? "id, moim_id, title, body, status, created_at"
+      : opts.type === "comment"
+        ? "id, moim_id, post_id, body, status, created_at"
+        : "id, moim_id, url, status, created_at";
+  let q = sb
+    .from(table)
+    .select(cols)
+    .eq(opts.type === "album" ? "uploader_id" : "author_id", userId)
+    .in("status", ["active", "hidden"]);
+  if (opts.moimId) q = q.eq("moim_id", opts.moimId);
+  if (cursor) q = applyMoimTimeCursor(q, "created_at", cursor);
+  const { data } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1);
+  type Row = { id: string; moim_id: string; status: string; created_at: string; title?: string; body?: string; post_id?: string; url?: string };
+  const fetched = ((data ?? []) as unknown as Row[]);
+  const page = fetched.slice(0, limit);
+  const last = page[page.length - 1];
+  const nextBefore = fetched.length > limit && last ? moimTimeCursorOf(last as Row & Record<string, unknown>, "created_at") : null;
+  if (!page.length) return { items: [], nextBefore };
+  const moimIds = [...new Set(page.map((r) => r.moim_id))];
+  const postIds = opts.type === "comment" ? [...new Set(page.map((r) => r.post_id).filter((x): x is string => Boolean(x)))] : [];
+  const [moims, mine, posts] = await Promise.all([
+    sb.from("moims").select("id, name, status").in("id", moimIds).in("status", ["active", "closed"]),
+    sb.from("moim_members").select("moim_id, status").eq("user_id", userId).in("moim_id", moimIds),
+    postIds.length ? sb.from("moim_posts").select("id, title").in("id", postIds) : Promise.resolve({ data: [] }),
+  ]);
+  const moimById = new Map(((moims.data ?? []) as { id: string; name: string; status: "active" | "closed" }[]).map((m) => [m.id, m]));
+  const activeIn = new Set(((mine.data ?? []) as { moim_id: string; status: string }[]).filter((m) => m.status === "active").map((m) => m.moim_id));
+  const postTitle = new Map(((posts.data ?? []) as { id: string; title: string | null }[]).map((p) => [p.id, p.title ?? ""]));
+  const items: MoimMyContentItemDto[] = [];
+  for (const r of page) {
+    const m = moimById.get(r.moim_id);
+    if (!m) continue;
+    items.push({
+      id: r.id,
+      type: opts.type,
+      moimId: r.moim_id,
+      moimName: m.name,
+      moimStatus: m.status,
+      viewerIsActiveMember: activeIn.has(r.moim_id),
+      status: r.status === "hidden" ? "hidden" : "active",
+      ...(opts.type === "post" ? { title: r.title ?? "", excerpt: firstLine(r.body) } : {}),
+      ...(opts.type === "comment" ? { excerpt: firstLine(r.body), postId: r.post_id ?? null, postTitle: r.post_id ? postTitle.get(r.post_id) ?? null : null } : {}),
+      ...(opts.type === "album" ? { imageUrl: r.url ?? null } : {}),
+      createdAt: r.created_at,
+    });
+  }
+  return { items, nextBefore };
+}
+
+/** R5 C2: 친구 초대 목록 확인 상한 */
+export const MOIM_INVITE_CHECK_MAX = 300;
+
+/**
+ * R5 C2: 초대 후보 확인 — 이미 멤버(members) · 초대할 수 없음(unavailable = 가입 신청 중·차단, 이유는 나누지 않는다 — 계약 P4).
+ * 조회 2회(멤버 상태 · 미해제 차단). 권한 확인(send_invite)은 부르는 라우트가 한다.
+ */
+export async function checkMoimInviteCandidates(
+  sb: SupabaseServer,
+  moimId: string,
+  userIds: string[]
+): Promise<{ members: string[]; unavailable: string[] }> {
+  const ids = [...new Set(userIds)].filter(Boolean).slice(0, MOIM_INVITE_CHECK_MAX);
+  if (!ids.length) return { members: [], unavailable: [] };
+  const [mem, bans] = await Promise.all([
+    sb.from("moim_members").select("user_id, status").eq("moim_id", moimId).in("user_id", ids).in("status", ["active", "pending", "banned"]),
+    sb.from("moim_bans").select("user_id").eq("moim_id", moimId).in("user_id", ids).is("released_at", null),
+  ]);
+  const members = new Set<string>();
+  const unavailable = new Set<string>();
+  for (const m of (mem.data ?? []) as { user_id: string; status: string }[]) {
+    if (m.status === "active") members.add(m.user_id);
+    else unavailable.add(m.user_id);
+  }
+  for (const b of (bans.data ?? []) as { user_id: string }[]) if (!members.has(b.user_id)) unavailable.add(b.user_id);
+  return { members: [...members], unavailable: [...unavailable] };
 }

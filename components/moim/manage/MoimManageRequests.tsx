@@ -2,14 +2,15 @@
 
 import { useMoimNotificationRead } from "@/lib/moim/use-moim-notification-read";
 import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayBottomSheet, DibayOverlayActions } from "@/components/ui/dibay-overlay";
-import { moimApi } from "@/lib/moim/moim-client-api";
-import type { MoimJoinRequestDto } from "@/lib/moim/moim-api-types";
+import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
+import { MOIM_LIST_CAP, type MoimJoinRequestDto } from "@/lib/moim/moim-api-types";
 import { moimCls } from "@/components/moim/moim-ui";
 import {
   MoimAvatar,
-  MoimListCappedHint,
+  MoimPeopleCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
@@ -20,6 +21,14 @@ import {
   useMoimManageToast,
   useMoimResource,
 } from "./moim-manage-shared";
+
+/** 가입 사유 상한 — 라우트 `slice(0,100)` 과 같은 값 (R5 C11) */
+const REJECT_REASON_MAX = 100;
+
+/** R5 C22: 멤버 관리에서 들어왔으면(`?from=members`) 뒤로 = 멤버 관리. 다른 값은 무시한다(바깥 주소로 못 가게 고정 값만) */
+export function moimRequestsBackHref(moimId: string, from: string | null | undefined): string | undefined {
+  return from === "members" ? moimRoutes.manageMembers(moimId) : undefined;
+}
 
 function RequestsBody({ moimId }: { moimId: string }) {
   const { t } = useI18n();
@@ -58,7 +67,7 @@ function RequestsBody({ moimId }: { moimId: string }) {
   return (
     <>
       {list.length === 0 ? <MoimManageEmpty textKey="moim_manage_requests_empty" /> : null}
-      <MoimListCappedHint show={state.data.capped} />
+      <MoimPeopleCappedHint show={state.data.capped} cap={MOIM_LIST_CAP} />
       <ul className="flex flex-col gap-3 px-4 pt-4">
         {list.map((req) => (
           <li key={req.id} className={`${moimManageCardClass} p-4`}>
@@ -141,11 +150,16 @@ function RequestsBody({ moimId }: { moimId: string }) {
         <textarea
           id="moim-reject-reason"
           className={`${moimManageSheetTextareaClass} mt-1.5 min-h-[96px]`}
-          maxLength={300}
+          maxLength={REJECT_REASON_MAX}
           value={reason}
           placeholder={t("moim_manage_reject_reason_placeholder")}
           onChange={(e) => setReason(e.target.value)}
         />
+        {/* R5 C11: 사유는 신청자에게 알림으로 간다 · 100자까지 */}
+        <div className="mt-1 flex items-start justify-between gap-2 text-[12px] text-sam-meta">
+          <span>{t("moim_manage_reject_reason_hint")}</span>
+          <span className="shrink-0">{t("moim_manage_char_count", { count: reason.length, max: REJECT_REASON_MAX })}</span>
+        </div>
       </DibayBottomSheet>
       {toast.node}
     </>
@@ -153,8 +167,9 @@ function RequestsBody({ moimId }: { moimId: string }) {
 }
 
 export function MoimManageRequests({ moimId }: { moimId: string }) {
+  const from = useSearchParams()?.get("from");
   return (
-    <MoimManageFrame moimId={moimId} titleKey="moim_manage_requests_title" allow={(d) => d.can.decide_join}>
+    <MoimManageFrame moimId={moimId} titleKey="moim_manage_requests_title" backHref={moimRequestsBackHref(moimId, from)} allow={(d) => d.can.decide_join}>
       {() => <RequestsBody moimId={moimId} />}
     </MoimManageFrame>
   );

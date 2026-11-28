@@ -75,13 +75,16 @@ export async function guardMoimAcceptGate(userId: string): Promise<NextResponse 
   return null;
 }
 
-/** 읽기 — 로그인 선택 (공개 페이지는 비로그인도 본다) */
+/**
+ * 읽기 — 로그인 필수 (R5 B6 · G-7: 비로그인에게는 초대 화면만 공개).
+ * `allowGuest: true` 는 초대 링크 해석(`/api/moim/invite/[token]`) 하나만 쓴다.
+ */
 export async function guardMoimRead(
   req: NextRequest,
-  opts: { rateKey: string; limit?: number; requireLogin?: boolean }
+  opts: { rateKey: string; limit?: number; allowGuest?: true }
 ): Promise<{ ok: true; userId: string | null; sb: SupabaseServer } | MoimGuardFail> {
   const userId = await getOptionalAuthenticatedUserId();
-  if (opts.requireLogin && !userId) {
+  if (!opts.allowGuest && !userId) {
     return { ok: false, response: NextResponse.json({ ok: false, error: "auth_required" }, { status: 401 }) };
   }
   const rl = await enforceRateLimit({
@@ -115,17 +118,21 @@ export function requireUuid(value: string | undefined | null): string | null {
   return isUuidString(v) ? v : null;
 }
 
-/** RPC 결과 → 응답 (권한 오류 403 · 없음 404 · 그 외 400) */
+/**
+ * 모임 오류 코드 → HTTP 번호 (사용자 라우트 단일 정의).
+ * 권한 403(어드민 차단 해제 시도 포함 — R5 E3) · 없음 404 · 충돌·중복 409 · 모르는 오류 500(R5 E20) · 그 외 400.
+ */
+export function moimRpcStatus(error: string): number {
+  if (error === "moim_forbidden" || error === "moim_not_member" || error === "moim_join_not_allowed" || error === "moim_ban_admin_only") return 403;
+  if (error === "moim_not_found" || error.endsWith("_not_found")) return 404;
+  if (error === "moim_conflict" || error === "moim_duplicate") return 409;
+  if (error === "moim_unknown") return 500;
+  return 400;
+}
+
+/** RPC 결과 → 응답 (번호는 moimRpcStatus) */
 export function moimRpcResponse(result: { ok: true } | { ok: false; error: string }, extra?: Record<string, unknown>) {
   if (result.ok) return NextResponse.json({ ...result, ...(extra ?? {}) });
   const error = result.error;
-  const status =
-    error === "moim_forbidden" || error === "moim_not_member" || error === "moim_join_not_allowed"
-      ? 403
-      : error === "moim_not_found" || error.endsWith("_not_found")
-        ? 404
-        : error === "moim_conflict"
-          ? 409
-          : 400;
-  return NextResponse.json({ ok: false, error }, { status });
+  return NextResponse.json({ ok: false, error }, { status: moimRpcStatus(error) });
 }

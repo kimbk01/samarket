@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayAlert } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimRoutes } from "@/lib/moim/moim-client-api";
 import type { MoimDetailDto } from "@/lib/moim/moim-api-types";
@@ -24,6 +25,12 @@ function pointText(t: ReturnType<typeof useI18n>["t"], k: MessageKey, days: numb
   return days ? t(moimCountKey(days, k, "moim_manage_close_point_records_one"), { days }) : t("moim_manage_close_point_records_nolimit");
 }
 
+/** R5 C21: 종료 완료 안내 — 열람 기간(일)이 있으면 본문에 */
+export function moimCloseDoneAlert(t: ReturnType<typeof useI18n>["t"], days: number | null): { title: string; description?: string } {
+  if (!days) return { title: t("moim_manage_close_done_title") };
+  return { title: t("moim_manage_close_done_title"), description: t(moimCountKey(days, "moim_manage_close_done_body", "moim_manage_close_done_body_one"), { days }) };
+}
+
 function CloseBody({ detail }: { detail: MoimDetailDto }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -40,6 +47,8 @@ function CloseBody({ detail }: { detail: MoimDetailDto }) {
       setBusy(false);
       return toast.showError(r.error);
     }
+    /** R5 C21: 종료 성공을 알린 뒤 이동 — 열람 기간이 있으면 그 기간도 */
+    await dibayAlert(moimCloseDoneAlert(t, detail.closedRetentionDays));
     router.replace(moimRoutes.tab);
   };
 

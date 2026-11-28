@@ -15,7 +15,7 @@ type Ctx = { params: Promise<{ moimId: string }> };
 export async function GET(req: NextRequest, { params }: Ctx) {
   const moimId = requireUuid((await params).moimId);
   if (!moimId) return moimNotFound();
-  const g = await guardMoimRead(req, { rateKey: "search", limit: 30, requireLogin: true });
+  const g = await guardMoimRead(req, { rateKey: "search", limit: 30 });
   if (!g.ok) return g.response;
   const pattern = moimSearchPattern(req.nextUrl.searchParams.get("q"));
   if (!pattern) return moimBadRequest();

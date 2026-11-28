@@ -54,14 +54,26 @@ export function MoimCard({ moim, href }: { moim: MoimCardDto; href?: string }) {
 }
 
 /** 내 모임 가로 목록 한 칸 — 종료 모임은 흐린 표지 + 회색 「종료」 (R3 U-12) */
+/**
+ * R5 B12: 내 모임 줄 정리 — 가입 신청 중 모임은 맨 뒤로, 개수는 신청 중을 빼고 센다(활동 멤버·종료 모임).
+ */
+export function arrangeMoimMine(items: readonly MoimCardDto[]): { items: MoimCardDto[]; count: number } {
+  const pending = items.filter((m) => m.viewerStatus === "pending");
+  const rest = items.filter((m) => m.viewerStatus !== "pending");
+  return { items: [...rest, ...pending], count: rest.length };
+}
+
 export function MoimMineItem({ moim }: { moim: MoimCardDto }) {
   const { t } = useI18n();
   const closed = moim.status === "closed";
+  /** R5 B12: 가입 신청 중 = 흐린 표지 + 「신청 중」 */
+  const pending = moim.viewerStatus === "pending";
   return (
     <Link href={moimRoutes.home(moim.id)} className="flex w-[76px] shrink-0 flex-col items-center gap-1 text-center">
-      <MoimCover url={moim.coverImageUrl} className={`h-[60px] w-[60px] rounded-full ${moimCardCoverDim(moim)}`} />
-      <span className={`line-clamp-2 break-words text-[11.5px] leading-tight ${closed ? "text-sam-muted" : "text-sam-fg"}`}>{moim.name}</span>
+      <MoimCover url={moim.coverImageUrl} className={`h-[60px] w-[60px] rounded-full ${pending ? "opacity-50" : moimCardCoverDim(moim)}`} />
+      <span className={`line-clamp-2 break-words text-[11.5px] leading-tight ${closed || pending ? "text-sam-muted" : "text-sam-fg"}`}>{moim.name}</span>
       {closed ? <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_card_closed_badge")}</span> : null}
+      {!closed && pending ? <span className={`${moimCls.badge} ${moimCls.badgeWarn}`}>{t("moim_screen_pending_badge")}</span> : null}
     </Link>
   );
 }

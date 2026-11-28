@@ -16,6 +16,8 @@ import {
 } from "react";
 import { isComposerTextSendBlocked } from "@/lib/community-messenger/room/messenger-composer-text-send-blocked";
 import { resolveMessengerRoomChatUnavailable } from "@/lib/community-messenger/room/messenger-room-chat-unavailable";
+import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface, withMoimReadonlyReason } from "@/lib/moim/moim-room-surface-policy";
 import {
   MessengerRoomChatUnavailableBar,
   type MessengerRoomChatUnavailableProductAction,
@@ -388,10 +390,22 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
    * S-1 §4 (Owner 2026-11-02) — 막힌 방(일반·거래·주문 공통)은 입력창 대신 안내 줄 하나.
    * 사유·문구는 서버 발송 거부 코드·문구표와 같은 SSOT(`messenger-room-chat-unavailable.ts`).
    */
-  const chatUnavailable = resolveMessengerRoomChatUnavailable({
-    snapshot: vm.snapshot,
-    roomUnavailable: Boolean(vm.roomUnavailable),
-  });
+  /** 모임 방 읽기 전용이면 타임라인 안내와 같은 이유 한 문장 (모임 R5 A16 · 표면 규칙 하나) */
+  const moimOwnerState = useMoimRoomOwnerState(vm.snapshot.room.roomType === "private_group" ? vm.snapshot.room.id : null);
+  const moimReadonlyNoticeKey = resolveMoimRoomSurface({
+    roomType: vm.snapshot.room.roomType,
+    owner: moimOwnerState.owner,
+    ownerStatus: moimOwnerState.status,
+    viewerUserId: vm.snapshot.viewerUserId,
+  }).readonlyNoticeKey;
+  const chatUnavailable = withMoimReadonlyReason(
+    resolveMessengerRoomChatUnavailable({
+      snapshot: vm.snapshot,
+      roomUnavailable: Boolean(vm.roomUnavailable),
+    }),
+    moimReadonlyNoticeKey,
+    t
+  );
   const onSeededHoldTextareaNode = useSeededSilentHoldComposerRelease({
     enabled: composerSurfaceMode === "phase2" && composerEntryVisible,
     roomId: String(roomKey),

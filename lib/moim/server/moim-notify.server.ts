@@ -12,6 +12,7 @@ import { notificationCopyMeta } from "@/lib/notifications/notification-stored-co
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MoimRole } from "@/lib/moim/moim-permission-contract";
 import { listBlockedEitherWayAmong } from "@/lib/community-messenger/social-relations";
+import { moimViewable, type MoimViewState } from "@/lib/moim/moim-view-rule";
 
 /**
  * 모임 알림 (설계 docs/design/moim §7). 모든 함수는 실패해도 본 작업을 막지 않는다(best effort).
@@ -54,13 +55,14 @@ type MoimNotifyKind =
 
 /**
  * 설계 §7 「푸시 X」 = 알림함(벨)에만, 푸시·소리 없음 (2026-11-28 모임 3번 묶음 N1).
- * `moim_report_result` 는 커뮤니티 신고 결과 공용 분류라 여기서 바꾸지 않는다.
+ * R5 E5: 모임 신고 결과(`moim_report_result`)도 벨 전용 — 계약 §7 「푸시 X」. 필라이프·메신저 신고 결과 푸시는 그대로.
  */
-const BELL_ONLY_KINDS: ReadonlySet<MoimNotifyKind> = new Set([
+export const BELL_ONLY_KINDS: ReadonlySet<MoimNotifyKind> = new Set([
   "moim_member_joined",
   "moim_role_changed",
   "moim_host_changed",
   "moim_post_new",
+  "moim_report_result",
 ]);
 
 /** 여러 명 발송 동시 실행 상한 (E1) */
@@ -234,6 +236,58 @@ export const moimPaths = {
   members: (moimId: string) => `/moim/${moimId}/manage/members`,
   invites: () => `/moim/invites`,
 };
+
+/**
+ * R5 E4: 알림 이동 위치 — 받는 사람이 열 수 있으면 원래 위치(intended), 아니면 결과 알림은 모임 탭, 결과 알림이 아니면 보내지 않음(null).
+ * 상태는 RPC 반환값(`moimViewStateFromRpc`)에서 받는다 — 추가 조회 없음. 상태를 모르면(옛 DB) 원래 위치.
+ * 열 수 있는가는 화면 조회와 같은 규칙(`moimViewable`).
+ */
+export function moimNotifyLink(
+  state: MoimViewState | null,
+  receiverIsActiveMember: boolean,
+  intended: string,
+  opts: { result: boolean }
+): string | null {
+  if (!state) return intended;
+  if (moimViewable(state, receiverIsActiveMember)) return intended;
+  return opts.result ? moimPaths.list() : null;
+}
+
+/**
+ * R5 E16: 모임장 변경 알림 하나 — 위임 수락·어드민 지정·미접속 요청 승인·계정 정리 4곳이 이것만 부른다.
+ * 새 모임장 이름 = 모임 닉네임(주면 그것, 없으면 읽음). 비면 대체 이름 키. 행위자(opts.actorId)는 받지 않는다.
+ * opts.moimStatus 가 "deleted" 면 보내지 않는다(결과 알림 아님 — 삭제 모임은 이미 삭제 알림을 받음).
+ */
+export async function notifyMoimHostChanged(
+  sb: SupabaseServer,
+  moimId: string,
+  toUserId: string,
+  recipients: string[],
+  dedupeRef: string,
+  opts?: { actorId?: string; toNickname?: string | null; moimStatus?: "active" | "closed" | "deleted" | null }
+): Promise<void> {
+  if (opts?.moimStatus === "deleted") return;
+  const nickname =
+    opts?.toNickname != null
+      ? opts.toNickname
+      : (((await sb.from("moim_members").select("nickname").eq("moim_id", moimId).eq("user_id", toUserId).maybeSingle()).data as {
+          nickname?: string;
+        } | null)?.nickname ?? "");
+  const nick = nickname.trim();
+  const moim = await loadMoimName(sb, moimId);
+  await notifyMoimMany(
+    sb,
+    recipients.filter((id) => id !== opts?.actorId),
+    {
+      kind: "moim_host_changed",
+      moimId,
+      linkUrl: moimPaths.home(moimId),
+      dedupeRef,
+      vars: { moim, ...(nick ? { name: nick } : {}) },
+      ...(nick ? {} : { keyVars: { name: "notify_member_fallback_name" as MessageKey } }),
+    }
+  );
+}
 
 /**
  * 알림 발송을 응답 뒤로 (E1) — 발송은 지금 시작하고, 응답은 기다리지 않는다. 서버리스가 끝날 때까지 인스턴스를 유지한다.

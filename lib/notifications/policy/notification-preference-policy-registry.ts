@@ -97,6 +97,9 @@ export const META_KIND_PREFERENCE_POLICY_OVERRIDES: Readonly<Record<string, Poli
   moim_content_moderated: row("member", "community_social", "mandatory", MANDATORY),
   moim_sanction_released: row("member", "community_social", "mandatory", MANDATORY),
   moim_restored: row("member", "community_social", "mandatory", MANDATORY),
+  // R5 E5·E6 (Owner 2026-11-28): 모임 신고 결과 = 끌 수 없음(벨 전용 — moim-notify BELL_ONLY_KINDS) · 어드민 정보 수정 = 끌 수 없음
+  moim_report_result: row("member", "community_social", "mandatory", MANDATORY),
+  moim_admin_info_updated: row("member", "community_social", "mandatory", MANDATORY),
 
   // Member financial (mandatory)
   user_point_charge_approved: row("member", "member_financial", "mandatory", MANDATORY),

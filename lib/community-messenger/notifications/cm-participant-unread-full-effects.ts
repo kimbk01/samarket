@@ -49,6 +49,8 @@ import { peekMessengerRoomUnreadFact } from "@/lib/community-messenger/unread/me
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { getUserSettings } from "@/lib/settings/user-settings-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { peekMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface } from "@/lib/moim/moim-room-surface-policy";
 
 function activeCommunityRoomIdFromPathname(pathname: string | null): string | null {
   if (!pathname) return null;
@@ -145,6 +147,15 @@ async function resolveMessengerInAppBannerContent(
   /** 배너를 누르면 그 방이 속한 목록으로 연다 — 이미 읽은 방 요약으로 판정, 추가 요청 없음 (2026-11-16 감사 P3) */
   const listSource = messengerRoomListSourceForRoom(room);
   if (latest?.ok && Array.isArray(latest.messages) && room) {
+    /** 모임 방·판정 전 비공개 그룹 = 보낸 사람은 모임 프로필만 (모임 R5 A14 · 표면 규칙 하나 · 추가 요청 0) */
+    const moimOwnerState = peekMoimRoomOwnerState(room.id || roomId);
+    const moimManaged =
+      resolveMoimRoomSurface({
+        roomType: room.roomType,
+        owner: moimOwnerState.owner,
+        ownerStatus: moimOwnerState.status,
+        viewerUserId: viewer,
+      }).state !== "not_moim";
     const content = contentMod.buildMessengerInAppBannerContent({
       room,
       members: cachedSnapshot?.members ?? null,
@@ -152,6 +163,7 @@ async function resolveMessengerInAppBannerContent(
       viewerUserId: viewer,
       language,
       chatPreviewEnabled,
+      moimManaged,
     });
     if (content) return { ...content, listSource };
   }

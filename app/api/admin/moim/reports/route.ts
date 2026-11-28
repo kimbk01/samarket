@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(res);
   }
   if (sp.get("view") === "group") {
-    const res = await groupAdminMoimReports(gate.sb, { status, targetType, ...page });
+    /** R5 신규3: 묶음 보기에도 모임 필터 */
+    const res = await groupAdminMoimReports(gate.sb, { status, targetType, moimId: moimAdminUuid(sp.get("moimId")), ...page });
     if (!res.ok) return moimAdminReadError(res.error);
     return NextResponse.json(res);
   }

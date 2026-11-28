@@ -17,12 +17,21 @@ import {
 } from "@/components/admin/community/kit/CommunityAdminKit";
 import { useCommunityAdminJson } from "@/components/admin/community/members/use-community-admin-data";
 import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminStateViews";
+import { AdminEmptyState, AdminErrorState, AdminLoadingState, AdminTechDetails } from "@/components/admin/ui/AdminStateViews";
 import { AdminToneBadge } from "@/components/admin/ui/AdminToneBadge";
-import type { MoimAdminContentAction, MoimAdminContentType, MoimAdminDetailSection, MoimAdminPerson } from "@/lib/admin/moim/moim-admin-contract";
+import {
+  isMoimEventType,
+  moimAdminAllowedActions,
+  type MoimAdminContentAction,
+  type MoimAdminContentType,
+  type MoimAdminDetailSection,
+  type MoimAdminPerson,
+} from "@/lib/admin/moim/moim-admin-contract";
 import {
   MOIM_ADMIN_REASON,
+  MoimAdminGatedLink,
   MoimAdminPersonCell,
+  MoimAdminStateNote,
   MoimAdminTime,
   MoimContentStatusBadge,
   moimAdminSend,
@@ -32,16 +41,33 @@ import {
 
 const PAGE = 50;
 
-type SectionResponse<R> = { ok?: boolean; error?: string; total?: number | null; rows?: R[] };
+type SectionResponse<R> = { ok?: boolean; error?: string; total?: number | null; rows?: R[]; bansWithoutMember?: unknown[] };
 
-/** 상세 섹션 조회 (쪽 단위) */
-export function useMoimSection<R>(moimId: string, section: Exclude<MoimAdminDetailSection, "info">, extra?: Record<string, string>) {
+/**
+ * 상세 섹션 조회 (쪽 단위). R5 D25: 조건(extra)이 바뀌면 1쪽부터 — 다른 글의 댓글을 누르면 이전 쪽 번호가 남지 않는다.
+ * pageSize = 쪽 크기(기본 50, 최대 100 — 서버 상한).
+ */
+export function useMoimSection<R>(
+  moimId: string,
+  section: Exclude<MoimAdminDetailSection, "info">,
+  extra?: Record<string, string>,
+  opts?: { pageSize?: number }
+) {
+  const size = opts?.pageSize ?? PAGE;
+  const extraKey = JSON.stringify(extra ?? {});
   const [page, setPage] = useState(1);
-  const sp = new URLSearchParams({ section, limit: String(PAGE), offset: String((page - 1) * PAGE), ...(extra ?? {}) });
+  const [pageExtra, setPageExtra] = useState(extraKey);
+  if (pageExtra !== extraKey) {
+    setPageExtra(extraKey);
+    setPage(1);
+  }
+  const current = pageExtra === extraKey ? page : 1;
+  const sp = new URLSearchParams({ section, limit: String(size), offset: String((current - 1) * size), ...(extra ?? {}) });
   const { state, reload } = useCommunityAdminJson<SectionResponse<R>>(`/api/admin/moim/moims/${encodeURIComponent(moimId)}?${sp.toString()}`);
   const rows = (state.data?.rows ?? []) as R[];
   const total = typeof state.data?.total === "number" ? state.data.total : null;
-  return { state, reload, rows, total, page, setPage };
+  const bansWithoutMember = (state.data?.bansWithoutMember ?? []) as unknown[];
+  return { state, reload, rows, total, page: current, setPage, pageSize: size, bansWithoutMember };
 }
 
 /** 섹션 본문 4상태 + 페이지 */
@@ -54,15 +80,16 @@ export function MoimSectionBody<R>({
   emptyKey: MessageKey;
   children: ReactNode;
 }) {
-  const { t } = useI18n();
-  const { state, rows, total, page, setPage, reload } = sec;
-  if (state.status === "loading" && !state.data) return <AdminLoadingState ko />;
-  if (state.status === "error") return <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} />;
-  if (rows.length === 0) return <AdminEmptyState ko message={t(emptyKey)} />;
+  const { t, language } = useI18n();
+  const ko = language !== "en";
+  const { state, rows, total, page, setPage, reload, pageSize } = sec;
+  if (state.status === "loading" && !state.data) return <AdminLoadingState ko={ko} />;
+  if (state.status === "error") return <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} />;
+  if (rows.length === 0) return <AdminEmptyState ko={ko} message={t(emptyKey)} />;
   return (
     <div className="space-y-2">
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">{children}</div>
-      <CommunityPagination page={page} pageSize={PAGE} total={total} onPage={setPage} disabled={state.status === "loading"} />
+      <CommunityPagination page={page} pageSize={pageSize} total={total} onPage={setPage} disabled={state.status === "loading"} />
     </div>
   );
 }
@@ -104,22 +131,28 @@ export function useMoimContentAction(onDone: (kind: CommunitySheetSettle) => voi
   return { open: setTarget, node };
 }
 
-/** 숨김·복구·삭제 버튼 (상태에 맞는 것만 · 삭제/삭제 항목 복구 = 최고관리자) */
+/**
+ * 숨김·복구·삭제 버튼 (상태에 맞는 것만 · 삭제/삭제 항목 복구 = 최고관리자).
+ * R5 D11: 삭제된 모임이면 버튼 없음(복구 전까지 조회만 — 서버도 moim_deleted 로 거부).
+ */
 export function MoimContentButtons({
   type,
   id,
   status,
   label,
   open,
+  moimStatus,
 }: {
   type: Exclude<MoimAdminContentType, "schedule">;
   id: string;
   status: string;
   label: string;
   open: (t: ContentTarget) => void;
+  moimStatus: string;
 }) {
   const { t } = useI18n();
   const { isSuperAdmin } = useMoimAdminAccess();
+  if (!moimAdminAllowedActions(moimStatus).content) return null;
   return (
     <div className="flex flex-wrap gap-1">
       {status === "active" ? (
@@ -214,7 +247,7 @@ type PostRow = {
 
 type CommentRow = { id: string; post_id: string; body: string; status: string; created_at: string; authorNickname: string | null };
 
-export function MoimPostsPanel({ moimId, onResult }: { moimId: string; onResult: (kind: CommunitySheetSettle) => void }) {
+export function MoimPostsPanel({ moimId, moimStatus, onResult }: { moimId: string; moimStatus: string; onResult: (kind: CommunitySheetSettle) => void }) {
   const { t } = useI18n();
   const posts = useMoimSection<PostRow>(moimId, "posts");
   const [postFilter, setPostFilter] = useState<string | null>(null);
@@ -227,6 +260,7 @@ export function MoimPostsPanel({ moimId, onResult }: { moimId: string; onResult:
   const boardName = (b: PostRow["board"]) => (!b ? "—" : b.kind === "custom" ? b.name ?? "—" : t(`moim_board_${b.kind}` as MessageKey));
   return (
     <div className="space-y-5">
+      <MoimAdminStateNote status={moimStatus} />
       <MoimSectionBody sec={posts} emptyKey="admin_moim_posts_empty">
         <CommunityTable head={[t("admin_moim_col_post"), t("admin_moim_col_board"), t("admin_moim_col_author"), t("admin_moim_col_status"), t("admin_moim_col_created"), t("admin_moim_col_actions")]}>
           {posts.rows.map((r) => {
@@ -263,7 +297,7 @@ export function MoimPostsPanel({ moimId, onResult }: { moimId: string; onResult:
                   <MoimAdminTime iso={r.created_at} />
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <MoimContentButtons type="post" id={r.id} status={r.status} label={label} open={action.open} />
+                  <MoimContentButtons type="post" id={r.id} status={r.status} label={label} open={action.open} moimStatus={moimStatus} />
                 </td>
               </tr>
             );
@@ -293,7 +327,7 @@ export function MoimPostsPanel({ moimId, onResult }: { moimId: string; onResult:
                   <MoimAdminTime iso={r.created_at} />
                 </td>
                 <td className={COMMUNITY_TD}>
-                  <MoimContentButtons type="comment" id={r.id} status={r.status} label={clip(r.body, 60)} open={action.open} />
+                  <MoimContentButtons type="comment" id={r.id} status={r.status} label={clip(r.body, 60)} open={action.open} moimStatus={moimStatus} />
                 </td>
               </tr>
             ))}
@@ -320,15 +354,17 @@ type ScheduleRow = {
   hostNickname: string | null;
 };
 
-export function MoimSchedulesPanel({ moimId, onResult }: { moimId: string; onResult: (kind: CommunitySheetSettle) => void }) {
+export function MoimSchedulesPanel({ moimId, moimStatus, onResult }: { moimId: string; moimStatus: string; onResult: (kind: CommunitySheetSettle) => void }) {
   const { t } = useI18n();
   const sec = useMoimSection<ScheduleRow>(moimId, "schedules");
+  const canAct = moimAdminAllowedActions(moimStatus).content;
   const action = useMoimContentAction((kind) => {
     sec.reload();
     onResult(kind);
   });
   return (
     <>
+      <MoimAdminStateNote status={moimStatus} />
       <MoimSectionBody sec={sec} emptyKey="admin_moim_schedules_empty">
         <CommunityTable head={[t("admin_moim_col_schedule"), t("admin_moim_col_starts"), t("admin_moim_col_host"), t("admin_moim_col_participants"), t("admin_moim_col_status"), t("admin_moim_col_actions")]}>
           {sec.rows.map((r) => (
@@ -346,11 +382,11 @@ export function MoimSchedulesPanel({ moimId, onResult }: { moimId: string; onRes
               <td className={COMMUNITY_TD}>
                 <div className="flex flex-wrap gap-1">
                   {r.room_id ? (
-                    <Link href={`/admin/chats/messenger/${encodeURIComponent(r.room_id)}`} className="text-[13px] text-sam-primary hover:underline">
+                    <MoimAdminGatedLink href={`/admin/chats/messenger/${encodeURIComponent(r.room_id)}`} className="text-[13px] text-sam-primary hover:underline">
                       {t("admin_moim_open_chat")}
-                    </Link>
+                    </MoimAdminGatedLink>
                   ) : null}
-                  {r.status !== "done" && r.status !== "cancelled" ? (
+                  {canAct && r.status !== "done" && r.status !== "cancelled" ? (
                     <AdminActionButton size="sm" variant="danger" onClick={() => action.open({ type: "schedule", id: r.id, action: "cancel", label: r.title })}>
                       {t("admin_moim_action_cancel")}
                     </AdminActionButton>
@@ -370,7 +406,7 @@ export function MoimSchedulesPanel({ moimId, onResult }: { moimId: string; onRes
 
 type AlbumRow = { id: string; url: string; is_pinned: boolean; status: string; created_at: string; uploaderNickname: string | null };
 
-export function MoimAlbumPanel({ moimId, onResult }: { moimId: string; onResult: (kind: CommunitySheetSettle) => void }) {
+export function MoimAlbumPanel({ moimId, moimStatus, onResult }: { moimId: string; moimStatus: string; onResult: (kind: CommunitySheetSettle) => void }) {
   const { t } = useI18n();
   const sec = useMoimSection<AlbumRow>(moimId, "album");
   const action = useMoimContentAction((kind) => {
@@ -379,6 +415,7 @@ export function MoimAlbumPanel({ moimId, onResult }: { moimId: string; onResult:
   });
   return (
     <>
+      <MoimAdminStateNote status={moimStatus} />
       <MoimSectionBody sec={sec} emptyKey="admin_moim_album_empty">
         <ul className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-5">
           {sec.rows.map((r) => (
@@ -394,7 +431,7 @@ export function MoimAlbumPanel({ moimId, onResult }: { moimId: string; onResult:
               <div className="text-[12px] text-sam-muted">
                 {r.uploaderNickname ?? "—"} · <MoimAdminTime iso={r.created_at} />
               </div>
-              <MoimContentButtons type="album" id={r.id} status={r.status} label={t("admin_moim_target_album")} open={action.open} />
+              <MoimContentButtons type="album" id={r.id} status={r.status} label={t("admin_moim_target_album")} open={action.open} moimStatus={moimStatus} />
             </li>
           ))}
         </ul>
@@ -423,9 +460,7 @@ export function MoimChatsPanel({ moimId }: { moimId: string }) {
             <td className={COMMUNITY_TD}>{t(r.kind === "main" ? "admin_moim_room_main" : "admin_moim_room_schedule")}</td>
             <td className={COMMUNITY_TD}>{r.isReadonly == null ? "—" : t(r.isReadonly ? "admin_moim_yes" : "admin_moim_no")}</td>
             <td className={COMMUNITY_TD}>
-              <Link href={`/admin/chats/messenger/${encodeURIComponent(r.roomId)}`} className="text-sam-primary hover:underline">
-                {t("admin_moim_open_chat")}
-              </Link>
+              <MoimAdminGatedLink href={`/admin/chats/messenger/${encodeURIComponent(r.roomId)}`}>{t("admin_moim_open_chat")}</MoimAdminGatedLink>
             </td>
           </tr>
         ))}
@@ -475,7 +510,7 @@ export function MoimReportsPanel({ moimId }: { moimId: string }) {
 type EventRow = { id: number; actor_kind: string; type: string; target_id: string | null; payload: Record<string, unknown> | null; created_at: string; actor: MoimAdminPerson | null };
 
 export function MoimEventsPanel({ moimId }: { moimId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const sec = useMoimSection<EventRow>(moimId, "events");
   return (
     <MoimSectionBody sec={sec} emptyKey="admin_moim_events_empty">
@@ -493,7 +528,11 @@ export function MoimEventsPanel({ moimId }: { moimId: string }) {
                 </AdminToneBadge>
                 {r.actor ? <MoimAdminPersonCell person={r.actor} /> : null}
               </td>
-              <td className={`${COMMUNITY_TD} font-mono text-[12px]`}>{r.type}</td>
+              <td className={COMMUNITY_TD}>
+                {/* R5 D17: 운영기록 종류는 문구로 — 모르는 값은 「기타 기록」 + 원래 값은 접힌 기술 정보에만 */}
+                {isMoimEventType(r.type) ? t(`admin_moim_event_${r.type}` as MessageKey) : t("admin_moim_event_other")}
+                {!isMoimEventType(r.type) ? <AdminTechDetails ko={language !== "en"}>{r.type}</AdminTechDetails> : null}
+              </td>
               <td className={`${COMMUNITY_TD} max-w-[420px] text-[12px] text-sam-muted [overflow-wrap:anywhere]`}>
                 {reason ? <div className="text-sam-fg">{t("admin_moim_reason_value", { reason })}</div> : null}
                 {r.target_id ? <div>{t("admin_moim_target_id", { id: r.target_id })}</div> : null}

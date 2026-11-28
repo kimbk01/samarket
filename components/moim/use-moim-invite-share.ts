@@ -37,7 +37,8 @@ export function useMoimInviteShare(
     try {
       let url = inviteUrlRef.current;
       if (!url) {
-        const r = await moimApi.createInviteLink(moim.id, moimHeaderInviteExpiresAt(Date.now()));
+        /** R5 C19: 쓸 수 있는 내 링크가 있으면 그것을 다시 쓴다(공유를 여러 번 눌러도 링크가 쌓이지 않음) */
+        const r = await moimApi.createInviteLink(moim.id, moimHeaderInviteExpiresAt(Date.now()), { reuse: true });
         if (!r.ok) {
           showToast(t(moimErrorKey(r.error)), "error");
           return;

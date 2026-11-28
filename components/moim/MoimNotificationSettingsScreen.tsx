@@ -13,7 +13,10 @@ import { useMoimDetail } from "@/components/moim/MoimDetailScreen";
 import { MoimSwitch } from "@/components/moim/MoimScheduleFormScreen";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
 
-const ROWS: { key: keyof MoimNotificationPrefsDto; label: MessageKey; hint: MessageKey }[] = [
+/** 이 화면에서 켜고 끄는 칸 — 채팅 알림(chatMuted)은 메신저 방에서 바꾼다(여기서는 상태만 보인다 · R5 B21) */
+type MoimPrefKey = "notice" | "posts" | "schedules";
+
+const ROWS: { key: MoimPrefKey; label: MessageKey; hint: MessageKey }[] = [
   { key: "notice", label: "moim_notify_notice_label", hint: "moim_notify_notice_hint" },
   { key: "posts", label: "moim_notify_posts_label", hint: "moim_notify_posts_hint" },
   { key: "schedules", label: "moim_notify_schedules_label", hint: "moim_notify_schedules_hint" },
@@ -26,7 +29,7 @@ export function MoimNotificationSettingsScreen({ moimId }: { moimId: string }) {
   const { moim, error, reload } = useMoimDetail(moimId);
   const [prefs, setPrefs] = useState<MoimNotificationPrefsDto | null>(null);
   const [prefsError, setPrefsError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<keyof MoimNotificationPrefsDto | null>(null);
+  const [saving, setSaving] = useState<MoimPrefKey | null>(null);
   const [key, setKey] = useState(0);
 
   const header = useMemo(() => ({ titleText: t("moim_notify_title"), backHref: moimRoutes.home(moimId) }), [moimId, t]);
@@ -46,7 +49,7 @@ export function MoimNotificationSettingsScreen({ moimId }: { moimId: string }) {
   }, [moimId, key]);
 
   /** 낙관 반영 → 실패하면 원래 값으로 되돌리고 알림 */
-  const change = async (k: keyof MoimNotificationPrefsDto, next: boolean) => {
+  const change = async (k: MoimPrefKey, next: boolean) => {
     if (!prefs || saving) return;
     const before = prefs;
     setPrefs({ ...prefs, [k]: next });
@@ -108,6 +111,11 @@ export function MoimNotificationSettingsScreen({ moimId }: { moimId: string }) {
                 <span className="block text-[14px] text-sam-fg">{t("moim_notify_chat_label")}</span>
                 <span className={`${moimCls.hint} block`}>{t("moim_notify_chat_hint")}</span>
               </span>
+              {prefs.chatMuted != null ? (
+                <span className="shrink-0 text-[13px] text-sam-muted" data-testid="moim-notify-chat-state">
+                  {prefs.chatMuted ? t("moim_notify_chat_off") : t("moim_notify_chat_on")}
+                </span>
+              ) : null}
               <ChevronRight className="h-4 w-4 shrink-0 text-sam-muted" aria-hidden />
             </Link>
           ) : null}

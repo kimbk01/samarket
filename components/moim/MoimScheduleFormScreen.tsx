@@ -13,30 +13,15 @@ import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
 import { formatMoimScheduleWhen } from "@/components/moim/moim-schedule-ui";
 import { MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls, useMoimToast } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
+import { isoToPhtInputs, phtInputsToIso } from "@/lib/time/pht-input";
+import { moimScheduleGate } from "@/lib/moim/moim-state-gate";
+import type { MoimScheduleDto } from "@/lib/moim/moim-api-types";
 
 const TITLE_MAX = 60;
 const PLACE_MAX = 120;
 const DESC_MAX = 3000;
 const MAX_IMAGES = 10;
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/** ISO → 기기 시간대의 날짜·시각 입력값 */
-function isoToLocalInputs(iso: string | null | undefined): { date: string; time: string } {
-  if (!iso) return { date: "", time: "" };
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { date: "", time: "" };
-  return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
-}
-
-/** 기기 시간대의 날짜·시각 입력값 → ISO (잘못되면 null) */
-function localInputsToIso(date: string, time: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
-  const [y, m, d] = date.split("-").map(Number);
-  const [hh, mm] = time.split(":").map(Number);
-  const local = new Date(y, m - 1, d, hh, mm, 0, 0);
-  return Number.isNaN(local.getTime()) ? null : local.toISOString();
-}
 
 /** 일정 만들기·수정 /moim/[id]/schedules/new · /moim/[id]/schedules/[sid]/edit (설계 §6 P10) */
 export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string; scheduleId?: string | null }) {
@@ -61,7 +46,8 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
   const [askMotivation, setAskMotivation] = useState(false);
   const [loaded, setLoaded] = useState(!editing);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [canEdit, setCanEdit] = useState(!editing);
+  /** 수정할 일정 — 수정 가능 여부는 모임 상태와 함께 `moimScheduleGate` 로 정한다 (R5 C9) */
+  const [loadedSchedule, setLoadedSchedule] = useState<(Pick<MoimScheduleDto, "status" | "startsAt" | "viewer"> & { loadedAt: number }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -82,8 +68,8 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
         return;
       }
       const s = r.schedule;
-      const start = isoToLocalInputs(s.startsAt);
-      const end = isoToLocalInputs(s.endsAt);
+      const start = isoToPhtInputs(s.startsAt);
+      const end = isoToPhtInputs(s.endsAt);
       setTitle(s.title);
       setStartDate(start.date);
       setStartTime(start.time);
@@ -95,7 +81,7 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
       setCapacity(s.capacity ? String(s.capacity) : "");
       setJoinMode(s.joinMode);
       setAskMotivation(s.askMotivation);
-      setCanEdit(s.viewer.canManage && s.status !== "done" && s.status !== "cancelled");
+      setLoadedSchedule({ status: s.status, startsAt: s.startsAt, viewer: s.viewer, loadedAt: Date.now() });
       setLoaded(true);
     });
     return () => {
@@ -103,8 +89,8 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
     };
   }, [scheduleId]);
 
-  const startIso = localInputsToIso(startDate, startTime);
-  const endIso = endTime ? localInputsToIso(endDate || startDate, endTime) : null;
+  const startIso = phtInputsToIso(startDate, startTime);
+  const endIso = endTime ? phtInputsToIso(endDate || startDate, endTime) : null;
 
   const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -193,7 +179,20 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
       </div>
     );
   }
-  if ((!editing && !moim.can.create_schedule) || (editing && !canEdit)) {
+  /** R5 C9: 시작했거나 끝난 일정, 종료·차단 모임 일정은 수정 화면을 열어도 폼 대신 안내 */
+  if (editing && loadedSchedule && loadedSchedule.viewer.canManage && !moimScheduleGate(moim, loadedSchedule, loadedSchedule.loadedAt).canEdit) {
+    return (
+      <div className={moimCls.page}>
+        <MoimEmptyState>{t("moim_schedule_edit_unavailable")}</MoimEmptyState>
+        <div className="px-4">
+          <button type="button" className={`${moimCls.btnSecondary} w-full`} onClick={() => router.replace(backHref)}>
+            {t("moim_schedule_back_to_schedule_btn")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if ((!editing && !moim.can.create_schedule) || (editing && !loadedSchedule?.viewer.canManage)) {
     return (
       <div className={moimCls.page}>
         <MoimEmptyState>{t("moim_schedule_form_no_permission")}</MoimEmptyState>
@@ -227,6 +226,8 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
             <input type="time" className={moimCls.input} value={startTime} onChange={(e) => setStartTime(e.target.value)} aria-label={t("moim_schedule_form_time_aria")} />
           </div>
           {preview ? <span className={moimCls.hint}>{t("moim_schedule_form_pht_preview", { time: preview })}</span> : null}
+          {/* R5 B24: 입력은 필리핀 시간 기준 */}
+          <span className={moimCls.hint}>{t("moim_schedule_form_pht_hint")}</span>
         </div>
 
         <div className="grid gap-1.5">
@@ -250,7 +251,7 @@ export function MoimScheduleFormScreen({ moimId, scheduleId }: { moimId: string;
           {endDate || endTime ? (
             <button
               type="button"
-              className="justify-self-start text-[12px] text-sam-muted underline"
+              className="inline-flex min-h-[length:var(--sam-tap-min)] items-center justify-self-start px-2 text-[12px] text-sam-muted underline"
               onClick={() => {
                 setEndDate("");
                 setEndTime("");

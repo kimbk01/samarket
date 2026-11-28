@@ -252,6 +252,24 @@ async function loadMessengerFriends(): Promise<{ ok: true; friends: CommunityMes
 
 type SendResult = { ok: true } | { ok: false; key: MessageKey };
 
+/**
+ * R5 C2: 보낸 뒤 실패 줄 문구 — 보내는 사람 입장. 받는 사람 문구(「이미 멤버예요」 등 내 상태)를 쓰지 않는다.
+ */
+export function moimInviteRowErrorKey(code: string | undefined | null): MessageKey {
+  if (code === "moim_already_member") return "moim_manage_invite_row_err_member";
+  if (code === "moim_already_pending") return "moim_manage_invite_row_err_pending";
+  if (code === "moim_join_not_allowed" || code === "moim_invite_not_allowed") return "moim_manage_invite_row_err_not_allowed";
+  return moimErrorKey(code);
+}
+
+/** R5 C2: 친구 줄 상태 — 이미 멤버 · 초대할 수 없음(가입 신청 중·차단, 이유를 나누지 않음) · 보낼 수 있음 */
+export function moimInviteFriendState(id: string, check: { members: string[]; unavailable: string[] } | null): "member" | "unavailable" | "ok" {
+  if (!check) return "ok";
+  if (check.members.includes(id)) return "member";
+  if (check.unavailable.includes(id)) return "unavailable";
+  return "ok";
+}
+
 function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }) {
   const { t } = useI18n();
   const load = useCallback(() => loadMessengerFriends(), []);
@@ -260,6 +278,23 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [results, setResults] = useState<Record<string, SendResult>>({});
   const [sending, setSending] = useState(false);
+  /** R5 C2: 친구 목록을 받은 뒤 1회 — 이미 멤버·초대할 수 없는 사람은 선택을 막는다 (확인 실패면 막지 않고 서버가 거절) */
+  const [check, setCheck] = useState<{ members: string[]; unavailable: string[] } | null>(null);
+  const friendIds = useMemo(
+    () => (state.status === "ready" ? state.data.friends.filter((f) => f.isFriend && !f.blocked).map((f) => f.id).slice(0, 300) : []),
+    [state]
+  );
+  const friendIdsKey = friendIds.join(",");
+  useEffect(() => {
+    if (!friendIdsKey) return;
+    let alive = true;
+    void moimApi.checkInviteCandidates(detail.id, friendIdsKey.split(",")).then((r) => {
+      if (alive && r.ok) setCheck({ members: r.members, unavailable: r.unavailable });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [detail.id, friendIdsKey]);
 
   const friends = useMemo(() => {
     if (state.status !== "ready") return [];
@@ -285,7 +320,7 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
     for (const id of ids) {
       const r = await moimApi.sendInvite(detail.id, id);
       if (r.ok) okCount += 1;
-      setResults((prev) => ({ ...prev, [id]: r.ok ? { ok: true } : { ok: false, key: moimErrorKey(r.error) } }));
+      setResults((prev) => ({ ...prev, [id]: r.ok ? { ok: true } : { ok: false, key: moimInviteRowErrorKey(r.error) } }));
       if (!r.ok && r.error === "moim_phone_verification_required") break;
     }
     setSending(false);
@@ -314,19 +349,27 @@ function FriendInvite({ detail, toast }: { detail: MoimDetailDto; toast: Toast }
           {friends.map((f) => {
             const res = results[f.id];
             const checked = selected.has(f.id);
+            const friendState = moimInviteFriendState(f.id, check);
             return (
               <li key={f.id}>
-                <label className="flex min-h-[56px] cursor-pointer items-center gap-3 px-3 py-2">
+                <label className={`flex min-h-[56px] items-center gap-3 px-3 py-2 ${friendState === "ok" ? "cursor-pointer" : ""}`}>
                   <input
                     type="checkbox"
                     className="h-4 w-4 shrink-0 accent-[color:var(--sam-primary)]"
                     checked={checked}
-                    disabled={sending || res?.ok === true}
+                    disabled={sending || res?.ok === true || friendState !== "ok"}
                     onChange={() => toggle(f.id)}
                   />
                   <MoimAvatar url={f.avatarUrl} name={f.label} size={36} />
                   <span className="min-w-0 flex-1">
-                    <span className="block break-all text-[15px] text-sam-fg">{f.label}</span>
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="break-all text-[15px] text-sam-fg">{f.label}</span>
+                      {friendState === "member" ? (
+                        <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_invite_already_member_badge")}</span>
+                      ) : friendState === "unavailable" ? (
+                        <span className={`${moimCls.badge} ${moimCls.badgeGray}`}>{t("moim_manage_invite_unavailable_badge")}</span>
+                      ) : null}
+                    </span>
                     {res ? (
                       <span className={`block text-[12px] ${res.ok ? "text-sam-success" : "text-sam-danger"}`}>
                         {res.ok ? t("moim_manage_invite_result_sent") : t(res.key)}

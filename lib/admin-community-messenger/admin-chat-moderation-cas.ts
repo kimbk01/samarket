@@ -22,10 +22,13 @@ import {
 } from "@/lib/admin/chat-admin/chat-content-access-policy";
 import { syncRoomAfterAdminMessageVisibility } from "@/lib/admin-community-messenger/sync-room-after-admin-hide";
 import {
-  MOIM_ROOM_READONLY_MANAGED_BY_MOIM,
-  MOIM_ROOM_READONLY_MANAGED_BY_MOIM_STATUS,
-  rejectsMoimRoomReadonlyAction,
+  MOIM_ROOM_MANAGED_BY_MOIM,
+  MOIM_ROOM_MANAGED_BY_MOIM_STATUS,
+  isMoimOwnedRoomRow,
+  rejectsMoimRoomAdminAction,
 } from "@/lib/admin-community-messenger/moim-room-admin-guard";
+import { moimAdminLogRoomAction } from "@/lib/moim/server/moim-rpc.server";
+import type { SupabaseServer } from "@/lib/chat/supabase-server";
 
 export type CasResult = { ok: true } | { ok: false; error: string; status: number };
 
@@ -70,9 +73,9 @@ export async function runCmRoomActionCas(
   if (readErr) return { ok: false, error: readErr.message, status: 500 };
   const before = beforeData as RoomRow | null;
   if (!before) return { ok: false, error: "room_not_found", status: 404 };
-  /** 모임 방 읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · DB 트리거도 막는다) */
-  if (rejectsMoimRoomReadonlyAction(before, input.action)) {
-    return { ok: false, error: MOIM_ROOM_READONLY_MANAGED_BY_MOIM, status: MOIM_ROOM_READONLY_MANAGED_BY_MOIM_STATUS };
+  /** 모임 방의 차단·보관·읽기 전용은 모임 어드민에서만 (모임 R4 §5(c) · R5 D5 · DB 트리거도 막는다) */
+  if (rejectsMoimRoomAdminAction(before, input.action)) {
+    return { ok: false, error: MOIM_ROOM_MANAGED_BY_MOIM, status: MOIM_ROOM_MANAGED_BY_MOIM_STATUS };
   }
   if (cmRoomActionAlreadyApplied(before, input.action)) {
     return { ok: false, error: "stale_state", status: 409 };
@@ -135,6 +138,7 @@ export async function runCmMessageHiddenCas(
       : { ok: false, error: "message_not_found", status: 404 };
   }
   await syncRoomAfterAdminMessageVisibility(input.roomId);
+  await logMoimRoomMessageAction(sb, input);
   await appendAdminRouteAudit(sb, req, {
     actorId: input.adminUserId,
     targetType: "community_messenger_message",
@@ -149,6 +153,31 @@ export async function runCmMessageHiddenCas(
     },
   });
   return { ok: true };
+}
+
+/**
+ * R5 D23: 모임 방 메시지 숨김·숨김 해제 → 모임 운영기록에도 남긴다 (모임 방이 아니면 RPC 를 부르지 않는다).
+ * 숨김은 이미 커밋됐으므로 기록 실패는 결과를 바꾸지 않는다(경고 로그만 — 한 트랜잭션이 아님, 남은 위험).
+ */
+async function logMoimRoomMessageAction(
+  sb: SupabaseClient,
+  input: { roomId: string; messageId: string; adminUserId: string; hidden: boolean; reason: string }
+): Promise<void> {
+  try {
+    const { data } = await sb.from("community_messenger_rooms").select("owner_domain").eq("id", input.roomId).maybeSingle();
+    if (!isMoimOwnedRoomRow(data as { owner_domain?: unknown } | null)) return;
+    const r = await moimAdminLogRoomAction(
+      input.adminUserId,
+      input.roomId,
+      input.hidden ? "admin_messenger_message_hidden" : "admin_messenger_message_unhidden",
+      input.messageId,
+      input.reason,
+      sb as unknown as SupabaseServer
+    );
+    if (!r.ok) console.warn("[admin-chat-moderation-cas] moim room log failed", r.error);
+  } catch (err) {
+    console.warn("[admin-chat-moderation-cas] moim room log failed", err);
+  }
 }
 
 type ReportRow = {
@@ -183,6 +212,15 @@ export async function runCmReportActionCas(
   }
   if (input.action === "sanction_room_block" && !before.room_id) {
     return { ok: false, error: "report_has_no_room", status: 400 };
+  }
+  /**
+   * R5 D5: 모임 방 차단은 신고 상태를 바꾸기 전에 거부한다 — 그대로 두면 신고만 「제재」로 닫히고 방은 안 막히는 반쪽 처리가 된다.
+   */
+  if (input.action === "sanction_room_block" && before.room_id) {
+    const { data: room } = await sb.from("community_messenger_rooms").select("owner_domain").eq("id", before.room_id).maybeSingle();
+    if (rejectsMoimRoomAdminAction(room as { owner_domain?: unknown } | null, "block_room")) {
+      return { ok: false, error: MOIM_ROOM_MANAGED_BY_MOIM, status: MOIM_ROOM_MANAGED_BY_MOIM_STATUS };
+    }
   }
 
   const now = new Date().toISOString();

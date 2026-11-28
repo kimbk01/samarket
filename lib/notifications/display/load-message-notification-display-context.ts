@@ -12,6 +12,7 @@ import {
   resolveEffectiveRoomKind,
 } from "@/lib/notifications/display/message-notification-room-kind";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { isUuidString } from "@/lib/shared/uuid-string";
 import {
   MEMBER_IDENTITY_PROFILE_SELECT,
   resolvePublicMemberIdentity,
@@ -64,6 +65,13 @@ async function loadMessageRow(
   };
 }
 
+type CmRoomProfileRowForNotify = {
+  user_id?: string | null;
+  identity_mode?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+};
+
 type CmRoomRowForNotify = {
   title?: string | null;
   room_type?: string | null;
@@ -72,7 +80,37 @@ type CmRoomRowForNotify = {
   chat_domain?: string | null;
   domain_identity_key?: string | null;
   domain_identity?: string | null;
+  owner_domain?: string | null;
+  /** 보낸 사람의 방 프로필(모임 방 신원) — 같은 방 행 조회의 묶음 조회라 요청 수는 그대로 (모임 R5 A14) */
+  community_messenger_room_profiles?: CmRoomProfileRowForNotify[] | CmRoomProfileRowForNotify | null;
 };
+
+/**
+ * 방 행 조회 select — 방 행 + 보낸 사람 방 프로필 묶음 조회 1요청 (모임 R5 A14).
+ * 문자열이 틀리면 방 행 조회가 통째로 실패해 모든 메시지 알림 방 이름이 대체 이름이 되므로 시험으로 고정한다.
+ */
+const CM_ROOM_ROW_FOR_NOTIFY_BASE_SELECT =
+  "title, room_type, direct_key, summary, chat_domain, domain_identity_key, domain_identity, owner_domain";
+export const CM_ROOM_ROW_FOR_NOTIFY_SELECT = `${CM_ROOM_ROW_FOR_NOTIFY_BASE_SELECT}, community_messenger_room_profiles(user_id, identity_mode, display_name, avatar_url)`;
+
+/**
+ * 모임 방 보낸 사람 = 방 프로필(모임 별칭·모임 사진)만 — 닉네임·@아이디·DIBAY 사진으로 대신 채우지 않는다 (계약 §4 「보이지 않는 것: DIBAY ID」).
+ * 이름이 비면 빈 값 → 받는 사람 언어 대체 이름(`notify_peer_fallback`). 사진이 없으면 null. 모임 방이 아니면 null(기존 그대로).
+ */
+export function resolveMoimRoomSenderFromRow(
+  row: CmRoomRowForNotify | null | undefined,
+  senderUserId: string
+): { displayName: string; avatarUrl: string | null } | null {
+  if (!row || trimText(row.owner_domain) !== "moim") return null;
+  const raw = row.community_messenger_room_profiles;
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const sender = senderUserId.trim();
+  const profile = list.find((p) => trimText(p?.user_id) === sender) ?? null;
+  return {
+    displayName: trimText(profile?.display_name),
+    avatarUrl: trimText(profile?.avatar_url) || null,
+  };
+}
 
 type RoomContext = {
   name: string | null;
@@ -92,13 +130,28 @@ const EMPTY_ROOM_CONTEXT: RoomContext = {
   domainIdentityKey: null,
 };
 
-async function loadCmRoomRowForNotify(sb: SupabaseClient<any>, roomId: string): Promise<CmRoomRowForNotify | null> {
+async function loadCmRoomRowForNotify(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  senderUserId: string
+): Promise<CmRoomRowForNotify | null> {
   const id = roomId.trim();
   if (!id) return null;
+  const sender = senderUserId.trim();
+  /** 보낸 사람 id 가 uuid 가 아니면(시스템 등) 묶음 없이 — uuid 칸에 다른 값을 넣으면 방 행 조회가 통째로 실패한다 */
+  if (!isUuidString(sender)) {
+    const { data: plainRoom } = await sb
+      .from("community_messenger_rooms")
+      .select(CM_ROOM_ROW_FOR_NOTIFY_BASE_SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    return (plainRoom as CmRoomRowForNotify | null) ?? null;
+  }
   const { data: cmRoom } = await sb
     .from("community_messenger_rooms")
-    .select("title, room_type, direct_key, summary, chat_domain, domain_identity_key, domain_identity")
+    .select(CM_ROOM_ROW_FOR_NOTIFY_SELECT)
     .eq("id", id)
+    .eq("community_messenger_room_profiles.user_id", sender)
     .maybeSingle();
   return (cmRoom as CmRoomRowForNotify | null) ?? null;
 }
@@ -170,9 +223,10 @@ async function loadRoomContext(
   sb: SupabaseClient<any>,
   roomId: string,
   roomKind: NotificationMessageRoomKind,
-  language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
+  language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>,
+  senderUserId: string
 ): Promise<RoomContext> {
-  const row = await loadCmRoomRowForNotify(sb, roomId);
+  const row = await loadCmRoomRowForNotify(sb, roomId, senderUserId);
   return roomContextFromRow(sb, roomId, row, roomKind, language);
 }
 
@@ -235,7 +289,7 @@ export async function loadMessageNotificationDisplaySharedContext(
    */
   if (input.roomKind !== "trade_legacy") {
     const [roomRow, { data: senderRowFast }, messageRowFast, chatPreviewFast] = await Promise.all([
-      loadCmRoomRowForNotify(sb, input.roomId),
+      loadCmRoomRowForNotify(sb, input.roomId, input.senderUserId),
       sb
         .from("profiles")
         .select(`${MEMBER_IDENTITY_PROFILE_SELECT}`)
@@ -260,7 +314,7 @@ export async function loadMessageNotificationDisplaySharedContext(
       resolvedRoomKind: resolvedRoomKindFast,
       messageType: messageRowFast.messageType,
       textContent: messageRowFast.textContent ?? (trimText(input.preview) || null),
-      sender: {
+      sender: resolveMoimRoomSenderFromRow(roomRow, input.senderUserId) ?? {
         displayName:
           resolveSenderDisplayName(senderProfileFast),
         avatarUrl: trimText(senderProfileFast?.avatar_url) || null,
@@ -275,7 +329,7 @@ export async function loadMessageNotificationDisplaySharedContext(
     };
   }
 
-  const bootstrapRoom = await loadRoomContext(sb, input.roomId, input.roomKind ?? "direct", "ko");
+  const bootstrapRoom = await loadRoomContext(sb, input.roomId, input.roomKind ?? "direct", "ko", input.senderUserId);
   const resolvedRoomKind = resolveEffectiveRoomKind({
     roomKind: input.roomKind,
     directKey: input.directKey ?? bootstrapRoom.directKey,
@@ -291,7 +345,7 @@ export async function loadMessageNotificationDisplaySharedContext(
       .maybeSingle(),
     loadMessageRow(sb, input.messageId, resolvedRoomKind),
     loadChatPreviewEnabledByUserIds(sb, input.recipientUserIds),
-    loadRoomContext(sb, input.roomId, resolvedRoomKind, "ko"),
+    loadRoomContext(sb, input.roomId, resolvedRoomKind, "ko", input.senderUserId),
   ]);
 
   const senderProfile = senderRow as MemberIdentityProfileFields | null;

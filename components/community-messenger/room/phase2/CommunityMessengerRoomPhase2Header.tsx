@@ -56,7 +56,9 @@ import {
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { resolveMessengerRoomDisplayTitle } from "@/lib/community-messenger/room/messenger-room-display-title";
-import { moimRoomOwnerHref, moimRoomOwnerShowsHome } from "@/lib/moim/use-moim-room-owner";
+import { moimRoomOwnerHref } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomHeaderStatus, resolveMoimRoomSurfaceFromView } from "@/lib/moim/moim-room-surface-policy";
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 
 /** 통화 선택 시트 — 📞 를 누를 때만 불러온다 (방 첫 화면 번들·방 진입 경로에 연락처 코드를 넣지 않음) */
 const MessengerCallChoiceSheetLazy = lazy(
@@ -73,9 +75,32 @@ const CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS =
 const CM_ROOM_HEADER_TOUCH_FACE_CLASS = `${CM_ROOM_HEADER_TOUCH_FACE_BASE_CLASS} group-active:bg-[color:var(--cm-room-primary-soft)]`;
 
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const isMessengerSplit = useIsMessengerSplitViewport();
   const vm = useMessengerRoomPhase2HeaderView();
+  /** 모임 방 표면 규칙 하나 (모임 R5 A §1) — 「모임 홈」 진입점·상태 줄 */
+  const moimSurface = useMemo(
+    () =>
+      resolveMoimRoomSurfaceFromView({
+        isPrivateGroupRoom: vm.isPrivateGroupRoom,
+        isMoimRoom: vm.isMoimRoom,
+        moimRoomOwner: vm.moimRoomOwner,
+        viewerUserId: vm.snapshot.viewerUserId,
+      }),
+    [vm.isPrivateGroupRoom, vm.isMoimRoom, vm.moimRoomOwner, vm.snapshot.viewerUserId]
+  );
+  /** 모임 방 = 「멤버 {count}」 · 일정 방 = 「{모임} · {일정 시각(PHT)}」 (모임 R5 A24 · 시안 U8) */
+  const moimHeaderStatus = useMemo(
+    () =>
+      resolveMoimRoomHeaderStatus({
+        surface: moimSurface,
+        owner: vm.moimRoomOwner,
+        memberCount: vm.snapshot.room.memberCount,
+        t,
+        formatStartsAt: (iso) => formatPhtDisplayDateTime(iso, language),
+      }),
+    [language, moimSurface, t, vm.moimRoomOwner, vm.snapshot.room.memberCount]
+  );
   const hydrationPass = useCmRoomPhase2HydrationPass();
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
@@ -211,10 +236,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         /** 준비 단계(2단계 전)에도 상대가 있으면 방 설명 문구 대신 빈칸 */
         peerUserId: vm.snapshot.room.peerUserId ?? null,
         peerPresence,
-        roomHeaderStatus: vm.roomHeaderStatus,
+        roomHeaderStatus: moimHeaderStatus ?? vm.roomHeaderStatus,
         t,
       }),
-    [peerPresence, t, typingLabel, vm.roomHeaderStatus, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]
+    [moimHeaderStatus, peerPresence, t, typingLabel, vm.roomHeaderStatus, vm.snapshot.room.peerUserId, vm.snapshot.room.roomType]
   );
   const statusLine: ReactNode = useMemo(
     () => (headerStatus.kind === "typing" ? <TypingIndicatorLine label={headerStatus.label} /> : headerStatus.text),
@@ -513,8 +538,8 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         )}
 
         <div className="flex shrink-0 items-center gap-0 self-center">
-          {/* 삭제된 모임이면 「모임 홈」이 빈 화면이라 숨긴다 — 모임 방 판정은 그대로 (모임 R4 D-3) */}
-          {vm.isMoimRoom && moimRoomOwnerShowsHome(vm.moimRoomOwner) ? (
+          {/* 삭제·열람 끝·판정 중이면 「모임 홈」이 빈 화면이라 숨긴다 (모임 R4 D-3 · R5 A9 `moimEntry`) */}
+          {moimSurface.moimEntry && vm.moimRoomOwner ? (
             <button
               type="button"
               data-moim-room-home="header"

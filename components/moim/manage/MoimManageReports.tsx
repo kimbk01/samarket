@@ -38,13 +38,22 @@ const STATUS_KEY: Record<Exclude<MoimStaffReportDto["status"], "active">, Messag
   missing: "moim_manage_reports_status_missing",
 };
 
+/**
+ * R5 C3: 처리 결과 — 내 콘텐츠면 지우기(삭제됨), 남의 것이면 숨기기(숨김). 글·사진은 응답 `result` 가 권위, 댓글은 작성자 여부로.
+ */
+export function moimStaffReportOutcome(item: Pick<MoimStaffReportDto, "targetType" | "viewerIsAuthor">, result: unknown): "deleted" | "hidden" {
+  if (result === "deleted" || result === "hidden") return result;
+  return item.viewerIsAuthor ? "deleted" : "hidden";
+}
+
 function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?: readonly MoimPolicyLabelItem[] | null }) {
   const { t, language } = useI18n();
   const fmt = useMoimDateFormat();
   const toast = useMoimManageToast();
   const load = useCallback(() => moimApi.staffReports(moimId), [moimId]);
   const { state, reload } = useMoimResource(load);
-  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  /** 처리한 대상 → 결과(숨김·삭제) */
+  const [handled, setHandled] = useState<Map<string, "hidden" | "deleted">>(() => new Map());
   const [confirm, setConfirm] = useState<MoimStaffReportDto | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -63,9 +72,10 @@ function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?
         reload();
         return;
       }
-      setHidden((prev) => new Set(prev).add(`${item.targetType}:${item.targetId}`));
+      const outcome = moimStaffReportOutcome(item, (r as { result?: unknown }).result);
+      setHandled((prev) => new Map(prev).set(`${item.targetType}:${item.targetId}`, outcome));
       setConfirm(null);
-      toast.show(t("moim_manage_reports_hidden_toast"), "success");
+      toast.show(t(outcome === "deleted" ? "moim_manage_reports_deleted_toast" : "moim_manage_reports_hidden_toast"), "success");
     },
     [reload, t, toast]
   );
@@ -82,7 +92,7 @@ function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?
       <ul className="flex flex-col gap-3 px-4 pt-3">
         {list.map((item) => {
           const key = `${item.targetType}:${item.targetId}`;
-          const status = hidden.has(key) ? "hidden" : item.status;
+          const status = handled.get(key) ?? item.status;
           const href =
             item.targetType === "album" ? moimRoutes.album(moimId) : item.postId ? moimRoutes.post(moimId, item.postId) : null;
           return (
@@ -122,7 +132,7 @@ function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?
                     className={`${moimCls.btnDanger} flex-1`}
                     onClick={() => setConfirm(item)}
                   >
-                    {t("moim_manage_reports_hide_btn")}
+                    {item.viewerIsAuthor ? t("moim_manage_reports_delete_own_btn") : t("moim_manage_reports_hide_btn")}
                   </button>
                 ) : null}
               </div>
@@ -134,14 +144,14 @@ function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?
       <DibayBottomSheet
         open={confirm != null}
         onClose={() => setConfirm(null)}
-        title={t("moim_manage_reports_hide_sheet_title")}
+        title={confirm?.viewerIsAuthor ? t("moim_manage_reports_delete_own_title") : t("moim_manage_reports_hide_sheet_title")}
         footer={
           <DibayOverlayActions
             actions={[
               { key: "cancel", label: t("moim_manage_cancel_btn"), roleTone: "secondary", onClick: () => setConfirm(null) },
               {
                 key: "hide",
-                label: t("moim_manage_reports_hide_btn"),
+                label: confirm?.viewerIsAuthor ? t("moim_manage_reports_delete_own_btn") : t("moim_manage_reports_hide_btn"),
                 roleTone: "destructive",
                 loading: busy,
                 onClick: () => {
@@ -152,7 +162,9 @@ function ReportsBody({ moimId, reportReasons }: { moimId: string; reportReasons?
           />
         }
       >
-        <p className="text-[14px] text-sam-fg">{t("moim_manage_reports_hide_sheet_body")}</p>
+        <p className="text-[14px] text-sam-fg">
+          {confirm?.viewerIsAuthor ? t("moim_manage_reports_delete_own_body") : t("moim_manage_reports_hide_sheet_body")}
+        </p>
       </DibayBottomSheet>
       {toast.node}
     </>

@@ -17,7 +17,7 @@ import {
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { moimCls } from "@/components/moim/moim-ui";
 import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
-import { MoimManageFrame, moimManageCardClass, moimManageSectionTitleClass, moimRoleKey, useMoimManageToast } from "./moim-manage-shared";
+import { MoimManageFrame, moimManageCardClass, moimManageSectionTitleClass, moimRoleAtLeastLabel, useMoimManageToast } from "./moim-manage-shared";
 
 /** 낮은 역할부터 (멤버 → 모임장) */
 const ROLES_LOW_TO_HIGH: MoimRole[] = [...MOIM_ROLES].reverse();
@@ -81,7 +81,7 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
                       className={`${on ? Sam.chip.activeCombo : Sam.chip.inactiveCombo} min-h-[length:var(--sam-tap-min)] shrink-0 whitespace-nowrap rounded-ui-rect`}
                       onClick={() => setDraft((d) => ({ ...d, [action]: role }))}
                     >
-                      {t("moim_manage_perm_role_or_above_chip", { role: t(moimRoleKey(role)) })}
+                      {moimRoleAtLeastLabel(role, t)}
                     </button>
                   );
                 })}
@@ -97,7 +97,7 @@ function PermissionsBody({ detail, reload }: { detail: MoimDetailDto; reload: ()
           <li key={action} className="flex items-center justify-between gap-3 px-4 py-3">
             <span className="min-w-0 text-[15px] text-sam-fg">{t(`moim_perm_${action}` as MessageKey)}</span>
             <span className="shrink-0 whitespace-nowrap text-[13px] text-sam-muted">
-              {t("moim_manage_perm_role_or_above_chip", { role: t(moimRoleKey(initial[action])) })}
+              {moimRoleAtLeastLabel(initial[action], t)}
             </span>
           </li>
         ))}

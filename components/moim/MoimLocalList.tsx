@@ -10,7 +10,7 @@ import { MoimEmptyState, MoimErrorState, MoimListSkeleton, moimCls } from "@/com
 import type { MoimLocalListState } from "@/components/moim/use-moim-local-list";
 
 /** 우리 동네 모임 목록 본문 — 로딩·오류·주소 없음·빈 목록·더 보기 */
-export function MoimLocalList({ list, emptyKey }: { list: MoimLocalListState; emptyKey: "moim_home_local_empty" | "moim_search_empty" }) {
+export function MoimLocalList({ list, emptyKey }: { list: MoimLocalListState; emptyKey: "moim_home_local_empty" | "moim_home_local_empty_preparing" | "moim_search_empty" }) {
   const { t } = useI18n();
   const pathname = usePathname();
   if (list.status === "loading" || list.status === "idle") return <MoimListSkeleton />;

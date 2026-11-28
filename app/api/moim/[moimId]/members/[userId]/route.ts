@@ -20,8 +20,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (body?.role === "co_host" || body?.role === "staff" || body?.role === "member") {
     const role = body.role;
     const result = await moimMemberRoleSet(g.userId, moimId, target, role, g.sb);
-    /** P7 「부모임장 / 운영진 / 멤버 → 대상에게」 — 멤버로 내려도 보낸다 (R2 N-03) · 키 밀리초(R-c) · 응답 뒤(R-e) */
-    if (result.ok) {
+    /**
+     * P7 「부모임장 / 운영진 / 멤버 → 대상에게」 — 멤버로 내려도 보낸다 (R2 N-03) · 키 밀리초(R-c) · 응답 뒤(R-e)
+     * R5 E9: 같은 역할로 다시 저장하면(changed=false) 바뀐 것이 없으므로 보내지 않는다. 옛 DB(키 없음)는 바뀜으로 본다
+     */
+    if (result.ok && result.changed !== false) {
       const ref = `${target}:${role}:${Date.now()}`;
       notifyMoimAfterResponse(async () =>
         notifyMoimMany(g.sb, [target], {

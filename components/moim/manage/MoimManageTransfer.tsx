@@ -10,31 +10,37 @@ import { MoimStickyFooter } from "@/components/moim/MoimStickyFooter";
 import { canOpenMoimTransfer } from "./MoimManageHub";
 import {
   MoimAvatar,
+  MoimPeopleCappedHint,
   MoimManageEmpty,
   MoimManageError,
   MoimManageFrame,
   MoimManageLoading,
   MoimRoleBadge,
   moimManageCardClass,
+  useMoimDateFormat,
   useMoimManageToast,
   useMoimResource,
 } from "./moim-manage-shared";
 
-/** 위임 요청 버튼을 그리지 않는 조건 — 경고 받은 모임 · 위임 권한 없음 · 이미 보냄 (R3 U-16) */
+/** 위임 요청 버튼을 그리지 않는 조건 — 경고 받은 모임 · 위임 권한 없음 · 이미 보냄 (R3 U-16 · R5 C5: 보낸 요청 = 서버 값) */
 export function transferButtonHidden(x: { warned: boolean; canTransfer: boolean; sentTo: string | null }): boolean {
   return x.warned || !x.canTransfer || x.sentTo != null;
 }
 
-function TransferBody({ detail }: { detail: MoimDetailDto }) {
+function TransferBody({ detail, reloadDetail }: { detail: MoimDetailDto; reloadDetail: () => void }) {
   const { t } = useI18n();
   const toast = useMoimManageToast();
+  const fmt = useMoimDateFormat();
+  /** R5 C5: 내가 보낸 직접 위임 요청 — 화면을 나갔다 와도 유지(서버 값). 있으면 후보 선택·보내기 대신 취소 카드 */
+  const outgoing = detail.viewer.outgoingHostTransfer;
+  const [cancelOpen, setCancelOpen] = useState(false);
   const warned = detail.platformState === "warned";
   const load = useCallback(() => moimApi.members(detail.id), [detail.id]);
   const { state, reload } = useMoimResource(load);
   const [selected, setSelected] = useState<MoimMemberDto | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const sentTo = outgoing ? outgoing.toNickname : null;
 
   const send = async () => {
     if (!selected) return;
@@ -42,9 +48,29 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
     const r = await moimApi.requestHostTransfer(detail.id, selected.userId);
     setBusy(false);
     setConfirmOpen(false);
-    if (!r.ok) return toast.showError(r.error);
-    setSentTo(selected.nickname);
+    if (!r.ok) {
+      toast.showError(r.error);
+      /** 이미 열린 요청이 있음 → 서버 값을 다시 읽어 그 요청 카드를 보인다 */
+      if (r.error === "moim_transfer_pending") reloadDetail();
+      return;
+    }
     toast.show(t("moim_manage_transfer_sent_toast"), "success");
+    reloadDetail();
+  };
+
+  const cancel = async () => {
+    if (!outgoing) return;
+    setBusy(true);
+    const r = await moimApi.cancelHostTransfer(outgoing.id);
+    setBusy(false);
+    setCancelOpen(false);
+    if (!r.ok) {
+      toast.showError(r.error);
+      if (r.error === "moim_transfer_not_found") reloadDetail();
+      return;
+    }
+    toast.show(t("moim_manage_transfer_cancelled_toast"), "success");
+    reloadDetail();
   };
 
   return (
@@ -58,19 +84,26 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
           {t("moim_err_moim_transfer_blocked_by_warning")}
         </p>
       ) : null}
-      {sentTo ? (
-        <p className="mt-3 rounded-ui-rect bg-sam-success-soft px-3 py-2.5 text-[13px] text-sam-fg" role="status">
-          {t("moim_manage_transfer_sent_notice", { name: sentTo })}
-        </p>
+      {outgoing ? (
+        <div className={`${moimManageCardClass} mt-3 grid gap-2 p-4`} role="status" data-testid="moim-transfer-outgoing">
+          <p className="text-[14px] text-sam-fg">
+            {t("moim_manage_transfer_pending_notice", { name: outgoing.toNickname, date: fmt(outgoing.createdAt) })}
+          </p>
+          <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${moimCls.btnSm} w-full`} onClick={() => setCancelOpen(true)}>
+            {t("moim_manage_transfer_cancel_btn")}
+          </button>
+        </div>
       ) : null}
 
-      {state.status === "loading" ? <MoimManageLoading /> : null}
+      {outgoing ? null : state.status === "loading" ? <MoimManageLoading /> : null}
       {state.status === "error" ? <MoimManageError errorKey={state.errorKey} onRetry={reload} /> : null}
-      {state.status === "ready" ? (
+      {!outgoing && state.status === "ready" ? (
         (() => {
           const candidates = state.data.members.filter((m) => m.role !== "host");
           if (candidates.length === 0) return <MoimManageEmpty textKey="moim_manage_transfer_empty" />;
           return (
+            <>
+            <MoimPeopleCappedHint show={state.data.capped} />
             <ul className={`${moimManageCardClass} mt-4 divide-y divide-sam-border-soft`} role="radiogroup">
               {candidates.map((m) => (
                 <li key={m.userId}>
@@ -92,6 +125,7 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
                 </li>
               ))}
             </ul>
+            </>
           );
         })()
       ) : null}
@@ -122,6 +156,16 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => void send()}
       />
+      <DibayConfirmDialog
+        open={cancelOpen && outgoing != null}
+        title={t("moim_manage_transfer_cancel_confirm_title")}
+        cancelLabel={t("moim_manage_cancel_btn")}
+        confirmLabel={t("moim_manage_transfer_cancel_btn")}
+        confirmTone="destructive"
+        busy={busy}
+        onCancel={() => setCancelOpen(false)}
+        onConfirm={() => void cancel()}
+      />
       {toast.node}
     </div>
   );
@@ -130,7 +174,7 @@ function TransferBody({ detail }: { detail: MoimDetailDto }) {
 export function MoimManageTransfer({ moimId }: { moimId: string }) {
   return (
     <MoimManageFrame moimId={moimId} titleKey="moim_manage_transfer_title" stickyFooter allow={canOpenMoimTransfer}>
-      {({ detail }) => <TransferBody detail={detail} />}
+      {({ detail, reload }) => <TransferBody detail={detail} reloadDetail={reload} />}
     </MoimManageFrame>
   );
 }

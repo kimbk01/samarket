@@ -5,7 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMoimRoomOwner } from "@/lib/moim/use-moim-room-owner";
+import { useMoimRoomOwnerState } from "@/lib/moim/use-moim-room-owner";
+import { resolveMoimRoomSurface, resolveMoimScheduleListSubline } from "@/lib/moim/moim-room-surface-policy";
+import { formatPhtDisplayDateTime } from "@/lib/time/format-pht-display";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
@@ -235,7 +237,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 }: Props) {
   const { t, safeT, language } = useI18n();
   /** 모임 소유 방이면 「모임」 배지 (부트스트랩과 별도로 화면이 그려진 뒤 조회) */
-  const moimRoomOwner = useMoimRoomOwner(item.room.roomType === "private_group" ? item.room.id : null);
+  const moimOwnerState = useMoimRoomOwnerState(item.room.roomType === "private_group" ? item.room.id : null);
+  const moimRoomOwner = moimOwnerState.owner;
+  /** 모임 방·판정 중·실패 = 스와이프 나가기 없음 (R5 A8 · 표면 규칙) · 일정 방 둘째 줄 = 「{모임} · {시각 PHT}」(A24 · 캐시만 · 요청 0) */
+  const moimManaged = resolveMoimRoomSurface({ roomType: item.room.roomType, owner: moimRoomOwner, ownerStatus: moimOwnerState.status, viewerUserId: null }).state !== "not_moim";
+  const moimScheduleSubline = resolveMoimScheduleListSubline(moimRoomOwner, (iso) => formatPhtDisplayDateTime(iso, language));
   useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM;
   if (!shouldFreezeRoomListSubtree()) {
@@ -380,11 +386,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         roomStatusArchived: room.roomStatus === "archived",
         isArchivedByViewer: Boolean(room.isArchivedByViewer),
         storeOrderCustomerList: listVisual === "delivery" && deliveryMeta != null && !viewerIsDeliveryStoreOwner,
+        moimManaged,
       }),
     [
       deliveryMeta,
       listContext,
       listVisual,
+      moimManaged,
       policyType,
       room.isArchivedByViewer,
       room.roomStatus,
@@ -1199,7 +1207,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           >
             {/* P3: 상대 입력 중이면 미리보기 자리에 「입력 중」(보이는 행만 수신, 최대 15방) */}
             <MessengerChatListTypingPreview roomId={room.id} roomType={room.roomType} viewerUserId={viewerUserId}>
-              {item.preview}
+              {moimScheduleSubline ?? item.preview}
             </MessengerChatListTypingPreview>
           </p>
         </div>

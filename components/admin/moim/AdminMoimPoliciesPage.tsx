@@ -17,10 +17,12 @@ import { AdminErrorState, AdminLoadingState } from "@/components/admin/ui/AdminS
 import {
   MOIM_ADMIN_BANNED_WORD_MAX_LEN,
   MOIM_ADMIN_BANNED_WORDS_MAX,
+  MOIM_ADMIN_POLICY_INT_DEFAULTS,
   MOIM_ADMIN_POLICY_INT_KEYS,
   MOIM_ADMIN_POLICY_LABEL_MAX_LEN,
   MOIM_ADMIN_PROHIBITED_TYPES_MAX,
   MOIM_ADMIN_REPORT_REASONS_MAX,
+  moimPolicyReasonsHaveActive,
   parseMoimAdminPolicyRows,
   type MoimAdminPoliciesRow,
   type MoimAdminPolicyIntKey,
@@ -114,6 +116,22 @@ export function moimPoliciesPatch(draft: MoimPoliciesDraft, base: MoimPoliciesDr
   return patch;
 }
 
+/**
+ * 저장 가능한 신고 사유 목록인가 (순수 함수 · 시험 대상) — 형식(코드·한국어·영어 이름) + 켜진 사유 1개 이상(R5 D6·D20).
+ * 옛 DB(열 없음 = null)면 검사하지 않는다.
+ */
+export function moimPolicyReasonsSavable(rows: readonly MoimPolicyDraftRow[] | null): boolean {
+  if (!rows) return true;
+  const parsed = parseMoimAdminPolicyRows(moimPolicyRowsPayload(rows, true), "report_reasons");
+  return parsed !== null && moimPolicyReasonsHaveActive(parsed);
+}
+
+/** R5 D19: 빈 칸 안내 — SQL 기본값이 있는 칸은 「비우면 기본 n」, 나머지는 「제한 없음」 */
+export function moimPolicyPlaceholderKey(key: MoimAdminPolicyIntKey): { key: MessageKey; n?: number } {
+  const n = MOIM_ADMIN_POLICY_INT_DEFAULTS[key];
+  return n == null ? { key: "admin_moim_policy_empty" } : { key: "admin_moim_policy_default_n", n };
+}
+
 const PATCH_LABEL: Record<string, MessageKey> = {
   banned_words: "admin_moim_policy_banned_words",
   question_banned_words: "admin_moim_policy_question_banned_words",
@@ -200,7 +218,8 @@ export function MoimPolicyRowsEditor({
 }
 
 export function AdminMoimPoliciesPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const ko = language !== "en";
   const { state, reload } = useCommunityAdminJson<PoliciesResponse>("/api/admin/moim/policies");
   const p = state.data?.policies ?? null;
   const base = useMemo(() => (p ? moimPoliciesDraft(p) : null), [p]);
@@ -220,32 +239,37 @@ export function AdminMoimPoliciesPage() {
   const qWords = draft?.question != null ? wordsOf(draft.question) : [];
   const qWordsOk = wordsValid(qWords);
   const typesOk = !draft?.types || parseMoimAdminPolicyRows(moimPolicyRowsPayload(draft.types, false), "prohibited_types") !== null;
-  const reasonsOk = !draft?.reasons || parseMoimAdminPolicyRows(moimPolicyRowsPayload(draft.reasons, true), "report_reasons") !== null;
+  const reasonsOk = moimPolicyReasonsSavable(draft?.reasons ?? null);
+  /** R5 D6: 마지막 켜진 사유를 끄면 저장 불가 (신고·직접 제재를 할 수 없게 된다) */
+  const reasonsNoneActive = Boolean(draft?.reasons) && !moimPolicyReasonsHaveActive((draft?.reasons ?? []).map((r) => ({ is_active: r.active })));
   const numbersOk = draft ? MOIM_ADMIN_POLICY_INT_KEYS.every((k) => draft[k].trim() === "" || /^\d+$/.test(draft[k].trim())) : false;
   const allOk = wordsOk && qWordsOk && typesOk && reasonsOk && numbersOk;
 
   return (
     <CommunityListShell title={t("admin_moim_policies_title")} description={t("admin_moim_policies_desc")} banner={node}>
-      {state.status === "loading" && !p ? <AdminLoadingState ko /> : null}
-      {state.status === "error" ? <AdminErrorState ko code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
+      {state.status === "loading" && !p ? <AdminLoadingState ko={ko} /> : null}
+      {state.status === "error" ? <AdminErrorState ko={ko} code={state.code} httpStatus={state.httpStatus} onRetry={reload} /> : null}
       {draft && p ? (
         <div className="space-y-4 p-3 text-[13px]">
           <p className="text-[12px] text-sam-muted">
             {t("admin_moim_policies_updated")} <MoimAdminTime iso={p.updated_at} />
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {MOIM_ADMIN_POLICY_INT_KEYS.map((k) => (
-              <label key={k} className="flex flex-col gap-1">
-                <span className="text-sam-muted">{t(`admin_moim_policy_${k}` as MessageKey)}</span>
-                <input
-                  className={MOIM_ADMIN_FIELD}
-                  inputMode="numeric"
-                  value={draft[k]}
-                  placeholder={t("admin_moim_policy_empty")}
-                  onChange={(e) => setDraft({ ...draft, [k]: e.target.value.replace(/\D/g, "") })}
-                />
-              </label>
-            ))}
+            {MOIM_ADMIN_POLICY_INT_KEYS.map((k) => {
+              const ph = moimPolicyPlaceholderKey(k);
+              return (
+                <label key={k} className="flex flex-col gap-1">
+                  <span className="text-sam-muted">{t(`admin_moim_policy_${k}` as MessageKey)}</span>
+                  <input
+                    className={MOIM_ADMIN_FIELD}
+                    inputMode="numeric"
+                    value={draft[k]}
+                    placeholder={ph.n == null ? t(ph.key) : t(ph.key, { n: ph.n })}
+                    onChange={(e) => setDraft({ ...draft, [k]: e.target.value.replace(/\D/g, "") })}
+                  />
+                </label>
+              );
+            })}
           </div>
           <label className="flex flex-col gap-1">
             <span className="text-sam-muted">{t("admin_moim_policy_banned_words")}</span>
@@ -287,6 +311,11 @@ export function AdminMoimPoliciesPage() {
               withActive
               onChange={(reasons) => setDraft({ ...draft, reasons })}
             />
+          ) : null}
+          {reasonsNoneActive ? (
+            <p role="alert" className="text-[12px] text-sam-danger">
+              {t("admin_moim_policy_reasons_need_active")}
+            </p>
           ) : null}
           <div className="flex flex-wrap justify-end gap-2">
             <AdminActionButton variant="secondary" disabled={!changed.length} onClick={() => setDraft(base)}>

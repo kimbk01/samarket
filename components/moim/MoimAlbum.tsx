@@ -1,18 +1,17 @@
 "use client";
 
 import { DibaySpinner } from "@/components/ui/DibaySpinner";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, ImagePlus, Pin, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Pin } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
-import { useRegisterOpenOverlay } from "@/lib/ui/use-register-open-overlay";
+import { DibayActionSheet, dibayConfirm, type DibayActionSheetItem } from "@/components/ui/dibay-overlay";
+import { DibayImageViewer, dibayImageViewerItemsFromUrls } from "@/components/common/media/DibayImageViewer";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { moimApi, moimErrorKey } from "@/lib/moim/moim-client-api";
 import type { MoimAlbumItemDto, MoimDetailDto } from "@/lib/moim/moim-api-types";
 import type { MoimReportTarget } from "@/components/moim/MoimReportSheet";
 import { useMoimImageUpload } from "@/components/moim/use-moim-image-upload";
-import { MoimAvatar, MoimEmptyState, MoimErrorState, moimCls } from "@/components/moim/moim-ui";
-import { useOverlayHardwareBack } from "@/lib/ui/overlay-back-stack";
+import { MoimEmptyState, MoimErrorState, moimCls } from "@/components/moim/moim-ui";
 
 /** 한 번에 올릴 수 있는 사진 수 */
 export const MOIM_ALBUM_PICK_MAX = 10;
@@ -123,22 +122,27 @@ function MoimAlbumGrid({ items, onOpen }: { items: MoimAlbumItemDto[]; onOpen: (
   );
 }
 
-/** 전체 화면 사진 보기 — 고정/해제 · 삭제/숨기기 · 신고 */
-function MoimAlbumViewer({
+/**
+ * 사진 크게 보기 — 공용 뷰어(`DibayImageViewer`) + 「⋯」 시트 (R5 B8·B9).
+ * 시트 항목 순서 = 일반 → 신고 → 위험(R3 1-1): 고정/해제(pin_notice) → 신고(남의 사진) → 삭제(내 사진) 또는 숨기기(hide_post).
+ * 뒤로 키: 시트가 열린 채 ◁ → 시트만 닫힘, 다시 ◁ → 뷰어 닫힘(뷰어 = 히스토리 1칸, 시트 = 오버레이 뒤로 스택).
+ */
+function MoimAlbumPhotos({
   moim,
   items,
   index,
-  onIndex,
   onClose,
   onPatched,
   onRemoved,
   onReport,
   onToast,
+  onIndex,
 }: {
   moim: MoimDetailDto;
   items: MoimAlbumItemDto[];
   index: number | null;
-  onIndex: (i: number) => void;
+  /** 「⋯」를 누른 칸을 부모 번호에 맞춘다 — 넘겨 본 사진을 지운 뒤 옆 사진으로 가게(R5 재감사) */
+  onIndex: (index: number) => void;
   onClose: () => void;
   onPatched: (item: MoimAlbumItemDto) => void;
   onRemoved: (id: string) => void;
@@ -147,44 +151,23 @@ function MoimAlbumViewer({
 }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const touchX = useRef<number | null>(null);
+  const [sheetIndex, setSheetIndex] = useState<number | null>(null);
+  const urls = useMemo(() => items.map((x) => x.url), [items]);
+  const viewerItems = useMemo(() => dibayImageViewerItemsFromUrls(urls), [urls]);
   const open = index != null && items.length > 0;
-  useRegisterOpenOverlay(open);
-  // S4 (Owner 승인 2026-11-18): 떠 있는 동안 ◁ = 이 창만 닫음(Android PopupWindow·Dialog 와 같음, 기존 닫기 재사용).
-  useOverlayHardwareBack(open, onClose);
-  useEffect(() => setMounted(true), []);
+  const item = sheetIndex != null ? items[Math.max(0, Math.min(items.length - 1, sheetIndex))] ?? null : null;
 
-  const safe = index == null ? 0 : Math.max(0, Math.min(items.length - 1, index));
-  const item = open ? items[safe] : null;
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!mounted || !open || !item) return null;
-
-  const go = (d: number) => {
-    const n = safe + d;
-    if (n >= 0 && n < items.length) onIndex(n);
-  };
-
-  const togglePin = async () => {
+  const togglePin = async (it: MoimAlbumItemDto) => {
     setBusy(true);
-    const r = await moimApi.pinAlbum(item.id, !item.isPinned);
+    const r = await moimApi.pinAlbum(it.id, !it.isPinned);
     setBusy(false);
     if (!r.ok) return onToast(t(moimErrorKey(r.error)), "error");
-    onPatched({ ...item, isPinned: !item.isPinned });
-    onToast(item.isPinned ? t("moim_album_unpinned_toast") : t("moim_album_pinned_toast"));
+    onPatched({ ...it, isPinned: !it.isPinned });
+    onToast(it.isPinned ? t("moim_album_unpinned_toast") : t("moim_album_pinned_toast"));
   };
 
-  const remove = async () => {
-    const own = item.viewerIsUploader;
+  const remove = async (it: MoimAlbumItemDto) => {
+    const own = it.viewerIsUploader;
     const ok = await dibayConfirm({
       title: own ? t("moim_album_delete_confirm_title") : t("moim_album_hide_confirm_title"),
       confirmLabel: own ? t("common_delete") : t("moim_post_hide_btn"),
@@ -193,92 +176,62 @@ function MoimAlbumViewer({
     });
     if (!ok) return;
     setBusy(true);
-    const r = await moimApi.removeAlbum(item.id);
+    const r = await moimApi.removeAlbum(it.id);
     setBusy(false);
     if (!r.ok) return onToast(t(moimErrorKey(r.error)), "error");
     onToast(r.result === "hidden" ? t("moim_album_hidden_toast") : t("moim_album_deleted_toast"));
-    onRemoved(item.id);
+    onRemoved(it.id);
   };
 
-  const canPin = moim.can.pin_notice;
-  const canRemove = item.viewerIsUploader || moim.can.hide_post;
-  const canReport = !item.viewerIsUploader && moim.viewer.loggedIn;
-  /** 감사 F2 — 고정·신고 = 보조, 삭제·숨기기 = 위험 (버튼 역할 3종 · moimCls) */
-  const actionBtnLayout = "min-h-[length:var(--sam-tap-min)] flex-1 px-3 text-[13px] font-bold";
-  /** 사진 위 겹침이라 반투명 바탕 유지 (설계 F2) — 보조 = 흰 테두리, 위험 = 빨강 반투명 */
-  const overlaySecondary = "border-white/40 bg-white/10 text-white";
-  const overlayDanger = "border-transparent bg-sam-danger/80 text-white";
+  const sheetItems: DibayActionSheetItem[] = item ? moimAlbumSheetActions(moim, item, t, {
+    pin: () => void togglePin(item),
+    report: () => onReport({ type: "album", id: item.id }),
+    remove: () => void remove(item),
+    busy,
+  }) : [];
 
-  const node = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("moim_album_viewer_aria")}
-      className="fixed inset-0 z-[1290] flex flex-col bg-black"
-      onTouchStart={(e) => {
-        touchX.current = e.touches[0]?.clientX ?? null;
-      }}
-      onTouchEnd={(e) => {
-        const start = touchX.current;
-        touchX.current = null;
-        const end = e.changedTouches[0]?.clientX;
-        if (start == null || end == null) return;
-        const dx = end - start;
-        if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
-      }}
-    >
-      <div className="flex items-center justify-between gap-2 px-2 pt-[calc(8px+var(--safe-top,0px))] text-white">
-        <button type="button" className="grid h-11 w-11 place-items-center" aria-label={t("common_close")} onClick={onClose}>
-          <X className="h-6 w-6" aria-hidden />
-        </button>
-        <span className="text-[13px]">
-          {safe + 1} / {items.length}
-        </span>
-        <span className="h-11 w-11" aria-hidden />
-      </div>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={item.url} alt="" className="max-h-full max-w-full object-contain" />
-        {safe > 0 ? (
-          <button type="button" className="absolute left-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_prev_aria")} onClick={() => go(-1)}>
-            <ChevronLeft className="h-7 w-7" aria-hidden />
-          </button>
-        ) : null}
-        {safe < items.length - 1 ? (
-          <button type="button" className="absolute right-1 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center text-white" aria-label={t("moim_album_next_aria")} onClick={() => go(1)}>
-            <ChevronRight className="h-7 w-7" aria-hidden />
-          </button>
-        ) : null}
-      </div>
-      <div className="grid gap-2 px-4 pb-[calc(12px+var(--safe-bottom,0px))] pt-2 text-white">
-        <div className="flex items-center gap-2 text-[12px]">
-          <MoimAvatar url={item.uploader.avatarUrl} name={item.uploader.nickname} size={24} />
-          {/* 나간 멤버·계정 삭제 = 「나간 멤버」 (설계 P5 · 글·댓글과 같은 규칙) */}
-          <span className="min-w-0 break-words">{item.uploader.isActiveMember ? item.uploader.nickname : t("moim_screen_left_member")}</span>
-        </div>
-        {canPin || canRemove || canReport ? (
-          <div className="flex gap-2">
-            {canPin ? (
-              <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${actionBtnLayout} ${overlaySecondary}`} onClick={togglePin}>
-                {item.isPinned ? t("moim_album_unpin_btn") : t("moim_album_pin_btn")}
-              </button>
-            ) : null}
-            {canRemove ? (
-              <button type="button" disabled={busy} className={`${moimCls.btnDanger} ${actionBtnLayout} ${overlayDanger}`} onClick={remove}>
-                {item.viewerIsUploader ? t("common_delete") : t("moim_post_hide_btn")}
-              </button>
-            ) : null}
-            {canReport ? (
-              <button type="button" disabled={busy} className={`${moimCls.btnSecondary} ${actionBtnLayout} ${overlaySecondary}`} onClick={() => onReport({ type: "album", id: item.id })}>
-                {t("moim_menu_report")}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </div>
+  return (
+    <>
+      <DibayImageViewer
+        open={open}
+        items={viewerItems}
+        index={index ?? 0}
+        onClose={() => {
+          setSheetIndex(null);
+          onClose();
+        }}
+        onMore={(i) => {
+          onIndex(i);
+          setSheetIndex(i);
+        }}
+        moreLabel={t("moim_album_more_aria")}
+      />
+      <DibayActionSheet
+        open={open && item != null}
+        onClose={() => setSheetIndex(null)}
+        cancelLabel={t("common_cancel")}
+        notice={
+          item ? t("moim_album_uploader_note", { name: item.uploader.isActiveMember ? item.uploader.nickname : t("moim_screen_left_member") }) : undefined
+        }
+        items={sheetItems}
+      />
+    </>
   );
-  return createPortal(node, document.body);
+}
+
+/** 「⋯」 시트 항목 — 일반(고정) → 신고 → 위험(삭제·숨기기) */
+export function moimAlbumSheetActions(
+  moim: Pick<MoimDetailDto, "can" | "viewer">,
+  item: Pick<MoimAlbumItemDto, "isPinned" | "viewerIsUploader">,
+  t: (key: MessageKey) => string,
+  on: { pin: () => void; report: () => void; remove: () => void; busy?: boolean }
+): DibayActionSheetItem[] {
+  const out: DibayActionSheetItem[] = [];
+  if (moim.can.pin_notice) out.push({ key: "pin", label: item.isPinned ? t("moim_album_unpin_btn") : t("moim_album_pin_btn"), disabled: on.busy, onClick: on.pin });
+  if (!item.viewerIsUploader && moim.viewer.loggedIn) out.push({ key: "report", label: t("moim_menu_report"), onClick: on.report });
+  if (item.viewerIsUploader) out.push({ key: "delete", label: t("common_delete"), danger: true, disabled: on.busy, onClick: on.remove });
+  else if (moim.can.hide_post) out.push({ key: "hide", label: t("moim_post_hide_btn"), danger: true, disabled: on.busy, onClick: on.remove });
+  return out;
 }
 
 /** 보기 상태 + 바뀐 항목 반영을 한 번에 묶는다 */
@@ -301,10 +254,12 @@ function useAlbumViewerState(
   );
   const onRemoved = useCallback(
     (id: string) => {
+      const left = (items ?? []).filter((x) => x.id !== id).length;
       setItems((prev) => (prev ? prev.filter((x) => x.id !== id) : prev));
-      setIndex(null);
+      /** 남은 사진이 있으면 뷰어를 그대로 두고(옆 사진), 0장이면 닫는다 */
+      setIndex((i) => (left === 0 || i == null ? null : Math.min(i, left - 1)));
     },
-    [setItems]
+    [items, setItems]
   );
   return { index, setIndex, onPatched, onRemoved, items: items ?? [] };
 }
@@ -362,12 +317,12 @@ export function MoimAlbumTab({ moim, onReport, onToast }: { moim: MoimDetailDto;
           ) : null}
         </>
       )}
-      <MoimAlbumViewer
+      <MoimAlbumPhotos
         moim={moim}
         items={viewer.items}
         index={viewer.index}
-        onIndex={viewer.setIndex}
         onClose={() => viewer.setIndex(null)}
+        onIndex={viewer.setIndex}
         onPatched={viewer.onPatched}
         onRemoved={viewer.onRemoved}
         onReport={onReport}
@@ -403,12 +358,12 @@ export function MoimPinnedAlbumSection({
         </button>
       </div>
       <MoimAlbumGrid items={shown} onOpen={viewer.setIndex} />
-      <MoimAlbumViewer
+      <MoimAlbumPhotos
         moim={moim}
         items={shown}
         index={viewer.index}
-        onIndex={viewer.setIndex}
         onClose={() => viewer.setIndex(null)}
+        onIndex={viewer.setIndex}
         onPatched={viewer.onPatched}
         onRemoved={viewer.onRemoved}
         onReport={onReport}
@@ -466,12 +421,12 @@ export function MoimScheduleAlbumSection({
           ) : null}
         </>
       )}
-      <MoimAlbumViewer
+      <MoimAlbumPhotos
         moim={moim}
         items={viewer.items}
         index={viewer.index}
-        onIndex={viewer.setIndex}
         onClose={() => viewer.setIndex(null)}
+        onIndex={viewer.setIndex}
         onPatched={viewer.onPatched}
         onRemoved={viewer.onRemoved}
         onReport={onReport}

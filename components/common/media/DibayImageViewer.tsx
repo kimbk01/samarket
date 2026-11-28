@@ -86,8 +86,15 @@ export function DibayImageViewer(props: {
   onClose: () => void;
   /** 여러 장일 때 「모두 저장 (N)」 버튼 — 메신저 앨범 */
   allowSaveAll?: boolean;
+  /**
+   * 선택: 아래 줄 「⋯」 버튼 — 누르면 지금 보고 있는 칸 번호를 넘긴다(모임 앨범의 고정·신고·삭제 시트 · R5 B8·B9).
+   * 주지 않으면 버튼이 없고 동작은 그대로다.
+   */
+  onMore?: (index: number) => void;
+  /** `onMore` 버튼의 접근성 이름 */
+  moreLabel?: string;
 }) {
-  const { open, items, onClose, allowSaveAll = false } = props;
+  const { open, items, onClose, allowSaveAll = false, onMore, moreLabel } = props;
   useRegisterOpenOverlay(open && items.length > 0);
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
@@ -634,6 +641,17 @@ export function DibayImageViewer(props: {
                 </button>
               ) : null}
             </>
+          ) : null}
+          {onMore ? (
+            <button
+              type="button"
+              onClick={() => onMore(safeIndex)}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-[20px] leading-none text-white active:bg-white/25"
+              aria-label={moreLabel}
+              data-testid="image-viewer-more"
+            >
+              ⋯
+            </button>
           ) : null}
         </div>
       </div>
